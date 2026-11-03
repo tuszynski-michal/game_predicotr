@@ -771,6 +771,14 @@ def _filter_canonical_originals(
     is removed before registration and expensive stages.
     """
 
+    # Only a persisted server admission opts in. Discovery will verify it again
+    # under the ownership fence before creating any review.
+    replacement = job.input_payload.get("source_replacement")
+    replacement_files = (
+        {item["checksumSha256"] for item in replacement["files"]}
+        if isinstance(replacement, dict)
+        else set()
+    )
     raw_numbers = job.input_payload.get("canonical_sequence_numbers")
     if not isinstance(raw_numbers, list):
         return tuple(originals)
@@ -779,6 +787,9 @@ def _filter_canonical_originals(
         return tuple(originals)
     retained: list[ManagedOriginal] = []
     for original in originals:
+        if original.checksum_sha256 in replacement_files:
+            retained.append(original)
+            continue
         start = getattr(original, "sequence_range_start", None)
         end = getattr(original, "sequence_range_end", None)
         if not isinstance(start, int) or not isinstance(end, int):

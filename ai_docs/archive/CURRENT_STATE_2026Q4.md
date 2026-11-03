@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1131 — Import zamienników i zamknięcie rezerwacji (done)
+
+- Plik: `tasks/completed/1131-source-replacement-import.md`. Commit: **v1.7.531**.
+- Jeden admission/source: trwały browser/job/source proof, selected JPEG bez recropu, working manual/undo i jawne restored po normalnych approvals oraz aktualnej czytelności. Migracja0176 domyka orphan po usunięciu slots; retention i historia pozostają.
+- Mobile publication wiąże source_board_id/current cells; stary dataset odmawia także po restored. API/OpenAPI/generated/wrapper/UI pełnym pionem.
+- Finalne PG5 PASS; domain/worker48, undo41, mobilePG1+legacy2/worker3, node81 i HTTP5+2 PASS. Scoped typy/lint, docs4 i code-map PASS. Opus5.5/high R1 PASS, bezP0/P1; P2 rozliczone w Outcome.
+- Bez usług, operatorowych danych/migracji, aktywacji i merge/push. Kolejny source po partial poza zakresem. D1: finalny odbiór/build i już wskazana regresja APK.
+
 ### TASK-1130 — Przygotowanie nowych zdjęć dla otwartych luk (done)
 
 - Plik: `ai_docs/tasks/completed/1130-source-replacement-repair.md`.

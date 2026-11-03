@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 from uuid import UUID
 
 from game_predictor_worker.images.board_cell_geometry_activation import (
@@ -71,6 +71,7 @@ from game_predictor_api.domain.image_import_engine_policy import (
     default_rollout_modes,
     policy_from_rollout_modes,
 )
+from game_predictor_api.domain.image_sequence_canonical import BrowserSequenceManifest
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -663,6 +664,27 @@ class JobService:
             game_already_validated=True,
         )
 
+    def validate_replacement_staging(
+        self,
+        *,
+        game_id: UUID,
+        selection: dict[str, Any] | None,
+        manifest: BrowserSequenceManifest,
+        upload_id: UUID,
+    ) -> dict[str, Any] | None:
+        validator = getattr(self._repository, "validate_replacement_staging", None)
+        if not callable(validator):
+            if selection is not None:
+                raise JobError(
+                    "SOURCE_REPLACEMENT_ADMISSION_UNAVAILABLE",
+                    "Brak walidatora dopuszczenia zamiennika.",
+                )
+            return None  # Legacy in-memory repositories have no reservation storage.
+        return cast(
+            dict[str, Any] | None,
+            validator(game_id=game_id, selection=selection, manifest=manifest, upload_id=upload_id),
+        )
+
     def create_image_import_job(
         self,
         *,
@@ -682,6 +704,7 @@ class JobService:
         allow_unclassified_symbol_cold_start: bool = False,
         geometry_engine_variant: GeometryEngineVariant | None = None,
         managed_source_job_id: UUID | None = None,
+        replacement_admission: dict[str, object] | None = None,
     ) -> Job:
         # Do not persist an executable v4 job before its detector and acceptance.
         try:
@@ -865,6 +888,8 @@ class JobService:
             )
         if source_manifest_sha256 is not None:
             input_payload["source_manifest_sha256"] = source_manifest_sha256
+        if replacement_admission is not None:
+            input_payload["source_replacement"] = dict(replacement_admission)
         return self._persist_job(
             JobType.IMPORT,
             game_id=game_id,

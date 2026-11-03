@@ -21,6 +21,7 @@ so its retry returns the stored result.
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -364,15 +365,24 @@ class GeometryRejectionRevertOperations:
         # Lock order of the rejection and the manual resolution:
         # ownership -> sequence -> source -> slot.
         acquire_sequence_ownership_lock(session, game_id=game_id)
+        from game_predictor_api.storage.source_replacement_admission import require_open_admission
+        from game_predictor_api.storage.source_replacement_binding import authorize_working_source
         from game_predictor_api.storage.source_replacement_guards import require_sequence_binding
 
-        require_sequence_binding(
-            session,
-            game=game_id,
-            source=rejection.source_image_id,
-            sequence=rejection.sequence_number,
-            review=None,
+        if self._working_receipt(game_id, idempotency_key) is not None:
+            raise _key_conflict()
+        working = authorize_working_source(
+            session, game=game_id, source=rejection.source_image_id, job=rejection.import_job_id
         )
+        require_open_admission(session, game=game_id, job=rejection.import_job_id)
+        if working is None or rejection.sequence_number not in working.sequences:
+            require_sequence_binding(
+                session,
+                game=game_id,
+                source=rejection.source_image_id,
+                sequence=rejection.sequence_number,
+                review=None,
+            )
         if rejection.sequence_number is not None:
             acquire_image_sequence_locks(
                 session, game_id=game_id, sequence_numbers={rejection.sequence_number}
@@ -429,6 +439,28 @@ class GeometryRejectionRevertOperations:
         if source is not None and source.status in {"accepted", "rejected"}:
             source.status = "waiting_for_review"
             session.flush()
+        if working is not None:
+            # The event owns the rejection lifecycle; the existing replacement
+            # command ledger freezes its result across later whole-photo binding.
+            receipt = {
+                "schemaVersion": "working-geometry-rejection-revert-v1",
+                "action": "working_geometry_rejection_reverted",
+                "rejectionEventId": str(rejection.entry_id),
+                "revertId": str(event.id),
+                "sourceImageGeometryStatus": recompute.status.value,
+            }
+            session.execute(
+                text("""INSERT INTO source_replacement_commands
+                (game_id,idempotency_key,command_sha256,batch_id,response)
+                VALUES(:game,:key,:checksum,:batch,CAST(:response AS jsonb))"""),
+                {
+                    "game": game_id,
+                    "key": idempotency_key,
+                    "checksum": command_sha256,
+                    "batch": working.batch,
+                    "response": json.dumps(receipt),
+                },
+            )
         return self._result(
             rejection,
             revert_id=event.id,
@@ -457,18 +489,43 @@ class GeometryRejectionRevertOperations:
                 GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT,
                 "Ten klucz idempotencji należy już do innego polecenia.",
             )
-        source = self._session.get(SourceImageModel, rejection.source_image_id)
+        stored = self._working_receipt(game_id, prior.idempotency_key)
+        if stored is not None:
+            receipt = stored["response"]
+            if (
+                stored["command_sha256"] != command_sha256
+                or receipt.get("schemaVersion") != "working-geometry-rejection-revert-v1"
+                or receipt.get("action") != "working_geometry_rejection_reverted"
+                or receipt.get("rejectionEventId") != str(rejection.entry_id)
+                or receipt.get("revertId") != str(prior.id)
+            ):
+                raise _key_conflict()
+            status = _status(receipt["sourceImageGeometryStatus"])
+        else:
+            source = self._session.get(SourceImageModel, rejection.source_image_id)
+            status = None if source is None else _status(source.geometry_completeness_status)
         return self._result(
             rejection,
             revert_id=prior.id,
             created=False,
             created_at=prior.created_at,
-            status=None if source is None else _status(source.geometry_completeness_status),
+            status=status,
             command={
                 "action": "rejection_reverted",
                 "rejectionEventId": str(rejection.entry_id),
                 "rejectionRevision": prior.rejection_revision,
             },
+        )
+
+    def _working_receipt(self, game_id: UUID, key: UUID) -> Any:
+        return (
+            self._read(
+                "SELECT command_sha256,response FROM source_replacement_commands "
+                "WHERE game_id=:game AND idempotency_key=:key",
+                {"game": game_id, "key": key},
+            )
+            .mappings()
+            .first()
         )
 
     def _event_by_key(
@@ -522,10 +579,14 @@ class GeometryRejectionRevertOperations:
                 raise _key_conflict()
             replay = matching[0]
         if replay is None:
+            from game_predictor_api.storage.source_replacement_admission import (
+                require_open_admission,
+            )
             from game_predictor_api.storage.source_replacement_guards import require_current_review
 
             acquire_sequence_ownership_lock(session, game_id=game_id)
             require_current_review(session, game_id, item_id)
+            require_open_admission(session, game=game_id, job=rejection.import_job_id)
         acquire_image_review_sequence_locks(
             session, game_id=game_id, review_item_id=item_id, requested_sequence_number=None
         )

@@ -4,9 +4,12 @@ import {
   listSourceReplacementBatches as generatedReplacementBatches,
   getSourceReplacementBatch as generatedReplacementBatch,
   exportSourceReplacementRequest as generatedReplacementRequest,
+  getSourceReplacementWorking as generatedReplacementWorking,
+  restoreSourceReplacementEntry as generatedReplacementRestore,
 } from './generated/sdk.gen';
 import type {
   SourceReplacementPreviewRequest,
+  SourceReplacementRestoreCommand,
   SourceReplacementCreateRequest,
   SourceReplacementManifestResponse,
   SourceRetirementPreviewRequest,
@@ -15,6 +18,13 @@ import type {
   SourceRetirementResult,
 } from './generated/types.gen';
 export type {
+  SourceReplacementStagingSelection,
+  SourceReplacementStagingFile,
+  SourceReplacementWorkingResponse,
+  SourceReplacementWorkingSlot,
+  SourceReplacementReadabilityCell,
+  SourceReplacementRestoreCommand,
+  SourceReplacementRestoreResponse,
   SourceRetirementPreviewRequest,
   SourceRetirementPreviewResponse,
   SourceRetirementCommand,
@@ -4623,6 +4633,28 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       generatedReplacementBatch({
         client,
         path: { game_id: gameId, batch_id: batchId },
+      }),
+    getSourceReplacementWorking: (
+      gameId: string,
+      batchId: string,
+      entryId: string,
+    ) =>
+      generatedReplacementWorking({
+        client,
+        path: { game_id: gameId, batch_id: batchId, entry_id: entryId },
+      }),
+    restoreSourceReplacementEntry: (
+      gameId: string,
+      body: SourceReplacementRestoreCommand,
+    ) =>
+      generatedReplacementRestore({
+        client,
+        path: {
+          game_id: gameId,
+          batch_id: body.batchId,
+          entry_id: body.entryId,
+        },
+        body,
       }),
     planSourceReplacement: (
       gameId: string,

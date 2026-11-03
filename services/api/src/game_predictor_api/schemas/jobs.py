@@ -1438,7 +1438,7 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
             payload = {
                 key: value
                 for key, value in job.input_payload.items()
-                if key != V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY
+                if key not in {V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY, "source_replacement"}
             }
             if job.input_payload.get("schema_version") == 1:
                 return LegacyImageImportJobPayload.model_validate(payload)

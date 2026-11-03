@@ -501,6 +501,7 @@ id=:id
         from game_predictor_api.domain.source_replacement_retirement import scope_digest
 
         document = dict(rows[0]["document"])
+        planned_entries = {str(entry["id"]): entry for entry in document["entries"]}
         retirement_events = self.rows(
             "SELECT r.entry_id,r.source_id,r.source_sha256,r.retired_at,"
             "r.document->>'action' AS action,r.document->>'commandKey' AS command_key "
@@ -515,10 +516,10 @@ id=:id
         )
         document["entries"] = [
             {
-                **row["document"],
+                **planned_entries[str(row["id"])],
                 "phase": row["phase"],
                 "revision": row["revision"],
-                "scope_digest": scope_digest(row["document"]),
+                "scope_digest": scope_digest(planned_entries[str(row["id"])]),
                 "failure_code": row["failure_code"],
                 "retired": [event for event in retirement_events if event["entry_id"] == row["id"]],
             }

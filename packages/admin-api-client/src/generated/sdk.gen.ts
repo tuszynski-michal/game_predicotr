@@ -669,6 +669,9 @@ import type {
   GetSourceReplacementBatchData,
   GetSourceReplacementBatchErrors,
   GetSourceReplacementBatchResponses,
+  GetSourceReplacementWorkingData,
+  GetSourceReplacementWorkingErrors,
+  GetSourceReplacementWorkingResponses,
   GetStorageGcRunData,
   GetStorageGcRunErrors,
   GetStorageGcRunResponses,
@@ -1191,6 +1194,9 @@ import type {
   RestoreRejectedImageSelectionGroupData,
   RestoreRejectedImageSelectionGroupErrors,
   RestoreRejectedImageSelectionGroupResponses,
+  RestoreSourceReplacementEntryData,
+  RestoreSourceReplacementEntryErrors,
+  RestoreSourceReplacementEntryResponses,
   ResumeGridCorrectionApplyData,
   ResumeGridCorrectionApplyErrors,
   ResumeGridCorrectionApplyResponses,
@@ -2097,6 +2103,53 @@ export const getSourceReplacementBatch = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}',
+    ...options,
+  });
+
+/**
+ * Restore
+ */
+export const restoreSourceReplacementEntry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RestoreSourceReplacementEntryData, ThrowOnError>,
+): RequestResult<
+  RestoreSourceReplacementEntryResponses,
+  RestoreSourceReplacementEntryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RestoreSourceReplacementEntryResponses,
+    RestoreSourceReplacementEntryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/restore',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Working
+ */
+export const getSourceReplacementWorking = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSourceReplacementWorkingData, ThrowOnError>,
+): RequestResult<
+  GetSourceReplacementWorkingResponses,
+  GetSourceReplacementWorkingErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSourceReplacementWorkingResponses,
+    GetSourceReplacementWorkingErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/working',
     ...options,
   });
 

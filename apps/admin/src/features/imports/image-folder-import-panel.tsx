@@ -1,4 +1,6 @@
 'use client';
+import { ReplacementImportPicker } from './replacement-import-picker';
+import { ReplacementStartRecovery } from './replacement-start-recovery';
 
 import { SequenceSourceCandidates } from './sequence-source-candidates';
 import type {
@@ -1016,6 +1018,7 @@ export function ImageFolderImportPanel({
         geometryEngineVariant,
         preflight.symbolModelSnapshotFingerprint ?? undefined,
         neuralUnboundSourceCount > 0 ? neuralUnboundSourceCount : undefined,
+        preflight.replacementSelection,
       );
       if (!result.ok) {
         if (
@@ -1490,6 +1493,31 @@ export function ImageFolderImportPanel({
         </div>
       </div>
 
+      <ReplacementImportPicker
+        key={gameId}
+        api={api}
+        gameId={gameId}
+        gameLabel={gameCode ?? 'bieżąca gra'}
+        disabled={busy || enginePolicy === null}
+        onReady={async (uploadId) => {
+          await refreshReadySelections();
+          await prepareReadyImport(uploadId);
+        }}
+      />
+      <ReplacementStartRecovery
+        key={`recovery:${gameId}`}
+        api={api}
+        gameId={gameId}
+        disabled={busy}
+        refreshKey={activeAction}
+        onRecovered={async (result) => {
+          await refreshJobs();
+          await refreshReadySelections();
+          setFeedback(
+            `Odtworzono potwierdzenie importu ${result.job.id}. Dalszy postęp jest widoczny na liście zadań.`,
+          );
+        }}
+      />
       <fieldset className="importActionToolbar importEngineChoice">
         <legend>Silnik siatki dla tego wykonania</legend>
         {usesNeuralGrid ? (

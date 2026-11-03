@@ -41,6 +41,7 @@ from game_predictor_api.schemas.neural_grid_proposals import (
     NeuralSourceBindingPayload,
     NeuralSourceProposalPayload,
 )
+from game_predictor_api.schemas.source_replacement import SourceReplacementStagingSelection
 
 
 class ImageFolderSelectionResponse(ApiModel):
@@ -110,6 +111,7 @@ class ImageSequenceImportPreflightResponse(ApiModel):
 
 
 class BrowserReadySelectionResponse(ApiModel):
+    replacement_selection: SourceReplacementStagingSelection | None = None
     upload_id: UUID
     display_name: str
     expected_file_count: int = Field(ge=1)
@@ -141,6 +143,11 @@ class BrowserReadySelectionResponse(ApiModel):
             manifest_checksum_sha256=value.manifest.checksum_sha256,
             superseded_by_upload_id=upload.superseded_by_upload_id,
             board_import_status=value.board_import_status,
+            replacement_selection=(
+                None
+                if upload.replacement_selection is None
+                else SourceReplacementStagingSelection.model_validate(upload.replacement_selection)
+            ),
         )
 
 
@@ -156,6 +163,7 @@ class BrowserPageSourceReplacementDiscard(ApiModel):
 
 
 class BrowserImageImportPreflightCreate(ApiModel):
+    replacement_selection: SourceReplacementStagingSelection | None = None
     game_id: UUID
     geometry_engine_variant: GeometryEngineVariant = (
         GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1
@@ -168,6 +176,7 @@ class BrowserImageImportPreflightCreate(ApiModel):
 
 
 class BrowserPageGeometryPreflightCreate(ApiModel):
+    replacement_selection: SourceReplacementStagingSelection | None = None
     game_id: UUID
     page_registration_variant: Literal["standard_v0_10", "board_area_test"] = "standard_v0_10"
     geometry_engine_variant: GeometryEngineVariant = (
@@ -187,6 +196,7 @@ class BrowserCanonicalRange(ApiModel):
 
 
 class BrowserImageImportPreflightResponse(ImageSequenceImportPreflightResponse):
+    replacement_selection: SourceReplacementStagingSelection | None = None
     upload_id: UUID
     display_name: str
     manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -649,6 +659,7 @@ class BrowserPageSourceExclusionResponse(ApiModel):
 
 
 class BrowserImageImportStart(ApiModel):
+    replacement_selection: SourceReplacementStagingSelection | None = None
     geometry_engine_variant: GeometryEngineVariant = Field(
         default=GeometryEngineVariant.SELECTIVE_BOARD_REVIEW_V1_1,
         description="Engine pinned for this import; defaults to v1.1.",
@@ -703,6 +714,8 @@ class BrowserImageImportStartResponse(ApiModel):
 
 
 class BrowserImageSelectionCreate(ApiModel):
+    idempotency_key: UUID | None = None
+    replacement_selection: SourceReplacementStagingSelection | None = None
     display_name: str = Field(min_length=1, max_length=200)
     expected_file_count: int = Field(ge=1, le=1_000_000)
     expected_total_bytes: int = Field(ge=1)

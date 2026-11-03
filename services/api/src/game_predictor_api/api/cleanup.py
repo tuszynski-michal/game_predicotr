@@ -1,7 +1,7 @@
 """HTTP boundary for preview-bound destructive cleanup operations."""
 
 from collections.abc import Callable
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -28,6 +28,9 @@ from game_predictor_api.schemas.source_replacement import (
     SourceReplacementManifestResponse,
     SourceReplacementPreviewRequest,
     SourceReplacementRequestExport,
+    SourceReplacementRestoreCommand,
+    SourceReplacementRestoreResponse,
+    SourceReplacementWorkingResponse,
     SourceRetirementCommand,
     SourceRetirementPreviewRequest,
     SourceRetirementPreviewResponse,
@@ -35,6 +38,8 @@ from game_predictor_api.schemas.source_replacement import (
 )
 
 CleanupServiceDependency = Callable[..., object]
+if TYPE_CHECKING:
+    from game_predictor_api.storage.source_replacement import SourceReplacementRepository
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Cleanup target not found"},
     409: {"model": ErrorResponse, "description": "Cleanup state conflict"},
@@ -285,6 +290,51 @@ def create_cleanup_router(service_dependency: CleanupServiceDependency) -> APIRo
     ) -> SourceReplacementRequestExport:
         return SourceReplacementRequestExport.model_validate(
             service.replacement_plans.replacement_request(game_id, batch_id, entry_ids)
+        )
+
+    @router.get(
+        "/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/working",
+        response_model=SourceReplacementWorkingResponse,
+        operation_id="getSourceReplacementWorking",
+        responses=ERROR_RESPONSES,
+    )
+    def working(
+        game_id: UUID,
+        batch_id: UUID,
+        entry_id: UUID,
+        service: Annotated[CleanupService, service_parameter],
+    ) -> SourceReplacementWorkingResponse:
+        from game_predictor_api.storage.source_replacement_restore import SourceReplacementRestore
+
+        return SourceReplacementWorkingResponse.model_validate(
+            SourceReplacementRestore(
+                cast("SourceReplacementRepository", service.replacement_plans)
+            ).working(game_id, batch_id, entry_id)
+        )
+
+    @router.post(
+        "/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/restore",
+        response_model=SourceReplacementRestoreResponse,
+        operation_id="restoreSourceReplacementEntry",
+        responses=ERROR_RESPONSES,
+    )
+    def restore(
+        game_id: UUID,
+        batch_id: UUID,
+        entry_id: UUID,
+        payload: SourceReplacementRestoreCommand,
+        service: Annotated[CleanupService, service_parameter],
+    ) -> SourceReplacementRestoreResponse:
+        from game_predictor_api.storage.source_replacement_restore import SourceReplacementRestore
+
+        if payload.batch_id != batch_id or payload.entry_id != entry_id:
+            raise SourceReplacementError(
+                "SOURCE_REPLACEMENT_SCOPE_CHANGED", "Polecenie dotyczy innego wpisu wymiany."
+            )
+        return SourceReplacementRestoreResponse.model_validate(
+            SourceReplacementRestore(
+                cast("SourceReplacementRepository", service.replacement_plans)
+            ).restore(game_id, payload)
         )
 
     return router

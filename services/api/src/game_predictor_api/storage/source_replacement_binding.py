@@ -206,4 +206,14 @@ def bind_complete_source(session: Session, *, game: UUID, source: UUID, job: UUI
                 "review": row["id"],
             },
         )
+    session.execute(
+        text(
+            "UPDATE source_replacement_entries SET phase='awaiting_review', "
+            "revision=revision+1,document=jsonb_set(document,"
+            "'{replacementAdmission,entryRevision}', "
+            "to_jsonb(revision+1)) WHERE game_id=:game AND id=:entry AND phase='importing' "
+            "AND document ? 'replacementStaging'"
+        ),
+        {"game": game, "entry": proof.entry},
+    )
     return True

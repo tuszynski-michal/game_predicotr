@@ -96,7 +96,7 @@ def test_atomic_photo_retirement_drift_replay_and_export(database, monkeypatch):
     )
     from game_predictor_api.storage.sequence_ownership_lock import sequence_ownership_lock_key
 
-    release = SimpleNamespace(games=(SimpleNamespace(game_id=GAME_ID),))
+    release = SimpleNamespace(games=(SimpleNamespace(game_id=GAME_ID, dataset_version_id=uuid4()),))
     with SqlAlchemyReleaseWorkflowStore(factory).publication_fence(release), factory() as other:
         assert (
             other.scalar(
@@ -542,7 +542,7 @@ def test_two_entries_internal_derive_deferred_canonical_and_mobile_fence(databas
         )
         session.commit()
     store = SqlAlchemyReleaseWorkflowStore(factory)
-    release = SimpleNamespace(games=(SimpleNamespace(game_id=GAME_ID),))
+    release = SimpleNamespace(games=(SimpleNamespace(game_id=GAME_ID, dataset_version_id=uuid4()),))
     with pytest.raises(MobileReleaseConflictError) as error, store.publication_fence(release):
         pytest.fail("Publisher must never run with an open reservation")
     assert error.value.code == "SOURCE_REPLACEMENT_RESERVED"

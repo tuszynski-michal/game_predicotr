@@ -13,7 +13,7 @@ from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from secrets import token_urlsafe
 from threading import Lock
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID, uuid4, uuid5
 
 from game_predictor_worker.images.image_file import (
@@ -41,6 +41,8 @@ from game_predictor_api.domain.image_sequence_canonical import (
     parse_browser_sequence_manifest,
 )
 from game_predictor_api.domain.jobs import JobConflictError, JobError
+from game_predictor_api.domain.source_replacement import SourceReplacementError
+from game_predictor_api.domain.source_replacement_admission import selected_replacement_files
 
 SUPPORTED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg"})
 SELECTION_TTL = timedelta(minutes=15)
@@ -102,6 +104,7 @@ class BrowserImageUpload:
     superseded_by_upload_id: UUID | None = None
     pending_replacement_upload_id: UUID | None = None
     replacement_confirmed: bool = True
+    replacement_selection: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -399,7 +402,20 @@ class BrowserImageSelectionService:
         stable_upload_id: UUID | None = None,
         replacement_parent_upload_id: UUID | None = None,
         replacement_parent_manifest_sha256: str | None = None,
+        replacement_selection: dict[str, object] | None = None,
     ) -> BrowserImageUpload:
+        if replacement_selection is not None:
+            if (
+                game_id is None
+                or purpose is not ImageSelectionPurpose.LAYOUT_IMPORT
+                or skipped_canonical_ranges
+            ):
+                raise JobError(
+                    "SOURCE_REPLACEMENT_ADMISSION_INVALID",
+                    "Zamiennik wymaga gry i pełnych plików bez pomijania zakresów.",
+                )
+            selected_replacement_files(replacement_selection, game_id)
+            replacement_selection = json.loads(json.dumps(replacement_selection))
         normalized_name = display_name.strip()
         if (
             not normalized_name
@@ -476,13 +492,32 @@ class BrowserImageSelectionService:
         now = self._clock()
         with self._lock:
             self._remove_expired(now)
+        upload_id = stable_upload_id or uuid4()
+        upload_path = self._upload_root / str(upload_id)
+        if stable_upload_id is not None:
+            with self._lock:
+                existing = self._uploads.get(upload_id) or self._load_upload(upload_id)
+            if existing is not None:
+                if (
+                    existing.game_id != game_id
+                    or existing.purpose != purpose
+                    or existing.display_name != normalized_name
+                    or existing.expected_file_count != expected_file_count
+                    or existing.expected_total_bytes != expected_total_bytes
+                    or existing.replacement_selection != replacement_selection
+                    or existing.upload_plan_checksum_sha256 != upload_plan_checksum_sha256
+                    or existing.skipped_canonical_ranges != normalized_skipped_ranges
+                ):
+                    raise JobConflictError(
+                        "IMAGE_BROWSER_SELECTION_IDEMPOTENCY_CONFLICT",
+                        "Klucz przesyłania wskazuje inną partię. Wróć do zapisanego wyboru.",
+                    )
+                return existing
         if (
             self._capacity_guard is not None
             and purpose is not ImageSelectionPurpose.SEMI_AUTOMATIC_SELECTION
         ):
             self._capacity_guard.check_image_write(expected_total_bytes)
-        upload_id = stable_upload_id or uuid4()
-        upload_path = self._upload_root / str(upload_id)
         free_bytes = shutil.disk_usage(self._upload_root.parent).free
         if expected_total_bytes + MIN_FREE_SPACE_RESERVE_BYTES > free_bytes:
             raise JobError(
@@ -493,7 +528,13 @@ class BrowserImageSelectionService:
                     "availableBytes": max(0, free_bytes - MIN_FREE_SPACE_RESERVE_BYTES),
                 },
             )
-        upload_path.mkdir(parents=True, exist_ok=False)
+        try:
+            upload_path.mkdir(parents=True, exist_ok=False)
+        except FileExistsError as error:
+            raise JobConflictError(
+                "IMAGE_BROWSER_SELECTION_INITIALIZING",
+                "Ta partia jest właśnie zapisywana. Ponów przesyłanie z tym samym wyborem.",
+            ) from error
         upload = BrowserImageUpload(
             upload_id=upload_id,
             path=upload_path,
@@ -510,6 +551,7 @@ class BrowserImageSelectionService:
             replacement_parent_upload_id=replacement_parent_upload_id,
             replacement_parent_manifest_sha256=replacement_parent_manifest_sha256,
             replacement_confirmed=replacement_parent_upload_id is None,
+            replacement_selection=replacement_selection,
         )
         self._write_upload_state(upload)
         with self._lock:
@@ -609,7 +651,7 @@ class BrowserImageSelectionService:
                     "IMAGE_BROWSER_SELECTION_INCOMPLETE",
                     "The browser selection has not uploaded every declared image.",
                 )
-            manifest_payload = {
+            manifest_payload: dict[str, object] = {
                 "schemaVersion": 1,
                 "purpose": upload.purpose.value,
                 "gameId": None if upload.game_id is None else str(upload.game_id),
@@ -633,6 +675,8 @@ class BrowserImageSelectionService:
                     )
                 ],
             }
+            if upload.replacement_selection is not None:
+                manifest_payload["replacementSelection"] = upload.replacement_selection
             manifest_bytes = json.dumps(
                 manifest_payload,
                 ensure_ascii=True,
@@ -1247,6 +1291,11 @@ class BrowserImageSelectionService:
                 "IMAGE_SEQUENCE_MANIFEST_INVALID",
                 "The browser manifest cannot be read.",
             ) from error
+        if payload.get("replacementSelection") != upload.replacement_selection:
+            raise JobConflictError(
+                "SOURCE_REPLACEMENT_STAGING_CHANGED",
+                "Zapis wyboru zamiennika różni się od manifestu partii.",
+            )
         if len(manifest.files) != upload.expected_file_count:
             raise JobConflictError(
                 "IMAGE_SEQUENCE_MANIFEST_INVALID",
@@ -1363,6 +1412,8 @@ class BrowserImageSelectionService:
             ),
             "replacementConfirmed": upload.replacement_confirmed,
         }
+        if upload.replacement_selection is not None:
+            payload["replacementSelection"] = upload.replacement_selection
         destination = upload.path / UPLOAD_STATE_FILE_NAME
         temporary = upload.path / f".{UPLOAD_STATE_FILE_NAME}.part"
         temporary.write_text(
@@ -1524,10 +1575,25 @@ class BrowserImageSelectionService:
                     else UUID(str(payload["pendingReplacementUploadId"]))
                 ),
                 replacement_confirmed=bool(payload.get("replacementConfirmed", True)),
+                replacement_selection=cast(
+                    dict[str, object] | None, payload.get("replacementSelection")
+                ),
             )
+            if upload.replacement_selection is not None:
+                if upload.game_id is None:
+                    return None
+                selected_replacement_files(upload.replacement_selection, upload.game_id)
             if schema_version == 1:
                 self._replace_upload_journal(upload)
-        except (JobError, OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        except (
+            JobError,
+            SourceReplacementError,
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            json.JSONDecodeError,
+        ):
             return None
         if (
             upload.created_at + BROWSER_UPLOAD_TTL <= self._clock()
@@ -1569,6 +1635,11 @@ class BrowserImageSelectionService:
             "files": files,
             "uploadPlanChecksumSha256": manifest.get("uploadPlanChecksumSha256"),
             "skippedCanonicalRanges": manifest.get("skippedCanonicalRanges", []),
+            **(
+                {"replacementSelection": manifest["replacementSelection"]}
+                if "replacementSelection" in manifest
+                else {}
+            ),
         }
 
     def _remove_expired(self, now: datetime) -> None:

@@ -4,6 +4,7 @@ import {
   commitReplacementWrite,
   createReplacementRepair,
   deriveReplacementFilledGaps,
+  deriveReplacementStagingSelection,
   parseReplacementRequest,
   replacementCanonicalJson,
   replacementRequestPayload,
@@ -258,6 +259,40 @@ export async function readReplacementFilledGaps(
     }
     // Crop sources have read permission only: no recovery commit or filesystem writes here.
     return deriveReplacementFilledGaps(manifest, verified);
+  });
+}
+
+/** Read-only handoff: only persisted committed writes with verified bytes. */
+export async function readReplacementImportSelection(
+  directory: FileSystemDirectoryHandle,
+  selectedEntryIds: readonly string[],
+) {
+  return serialize(directory.name.toLocaleLowerCase('en-US'), async () => {
+    const manifest = await readReplacementRepair(directory);
+    await assertOutputInventory(directory, manifest);
+    if (!manifest)
+      throw new Error('Brak zapisanego planu przygotowanych zamienników.');
+    const verified = [];
+    const files = new Map<string, File>();
+    for (const write of manifest.journal) {
+      if (write.state !== 'committed') continue;
+      const file = await verifyReplacementFile(directory, write);
+      verified.push({
+        fileName: write.fileName,
+        checksumSha256: write.checksumSha256,
+        size: file!.size,
+      });
+      files.set(write.fileName, file!);
+    }
+    const selection = deriveReplacementStagingSelection(
+      manifest,
+      verified,
+      selectedEntryIds,
+    );
+    return {
+      selection,
+      files: selection.files.map((item) => files.get(item.fileName)!),
+    };
   });
 }
 

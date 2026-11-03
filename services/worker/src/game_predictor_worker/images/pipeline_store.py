@@ -205,6 +205,8 @@ class SqlAlchemyImagePipelineStore:
                 lease_token=lease_token,
                 checked_at=executed_at,
             )
+            game = session.scalar(select(JobModel.game_id).where(JobModel.id == job_id))
+            acquire_sequence_ownership_lock(session, game_id=game)
             source = session.scalar(
                 select(SourceImageModel)
                 .where(
@@ -214,24 +216,21 @@ class SqlAlchemyImagePipelineStore:
                 .with_for_update()
             )
             if source is None:
-                game = session.scalar(select(JobModel.game_id).where(JobModel.id == job_id))
                 from game_predictor_api.storage.source_replacement_guards import require_active_sha
 
                 require_active_sha(session, game, candidate.execution.source_checksum_sha256)
-                session.add(
-                    SourceImageModel(
-                        import_job_id=job_id,
-                        file_execution_key=candidate.execution.file_execution_key,
-                        relative_path=candidate.source_relative_path,
-                        checksum_sha256=candidate.execution.source_checksum_sha256,
-                        width=width,
-                        height=height,
-                        status="processing",
-                        created_at=executed_at,
-                    )
+                source = SourceImageModel(
+                    import_job_id=job_id,
+                    file_execution_key=candidate.execution.file_execution_key,
+                    relative_path=candidate.source_relative_path,
+                    checksum_sha256=candidate.execution.source_checksum_sha256,
+                    width=width,
+                    height=height,
+                    status="processing",
+                    created_at=executed_at,
                 )
+                session.add(source)
                 session.flush()
-                return
             if (
                 source.relative_path != candidate.source_relative_path
                 or source.checksum_sha256 != candidate.execution.source_checksum_sha256
@@ -242,6 +241,11 @@ class SqlAlchemyImagePipelineStore:
                     "IMAGE_SOURCE_PROJECTION_CONFLICT",
                     "The source image projection differs from its discovery result.",
                 )
+            from game_predictor_api.storage.source_replacement_admission import (
+                materialize_admission,
+            )
+
+            materialize_admission(session, game=game, job=job_id, source=source)
 
     def project_source_metadata(
         self,
@@ -324,6 +328,11 @@ class SqlAlchemyImagePipelineStore:
                     "Structured geometry requires a game-scoped import.",
                 )
             sequence_numbers = tuple(cast(int, board["sequenceNumber"]) for board in boards)
+            from game_predictor_api.storage.source_replacement_admission import (
+                require_open_admission,
+            )
+
+            require_open_admission(session, game=job.game_id, job=job_id)
             try:
                 stored = SqlAlchemyImageSourceGeometryRepository(session).append(
                     SourceGeometryRevisionInput(
@@ -445,6 +454,11 @@ class SqlAlchemyImagePipelineStore:
             # other images' gates; same game lock as the API, after the lease
             # and before the sequence and source locks.
             acquire_sequence_ownership_lock(session, game_id=job.game_id)
+            from game_predictor_api.storage.source_replacement_admission import (
+                require_open_admission,
+            )
+
+            require_open_admission(session, game=job.game_id, job=job_id)
             # Images admitted by takeovers are cut after the last source lock of
             # this transaction (global lock order: sources before the state).
             start_deferred_gate_materializations(session)

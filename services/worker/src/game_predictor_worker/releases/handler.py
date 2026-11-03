@@ -13,7 +13,11 @@ from game_predictor_api.domain.jobs import (
     JobConflictError,
     JobType,
 )
-from game_predictor_api.domain.mobile_releases import MobileRelease, MobileReleaseError
+from game_predictor_api.domain.mobile_releases import (
+    MobileRelease,
+    MobileReleaseError,
+    MobileReleaseStatus,
+)
 
 from game_predictor_worker.jobs.runtime import (
     JobExecutionContext,
@@ -61,6 +65,9 @@ class ReleaseWorkflowHandler:
         release_id = _parse_job(job)
         try:
             release = self._load_release(release_id, job.id)
+            if release.status is MobileReleaseStatus.READY:
+                # A lost final job acknowledgement must not republish a historical artifact.
+                return
             release = self._release_store.mark_building(
                 release.id,
                 build_job_id=job.id,

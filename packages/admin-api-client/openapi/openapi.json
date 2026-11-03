@@ -4820,6 +4820,16 @@
           "geometryEngineVariant": {
             "$ref": "#/components/schemas/GeometryEngineVariant",
             "default": "selective_board_review_v1_1"
+          },
+          "replacementSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceReplacementStagingSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -5040,6 +5050,16 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Preflightchecksumsha256",
             "type": "string"
+          },
+          "replacementSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceReplacementStagingSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "reusedSequenceCount": {
             "minimum": 0.0,
@@ -5292,6 +5312,16 @@
             "title": "Preflightchecksumsha256",
             "type": "string"
           },
+          "replacementSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceReplacementStagingSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "startMode": {
             "default": "reuse_exact",
             "enum": [
@@ -5388,9 +5418,31 @@
             ],
             "title": "Gameid"
           },
+          "idempotencyKey": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotencykey"
+          },
           "purpose": {
             "$ref": "#/components/schemas/ImageSelectionPurpose",
             "default": "layout_import"
+          },
+          "replacementSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceReplacementStagingSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "skippedCanonicalRanges": {
             "items": {
@@ -5999,6 +6051,16 @@
             ],
             "title": "Pageregistrationvariant",
             "type": "string"
+          },
+          "replacementSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceReplacementStagingSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -6533,6 +6595,16 @@
           },
           "purpose": {
             "$ref": "#/components/schemas/ImageSelectionPurpose"
+          },
+          "replacementSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceReplacementStagingSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "supersededByUploadId": {
             "anyOf": [
@@ -39283,6 +39355,82 @@
         "title": "SourceReplacementPreviewRequest",
         "type": "object"
       },
+      "SourceReplacementReadabilityCell": {
+        "additionalProperties": false,
+        "properties": {
+          "cellId": {
+            "format": "uuid",
+            "title": "Cellid",
+            "type": "string"
+          },
+          "cellIndex": {
+            "exclusiveMaximum": 15.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "identity": {
+            "title": "Identity",
+            "type": "string"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sequenceNumber": {
+            "title": "Sequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellId",
+          "reviewItemId",
+          "sequenceNumber",
+          "cellIndex",
+          "identity",
+          "revision"
+        ],
+        "title": "SourceReplacementReadabilityCell",
+        "type": "object"
+      },
+      "SourceReplacementReadabilityConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "cellId": {
+            "format": "uuid",
+            "title": "Cellid",
+            "type": "string"
+          },
+          "identity": {
+            "title": "Identity",
+            "type": "string"
+          },
+          "readable": {
+            "const": true,
+            "title": "Readable",
+            "type": "boolean"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellId",
+          "identity",
+          "revision",
+          "readable"
+        ],
+        "title": "SourceReplacementReadabilityConfirmation",
+        "type": "object"
+      },
       "SourceReplacementRequestExport": {
         "additionalProperties": false,
         "properties": {
@@ -39330,6 +39478,320 @@
           "digest"
         ],
         "title": "SourceReplacementRequestExport",
+        "type": "object"
+      },
+      "SourceReplacementRestoreCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 1.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "readability": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReplacementReadabilityConfirmation"
+            },
+            "maxItems": 150,
+            "title": "Readability",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batchId",
+          "entryId",
+          "expectedRevision",
+          "idempotencyKey",
+          "confirmed",
+          "actor",
+          "readability"
+        ],
+        "title": "SourceReplacementRestoreCommand",
+        "type": "object"
+      },
+      "SourceReplacementRestoreResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "phase": {
+            "const": "restored",
+            "title": "Phase",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "batchId",
+          "entryId",
+          "revision",
+          "phase",
+          "sourceId"
+        ],
+        "title": "SourceReplacementRestoreResponse",
+        "type": "object"
+      },
+      "SourceReplacementStagingFile": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "fileName": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "operationId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Operationid",
+            "type": "string"
+          },
+          "rangeEnd": {
+            "minimum": 1.0,
+            "title": "Rangeend",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entryId",
+          "fileName",
+          "checksumSha256",
+          "rangeStart",
+          "rangeEnd",
+          "operationId"
+        ],
+        "title": "SourceReplacementStagingFile",
+        "type": "object"
+      },
+      "SourceReplacementStagingSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReplacementStagingFile"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Files",
+            "type": "array"
+          },
+          "request": {
+            "$ref": "#/components/schemas/SourceReplacementRequestExport"
+          },
+          "selectedEntryIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Selectedentryids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "request",
+          "selectedEntryIds",
+          "files"
+        ],
+        "title": "SourceReplacementStagingSelection",
+        "type": "object"
+      },
+      "SourceReplacementWorkingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batchId": {
+            "format": "uuid",
+            "title": "Batchid",
+            "type": "string"
+          },
+          "entryId": {
+            "format": "uuid",
+            "title": "Entryid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "readability": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReplacementReadabilityCell"
+            },
+            "title": "Readability",
+            "type": "array"
+          },
+          "readyToRestore": {
+            "title": "Readytorestore",
+            "type": "boolean"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReplacementWorkingSlot"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "sourceId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceid"
+          }
+        },
+        "required": [
+          "gameId",
+          "batchId",
+          "entryId",
+          "revision",
+          "phase",
+          "sourceId",
+          "importJobId",
+          "slots",
+          "readability",
+          "readyToRestore"
+        ],
+        "title": "SourceReplacementWorkingResponse",
+        "type": "object"
+      },
+      "SourceReplacementWorkingSlot": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical": {
+            "title": "Canonical",
+            "type": "boolean"
+          },
+          "pendingGeometryId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pendinggeometryid"
+          },
+          "reviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewitemid"
+          },
+          "sequenceNumber": {
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sequenceNumber",
+          "reviewItemId",
+          "pendingGeometryId",
+          "status",
+          "canonical"
+        ],
+        "title": "SourceReplacementWorkingSlot",
         "type": "object"
       },
       "SourceRetirementCommand": {
@@ -48743,6 +49205,197 @@
           }
         },
         "summary": "Batch",
+        "tags": [
+          "cleanup"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/restore": {
+      "post": {
+        "operationId": "restoreSourceReplacementEntry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceReplacementRestoreCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceReplacementRestoreResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup target not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Restore",
+        "tags": [
+          "cleanup"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-sources/{batch_id}/entries/{entry_id}/working": {
+      "get": {
+        "operationId": "getSourceReplacementWorking",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceReplacementWorkingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup target not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Working",
         "tags": [
           "cleanup"
         ]

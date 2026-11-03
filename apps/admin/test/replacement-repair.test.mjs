@@ -22,6 +22,7 @@ import {
   assertSeparateReplacementDirectories,
   REPLACEMENT_REPAIR_NAME,
   authorizeReplacementWrite,
+  readReplacementImportSelection,
 } from '../src/features/manual-image-selection/replacement-repair-storage.ts';
 import {
   readActiveFilledGapsManifest,
@@ -75,6 +76,44 @@ function current(request = fixture) {
 }
 const api = (data = current()) => ({
   getSourceReplacementBatch: async () => ({ data }),
+});
+
+test('import handoff reads only persisted committed bytes and never promotes intent', async (t) => {
+  const input = await environment(t);
+  const saved = await writeReplacementPhoto(input);
+  const before = await readFile(
+    join(input.output.path, REPLACEMENT_REPAIR_NAME),
+  );
+  const selected = await readReplacementImportSelection(
+    new DiskDirectory(input.output.path, undefined, true),
+    [saved.request.entries[0].entryId],
+  );
+  assert.deepEqual(selected.selection.request, fixture);
+  assert.equal(selected.selection.files[0].operationId, saved.journal[0].id);
+  assert.deepEqual(Buffer.from(await selected.files[0].arrayBuffer()), jpeg);
+  assert.deepEqual(
+    await readFile(join(input.output.path, REPLACEMENT_REPAIR_NAME)),
+    before,
+  );
+  const intent = {
+    ...saved,
+    journal: saved.journal.map((write) => ({ ...write, state: 'intent' })),
+  };
+  await writeFile(
+    join(input.output.path, REPLACEMENT_REPAIR_NAME),
+    JSON.stringify(intent),
+  );
+  await assert.rejects(
+    readReplacementImportSelection(new DiskDirectory(input.output.path), [
+      saved.request.entries[0].entryId,
+    ]),
+  );
+  assert.equal(
+    JSON.parse(
+      await readFile(join(input.output.path, REPLACEMENT_REPAIR_NAME), 'utf8'),
+    ).journal[0].state,
+    'intent',
+  );
 });
 
 async function environment(t, hook) {

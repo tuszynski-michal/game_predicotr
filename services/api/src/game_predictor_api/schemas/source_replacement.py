@@ -139,3 +139,74 @@ class SourceReplacementRequestExport(ApiModel):
     entries: list[ReplacementRequestEntry]
     allowed_ranges: list[ReplacementAllowedRange]
     digest: str = Field(pattern="^[0-9a-f]{64}$")
+
+
+class SourceReplacementStagingFile(ApiModel):
+    entry_id: UUID
+    file_name: str = Field(min_length=1, max_length=1000)
+    checksum_sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    range_start: int = Field(ge=1)
+    range_end: int = Field(ge=1)
+    operation_id: str = Field(min_length=1, max_length=200)
+
+
+class SourceReplacementStagingSelection(ApiModel):
+    request: SourceReplacementRequestExport
+    selected_entry_ids: list[UUID] = Field(min_length=1, max_length=50)
+    files: list[SourceReplacementStagingFile] = Field(min_length=1, max_length=50)
+
+
+class SourceReplacementWorkingSlot(ApiModel):
+    sequence_number: int
+    review_item_id: UUID | None
+    pending_geometry_id: UUID | None
+    status: str
+    canonical: bool
+
+
+class SourceReplacementReadabilityCell(ApiModel):
+    cell_id: UUID
+    review_item_id: UUID
+    sequence_number: int
+    cell_index: int = Field(ge=0, lt=15)
+    identity: str
+    revision: int = Field(ge=0)
+
+
+class SourceReplacementWorkingResponse(ApiModel):
+    game_id: UUID
+    batch_id: UUID
+    entry_id: UUID
+    revision: int
+    phase: str
+    source_id: UUID | None
+    import_job_id: UUID | None
+    slots: list[SourceReplacementWorkingSlot]
+    readability: list[SourceReplacementReadabilityCell]
+    ready_to_restore: bool
+
+
+class SourceReplacementReadabilityConfirmation(ApiModel):
+    cell_id: UUID
+    identity: str
+    revision: int = Field(ge=0)
+    readable: Literal[True]
+
+
+class SourceReplacementRestoreCommand(ApiModel):
+    batch_id: UUID
+    entry_id: UUID
+    expected_revision: int = Field(ge=1)
+    idempotency_key: UUID
+    confirmed: Literal[True]
+    actor: str = Field(min_length=1, max_length=200)
+    readability: list[SourceReplacementReadabilityConfirmation] = Field(max_length=150)
+
+
+class SourceReplacementRestoreResponse(ApiModel):
+    game_id: UUID
+    batch_id: UUID
+    entry_id: UUID
+    revision: int
+    phase: Literal["restored"]
+    source_id: UUID

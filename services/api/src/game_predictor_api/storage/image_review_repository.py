@@ -654,6 +654,39 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 )
             )
         row = self._session.execute(query).tuples().one_or_none()
+        if row is None and not for_update:
+            from game_predictor_api.storage.models import ImageImportJobFileModel
+            from game_predictor_api.storage.source_replacement_binding import admitted_source
+
+            unqueued = (
+                self._session.execute(
+                    _base_query(game_id, import_job_id, None, include_unqueued=True).where(
+                        ImageReviewItemModel.id == review_item_id
+                    )
+                )
+                .tuples()
+                .one_or_none()
+            )
+            if unqueued is not None:
+                item, board, source, queue, job = unqueued
+                proof = admitted_source(self._session, game_id, source.id, import_job_id)
+                if proof is not None and item.sequence_number in proof.sequences:
+                    order = self._session.scalar(
+                        select(ImageImportJobFileModel.order_index).where(
+                            ImageImportJobFileModel.job_id == import_job_id,
+                            ImageImportJobFileModel.file_execution_key == source.file_execution_key,
+                        )
+                    )
+                    if order is not None:
+                        # Read context only. Never persist a provisional queue projection.
+                        queue = ImageReviewQueueItemModel(
+                            review_item_id=item.id,
+                            import_job_id=import_job_id,
+                            source_order_index=order,
+                            position_index=board.position_index,
+                            status=item.status,
+                        )
+                        row = (item, board, source, queue, job)
         if row is None:
             return None
         return self._items_from_rows([row])[0]
@@ -2024,6 +2057,8 @@ def _base_query(
     import_job_id: UUID,
     view: ImageReviewView | None,
     grid_issue_view: ImageReviewGridIssueView = ImageReviewGridIssueView.ALL,
+    *,
+    include_unqueued: bool = False,
 ) -> Any:
     query = (
         select(
@@ -2044,6 +2079,7 @@ def _base_query(
                 ImageReviewQueueItemModel.review_item_id == ImageReviewItemModel.id,
                 ImageReviewQueueItemModel.import_job_id == SourceImageModel.import_job_id,
             ),
+            isouter=include_unqueued,
         )
         .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
         .where(JobModel.id == import_job_id, JobModel.game_id == game_id)

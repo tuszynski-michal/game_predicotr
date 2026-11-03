@@ -10,6 +10,7 @@ import type {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { SourceRetirementActions } from './source-retirement-actions';
+import { SourceReplacementWorking } from './source-replacement-working';
 
 export type SourceReplacementClient = Pick<
   AdminApiClient,
@@ -91,6 +92,7 @@ export function SourceReplacementPanel({
   const [items, setItems] = useState<SourceReplacementCandidateResponse[]>([]);
   const [batches, setBatches] = useState<SourceReplacementBatchResponse[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [workingEntry, setWorkingEntry] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [manifest, setManifest] =
@@ -361,6 +363,40 @@ export function SourceReplacementPanel({
               refresh={open}
             />
           )}
+          {manifest.id &&
+            manifest.entries.map((entry) =>
+              entry.id &&
+              [
+                'gap_open',
+                'retired',
+                'importing',
+                'awaiting_review',
+                'restored',
+              ].includes(entry.phase ?? '') ? (
+                <div key={entry.id}>
+                  <button
+                    type="button"
+                    aria-expanded={workingEntry === entry.id}
+                    onClick={() =>
+                      setWorkingEntry((current) =>
+                        current === entry.id ? null : entry.id!,
+                      )
+                    }
+                  >
+                    Nowe zdjęcie: plansze {entry.sequenceNumbers.join(', ')}
+                  </button>
+                  {workingEntry === entry.id && (
+                    <SourceReplacementWorking
+                      key={`${gameId}:${entry.id}`}
+                      apiBaseUrl={apiBaseUrl}
+                      gameId={gameId}
+                      batchId={manifest.id!}
+                      entryId={entry.id}
+                    />
+                  )}
+                </div>
+              ) : null,
+            )}
           {manifest.id && (
             <p>
               <a

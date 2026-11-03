@@ -114,7 +114,7 @@ Dodatkowe istniejące testy request/replay i izolowane PostgreSQL dobierane do z
 
 ## Outcome
 
-Commit: v1.7.558 (hash dopisuje kolejny commit).
+Commit: v1.7.558 / `0a7ef2d328776f5bf957486944ba7220fa3d42ae`.
 
 ### Changed
 

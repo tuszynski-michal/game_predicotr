@@ -6,6 +6,67 @@ last_updated: 2026-11-03
 
 # Architektura laboratorium wizji
 
+## Input replay and readiness diagnostics (TASK-1155)
+
+`geometry_core/input_diagnostics.py` defines the strict
+`full-board-input-diagnostic-v1` envelope and reuses production `screen_input`,
+`board_rectifier` and `crop_board`. Each stage binds its exact RGB bytes and
+little-endian float32 tensor values; screen uses NCHW, board stores the CHW
+sample before stacking. JSON contains checksums and metadata, while PNG/NPY
+remain operator artifacts outside domain tables. Replay checks the envelope,
+canonical source, decoder, OpenCV version, dimensions, transform and both hashes.
+The entire `archived_preset` is retained and its canonical checksum must equal
+`model.preset_sha256`; screen/board settings and the known preprocessing version
+must also match. Bundle byte checksum remains a separate capture-time pin.
+
+`scripts/diagnose_full_board_input.py` exposes capture, replay, readiness and frozen counts.
+Capture does not load ONNX or invoke a runner. The saved-comparison adapter
+requires an explicit source/sequence/position binding, a unique exact match
+of saved board nodes to the baseline, and a unique equal detector quad in
+the candidate. It never maps sequence by detection order. Missing correspondence
+fails; candidate correspondence is diagnostic evidence, not a new operational
+sequence binding. Policy blockers reuse T0; no diagnostic result authorizes
+acceptance. Historical disposition, policy projection and unknown GT are separate.
+Capture files are flushed/fsynced before exclusive Windows directory rename.
+JSON reports use a flushed/fsynced temporary file and no-replace publication
+(Windows rename; exclusive hard link on POSIX). Capture directory publication
+is explicitly Windows-only. Existing destinations are never overwritten, even
+after a race. Interrupted staging is not a completed capture; Windows directory
+fsync and physical power-loss durability are not promised.
+
+`storage/grid_diagnostic_readiness.py` routes a repeatable-read, read-only
+transaction through the existing game router and calls `GridCohortEvidenceReader`.
+Explicit `max_sources`, a UUID keyset cursor, statement/deadline limits and
+one-source-at-a-time qualification bound the operation. Larger budgets are
+caller choices, not schema limits. `partial` and `populationComplete=false`
+prevent truncated/continuation counts from masquerading as a population report.
+The frozen command streams the existing checksummed GridCohortSnapshot metadata
+without reading pixels; label/full-photo counts include only used sources and
+complete counts must match the manifest. Its counts remain historical. Only
+`SOURCE_REPLACEMENT_RETIRED`/`GRID_COHORT_SOURCE_REMOVED` become explicit
+`rejectedSources`; other reader/SQL failures and deadlines abort the report.
+`selectedSourceCount` includes rejected sources, `sourceCount` counts successful
+captures, and the cursor advances across all selected sources. Nominal counts
+include rejections; qualified counts do not. This is the nominal-current-human
+population, not the entire library. Full human annotation and
+unassessed role eligibility have separate fields; no role is invented.
+
+The report's `diagnosticUse` is an input proof for T4, not a second role ledger.
+Only images actually used for diagnostic comparison enter it. Metadata readiness
+access is marked separately and does not itself exclude controls. T4 must consume
+the proof and close existing copy/group relations before independent controls;
+T1 does not yet enforce that later qualification or mutate historical roles.
+The stable `deduplicationKey` hashes version `diagnostic-use-key-v1` plus
+source ID, byte SHA, normalized pixel SHA and purpose. Each use retains unique
+`recordSha256` bindings with `sequenceNumber`/`positionIndex`. T1 deduplicates
+within a report; T4 must union by that key and record SHA across reports before
+applying source/copy/group exclusions, rather than counting exports as new uses.
+Pre-release R1 records retained for audit share the v1 schema identifier but
+lack the required archived preset. They fail strict decoding with a generic
+ValidationError; there is no distinguished migration or compatibility code.
+T4 must accept only complete strict-contract/checksum-valid records and must
+never infer a missing historical preset (accepted TASK-1155 R2 P2 limitation).
+
 ## Explicit correction apply (TASK-1122)
 
 The game/learning-scoped `/grid-correction-learning/{learning_id}/apply` API exposes

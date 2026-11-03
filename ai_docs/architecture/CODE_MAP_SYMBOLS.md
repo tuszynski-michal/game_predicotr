@@ -395,6 +395,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_calibration_repository.py: class SqlAlchemyGridCalibrationRepository
 - storage/grid_cohort_asset_retention.py: class AssetDeadline, class CohortAssetDeadline, cohort_asset_guard_key, acquire_cohort_asset_guard, parse_cohort_asset_path, read_cohort_asset_reference
 - storage/grid_correction_split.py: previously_used_train_boards, class GridCorrectionSplitPreparationError, population, population_sha, contexts, prepare_split, validate_population, split_mapping
+- storage/grid_diagnostic_readiness.py: summarize_capture, read_readiness
 - storage/grid_diagnostics_repository.py: read_grid_diagnostics
 - storage/grid_engine_acceptance_models.py: class HistoricalGridAcceptanceOperationModel, class HistoricalGridAcceptanceTargetModel, class HistoricalGridAcceptanceReceiptModel
 - storage/grid_engine_acceptance_repository.py: class SqlAlchemyHistoricalAcceptanceRepository
@@ -549,6 +550,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - geometry_core/bounded_runtime.py: class GeometryRuntimeError, class Analyser, class CPUShadowRunner
 - geometry_core/gate.py: class GateThresholds, class ReferenceBoard, class NetworkBoard, class Pair, class Comparison, class BoardDecision, class PhotoDecision, compare, decide, gate_photo
 - geometry_core/inference.py: class InferencePreset, class ScreenDetection, decode_screen, class GridFit, fit_grid, class BoardDetection, class DecodeSettings, reading_order, class NeuralGridEngine, file_sha256, onnx_engine
+- geometry_core/input_diagnostics.py: digest, array_sha256, class SourcePin, class ModelPin, class InputStage, class NodeObservation, class DiagnosticUse, class InputDiagnostic, input_stages, reconstruct_input, encode_record, decode_record, diagnostic_uses
 - geometry_core/lattice.py: lattice_cell_quads, structurally_valid
 - geometry_core/metrics.py: quad_iou, hungarian, class BoardMatch, class PhotoEvaluation, board_errors, evaluate_photo, summarize, selection_key
 - geometry_core/preprocessing.py: corners, lattice_homography, grid_from_quad, quad_centre, transform_points, quad_is_usable, screen_geometry, screen_input, board_rectifier, crop_board
@@ -1350,6 +1352,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - crop_m5_board_cells_v2.py: main
 - delete_archived_v2_game.py: class DeletionBlocked, confirmation_phrase, preview_digest, collect_blockers, build_preview, execute_deletion, main
 - detect_m5_boards.py: main
+- diagnose_full_board_input.py: read_json, write_json, publish_capture, associate_saved, source_pin, capture, replay, readiness, frozen, main
 - discover_m5_images.py: main
 - drop_diagnostic_databases.py: class DropRefused, main
 - evaluate_grid_audit_feedback.py: is_bulk_approval, safe_improvement, split_rows, metrics, reference_candidates, snapshot, read_snapshot, render, features, evaluate, main

@@ -6,10 +6,20 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1155 — Odtwarzalne wejście sieci i dowody gotowości (done)
+
+- Plik: `tasks/completed/1155-full-board-input-diagnostics.md`.
+- Commit: **v1.7.559** (hash dopisuje kolejny commit).
+- Wersjonowany diagnostic record i CLI odtwarzają oba etapy preprocessingu, osobne RGB uint8 i rzeczywiste tensory float32, pełny preset/hash/version, bez inferencji. LIVE/frozen używają istniejących readerów z jawnym budżetem; diagnosticUse ma dedup i powiązanie rekordów. Historia ról bez zmian.
+- Dowody: LIVE 197 GT/134 źródła/0 pełnych zdjęć; frozen 788 źródeł, screenEligible0. Brak GT462205/raw pozostaje unavailable. Readiness access nie jest użyciem do projektowania. T4 egzekwuje wykluczenia faktycznej diagnostyki z B/REGRESSION.
+- Weryfikacja: 38 unit +2 disposable PG PASS; ruff7, mypy silent3, docs/map PASS; rzeczywisty capture i dwa procesy replay R2 zgodne RGB/tensor SHA. Bez ponowienia197 LIVE.
+- Audyty Opus5.5/high R1 i focused R2 PASS; P1 koordynatora i5P2 R1 zamknięte. Zaakceptowane P2-R2-1: przedwydaniowe R1/R2 dzielą v1, stary niepełny rekord odrzuca generic ValidationError; T4 nie może domyślać presetu. P3 odnotowane w Outcome. Brak trzeciej rundy.
+- Brak treningu, usług, migracji/operator DB writes, merge/push. Następny TASK-1156/T2; record-hash1155 w jego commicie, bez osobnego commita metadanych.
+
 ### TASK-1154 — Bezpieczna akceptacja siatek (done)
 
 - Plik: `tasks/completed/1154-safe-neural-auto-crop-policy.md`.
-- Commit: **v1.7.558** (hash dopisuje kolejny commit).
+- Commit: **v1.7.558 / `0a7ef2d328776f5bf957486944ba7220fa3d42ae`** (hash dopisuje kolejny commit).
 - T0: wspólna polityka neural-auto-crop-v2 API/workera blokuje FIT_FAILED/FIT_OUTLIERS, niepełne przypisanie i błędną geometrię; API ponownie porównuje przypięte dowody przed automatic write. Historyczne operacje v1 zachowują piny i replay; ręczne decyzje i blokady sekwencji pozostają chronione.
 - Weryfikacja: 87 scoped Python, 13 izolowanych PostgreSQL i 4 request testy SDK PASS; Ruff, klient TypeScript, OpenAPI/generated, docs/map PASS. Sześć zastanych błędów mypy potwierdzonych na baseline, zero nowych; moduł zmieniony po audycie mypy PASS.
 - Audyt Opus 5.5/high PASS, 0 P0/P1; pięć P2 rozliczono jedną rundą dokumentacji/testów. Pierwsza próba timeout 480 s bez wyniku, druga instrumentowana próba tej samej rundy PASS. Raporty: `quality/TASK-1154_AUDIT_claude-opus-5-5.md`, `quality/TASK-1154_VERIFICATION.md`.

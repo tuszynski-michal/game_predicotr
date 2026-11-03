@@ -6,6 +6,34 @@ last_updated: 2026-10-16
 
 # Laboratorium wizji
 
+## Reproducible input diagnostics (TASK-1155)
+
+Diagnostics distinguish RGB uint8 previews from the float32 values actually
+prepared for the runner. Screen input is NCHW with N=1; a board diagnostic
+stores the exact CHW sample before runtime batching, without claiming that
+the original full batch was archived. Neither stage divides values by255.
+Source/model checksums, preprocessing settings, transforms, interpolation,
+padding, OpenCV version and separate pixel/tensor hashes make replay explicit.
+Different source pixels or an incompatible replay environment fail visibly.
+Replay verifies the canonical checksum of the entire archived preset, its
+screen/board contract and the supported preprocessing version. This preset
+checksum is distinct from the bundle file checksum and is not authentication.
+
+Missing archived raw nodes or qualified human geometry remain unavailable;
+fitted nodes and a saved automatic disposition cannot substitute for either.
+Readiness metadata counts use the existing human-evidence qualification and
+are separate from diagnostic comparisons used to design models or thresholds.
+The read budget is explicit and expandable; a truncated or continuation page
+does not claim complete population readiness. Nine qualified human boards
+establish annotation completeness, not eligibility of roles, copies or ancestry.
+Actual diagnostic examples are listed for T4 to exclude, with known copies and
+groups, from new VALIDATION-B and REGRESSION. Readiness access alone does not
+reassign controls. Diagnostics change neither existing labels nor role history.
+Reports count only the nominal-current-human source population and explicitly
+list retired/removed source rejections. SQL errors and deadlines abort publication.
+Frozen labels and full-photo counts include only used sources. Diagnostic uses
+retain record checksums, sequence/position bindings and stable deduplication keys.
+
 ## Incremental correction cohorts (D-582, TASK-1139)
 
 New learning uses `application-grid-corrections-v2`. Actual uses, existing buffers,

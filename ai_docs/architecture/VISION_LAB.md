@@ -156,6 +156,11 @@ Freeze expands and deduplicates the used members' board/review/cell identifiers
 before joining their game-scoped tables (TASK-1135). It locks the same targets
 in ascending identifier order with `FOR UPDATE OF r`; it does not compare every
 game cell with every member array. Existing deadlines and other input locks remain.
+TASK-1149 consumes each ordered lock cursor with `fetchmany(200)`. It refreshes
+the remaining SQL timeout before every fetch and checks the clock after the
+batch, instead of issuing timeout SQL for every row. Cursors close on completion
+or failure; sequence locks remain individual and ascending, with their SQL
+protected by the existing execution hook. The 60/30/5-second limits are unchanged.
 Step-lock contention maps to `GRID_LEARNING_BUSY` (409). Resume rejects an active
 child still acknowledging cancellation; after acknowledgement it reuses that child.
 HTTP exclusions are canonicalized before preview hashing and idempotency commands.

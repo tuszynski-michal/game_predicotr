@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 from io import BytesIO
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -18,6 +19,86 @@ from game_predictor_api.domain.grid_training_cohorts import (
 from game_predictor_api.storage.grid_training_cohort_artifacts import GridCohortArtifactStore
 from game_predictor_api.storage.grid_training_cohort_currentness import check_member
 from PIL import Image
+
+
+def _lock_stream_probe(count, *, failure=None):
+    events = []
+    session = object()
+    error = GridCohortError("GRID_COHORT_TIMEOUT", "Fixture deadline expired.", 503)
+
+    class Result:
+        offset = 0
+
+        def fetchmany(self, size):
+            events.append(("fetch", size))
+            if failure == "fetch" and self.offset == 200:
+                raise error
+            batch = list(range(self.offset, min(self.offset + size, count)))
+            self.offset += len(batch)
+            return batch
+
+        def close(self):
+            events.append("close")
+
+    class Deadline:
+        fetches = 0
+
+        def check(self, checked_session=None):
+            if checked_session is not None:
+                assert checked_session is session
+                self.fetches += 1
+                events.append("sql")
+                if failure == "before" and self.fetches == 2:
+                    raise error
+            else:
+                events.append("clock")
+                if failure == "after" and self.fetches == 2:
+                    raise error
+
+    return Result(), session, Deadline(), events, error
+
+
+@pytest.mark.parametrize("count", [0, 1, 200, 201, 401])
+def test_lock_stream_budgets_each_bounded_fetch_not_each_row(count):
+    from game_predictor_api.application.grid_training_cohort_freeze import _budgeted_rows
+
+    result, session, deadline, events, _ = _lock_stream_probe(count)
+    assert list(_budgeted_rows(result, session, deadline)) == list(range(count))
+    fetches = (count + 199) // 200 + 1
+    assert events == ["sql", ("fetch", 200), "clock"] * fetches + ["close"]
+
+
+@pytest.mark.parametrize("failure", ["before", "after", "fetch"])
+def test_lock_stream_timeout_closes_cursor_without_consuming_another_batch(failure):
+    from game_predictor_api.application.grid_training_cohort_freeze import _budgeted_rows
+
+    result, session, deadline, events, error = _lock_stream_probe(401, failure=failure)
+    seen = []
+    with pytest.raises(GridCohortError) as expired:
+        seen.extend(_budgeted_rows(result, session, deadline))
+    assert expired.value is error
+    assert seen == list(range(200))
+    second_fetch = {
+        "before": ["sql"],
+        "after": ["sql", ("fetch", 200), "clock"],
+        "fetch": ["sql", ("fetch", 200)],
+    }[failure]
+    assert events == ["sql", ("fetch", 200), "clock", *second_fetch, "close"]
+
+
+def test_lock_stream_closes_cursor_when_sequence_lock_consumer_fails():
+    from game_predictor_api.application.grid_training_cohort_freeze import _budgeted_rows
+
+    result, session, deadline, events, error = _lock_stream_probe(401)
+    with (
+        pytest.raises(GridCohortError) as failed,
+        closing(_budgeted_rows(result, session, deadline)) as rows,
+    ):
+        for row in rows:
+            assert row == 0
+            raise error
+    assert failed.value is error
+    assert events == ["sql", ("fetch", 200), "clock", "close"]
 
 
 def test_streamed_statement_budget_uses_normal_cursor_on_the_same_connection(monkeypatch):

@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1149 — Partie blokowanych wierszy (done)
+
+- Plik: `tasks/completed/1149-grid-freeze-batched-lock-reads.md`; commit **v1.7.546** (hash dopisuje kolejny commit).
+- Fetch200 ogranicza SQLkontroli czasu, zachowując wszystkie SELECT/ORDER BY/FOR UPDATE, kolejność i limity60/30/5s; zamknięcie także przy błędzie konsumenta.
+- Unit57 PASS, PG selection/locks z270komórkami oraz registry/restart PASS, scoped lint/mypy/docs/map PASS. Opus5.5/high R1 PASS, bezP0/P1; P2-1/2 rozliczone.
+- Pomiar tej samej fazy na kohorcieoperatora:33,641→3,968s; jawny rollback i stan frozen/164 bez zmian. To nie pełny freeze ani dowód ukończenia uczenia.
+- Odbiór1147 pozostaje otwarty, TASK-1150 naprawia Windowsprogress; bez nowegoGPU, budżetu i zmiany defaultu w1149.
+
 ## Przeniesione wpisy operacyjne — 2026-11-03 (TASK-1149)
 
 - **Mumie A2 / TASK-1136–1137:** wdrożony kod v1.7.533, GPU zrestartowany; uczenie i ocena PASS (14/20 → 15/20, błąd -17,77%). HTML: 230 siatek. Default v1 zachowany; zastosowanie osobno. [Odbiór](../quality/GRID_LEARNING_DEPLOYMENT_20261103.md).

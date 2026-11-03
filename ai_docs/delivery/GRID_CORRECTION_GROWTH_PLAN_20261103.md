@@ -182,7 +182,7 @@ dowodów. Brak ponownych zgód na już jawnie zlecone operacje.
 
 Rzeczywisty odbiór1147 wykrył przekroczenie60s przy788 źródłach/124 użytych zdjęciach. Pomiary oryginalnego polecenia: blokowanie33,641s, etykiety7,990s, rejestr7,156s, pliki0,252s; identyczne ponowienie prawidłowo zamroziło zestaw w53,515s, ale pozostawia zbyt mały margines. Źródłem dodatkowych zapytań jest deadline.check(session) dla każdego blokowanego wiersza.
 
-Zastosować prywatny strumień fetchmany(200): kontrola SQL przed każdym pobraniem, kontrola zegara po partii, zamknięcie kursora przy zakończeniu/błędzie. Zachować wszystkie SELECT/ORDER BY/FOR UPDATE, pełen zakres strażników i limity60/30/5s. Sekwencje nadal rosnąco i osobno; każdy ich SQL ma istniejący event timeout. Bez migracji, zmiany API i nowych korpusów. Szczegóły: tasks/1149-grid-freeze-batched-lock-reads.md.
+Zastosować prywatny strumień fetchmany(200): kontrola SQL przed każdym pobraniem, kontrola zegara po partii, zamknięcie kursora przy zakończeniu/błędzie. Zachować wszystkie SELECT/ORDER BY/FOR UPDATE, pełen zakres strażników i limity60/30/5s. Sekwencje nadal rosnąco i osobno; każdy ich SQL ma istniejący event timeout. Bez migracji, zmiany API i nowych korpusów. Szczegóły: tasks/completed/1149-grid-freeze-batched-lock-reads.md.
 
 Wymagane: test granic partii i timeout/close, PG komplet blokad ponad200 komórek i rollback, registry/restart, lint/types, docs/map oraz Opus przed osobnym commitem/task-close. To konieczna poprawka odbioru1147. Wznowienie istniejącego parenta zachowuje budżet i historię; nie tworzyć nowego treningu ani nie stosować defaultu automatycznie.
 

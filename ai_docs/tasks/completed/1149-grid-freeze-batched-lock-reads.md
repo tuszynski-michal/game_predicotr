@@ -2,7 +2,7 @@
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -69,6 +69,8 @@ Named cursor może pobierać dalsze partie po początkowym SELECT; dlatego timeo
 
 ## Outcome
 
+Commit: v1.7.546 (hash dopisuje kolejny commit).
+
 ### Changed
 
 Prywatny `_budgeted_rows` pobiera maksymalnie 200 wierszy, ustawia pozostały
@@ -86,7 +88,7 @@ mapa zregenerowana i sprawdzona. Szczegóły: `quality/TASK-1149_VERIFICATION.md
 
 ### Not completed
 
-Niezależny audyt, commit i task-close pozostają po stronie prowadzącego.
+Commit i task-close pozostają po stronie prowadzącego; audyt Opus R1 PASS.
 Bez operacji na main, usługach i bazie operatora, bez nowego treningu lub
 dużego benchmarku. Nie zmierzono jeszcze czasu poprawionego freeze operatora.
 
@@ -97,5 +99,20 @@ Dokumenty TASK-1147 i CURRENT_STATE pozostawiono prowadzącemu.
 
 ### Recommended next task
 
-Focused Opus 5.5/high, następnie wdrożenie poprawki i kontynuacja odbioru
-TASK-1147 przez prowadzącego. Bez ponownego startu parenta lub odnowienia budżetu.
+Wdrożenie poprawki i kontynuacja odbioru TASK-1147 przez prowadzącego.
+Bez ponownego startu parenta lub odnowienia budżetu.
+
+### Audit dispositions
+
+Opus 5.5/high R1 PASS, bez P0/P1; raport
+`quality/TASK-1149_AUDIT_claude-opus-5-5.md`. P2-1 zamknięte jedną rundą:
+dodano bezpośrednie asercje blokad obu wybranych i nieużytego źródła, wolnego
+obcego źródła oraz zwolnienia po rollbacku. PG selection ponownie 1 PASS
+(44,09 s), ruff/format zmienionego testu PASS. Kod produktu i fixture bez zmian.
+Opcjonalne dodatkowe testy odłożono; drugiego audytu nie wymagano.
+P2-2: prowadzący zapewnia jawny staging wyłącznie TASK-1149, bez plików
+TASK-1150 i bez samych zmian EOL. Wykonawca nie stage'ował ani nie commitował.
+
+### Lead acceptance
+
+Pomiar po audycie na tej samej kohorcie: etap blokad3,968s wobec33,641s, jawny rollback i identyczny stan frozen/164. Nie jest to pomiar pełnego freeze ani zakończenia uczenia. Audyt R1 PASS bezP0/P1, P2-1 zamknięte dodatkowymi asercjami źródeł i PG44,09s; P2-2 rozlicza jawny staging wyłącznie1149. Wdrożenie poprawki i wynik runa należą do odbioru1147.

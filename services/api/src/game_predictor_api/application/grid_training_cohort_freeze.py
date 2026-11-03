@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+from contextlib import closing
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy import event, select, text
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Result, ScalarResult
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError, require_minima
@@ -21,6 +23,25 @@ from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_
 
 if TYPE_CHECKING:
     from game_predictor_api.application.grid_training_cohorts import GridTrainingCohortService
+
+
+def _budgeted_rows(
+    result: Result[Any] | ScalarResult[Any], session: Session, deadline: CohortDeadline
+) -> Generator[Any, None, None]:
+    """Budget each server-cursor fetch without a SQL round trip for every row."""
+    try:
+        while True:
+            # FETCH bypasses before_cursor_execute. Set its remaining timeout
+            # through the regular session cursor before requesting another batch.
+            deadline.check(session)
+            batch = result.fetchmany(200)
+            deadline.check()
+            if not batch:
+                return
+            yield from batch
+            del batch
+    finally:
+        result.close()
 
 
 def _lock_inputs(
@@ -47,9 +68,10 @@ def _lock_inputs(
       ORDER BY b.sequence_number""").execution_options(yield_per=200),
         {"game": game, "cohort": identifier},
     ).scalars()
-    for sequence in sequences:
-        deadline.check(session)
-        acquire_image_sequence_locks(session, game_id=game, sequence_numbers=[sequence])
+    with closing(_budgeted_rows(sequences, session, deadline)) as sequence_rows:
+        for sequence in sequence_rows:
+            deadline.check()
+            acquire_image_sequence_locks(session, game_id=game, sequence_numbers=[sequence])
     # Server-side streaming retains only one bounded cursor buffer. The database
     # orders the complete set before locking; no cross-page ordering reversal.
     sources = session.execute(
@@ -62,8 +84,9 @@ def _lock_inputs(
       ORDER BY s.id FOR UPDATE OF s""").execution_options(yield_per=200),
         {"game": game, "cohort": identifier},
     )
-    for _ in sources:
-        deadline.check(session)
+    with closing(_budgeted_rows(sources, session, deadline)) as source_rows:
+        for _ in source_rows:
+            pass
     for table, identifier_column in (
         ("recognized_boards", "board_ids"),
         ("image_review_items", "review_ids"),
@@ -81,8 +104,9 @@ def _lock_inputs(
           ORDER BY r.id FOR UPDATE OF r""").execution_options(yield_per=200),
             {"game": game, "cohort": identifier},
         )
-        for _ in rows:
-            deadline.check(session)
+        with closing(_budgeted_rows(rows, session, deadline)) as locked_rows:
+            for _ in locked_rows:
+                pass
 
 
 def freeze(

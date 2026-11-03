@@ -53,7 +53,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 - **TASK-1137 / P2 Opus:** dwa zastane FAIL w test_grid_training_run_preview.py (lista presetów i stara blokada korekt), potwierdzone baseline main. Nie maskują wyniku nowego testu limitów; naprawa osobno.
 
-- **TASK-1136 / odbiór operatora:** ten sam trening zachował checkpoint 3400/3600; limit kroków 4000/4000, czas 1149/3600 s. Kandydat nie powstał. Operator zlecił ogólne podniesienie limitów (TASK-1137), zamiast jednostkowego +200; bez resetu i aktywacji. Diagnostyka ma audyt Opus PASS.
+- **Mumie A2 / TASK-1136–1137:** wdrożony kod v1.7.533, GPU zrestartowany; uczenie i ocena PASS (14/20 → 15/20, błąd -17,77%). HTML: 230 siatek. Default v1 zachowany; zastosowanie osobno. [Odbiór](../quality/GRID_LEARNING_DEPLOYMENT_20261103.md).
 
 - **TASK-1134 / P2 Opus:** domyślne repo CUDA jest pokryte naprawą CLI; niestandardowy `-GridTrainingPython` i User-only/invalid env w launcherze lane mają nadal odrębną politykę. Ujednolicenie poza zakresem; szczegóły w Outcome TASK-1134.
 

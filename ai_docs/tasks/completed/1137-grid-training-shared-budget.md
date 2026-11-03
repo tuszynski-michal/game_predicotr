@@ -118,6 +118,13 @@ Commit: v1.7.531 / `409829afb17829072f5e59b0ce7b3b8fa90d5139`.
 
 - Po akceptacji: scalić 1136+1137, push, restart nadzorcy GPU, wznowienie tego samego uczenia przez istniejący panel/API. Potem rzeczywista ocena i HTML na 230 pozostałych planszach.
 
+### Odbiór wdrożenia — 2026-11-03
+
+- Operator zatwierdził scalenie/push, restart GPU i wznowienie istniejącego runu. Wdrożono v1.7.529–533; supervisor GPU zmieniony na 51888, główny worker 28084 zachowany.
+- Ten sam parent/trening zakończony completed/PASS, checkpoint 3600. Kontrola końcowa: 14/20 → 15/20, błąd -17,77%. Nowe pułapy przyjęte raz, zużycie zachowane; bez jednostkowej mutacji budżetu.
+- HTML porównuje 230 pozostałych siatek / 147 oryginałów. Brak automatycznej oceny poprawności nieopisanych siatek. Default i ręczna geometria zachowane.
+- Pełny zakres, identyfikatory, dowody i ograniczenia: [raport odbioru](../../quality/GRID_LEARNING_DEPLOYMENT_20261103.md). Historyczne wpisy „Not completed” powyżej opisują stan przed tą zgodą i odbiorem. Pierwotna przyczyna pierwszego przerwania pozostaje nieodtworzona.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

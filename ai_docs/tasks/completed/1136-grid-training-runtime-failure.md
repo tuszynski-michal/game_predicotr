@@ -105,6 +105,13 @@ Commit: v1.7.529 / `910bb70ec599acf1180b5d4bb919cb50f2403d9d`.
 
 - W przypadku ponownej awarii analizować konkretny log; nie zerować budżetu ani powielać treningów.
 
+### Odbiór wdrożenia — 2026-11-03
+
+- Operator zatwierdził scalenie/push, restart GPU i wznowienie istniejącego runu. Wdrożono v1.7.529–533; supervisor GPU zmieniony na 51888, główny worker 28084 zachowany.
+- Ten sam parent/trening zakończony completed/PASS, checkpoint 3600. Kontrola końcowa: 14/20 → 15/20, błąd -17,77%. Nowe pułapy przyjęte raz, zużycie zachowane; bez jednostkowej mutacji budżetu.
+- HTML porównuje 230 pozostałych siatek / 147 oryginałów. Brak automatycznej oceny poprawności nieopisanych siatek. Default i ręczna geometria zachowane.
+- Pełny zakres, identyfikatory, dowody i ograniczenia: [raport odbioru](../../quality/GRID_LEARNING_DEPLOYMENT_20261103.md). Historyczne wpisy „Not completed” powyżej opisują stan przed tą zgodą i odbiorem. Pierwotna przyczyna pierwszego przerwania pozostaje nieodtworzona.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

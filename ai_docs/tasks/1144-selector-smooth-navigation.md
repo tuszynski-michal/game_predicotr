@@ -39,3 +39,5 @@ W toku. Źródło odbioru operatora: 42420 zdjęć / 4487051647 B. Źródło tyl
 
 - Mniejsze grupy compact persistence: 51/51 i 32/32 PASS, w tym rzeczywiste awarie procesu i recovery.
 - Pełny porównawczy odbiór 1.0.4 na 42420 JPEG: 150 warm, p95 38,9 ms, maksimum 45,6 ms; 108 pustych klatek w 165 zapisanych przejściach. Zakończenie testu PASS. Pamięć wszystkich procesów w punktach 789,8 / 944,1 / 1351,6 / 1313,1 MiB. Jest to obserwacja konkretnej serii, nie limit RAM.
+
+- Smoke pierwszego ZIP wykrył przesunięcie y o 149,45 px: display:contents hosta ignorowało grid-area i obraz trafiał do kolejnego wiersza. Zmieniono host na display:block; test bounding box pozostaje bez osłabienia. Pierwszy kandydat z kodu 40f43052 nie jest paczką do przekazania.

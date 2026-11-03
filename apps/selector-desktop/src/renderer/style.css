@@ -45,7 +45,7 @@ button:disabled {
   border-radius: 8px;
 }
 .preview-image-host {
-  display: contents;
+  display: block;
 }
 .preview img {
   display: block;

@@ -41,6 +41,7 @@ PROGRESS_FORMAT = "grid-training-progress-v1"
 RESULT_FORMAT = "grid-training-result-v1"
 SUPERVISOR_STALE_SECONDS = 60.0
 PROGRESS_SECONDS = 2.0
+_JSON_REPLACE_RETRY_DELAYS = (0.01, 0.02, 0.04, 0.08, 0.16, 0.16)
 LEASE_RENEW_SECONDS = 20.0
 EXPORT_PREFIX = "export-"
 WATCHDOG_POLL_SECONDS = 1.0
@@ -94,7 +95,18 @@ def write_json_atomic(path: Path, value: Mapping[str, Any]) -> None:
             stream.write(json.dumps(dict(value), indent=2, sort_keys=True).encode("utf-8"))
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(name, path)
+        for attempt in range(len(_JSON_REPLACE_RETRY_DELAYS) + 1):
+            try:
+                os.replace(name, path)
+                break
+            except OSError as error:
+                # Windows readers may briefly omit FILE_SHARE_DELETE. Keep the
+                # same fsynced temp and never remove or overwrite the destination.
+                if getattr(error, "winerror", None) not in (5, 32, 33) or attempt == len(
+                    _JSON_REPLACE_RETRY_DELAYS
+                ):
+                    raise
+                time.sleep(_JSON_REPLACE_RETRY_DELAYS[attempt])
     finally:
         Path(name).unlink(missing_ok=True)
 

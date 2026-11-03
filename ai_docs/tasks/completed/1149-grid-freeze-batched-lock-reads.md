@@ -46,7 +46,7 @@ Bez zwiększania limitów, ograniczania danych, pomijania wierszy, zmiany ról/a
 - [x] Wszystkie wiersze są konsumowane raz w tej samej kolejności; wszystkie dotychczasowe blokady i zakresy pozostają.
 - [x] Wygaśnięcie przed albo po fetch zatrzymuje etap, zamyka kursor i zachowuje rollback transakcji; żadnego pomijania ani sukcesu po timeout.
 - [x] Unit0/1/200/201/401 sprawdza kolejność i liczbę kontroli oraz błędy/zamknięcie; PG sprawdza ponad200 komórek, komplet blokad, izolację obcych/nieużytych i rollback.
-- [ ] Scoped testy, ruff/mypy, docs/map i Opus rozliczone przed osobnym commitem/task-close.
+- [x] Scoped testy, ruff/mypy, docs/map i Opus rozliczone przed osobnym commitem/task-close.
 
 ## Technical notes
 
@@ -69,7 +69,7 @@ Named cursor może pobierać dalsze partie po początkowym SELECT; dlatego timeo
 
 ## Outcome
 
-Commit: v1.7.546 (hash dopisuje kolejny commit).
+Commit: v1.7.546 / `4827f2a6bbcec2954d9762f932c20381f3690dae`.
 
 ### Changed
 
@@ -116,3 +116,5 @@ TASK-1150 i bez samych zmian EOL. Wykonawca nie stage'ował ani nie commitował.
 ### Lead acceptance
 
 Pomiar po audycie na tej samej kohorcie: etap blokad3,968s wobec33,641s, jawny rollback i identyczny stan frozen/164. Nie jest to pomiar pełnego freeze ani zakończenia uczenia. Audyt R1 PASS bezP0/P1, P2-1 zamknięte dodatkowymi asercjami źródeł i PG44,09s; P2-2 rozlicza jawny staging wyłącznie1149. Wdrożenie poprawki i wynik runa należą do odbioru1147.
+
+Końcowa mapa została wygenerowana i sprawdzona na dokładnym staged drzewie1149, bez niezatwierdzonego pliku testowego1150. Samo EOL map nie zostało włączone do commita.

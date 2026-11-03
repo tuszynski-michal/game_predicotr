@@ -1078,3 +1078,7 @@ one base on `JointPhotos` with `BalancedSampler` (each round visits every game o
 recordings in permutations) and stops early on the equal-weight mean of the games'
 VALIDATION scores. The candidate keeps the primary `cohortId`, its `snapshotId` is the plan
 SHA, and its D-559 evaluation must cover every cohort it trained on.
+
+### Atomowy postęp trenera na Windows
+
+`write_json_atomic` zachowuje fsync i atomową podmianę kompletnego pliku. Krótka blokada współdzielenia Windows (winerror5/32/33) ponawia wyłącznie tę samą podmianę: maksymalnie7prób, opóźnienia10/20/40/80/160/160ms. Inne i trwałe błędy propagują się; poprzedni plik docelowy pozostaje, sprzątany jest tylko własny tempplik. Mechanizm nie zmienia formatu, budżetu, checkpointów ani lease treningu.

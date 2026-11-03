@@ -6,9 +6,17 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1150 — Atomowy postęp Windows (done)
+
+- Plik: `tasks/completed/1150-grid-training-windows-atomic-progress.md`; commit **v1.7.547** (hash dopisuje kolejny commit).
+- Istniejący writer ponawia wyłącznie atomową podmianę tego samego fsync-temp dla jawnych winerror5/32/33, maksymalnie7prób i470ms oczekiwania. Trwałe/inne błędy propagowane, stary JSON zachowany, budżet i protokół bez zmian.
+- 12unit PASS, rzeczywisty Windows uchwyt bez FILE_SHARE_DELETE bez skip;34 regresje konsumentów PASS/1deselected (wyłącznie realny trening). Scoped lint/mypy/format PASS.
+- Opus5.5/high R1 PASS, bezP0/P1. Jedna rundaP2-1 poprawiła tylko zamknięcie uchwytu testowego;12unit ponowniePASS, produkcja bez zmian.
+- Root domknął mapę/docs, osobny commit; operacyjne wznowienie tego samego runa i wynik jakości należą nadal doTASK-1147.
+
 ### TASK-1149 — Partie blokowanych wierszy (done)
 
-- Plik: `tasks/completed/1149-grid-freeze-batched-lock-reads.md`; commit **v1.7.546** (hash dopisuje kolejny commit).
+- Plik: `tasks/completed/1149-grid-freeze-batched-lock-reads.md`; commit **v1.7.546 / `4827f2a6bbcec2954d9762f932c20381f3690dae`** (hash dopisuje kolejny commit).
 - Fetch200 ogranicza SQLkontroli czasu, zachowując wszystkie SELECT/ORDER BY/FOR UPDATE, kolejność i limity60/30/5s; zamknięcie także przy błędzie konsumenta.
 - Unit57 PASS, PG selection/locks z270komórkami oraz registry/restart PASS, scoped lint/mypy/docs/map PASS. Opus5.5/high R1 PASS, bezP0/P1; P2-1/2 rozliczone.
 - Pomiar tej samej fazy na kohorcieoperatora:33,641→3,968s; jawny rollback i stan frozen/164 bez zmian. To nie pełny freeze ani dowód ukończenia uczenia.

@@ -147,6 +147,14 @@ hasza poprzedniego taska. Nie zmieniono kodu po pozytywnym audycie R2.
 - TASK-1140 zamknięty przez task-close, osobny commit `v1.7.538` / `febbf91e3b517d1ec3635eded65a6461a6cc75c9`; hash zapisuje kolejny commit metadanych.
 - Odbiór operatora po wdrożeniu, bez operacyjnych POST w tej weryfikacji.
 
+Preflight integracji: czysty worktree, fast-forward do lokalnego main możliwy,
+bez fetch. Wymagana migracja operatora oraz decyzja o kolejności: równoległa
+niescalona gałąź `codex/777a2-readability-replacement` ma numer 0172 dla innej
+rewizji (`0172_symbol_readability`, rodzic 0169). Nasz rodzic to aktualna 0171;
+odczyt bazy operatora potwierdził `0171_grid_correction_learning`. Nie zmieniono
+numeracji, bazy ani usług. Duplikaty numerów wersji commitów na równoległych
+gałęziach pozostają informacyjne, bez przepisywania historii.
+
 Lista ścieżek do audytu: `artifacts/task1140-audit-paths.txt`. Hunk UI w
 `VISION_LAB.md` zaczyna się od `TASK-1140: readiness renders` i kończy na
 `old optimistic response cannot restore a stale preview or its confirmation.`

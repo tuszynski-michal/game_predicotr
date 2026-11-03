@@ -122,6 +122,13 @@ bezpiecznej dodatkowej rezerwy pending. Dane nie zostały utrwalone nową polity
 Migracja operatora 0172, wdrożenie i rzeczywiste uczenie pozostają osobnymi
 operacjami; sam kod nie zmienia modelu domyślnego ani historycznych korekt.
 
+Preflight integracji wykrył równoległy numer 0172 w niescalonej gałęzi
+`codex/777a2-readability-replacement`: `0172_symbol_readability` od 0169.
+Nasza `0172_grid_correction_growth` jest liniową następczynią aktualnej 0171.
+Wymagane jest potwierdzenie kolejności wdrożenia przez operatora; numerów nie
+zmieniono automatycznie. Wdrożenie tej gałęzi jako pierwszej pozostawia późniejszą
+koordynację numeru i grafu Alembic po stronie integracji gałęzi symboli.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

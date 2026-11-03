@@ -51,7 +51,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **TASK-1139–1140 (2026-11-03):** kod przyrostu i panel gotowe, oba Opus R2 PASS; oczekują akceptacji, scalenia i wdrożenia z migracją 0172. READ ONLY: TRAIN146 (+69), VAL17/REG21; bez treningu. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
+- **TASK-1139–1140 (2026-11-03):** oba Opus R2 PASS, kod gotowy. Wdrożenie czeka na zgodę i kolejność migracji: numer 0172 także na niescalonej gałęzi 777 A2. Operator nadal 0171. READ ONLY: TRAIN146 (+69), VAL17/REG21; bez treningu. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
 
 - **TASK-1137 / P2 Opus:** dwa zastane FAIL w test_grid_training_run_preview.py (lista presetów i stara blokada korekt), potwierdzone baseline main. Nie maskują wyniku nowego testu limitów; naprawa osobno.
 

@@ -23,3 +23,13 @@ export function sourceLookup(source: SourceIndex): SourceLookup {
   }
   return index;
 }
+
+const selections = new WeakMap<string[], ReadonlySet<string>>();
+export function acceptedLookup(ids: string[]): ReadonlySet<string> {
+  let index = selections.get(ids);
+  if (!index) {
+    index = new Set(ids);
+    selections.set(ids, index);
+  }
+  return index;
+}

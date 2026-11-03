@@ -1164,6 +1164,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - native/source-registry.ts: VerifiedSourceScan, scanSource, SourceRegistry
 - native/view-preferences.ts: DEFAULT_VIEW, validateView, validateId, ViewPreferencesStore
 - native/windows-check-worker.ts: IdentityDiagnostic, CheckWorkerOptions, WindowsCheckWorker, nativeChecks, disposeNativeChecks
+- project/inventory-index.ts: inventoryOrdinal
 - project/project-lock.ts: PROJECT_LOCK_NAME, LockOwner, ProcessInspector, nativeProcesses, ProjectLock
 - project/project-storage.ts: PROJECT_LEDGER_NAME, PROJECT_LEDGER_BACKUP_NAME, scalarFor, compactNames, headIdentity, ProjectStorage, isCompactIntent
 - project/project-store.ts: ProjectStoreOptions, ProjectIssue, inventoryFor, ProjectStore
@@ -1177,7 +1178,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - renderer/preview-cache.ts: PREVIEW_BITMAP_BUDGET, PreviewCache
 - renderer/selection-intents.ts: SelectionPhase, AcceptIntent, matchesAcceptContext, SelectionIntents
 - renderer/workspace-updates.ts: applyWorkspaceUpdate
-- source-index.ts: SourceLookup, sourceLookup
+- source-index.ts: SourceLookup, sourceLookup, acceptedLookup
 
 ## apps/mobile/src
 

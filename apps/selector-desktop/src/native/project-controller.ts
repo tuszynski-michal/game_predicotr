@@ -209,10 +209,30 @@ export class ProjectController {
   }
   snapshot(): DesktopWorkspace | null {
     if (!this.store) return null;
-    return { ...this.update(), source: this.source };
+    return {
+      ...this.update(),
+      acceptedImageIds: this.acceptedIds(),
+      source: this.source,
+    };
   }
-  private update(): DesktopWorkspaceUpdate {
-    const s = this.active().workspaceSnapshot();
+  private cachedPaths: readonly string[] | null = null;
+  private cachedSource: SourceIndex | null = null;
+  private cachedAcceptedIds: string[] = [];
+  private acceptedIds() {
+    const paths = this.active().decisionSummary().acceptedPaths;
+    if (paths !== this.cachedPaths || this.source !== this.cachedSource) {
+      const byPath = this.source ? sourceLookup(this.source).byPath : undefined;
+      this.cachedAcceptedIds = paths
+        .map((p) => byPath?.get(p))
+        .filter((id): id is string => Boolean(id));
+      this.cachedPaths = paths;
+      this.cachedSource = this.source;
+    }
+    return this.cachedAcceptedIds;
+  }
+  private update(baseRevision?: number): DesktopWorkspaceUpdate {
+    const s = this.active().scalarSnapshot();
+    const summary = this.active().decisionSummary();
     const byPath = this.source ? sourceLookup(this.source).byPath : undefined;
     return {
       projectId: s.projectId,
@@ -229,27 +249,26 @@ export class ProjectController {
       sequenceUpperBound: s.sequenceUpperBound,
       nextRangeStart: s.nextRangeStart,
       selectionComplete: s.selectionComplete,
-      acceptedCount: s.decisions.filter((d) => d.action === 'accepted').length,
-      skippedCount: s.decisions.filter((d) => d.action === 'skipped').length,
-      acceptedImageIds: s.decisions
-        .filter((d) => d.action === 'accepted')
-        .map((d) => byPath?.get(d.imagePath ?? ''))
-        .filter((id): id is string => Boolean(id)),
-      decisionCount: s.decisions.length,
+      acceptedCount: summary.acceptedCount,
+      skippedCount: summary.skippedCount,
+      ...(baseRevision === undefined
+        ? { acceptedImageIds: this.acceptedIds() }
+        : { baseRevision }),
+      decisionCount: summary.decisionCount,
       issue: this.active().getIssue(),
       view: { ...this.view },
     };
   }
   private async replaceStore(store: ProjectStore): Promise<DesktopWorkspace> {
     this.store = store;
-    this.view = await this.views.load(store.workspaceSnapshot().projectId);
+    this.view = await this.views.load(store.scalarSnapshot().projectId);
     await this.refreshSource();
     await this.rememberActive();
     return this.snapshot()!;
   }
   private async rememberActive(): Promise<void> {
     const store = this.active();
-    const s = store.workspaceSnapshot();
+    const s = store.scalarSnapshot();
     await this.recentCache.remember({
       projectId: s.projectId,
       projectRoot: store.getProjectRoot(),
@@ -266,6 +285,9 @@ export class ProjectController {
     this.closeIssue = this.store?.getCloseIssue() ?? null;
     this.store = null;
     this.source = null;
+    this.cachedSource = null;
+    this.cachedPaths = null;
+    this.cachedAcceptedIds = [];
   }
   getCloseIssue(): { code: string; message: string } | null {
     return this.closeIssue ? { ...this.closeIssue } : null;
@@ -299,11 +321,9 @@ export class ProjectController {
       proof,
       result: null,
       automatic,
-      gameName: automatic
-        ? this.store?.workspaceSnapshot().gameName
-        : undefined,
+      gameName: automatic ? this.store?.scalarSnapshot().gameName : undefined,
       gameUpdate: automatic
-        ? this.store?.workspaceSnapshot().gameUpdate
+        ? this.store?.scalarSnapshot().gameUpdate
         : undefined,
     };
     const s = proof.seed;
@@ -342,9 +362,7 @@ export class ProjectController {
           'Wykonaj ponownie podgląd starej sesji.',
         );
       if (preview.result) {
-        if (
-          this.store?.workspaceSnapshot().projectId !== preview.result.projectId
-        )
+        if (this.store?.scalarSnapshot().projectId !== preview.result.projectId)
           throw new SelectorError(
             'LEGACY_PREVIEW_EXPIRED',
             'Projekt został zmieniony. Otwórz zapisany projekt.',
@@ -575,7 +593,7 @@ export class ProjectController {
       if (draft?.result) {
         if (
           draft.request !== JSON.stringify(options) ||
-          this.store?.workspaceSnapshot().projectId !== draft.result.projectId
+          this.store?.scalarSnapshot().projectId !== draft.result.projectId
         )
           throw new SelectorError(
             'STALE_SOURCE_TOKEN',
@@ -664,7 +682,7 @@ export class ProjectController {
       validateId(request.projectId);
       validateId(request.operationId);
       const store = this.active();
-      if (store.workspaceSnapshot().projectId !== request.projectId)
+      if (store.scalarSnapshot().projectId !== request.projectId)
         throw new SelectorError('STALE_PROJECT', 'Projekt został zmieniony.');
       const command = object(request.command, [
         'kind',
@@ -738,8 +756,13 @@ export class ProjectController {
           previewChecksum: command.previewChecksum,
         };
       } else throw new SelectorError('INVALID_ARGUMENT', 'Nieznane polecenie.');
+      const baseRevision = store.scalarSnapshot().revision;
       await store.execute(request.operationId as string, native);
-      return this.update();
+      // Idempotent retries return a full replacement, so no lost delta is inferred.
+      const changed = store.scalarSnapshot().revision !== baseRevision;
+      return this.update(
+        native.kind === 'navigate' && changed ? baseRevision : undefined,
+      );
     });
   }
   resume(): Promise<DesktopWorkspace> {
@@ -782,7 +805,7 @@ export class ProjectController {
   saveView(projectId: unknown, value: unknown): Promise<void> {
     validateId(projectId);
     const view = validateView(value);
-    if (projectId !== this.active().workspaceSnapshot().projectId)
+    if (projectId !== this.active().scalarSnapshot().projectId)
       throw new SelectorError('STALE_PROJECT', 'Projekt został zmieniony.');
     this.view = view;
     return this.views.save(projectId as string, view);
@@ -794,6 +817,6 @@ export class ProjectController {
         'PROJECT_BLOCKED',
         'Najpierw rozwiąż problem projektu.',
       );
-    await this.dialogs.openFolder(store.workspaceSnapshot().outputRoot);
+    await this.dialogs.openFolder(store.scalarSnapshot().outputRoot);
   }
 }

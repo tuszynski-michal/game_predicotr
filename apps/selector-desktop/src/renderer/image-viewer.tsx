@@ -1,5 +1,5 @@
 import { PreviewCache } from './preview-cache.ts';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { fitManualImageToViewport } from '@game-predictor/manual-image-selection-core';
 import type {
   SourceIndex,
@@ -10,6 +10,7 @@ export function ImageViewer({
   source,
   image,
   view,
+  step,
   changeView,
   ready,
   failed,
@@ -17,6 +18,7 @@ export function ImageViewer({
   source: SourceIndex;
   image: SourceImage;
   view: ViewPreferences;
+  step: number;
   changeView: (value: ViewPreferences) => void;
   ready: (id: string | null) => void;
   failed: (id: string) => void;
@@ -44,16 +46,30 @@ export function ImageViewer({
   useEffect(() => {
     let active = true;
     ready(null);
-    setSize({ width: 0, height: 0 });
     setError(false);
-    host.current?.replaceChildren();
-    setDecodedFor(null);
     void cache.current
-      .activate(source, image)
+      .activate(source, image, step, true)
       .then((current) => {
         if (active) {
           current.alt = image.relativePath;
+          const element = container.current!;
+          const dimensions = fitManualImageToViewport(
+            { width: current.naturalWidth, height: current.naturalHeight },
+            {
+              width: Math.max(1, element.clientWidth),
+              height: Math.max(1, element.clientHeight),
+            },
+            preferences.current.zoom / 100,
+          );
+          if (!dimensions) throw new Error('Invalid preview dimensions');
+          current.style.width = `${dimensions.width}px`;
+          current.style.height = `${dimensions.height}px`;
+          current.style.maxWidth = 'none';
+          current.style.maxHeight = 'none';
           host.current?.replaceChildren(current);
+          element.scrollLeft = preferences.current.scrollX;
+          element.scrollTop = preferences.current.scrollY;
+          cache.current.present(image.id);
           setSize({
             width: current.naturalWidth,
             height: current.naturalHeight,
@@ -72,34 +88,27 @@ export function ImageViewer({
     return () => {
       active = false;
     };
-  }, [source, image.id]);
+  }, [source, image.id, step]);
   useEffect(
     () => () => {
       cache.current.clear();
     },
     [],
   );
-  useEffect(() => {
-    if (!size.width) return;
-    const handle = requestAnimationFrame(() => {
-      if (container.current) {
-        container.current.scrollLeft = preferences.current.scrollX;
-        container.current.scrollTop = preferences.current.scrollY;
-      }
-    });
-    return () => cancelAnimationFrame(handle);
-  }, [image.id, view.zoom, size.width, viewport.width, viewport.height]);
-  const display =
-    decodedFor === image.id && size.width
-      ? fitManualImageToViewport(size, viewport, view.zoom / 100)
-      : null;
-  useEffect(() => {
+  const display = size.width
+    ? fitManualImageToViewport(size, viewport, view.zoom / 100)
+    : null;
+  useLayoutEffect(() => {
     const current = host.current?.firstElementChild as HTMLImageElement | null;
     if (current && display) {
       current.style.width = `${display.width}px`;
       current.style.height = `${display.height}px`;
       current.style.maxWidth = 'none';
       current.style.maxHeight = 'none';
+      if (container.current) {
+        container.current.scrollLeft = preferences.current.scrollX;
+        container.current.scrollTop = preferences.current.scrollY;
+      }
     }
   }, [display?.width, display?.height, decodedFor]);
   return (
@@ -109,7 +118,7 @@ export function ImageViewer({
       data-preview-cache={cache.current.size}
       aria-label="Podgląd zdjęcia"
       onScroll={(event) => {
-        if (size.width)
+        if (size.width && decodedFor === image.id)
           changeView({
             ...preferences.current,
             scrollX: event.currentTarget.scrollLeft,
@@ -123,8 +132,14 @@ export function ImageViewer({
             Nie można odczytać JPEG-a. Plik jest uszkodzony, zmieniony lub
             niedostępny.
           </p>
-        ) : !display ? (
-          <span className="image-loading" aria-label="Ładowanie zdjęcia" />
+        ) : decodedFor !== image.id ? (
+          <span
+            role="status"
+            className="image-loading"
+            aria-label="Ładowanie zdjęcia"
+          >
+            Ładowanie: {image.relativePath}
+          </span>
         ) : null}
         <div className="preview-image-host" ref={host} />
       </div>

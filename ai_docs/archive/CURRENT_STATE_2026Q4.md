@@ -13,6 +13,24 @@ last_updated: 2026-10-16
 - Root @types/react19.2.2, board-search-ui React/DOM19.2.3 i lockfile npm11.18.0 usuwają konflikt nominalnych Ref. Standardowe rootbuildy Admin/Reviewer,113testów board-search-ui, mobile typecheck i Prettier PASS, bez aliasów lub skipTypecheck.
 - Opus5.5/high PASS, bez P0/P1; P2 mobilne pokryte typecheckiem, dwa transitiveReact jawnie przyjęte. Własny staging odtworzono względem nowego main0bcabfc4 z zachowaniem Selector1.0.5; migracja177 wykonana, start i push w dalszym wdrożeniu.
 
+### TASK-1144 — Odbiór i wydanie Selektora (done)
+
+- Plik: `tasks/completed/1144-selector-smooth-navigation.md`.
+- Commit: **v1.7.539 / `a49937202094653f461161e5bc4fdb7666c97afa`**.
+- Selektor 1.0.5, finalny ZIP i odbiór na 42420 JPEG. Zero pustych klatek, warm p95 <=50 ms, finalne smoke i przejście 1.0.4 do 1.0.5 PASS. Raport: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`. Bez audytu według planu, merge/push i zmian danych operatora. Fizyczny reboot/komputer odbiorcy poza odbiorem lokalnym.
+
+### TASK-1143 — Lekka nawigacja Selektora (done)
+
+- Plik: `tasks/completed/1143-selector-smooth-navigation.md`.
+- Commit: **v1.7.536 / `aa1d1e277192b7a339b062653ec290f5d2d025b8`**.
+- Indeksy inventory/wyborów, podsumowania bez klonowania historii i małe IPC nawigacji z rewizją bazową. 78/78 testów, lint/typecheck/build i Electron fluency PASS. Bez audytu według planu.
+
+### TASK-1142 — Ciągły podgląd Selektora (done)
+
+- Plik: `tasks/completed/1142-selector-smooth-navigation.md`.
+- Commit: **v1.7.535 / `9efbaa3af743112c33c81a03db132d23a3819728`**.
+- Atomowa podmiana obrazu, prefetch według skoku i ochrona widocznego JPEG-a. Testy 34/34, lint/typecheck i Electron fluency PASS. Bez audytu według planu; duża partia i ZIP w TASK-1144.
+
 ### TASK-1146 — Kontrola schematu przy starcie (done)
 
 - Task: `tasks/completed/1146-readability-startup-schema-head.md`; commit **v1.7.540 / `5660c2b0afb6e046c20b53e369c6b9d064f945ed`** (hash dopisuje kolejny commit).

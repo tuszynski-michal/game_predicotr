@@ -45,7 +45,7 @@ button:disabled {
   border-radius: 8px;
 }
 .preview-image-host {
-  display: contents;
+  display: block;
 }
 .preview img {
   display: block;
@@ -338,4 +338,26 @@ main.fullscreen {
   flex: 1 1 0;
   min-height: 0;
   height: auto;
+}
+
+/* Loading/error labels overlay the retained image without moving its layout. */
+.preview-image-host,
+.preview-stage > .image-loading,
+.preview-stage > [role='alert'] {
+  grid-area: 1 / 1;
+}
+.preview-stage > .image-loading,
+.preview-stage > [role='alert'] {
+  position: sticky;
+  top: 8px;
+  left: 8px;
+  align-self: start;
+  justify-self: start;
+  z-index: 1;
+  max-width: min(32rem, 90vw);
+  padding: 4px 8px;
+  background: #111e;
+  color: #fff;
+  overflow-wrap: anywhere;
+  pointer-events: none;
 }

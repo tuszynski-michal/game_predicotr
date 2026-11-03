@@ -6,6 +6,31 @@ last_updated: 2026-10-29
 
 # Architektura lokalnej ręcznej selekcji
 
+## Lekka nawigacja Windows — TASK-1143
+
+Inventory ma współdzielony indeks ścieżka/ordinal według instancji tablicy.
+ProjectStore udostępnia skalary bez klonowania decyzji oraz podsumowanie
+przeliczane dopiero po zmianie tablicy decyzji. Renderer indeksuje wybrane ID
+według instancji tablicy. Zwykłe execute nawigacji pomija acceptedImageIds,
+przekazując baseRevision. Renderer wymaga zgodnej bazy i niezmienionych
+liczników; inaczej wykonuje pełny snapshot przez istniejące recovery.
+Bootstrap, zmiany decyzji i retry bez nowego commita zwracają pełną listę.
+Serializacja projekcji manifestu jest współdzielona w transakcji; odczyt
+rzeczywistego pliku i kontrole zawartości folderu nadal występują. Koszt
+manifestu pozostaje O(D); format dyskowy i gwarancje trwałości są bez zmian.
+
+## Ciągły podgląd Windows — TASK-1142
+
+Podczas ładowania poprzedni JPEG pozostaje widoczny z oznaczeniem celu.
+Gotowy obraz, rozmiar i scroll są podmieniane razem. F/Enter nadal przypina cel,
+nie poprzednią bitmapę. Błąd decode blokuje wybór celu. Spóźnione odpowiedzi
+nie podmieniają zdjęcia. Ta reguła zastępuje wcześniejsze usuwanie starego JPEG-a.
+Prefetch obejmuje trzy cele w każdą stronę według ustawionego skoku i ostatniego
+kierunku. Cache ma najwyżej 7 wpisów (w tym poprzedni widoczny obraz) i estymatę
+128 MiB. Podczas przejścia poprzedni obraz i cel są chronione przed usunięciem;
+może to chwilowo przekroczyć budżet. Nowy prefetch czeka na prezentację celu.
+Po podmianie poprzedni traci ochronę; zmiana źródła zwalnia wszystko.
+
 ## Agregaty diagnostyczne Windows — TASK-1107
 
 `DiagnosticAggregates` przechowuje najwyżej 256 ostatnich wartości na każdą

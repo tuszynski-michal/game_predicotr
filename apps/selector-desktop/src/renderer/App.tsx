@@ -1,4 +1,4 @@
-import { sourceLookup } from '../source-index.ts';
+import { sourceLookup, acceptedLookup } from '../source-index.ts';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   adjacentManualNavigationStep,
@@ -270,7 +270,7 @@ export function App() {
       : undefined) ?? -1;
   const image = source?.images[ordinal];
   const accepted = image
-    ? workspace?.acceptedImageIds.includes(image.id)
+    ? workspace && acceptedLookup(workspace.acceptedImageIds).has(image.id)
     : false;
   const canAccept = Boolean(
     image &&
@@ -808,6 +808,7 @@ export function App() {
               key={source.id}
               source={source}
               image={image}
+              step={workspace.view.navigationStep}
               view={workspace.view}
               changeView={changeView}
               ready={(id) => {

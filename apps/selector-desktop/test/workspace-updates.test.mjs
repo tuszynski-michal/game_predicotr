@@ -1,3 +1,5 @@
+import { inventoryOrdinal } from '../src/project/inventory-index.ts';
+import { acceptedLookup } from '../src/source-index.ts';
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -155,7 +157,11 @@ test('native updates are independent of N; navigate/accept/undo/range/retry pres
       current = applyWorkspaceUpdate(current, update);
       const retry = await f.execute(command, operationId);
       assert.equal(retry.revision, update.revision);
-      assert.deepEqual(retry, update);
+      assert.deepEqual(applyWorkspaceUpdate(current, retry), current);
+      if (command.kind === 'navigate') {
+        assert.equal('acceptedImageIds' in update, false);
+        assert.equal(Array.isArray(retry.acceptedImageIds), true);
+      } else assert.deepEqual(retry, update);
       if (command.kind === 'range') samples.push(update);
     }
     assert.equal(current.nextRangeStart, 21);
@@ -202,4 +208,54 @@ test('relink and close/reopen replace SourceIndex; old update cannot bind to the
     sourceLookup(relinked.source).byId.get(relinked.currentImageId)
       .relativePath,
   );
+});
+
+test('unchanged selection updates preserve the set and reject missing bases or changed counts', () => {
+  const current = {
+    ...workspace(),
+    acceptedCount: 0,
+    skippedCount: 0,
+    decisionCount: 0,
+  };
+  const { acceptedImageIds, ...small } = delta(current);
+  const update = {
+    ...small,
+    baseRevision: current.revision,
+    revision: current.revision + 1,
+  };
+  const next = applyWorkspaceUpdate(current, update);
+  assert.equal(next.acceptedImageIds, acceptedImageIds);
+  for (const changed of [
+    { baseRevision: undefined },
+    { baseRevision: 1 },
+    { decisionCount: 1 },
+    { acceptedCount: 1 },
+  ])
+    assert.throws(() =>
+      applyWorkspaceUpdate(current, { ...update, ...changed }),
+    );
+  assert.throws(() =>
+    applyWorkspaceUpdate({ ...current, revision: 4 }, update),
+  );
+});
+
+test('immutable inventory and selection indexes are reused without scanning again', () => {
+  const inventory = [
+    { relativePath: 'first.jpg' },
+    { relativePath: 'last.jpg' },
+  ];
+  const positions = inventoryOrdinal(inventory);
+  inventory.map = () => {
+    throw new Error('repeated inventory scan');
+  };
+  assert.equal(inventoryOrdinal(inventory), positions);
+  assert.equal(positions.get('last.jpg'), 1);
+  const selected = ['a', 'b'];
+  const lookup = acceptedLookup(selected);
+  selected[Symbol.iterator] = () => {
+    throw new Error('repeated selection scan');
+  };
+  assert.equal(acceptedLookup(selected), lookup);
+  assert.equal(lookup.has('b'), true);
+  assert.equal(acceptedLookup(['c']).has('b'), false);
 });

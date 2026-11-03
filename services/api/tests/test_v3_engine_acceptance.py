@@ -2,7 +2,10 @@ from copy import deepcopy
 from dataclasses import replace
 
 import pytest
-from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
+from game_predictor_api.domain.neural_crop_policy import (
+    NEURAL_AUTO_CROP_POLICY,
+    neural_auto_crop_evidence,
+)
 from game_predictor_api.domain.neural_grid_proposal import associate_expected_slots
 from game_predictor_api.domain.v3_engine_acceptance import (
     V3_ENGINE_ACCEPTANCE_ACTOR,
@@ -41,6 +44,7 @@ def facts():
                     "latticeNodes": deepcopy(item["latticeNodes"]),
                     "detectionId": item["detectionId"],
                     "neuralExecutionPolicy": NEURAL_AUTO_CROP_POLICY,
+                    "neuralAcceptanceEvidence": neural_auto_crop_evidence(item),
                     "neuralProposalChecksumSha256": value["proposalChecksumSha256"],
                     "neuralProposalBinding": deepcopy(binding),
                 },

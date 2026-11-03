@@ -6,6 +6,23 @@ last_updated: 2026-10-16
 
 # Import i rozpoznawanie zdjęć
 
+## Bezpieczna akceptacja nowych operacji V3 — D-584 (TASK-1154)
+
+Nowe importy i przygotowania reinferencji przypinają `neural-auto-crop-v2`
+i `v3-engine-acceptance-v2`. FIT_FAILED/FIT_OUTLIERS, niepełne lub niejednoznaczne
+przypisanie pozycji, niepoprawna geometria, brak rzeczywistych pikseli i
+nieobsługiwany układ wykluczają automat. API sprawdza zamrożoną propozycję
+ponownie przed zapisem, a nie tylko status przekazany przez workera. Wynik
+zatrzymany pozostaje do ręcznej korekty; `grid_issue` nadal tworzy wyłącznie
+propozycję i nie zamyka zgłoszenia.
+
+Stare piny v1, checkpointy, payloady i historyczny backfill zachowują swoją
+interpretację. Odczyt reinferencji pokazuje przypiętą `acceptancePolicy`;
+nowe zabezpieczenia wymagają nowego przygotowania. Retry i utracona odpowiedź
+nie aktualizują starej operacji. Nie jest to gwarancja kompletności każdej
+poprawnej kraty ani nowa etykieta człowieka. Deklaracja możliwości modelu
+oraz kalibracja pozostają dalszymi krokami planu pełnych plansz.
+
 ## Przypięcie wersji geometrii V3 — TASK-1012
 
 Nowe preflighty V3 odczytują jawne przypisanie gry z katalogu modeli. Dotyczy

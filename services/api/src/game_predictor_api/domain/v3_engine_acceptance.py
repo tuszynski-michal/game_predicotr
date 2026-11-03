@@ -7,12 +7,28 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
-from .neural_crop_policy import NEURAL_AUTO_CROP_POLICY, full_neural_prediction_geometry
+from .neural_crop_policy import (
+    LEGACY_NEURAL_AUTO_CROP_POLICY,
+    NEURAL_AUTO_CROP_POLICY,
+    full_neural_prediction_geometry,
+    neural_auto_crop_blockers,
+    neural_auto_crop_evidence,
+)
 from .neural_grid_proposal import NeuralGridProposalError, validate_neural_source_binding
 
-V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v1"
+LEGACY_V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v1"
+V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v2"
+V3_ENGINE_ACCEPTANCE_POLICIES = (LEGACY_V3_ENGINE_ACCEPTANCE_POLICY, V3_ENGINE_ACCEPTANCE_POLICY)
 V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY = "v3_engine_acceptance_policy_version"
 V3_ENGINE_ACCEPTANCE_ACTOR = "system:v3-engine-acceptance-v1"
+
+
+def crop_policy_for_acceptance(policy: object) -> str | None:
+    if policy == LEGACY_V3_ENGINE_ACCEPTANCE_POLICY:
+        return LEGACY_NEURAL_AUTO_CROP_POLICY
+    if policy == V3_ENGINE_ACCEPTANCE_POLICY:
+        return NEURAL_AUTO_CROP_POLICY
+    return None
 
 
 def pin_v3_engine_acceptance_policy(payload: dict[str, object], fingerprint: str) -> str:
@@ -58,7 +74,8 @@ def qualify_v3_engine_acceptance(
     Uncalibrated confidence remains diagnostic. No score threshold, approval
     field or training eligibility follows from this structural qualification.
     """
-    if policy != V3_ENGINE_ACCEPTANCE_POLICY:
+    crop_policy = crop_policy_for_acceptance(policy)
+    if crop_policy is None:
         return ("V3_ACCEPTANCE_POLICY_UNSUPPORTED",)
     try:
         checked = validate_neural_source_binding(binding, proposal)
@@ -118,7 +135,20 @@ def qualify_v3_engine_acceptance(
             or geometry.get("latticeNodes") != detection["latticeNodes"]
             or detection["structurallyValid"] is not True
             or detection["cellVisibility"] != ["full"] * 15
-            or geometry.get("neuralExecutionPolicy") != NEURAL_AUTO_CROP_POLICY
+            or geometry.get("neuralExecutionPolicy") != crop_policy
         ):
             reasons.append("V3_ACCEPTANCE_GEOMETRY_INVALID")
+        if crop_policy == NEURAL_AUTO_CROP_POLICY and detection is not None:
+            if geometry.get("neuralAcceptanceEvidence") != neural_auto_crop_evidence(detection):
+                reasons.append("V3_ACCEPTANCE_EVIDENCE_INVALID")
+            reasons.extend(
+                neural_auto_crop_blockers(
+                    policy=crop_policy,
+                    detection=detection,
+                    binding=checked,
+                    position=item.position,
+                    width=width,
+                    height=height,
+                )
+            )
     return tuple(dict.fromkeys(reasons))

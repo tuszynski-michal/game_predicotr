@@ -45,6 +45,7 @@ from game_predictor_api.domain.jobs import (
     requeue_job,
 )
 from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICIES
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from game_predictor_api.storage.grid_model_registry import (
     GridModelArtifactInspector,
@@ -452,7 +453,7 @@ class SqlAlchemyGridReinferenceRepository:
             or operation.document["acceptancePolicy"] != job.input_payload["acceptance_policy"]
             or operation.document["runtimePolicy"] != job.input_payload["runtime_policy"]
             or operation.document["runtimePolicy"] != RUNTIME_POLICY
-            or operation.document["acceptancePolicy"] != ACCEPTANCE_POLICY
+            or operation.document["acceptancePolicy"] not in V3_ENGINE_ACCEPTANCE_POLICIES
         ):
             conflict("PAYLOAD_INVALID", "The operation and immutable job pin differ.")
         stats_enabled(operation.document, job.input_payload)

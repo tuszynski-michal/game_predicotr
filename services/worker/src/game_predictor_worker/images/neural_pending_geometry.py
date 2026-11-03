@@ -8,14 +8,19 @@ from dataclasses import replace
 from typing import cast
 
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
-from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
+from game_predictor_api.domain.neural_crop_policy import (
+    LEGACY_NEURAL_AUTO_CROP_POLICY,
+    NEURAL_AUTO_CROP_POLICY,
+    neural_auto_crop_blockers,
+    neural_auto_crop_evidence,
+)
 from game_predictor_api.domain.neural_grid_proposal import (
     NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
     NEURAL_GRID_REVIEW_REASON,
     validate_neural_source_binding,
     validate_neural_source_proposal,
 )
-from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICY
+from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICIES
 
 from .source_ingestion import ManagedOriginal
 
@@ -59,7 +64,10 @@ def neural_pending_payload(
     entry: Mapping[str, object],
     *,
     automatic_crops: bool = False,
+    execution_policy: str = LEGACY_NEURAL_AUTO_CROP_POLICY,
     engine_acceptance_policy: str | None = None,
+    rows: int = 3,
+    columns: int = 5,
 ) -> dict[str, object]:
     """Keep all active positions, including missing middle cells, in deferred review."""
     proposal = validate_neural_source_proposal(entry.get("neuralProposal"))
@@ -104,14 +112,23 @@ def neural_pending_payload(
             "detectionId": None if detection is None else detection["detectionId"],
             "neuralProposalBinding": dict(binding),
         }
-        automatic = (
-            automatic_crops
-            and detection is not None
-            and detection["structurallyValid"] is True
-            and all(value == "full" for value in cast(list[str], detection["cellVisibility"]))
+        blockers = neural_auto_crop_blockers(
+            policy=execution_policy,
+            detection=detection,
+            binding=binding,
+            position=position,
+            width=cast(int, proposal["sourceWidth"]),
+            height=cast(int, proposal["sourceHeight"]),
+            rows=rows,
+            columns=columns,
         )
+        automatic = automatic_crops and not blockers
+        if automatic_crops and execution_policy == NEURAL_AUTO_CROP_POLICY:
+            reasons.extend(blockers)
+            if detection is not None:
+                shared["neuralAcceptanceEvidence"] = neural_auto_crop_evidence(detection)
         if automatic:
-            shared["neuralExecutionPolicy"] = NEURAL_AUTO_CROP_POLICY
+            shared["neuralExecutionPolicy"] = execution_policy
         board = {
             **raw_board,
             **shared,
@@ -149,7 +166,7 @@ def neural_pending_payload(
         "geometrySource": "auto",
         "engineKind": "neural_grid_v1",
         "engineId": "neural_grid_v1" if automatic_crops else manual["engineId"],
-        "engineVersion": NEURAL_AUTO_CROP_POLICY
+        "engineVersion": execution_policy
         if automatic_crops
         else NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
         "status": "needs_review",
@@ -157,7 +174,7 @@ def neural_pending_payload(
         "neuralProposalBinding": dict(binding),
     }
     structured.pop("resultChecksumSha256", None)
-    if engine_acceptance_policy == V3_ENGINE_ACCEPTANCE_POLICY:
+    if engine_acceptance_policy in V3_ENGINE_ACCEPTANCE_POLICIES:
         # Only new policy-pinned executions mint this immutable evidence.
         # Legacy checkpoints are replayed without reconstructing their payload.
         structured["globalInitialization"] = {

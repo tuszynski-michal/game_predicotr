@@ -19,6 +19,7 @@ from game_predictor_api.domain.geometry_correction_reverts import (
 )
 from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
 from game_predictor_api.domain.jobs import require_active_job_lease
+from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICIES
 from game_predictor_api.domain.source_canonical_metadata import (
     SourceCanonicalMetadata,
     compare_source_metadata,
@@ -26,7 +27,7 @@ from game_predictor_api.domain.source_canonical_metadata import (
 from game_predictor_api.domain.v3_engine_acceptance import (
     V3_ENGINE_ACCEPTANCE_ACTOR,
     V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
-    V3_ENGINE_ACCEPTANCE_POLICY,
+    V3_ENGINE_ACCEPTANCE_POLICIES,
 )
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     v2_render_identity_from_spec,
@@ -380,7 +381,7 @@ class SqlAlchemyImagePipelineStore:
                         ),
                         created_by=V3_ENGINE_ACCEPTANCE_ACTOR
                         if job.input_payload.get(V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY)
-                        == V3_ENGINE_ACCEPTANCE_POLICY
+                        in V3_ENGINE_ACCEPTANCE_POLICIES
                         and structured.get("engineKind") == "neural_grid_v1"
                         else "system:image-pipeline-v0.10",
                     )
@@ -744,7 +745,7 @@ class SqlAlchemyImagePipelineStore:
                         projected_positions += 1
                     if (
                         job.input_payload.get("neural_grid_execution_policy_version")
-                        == "neural-auto-crop-v1"
+                        in NEURAL_AUTO_CROP_POLICIES
                     ):
                         # A new operational result replaces only unreviewed
                         # deferred records for this exact source and sequence.

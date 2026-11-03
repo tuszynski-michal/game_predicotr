@@ -51,6 +51,7 @@ from grid_reinference_schema_support import assert_grid_reinference_schema_postg
 from sqlalchemy import create_engine, event, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.pool import NullPool
+from test_v3_engine_acceptance_postgres import current_partition_budget as current_partition_budget
 from test_v3_engine_acceptance_postgres import execution
 from test_virtual_deferred_resolution_postgres import _provision_game
 
@@ -106,7 +107,9 @@ def database():
             provision_application_role(
                 connection, ApplicationRoleSpec(role_name=role, password=None, login=False)
             )
-        assert_grid_reinference_schema_postgres(engine, config, role)
+        # Head-schema assertions use the current finite lifecycle table budget.
+        with patch("grid_reinference_schema_support.CREATE_TABLES", lifecycle.CREATE_TABLES):
+            assert_grid_reinference_schema_postgres(engine, config, role)
         yield SimpleNamespace(engine=engine, config=config, role=role)
     finally:
         engine.dispose()
@@ -229,7 +232,18 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
     class FixtureHandler(GridReinferenceHandler):
         calls = 0
 
-        def recognize(self, source_document, frozen, pin, operation_id, ordinal, runner, context):
+        def recognize(
+            self,
+            source_document,
+            frozen,
+            pin,
+            operation_id,
+            ordinal,
+            runner,
+            context,
+            *,
+            execution_policy="neural-auto-crop-v1",
+        ):
             self.calls += 1
             source, geometry = source_document["source"], source_document["geometryContext"]
             if frozen[0]["board"] is None and scenario != "deferred_stats":
@@ -303,6 +317,11 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                 dict(
                     proposal=proposal,
                     binding=binding,
+                    **(
+                        {"executionPolicy": execution_policy}
+                        if execution_policy == "neural-auto-crop-v2"
+                        else {}
+                    ),
                     byPosition={
                         str(item["positionIndex"]): detections[i] for i, item in enumerate(frozen)
                     },

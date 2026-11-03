@@ -294,7 +294,9 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
 
 
 class ImageImportJobPayload(RelocatableSourceJobPayload):
-    neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
+    neural_grid_execution_policy_version: (
+        Literal["neural-auto-crop-v1", "neural-auto-crop-v2"] | None
+    ) = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[2]
     import_kind: Literal["image_directory"]
@@ -353,7 +355,9 @@ class ImageGeometryGuardResolutionManifestJobPayload(ApiModel):
 
 
 class BrowserImageImportJobPayload(RelocatableSourceJobPayload):
-    neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
+    neural_grid_execution_policy_version: (
+        Literal["neural-auto-crop-v1", "neural-auto-crop-v2"] | None
+    ) = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[5]
     import_kind: Literal["image_directory"]
@@ -377,7 +381,9 @@ class BrowserImageImportJobPayload(RelocatableSourceJobPayload):
 
 
 class ResolvedBrowserImageImportJobPayload(RelocatableSourceJobPayload):
-    neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
+    neural_grid_execution_policy_version: (
+        Literal["neural-auto-crop-v1", "neural-auto-crop-v2"] | None
+    ) = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     managed_source_job_id: UUID | None = None
     managed_source_manifest_checksum_sha256: str | None = Field(
@@ -447,7 +453,9 @@ class ManagedImageReprocessJobPayload(RelocatableSourceJobPayload):
 
 
 class PinnedManagedImageReprocessJobPayload(RelocatableSourceJobPayload):
-    neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
+    neural_grid_execution_policy_version: (
+        Literal["neural-auto-crop-v1", "neural-auto-crop-v2"] | None
+    ) = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[6]
     import_kind: Literal["image_directory"]
@@ -713,7 +721,7 @@ class GridReinferenceJobPayload(ApiModel):
     operation_id: UUID
     model_snapshot: dict[str, object]
     runtime_policy: Literal["grid-reinference-runtime-v1"]
-    acceptance_policy: Literal["v3-engine-acceptance-v1"]
+    acceptance_policy: Literal["v3-engine-acceptance-v1", "v3-engine-acceptance-v2"]
 
 
 class PendingGridReinferenceJobPayload(ApiModel):

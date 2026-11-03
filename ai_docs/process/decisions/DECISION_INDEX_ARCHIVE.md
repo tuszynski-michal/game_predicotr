@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-554](DECISION_LOG_2026.md#d-554--nagrania-i-ochrona-danych-kontrolnych-geometrii-v3) | Nagrania i ochrona danych kontrolnych geometrii V3 | accepted | 2026-10-15 | Geometry-only aliasy i role nagrań, prywatne capability, dependent-only invalidation; bez operator runs. |
 | [D-553](DECISION_LOG_2026.md#d-553--diagnostyka-pokrycia-v3-i-izolowany-odczyt-liczników) | Diagnostyka pokrycia V3 i izolowany odczyt liczników | accepted | 2026-10-14 | Opt-in spójny odczyt READ ONLY/RLS oraz odrzucony slot jako przyczyna braku; bez zmian danych. |
 | [D-552](DECISION_LOG_2026.md#d-552--baza-i-wznowienie-planu-doszkalania-v3) | Baza i wznowienie planu doszkalania V3 | accepted | 2026-10-14 | Baza planu to main v1.7.360 / 171e23799ebdbee4ed4590a53376bf870c6741c2; worktree D:\game_predicotr\worktrees\v3-grid-fine-tuning, branch codex/v3-grid-fine-tuning. |
 | [D-551](DECISION_LOG_2026.md#d-551--propozycje-dla-błędnej-siatki-v3) | Propozycje dla błędnej siatki V3 | accepted | 2026-10-14 | W zgodzie z D-462/D-543 ponowne rozpoznanie zgłoszonej Złej siatki tworzy trwałą propozycję i zdarzenia bez zmiany cropów lub zgłoszenia. |

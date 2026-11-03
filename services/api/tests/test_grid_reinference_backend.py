@@ -37,8 +37,10 @@ def freeze(document):
     command_transition(document, "freeze", cmd, actor="operator")
 
 
-def test_freeze_start_lost_reply_keeps_pin_and_receipts():
+@pytest.mark.parametrize("policy", ["v3-engine-acceptance-v1", "v3-engine-acceptance-v2"])
+def test_freeze_start_lost_reply_keeps_pin_and_receipts(policy):
     document = operation()
+    document["acceptancePolicy"] = policy
     model = copy.deepcopy(document["modelSnapshot"])
     freeze(document)
     cmd = command(document, manifestSha256=document["manifestSha256"])
@@ -155,7 +157,8 @@ def test_receipt_namespaces_and_hash_are_order_independent():
     assert len(document["receipts"]) == 2
 
 
-def test_http_prepare_closed_defaults_and_typed_start_request():
+@pytest.mark.parametrize("policy", ["v3-engine-acceptance-v1", "v3-engine-acceptance-v2"])
+def test_http_prepare_closed_defaults_and_typed_start_request(policy):
     from types import SimpleNamespace
 
     from fastapi import APIRouter, FastAPI
@@ -180,7 +183,7 @@ def test_http_prepare_closed_defaults_and_typed_start_request():
         outcomes={},
         modelSnapshot={"pin": "fixed"},
         runtimePolicy="grid-reinference-runtime-v1",
-        acceptancePolicy="v3-engine-acceptance-v1",
+        acceptancePolicy=policy,
         membershipCapturedAt="capture",
         preparationStartedAt="begin",
         preparationFinishedAt="end",
@@ -207,6 +210,7 @@ def test_http_prepare_closed_defaults_and_typed_start_request():
         )
         assert result.status_code == 200
         GridReinferenceResponse.model_validate(result.json())
+        assert result.json()["acceptancePolicy"] == policy
         assert calls[0][1]["selector"]["categories"] == ["grid_issue", "deferred"]
         assert calls[0][1]["executionScope"] == "pilot"
         assert calls[0][2] == "local-admin"

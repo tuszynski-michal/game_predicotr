@@ -5,6 +5,7 @@ from contextlib import suppress
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from itertools import count
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -58,6 +59,18 @@ from test_virtual_deferred_resolution_postgres import pytestmark as pytestmark
 _SEED_COUNTER = count(1)
 
 
+@pytest.fixture(autouse=True)
+def current_partition_budget():
+    """This head-schema test needs the live manifest, not the helper's frozen v19 budget."""
+    from game_predictor_api.storage import game_partition_lifecycle
+
+    with patch(
+        "test_virtual_deferred_resolution_postgres.CREATE_TABLES",
+        game_partition_lifecycle.CREATE_TABLES,
+    ):
+        yield
+
+
 @pytest.fixture(scope="module")
 def database():
     # One schema migration per module; every case owns a fresh game partition.
@@ -79,7 +92,16 @@ def database():
             next(generator)
 
 
-def execution(database, tmp_path, *, legacy=False, missing=False):
+def execution(
+    database,
+    tmp_path,
+    *,
+    legacy=False,
+    missing=False,
+    crop_policy=NEURAL_AUTO_CROP_POLICY,
+    acceptance_policy=V3_ENGINE_ACCEPTANCE_POLICY,
+    fit_reason=None,
+):
     game = _provision_game(database.engine, "task1017-" + uuid4().hex[:8])
     factory = _factory(database.engine)
     root = tmp_path / "artifacts"
@@ -118,9 +140,9 @@ def execution(database, tmp_path, *, legacy=False, missing=False):
         )
         job.input_payload = {
             **job.input_payload,
-            "neural_grid_execution_policy_version": NEURAL_AUTO_CROP_POLICY,
+            "neural_grid_execution_policy_version": crop_policy,
             "neural_grid_proposal": snapshot.to_payload(),
-            **({} if legacy else {V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY: V3_ENGINE_ACCEPTANCE_POLICY}),
+            **({} if legacy else {V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY: acceptance_policy}),
         }
         for pending in session.scalars(
             select(ImageBoardGeometryPendingModel).where(
@@ -160,6 +182,8 @@ def execution(database, tmp_path, *, legacy=False, missing=False):
                 "reasonCodes": ["NEURAL_GRID_GATE_UNCALIBRATED"],
             }
         )
+    if fit_reason is not None:
+        detections[0]["reasonCodes"].append(fit_reason)
     proposal = build_neural_source_proposal(
         game_id=str(game),
         source_selection_id=str(uuid4()),
@@ -179,8 +203,8 @@ def execution(database, tmp_path, *, legacy=False, missing=False):
         root,
         repository_root=tmp_path,
         manual_geometry_import=True,
-        neural_execution_policy=NEURAL_AUTO_CROP_POLICY,
-        engine_acceptance_policy=None if legacy else V3_ENGINE_ACCEPTANCE_POLICY,
+        neural_execution_policy=crop_policy,
+        engine_acceptance_policy=None if legacy else acceptance_policy,
         symbol_model=model,
         geometry_rollout=rollout,
         page_geometry_manifest={
@@ -273,11 +297,17 @@ def snapshot_state(factory, game, seed):
 
 
 @pytest.mark.parametrize("legacy,missing", [(False, False), (True, False), (False, True)])
+@pytest.mark.parametrize("version", [1, 2])
 def test_complete_acceptance_and_legacy_or_deferred_cold_replay(
-    database, tmp_path, legacy, missing
+    database, tmp_path, legacy, missing, version
 ):
     game, factory, seed, candidate, stages = execution(
-        database, tmp_path, legacy=legacy, missing=missing
+        database,
+        tmp_path,
+        legacy=legacy,
+        missing=missing,
+        crop_policy=f"neural-auto-crop-v{version}",
+        acceptance_policy=f"v3-engine-acceptance-v{version}",
     )
     before = snapshot_state(factory, game, seed)
     assert before[0] == "needs_review"
@@ -288,11 +318,31 @@ def test_complete_acceptance_and_legacy_or_deferred_cold_replay(
     assert after[1] == ("system:image-pipeline-v0.10" if legacy else V3_ENGINE_ACCEPTANCE_ACTOR)
     assert after[2:5] == before[2:5]
     assert after[5] == ("geometry_incomplete" if legacy or missing else "geometry_complete")
-    assert len(after[6]) == (15 if missing else 30)
+    assert len(after[6]) == ((15 if version == 1 else 0) if missing else 30)
     with game_storage_scope(game):
         SqlAlchemyImagePipelineStore(factory).project_source_geometry(
             candidate, stage_results=stages
         )
+        SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
+    assert snapshot_state(factory, game, seed) == after
+
+
+@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("reason", ["NEURAL_GRID_FIT_FAILED", "NEURAL_GRID_FIT_OUTLIERS"])
+def test_fit_errors_never_materialize_v2_automatic_cells(database, tmp_path, version, reason):
+    game, factory, seed, candidate, stages = execution(
+        database,
+        tmp_path,
+        crop_policy=f"neural-auto-crop-v{version}",
+        acceptance_policy=f"v3-engine-acceptance-v{version}",
+        fit_reason=reason,
+    )
+    with game_storage_scope(game):
+        SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
+    after = snapshot_state(factory, game, seed)
+    assert after[0] == ("accepted" if version == 1 else "needs_review")
+    assert len(after[6]) == (30 if version == 1 else 15)
+    with game_storage_scope(game):
         SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
     assert snapshot_state(factory, game, seed) == after
 

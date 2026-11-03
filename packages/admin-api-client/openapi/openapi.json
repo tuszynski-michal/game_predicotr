@@ -4666,7 +4666,10 @@
           "neuralGridExecutionPolicyVersion": {
             "anyOf": [
               {
-                "const": "neural-auto-crop-v1",
+                "enum": [
+                  "neural-auto-crop-v1",
+                  "neural-auto-crop-v2"
+                ],
                 "type": "string"
               },
               {
@@ -15793,7 +15796,10 @@
         "additionalProperties": false,
         "properties": {
           "acceptancePolicy": {
-            "const": "v3-engine-acceptance-v1",
+            "enum": [
+              "v3-engine-acceptance-v1",
+              "v3-engine-acceptance-v2"
+            ],
             "title": "Acceptancepolicy",
             "type": "string"
           },
@@ -21469,7 +21475,10 @@
           "neuralGridExecutionPolicyVersion": {
             "anyOf": [
               {
-                "const": "neural-auto-crop-v1",
+                "enum": [
+                  "neural-auto-crop-v1",
+                  "neural-auto-crop-v2"
+                ],
                 "type": "string"
               },
               {
@@ -30878,7 +30887,10 @@
           "neuralGridExecutionPolicyVersion": {
             "anyOf": [
               {
-                "const": "neural-auto-crop-v1",
+                "enum": [
+                  "neural-auto-crop-v1",
+                  "neural-auto-crop-v2"
+                ],
                 "type": "string"
               },
               {
@@ -34483,7 +34495,10 @@
           "neuralGridExecutionPolicyVersion": {
             "anyOf": [
               {
-                "const": "neural-auto-crop-v1",
+                "enum": [
+                  "neural-auto-crop-v1",
+                  "neural-auto-crop-v2"
+                ],
                 "type": "string"
               },
               {

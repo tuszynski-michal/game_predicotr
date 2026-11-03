@@ -233,7 +233,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/management_sessions.py: class ManagementAccessError, invalid_access
 - domain/management_stakes.py: class ManagementStake, class ManagementQueryCell, class ManagementSearchCommand, class ManagementSaveCommand, class ManagementClearCommand, class ManagementRefreshCommand, class ManagementCorrectionCommand
 - domain/mobile_releases.py: class MobileReleaseStatus, class MobileReleaseError, class MobileReleaseNotFoundError, class MobileReleaseConflictError, class MobileReleaseGameInput, class MobileReleaseDatasetSource, class MobileReleaseRulesSource, class MobileReleaseGameSource, class MobileReleaseGame, class MobileRelease, validate_release_version, validate_release_game_inputs, validate_release_game_source, start_mobile_release_build, mark_mobile_release_building, record_mobile_release_snapshot, complete_mobile_release, fail_mobile_release
-- domain/neural_crop_policy.py: pin_neural_crop_policy, full_neural_prediction_geometry
+- domain/neural_crop_policy.py: neural_auto_crop_evidence, neural_auto_crop_blockers, pin_neural_crop_policy, full_neural_prediction_geometry
 - domain/neural_grid_proposal.py: class NeuralGridProposalError, class NeuralGridSnapshot, lattice_cell_quads, lattice_visibility, proposal_checksum_sha256, build_neural_source_proposal, validate_neural_source_proposal, validate_neural_source_binding, build_neural_source_binding, associate_expected_slots
 - domain/new_game_geometry.py: verified_json, transfer_evidence
 - domain/page_geometry_overrides.py: class ImagePageGeometryOverride, class ImagePageSourceExclusion
@@ -269,7 +269,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/symbol_readability.py: class ReadabilityWorkflowError, digest, crop_identity, identity_is_current, confirmed_for_replacement
 - domain/symbol_references.py: class ApprovedSymbolReferenceCandidate, class ApprovedSymbolReferenceCandidatePage, class SymbolReferenceImage, encode_approved_symbol_reference_cursor, decode_approved_symbol_reference_cursor, validate_reference_checksum
 - domain/symbol_verification_outcomes.py: class SymbolVerificationOutcome, class SymbolVerificationOutcomeError, class SymbolCellVerification, project_legacy_verification
-- domain/v3_engine_acceptance.py: pin_v3_engine_acceptance_policy, class V3EnginePosition, qualify_v3_engine_acceptance
+- domain/v3_engine_acceptance.py: crop_policy_for_acceptance, pin_v3_engine_acceptance_policy, class V3EnginePosition, qualify_v3_engine_acceptance
 - domain/v7_pilot_acceptance.py: validate_pilot_acceptance, receipt_matches_gate
 - domain/v7_selection_delivery.py: class V7DeliveryConflict, payload_fingerprint, require_sha256, class V7PilotSnapshot, class V7PilotGate, class V7OutputDecision, class V7OutputOperation
 - domain/v7_selection_feedback.py: capture_feedback_snapshot, class V7FeedbackOwner, build_feedback_manifest, relative_source_path

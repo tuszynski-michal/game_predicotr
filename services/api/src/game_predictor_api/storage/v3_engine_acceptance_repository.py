@@ -10,12 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
-from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
+from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_PAYLOAD_KEY
 from game_predictor_api.domain.v3_engine_acceptance import (
     V3_ENGINE_ACCEPTANCE_ACTOR,
     V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
-    V3_ENGINE_ACCEPTANCE_POLICY,
+    V3_ENGINE_ACCEPTANCE_POLICIES,
     V3EnginePosition,
+    crop_policy_for_acceptance,
     qualify_v3_engine_acceptance,
 )
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
@@ -50,7 +51,7 @@ def finalize_v3_engine_acceptance(
     approval, crop, decision or owner is updated. Caller recomputes the gate
     and synchronizes projections in this same transaction; failures roll back.
     """
-    if job.input_payload.get(V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY) != V3_ENGINE_ACCEPTANCE_POLICY:
+    if job.input_payload.get(V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY) not in V3_ENGINE_ACCEPTANCE_POLICIES:
         return ("V3_ACCEPTANCE_LEGACY_JOB",)
     if job.game_id is None:
         return ("V3_ACCEPTANCE_SOURCE_OR_MODEL_DRIFT",)
@@ -60,7 +61,9 @@ def finalize_v3_engine_acceptance(
         or revision.created_by != V3_ENGINE_ACCEPTANCE_ACTOR
         or revision.geometry_source != "auto"
         or revision.engine_kind != "neural_grid_v1"
-        or revision.engine_version != NEURAL_AUTO_CROP_POLICY
+        or revision.engine_version
+        != crop_policy_for_acceptance(job.input_payload.get(V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY))
+        or revision.engine_version != job.input_payload.get(NEURAL_AUTO_CROP_PAYLOAD_KEY)
         or revision.status not in ("needs_review", "accepted")
     ):
         return ("V3_ACCEPTANCE_REVISION_PROVENANCE_INVALID",)
@@ -175,6 +178,7 @@ def finalize_v3_engine_acceptance(
                         "neuralProposalChecksumSha256",
                         "neuralProposalBinding",
                         "detectionId",
+                        "neuralAcceptanceEvidence",
                     )
                 )
             )

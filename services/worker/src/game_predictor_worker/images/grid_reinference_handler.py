@@ -38,6 +38,12 @@ from game_predictor_api.domain.image_geometry_v2 import (
 )
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
 from game_predictor_api.domain.jobs import Job, update_job_progress
+from game_predictor_api.domain.neural_crop_policy import (
+    LEGACY_NEURAL_AUTO_CROP_POLICY,
+    NEURAL_AUTO_CROP_POLICY,
+    neural_auto_crop_blockers,
+    neural_auto_crop_evidence,
+)
 from game_predictor_api.domain.neural_grid_proposal import (
     NeuralGridSnapshot,
     associate_expected_slots,
@@ -45,6 +51,7 @@ from game_predictor_api.domain.neural_grid_proposal import (
     lattice_cell_quads,
     lattice_visibility,
 )
+from game_predictor_api.domain.v3_engine_acceptance import crop_policy_for_acceptance
 from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
 from game_predictor_api.storage.grid_reinference import (
     SqlAlchemyGridReinferenceRepository,
@@ -207,7 +214,16 @@ class GridReinferenceHandler:
                     )
                     if source_missing
                     else self.recognize(
-                        source_document, frozen, source_pin, operation_id, ordinal, runner, context
+                        source_document,
+                        frozen,
+                        source_pin,
+                        operation_id,
+                        ordinal,
+                        runner,
+                        context,
+                        execution_policy=cast(
+                            str, crop_policy_for_acceptance(d["acceptancePolicy"])
+                        ),
                     )
                 )
                 with self.sessions() as session, session.begin():
@@ -224,6 +240,9 @@ class GridReinferenceHandler:
                         )
             self.cancellation_boundary(context)
             checkpoint_payload = self.load_checkpoint(checkpoint)
+            self.require_checkpoint_policy(
+                checkpoint_payload, crop_policy_for_acceptance(d["acceptancePolicy"])
+            )
             # Render eligible exact slots outside all domain write transactions.
             prepared = None if source_missing else self.render(job, frozen, checkpoint_payload)
             self.cancellation_boundary(context)
@@ -310,6 +329,12 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                         outcome = checkpoint_payload["outcome"]
                     elif position not in checkpoint_payload["byPosition"]:
                         outcome = "binding_required"
+                    elif self.automatic_blockers(checkpoint_payload, position):
+                        outcome = (
+                            "proposal_ready"
+                            if target.snapshot["kind"] == "grid_issue"
+                            else "needs_manual_review"
+                        )
                     elif self.unchanged(
                         target.snapshot, checkpoint_payload["byPosition"][position]
                     ):
@@ -423,6 +448,8 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
         ordinal: int,
         runner: Any,
         context: JobExecutionContext,
+        *,
+        execution_policy: str = LEGACY_NEURAL_AUTO_CROP_POLICY,
     ) -> dict[str, Any]:
         source = source_document["source"]
         if not frozen:
@@ -528,7 +555,37 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 "binding": binding,
                 "byPosition": by_position,
                 "sourceGeometryRevisionId": geometry["id"],
+                **(
+                    {"executionPolicy": execution_policy}
+                    if execution_policy == NEURAL_AUTO_CROP_POLICY
+                    else {}
+                ),
             },
+        )
+
+    @staticmethod
+    def require_checkpoint_policy(checkpoint: dict[str, Any], expected: str | None) -> None:
+        if expected is None or (
+            not checkpoint.get("outcome")
+            and checkpoint.get("executionPolicy", LEGACY_NEURAL_AUTO_CROP_POLICY) != expected
+        ):
+            raise JobHandlerError(
+                "GRID_REINFERENCE_CHECKPOINT_INVALID", "The checkpoint crop policy differs."
+            )
+
+    @staticmethod
+    def automatic_blockers(checkpoint: dict[str, Any], position: int) -> tuple[str, ...]:
+        policy = checkpoint.get("executionPolicy", LEGACY_NEURAL_AUTO_CROP_POLICY)
+        if policy == LEGACY_NEURAL_AUTO_CROP_POLICY:
+            return ()  # Historical byPosition is already the frozen legacy eligibility.
+        proposal = checkpoint["proposal"]
+        return neural_auto_crop_blockers(
+            policy=policy,
+            detection=checkpoint["byPosition"].get(position),
+            binding=checkpoint["binding"],
+            position=position,
+            width=proposal["sourceWidth"],
+            height=proposal["sourceHeight"],
         )
 
     def raw_inference(
@@ -711,6 +768,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     target["kind"] == "grid_issue"
                     or target_protection(target)
                     or position not in checkpoint["byPosition"]
+                    or self.automatic_blockers(checkpoint, position)
                     or self.unchanged(target, checkpoint["byPosition"][position])
                 ):
                     continue
@@ -782,12 +840,18 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             position = entry.context.position_index
             detection = checkpoint["byPosition"][position]
             geometries[position].update(
-                neuralExecutionPolicy="neural-auto-crop-v1",
+                neuralExecutionPolicy=checkpoint.get(
+                    "executionPolicy", LEGACY_NEURAL_AUTO_CROP_POLICY
+                ),
                 neuralProposalChecksumSha256=checkpoint["proposal"]["proposalChecksumSha256"],
                 neuralProposalBinding=checkpoint["binding"],
                 detectionId=detection["detectionId"],
                 geometrySource="auto",
             )
+            if checkpoint.get("executionPolicy") == NEURAL_AUTO_CROP_POLICY:
+                geometries[position]["neuralAcceptanceEvidence"] = neural_auto_crop_evidence(
+                    detection
+                )
         sha = digest(
             {
                 "policy": CONTRACT,

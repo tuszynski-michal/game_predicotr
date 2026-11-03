@@ -2,6 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+for (const policy of ['v3-engine-acceptance-v1', 'v3-engine-acceptance-v2']) {
+  test(`grid reinference wrapper retains server policy ${policy}`, async () => {
+    const api = createAdminApiClient({
+      baseUrl: 'http://127.0.0.1:8000',
+      fetch: async () => Response.json({ operationId: 'operation', acceptancePolicy: policy }),
+    });
+    const result = await api.getGridReinference('game', 'operation');
+    assert.equal(result.data.acceptancePolicy, policy);
+  });
+}
+
 test('grid reinference preserves exact commands, game scope and confirmation targets', async () => {
   const requests = [];
   const api = createAdminApiClient({

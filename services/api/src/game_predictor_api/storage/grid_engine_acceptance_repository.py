@@ -24,13 +24,13 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
     ImageReviewNotFoundError,
 )
-from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
+from game_predictor_api.domain.neural_crop_policy import LEGACY_NEURAL_AUTO_CROP_POLICY
 from game_predictor_api.domain.neural_grid_proposal import (
     NeuralGridProposalError,
     NeuralGridSnapshot,
 )
 from game_predictor_api.domain.v3_engine_acceptance import (
-    V3_ENGINE_ACCEPTANCE_POLICY,
+    LEGACY_V3_ENGINE_ACCEPTANCE_POLICY,
     V3EnginePosition,
     qualify_v3_engine_acceptance,
 )
@@ -510,7 +510,7 @@ class SqlAlchemyHistoricalAcceptanceRepository:
         if (
             revision.geometry_source != "auto"
             or revision.engine_kind != "neural_grid_v1"
-            or revision.engine_version != NEURAL_AUTO_CROP_POLICY
+            or revision.engine_version != LEGACY_NEURAL_AUTO_CROP_POLICY
         ):
             reasons.append("HISTORICAL_MODEL_PROVENANCE_UNSUPPORTED")
         proposal: object = None
@@ -610,7 +610,7 @@ class SqlAlchemyHistoricalAcceptanceRepository:
         )
         reasons.extend(
             qualify_v3_engine_acceptance(
-                policy=V3_ENGINE_ACCEPTANCE_POLICY,
+                policy=LEGACY_V3_ENGINE_ACCEPTANCE_POLICY,
                 proposal=proposal,
                 binding=binding,
                 model_snapshot=snapshot_payload,

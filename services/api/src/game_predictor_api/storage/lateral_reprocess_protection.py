@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.neural_crop_policy import (
     NEURAL_AUTO_CROP_PAYLOAD_KEY,
-    NEURAL_AUTO_CROP_POLICY,
+    NEURAL_AUTO_CROP_POLICIES,
 )
 
 from .image_review_repository import acquire_image_sequence_locks
@@ -29,7 +29,7 @@ def lock_lateral_sequences(
     rollout = job.input_payload.get("image_geometry_rollout")
     if (
         isinstance(rollout, Mapping) and rollout.get("lateralPartialGeometry") is not None
-    ) or job.input_payload.get(NEURAL_AUTO_CROP_PAYLOAD_KEY) == NEURAL_AUTO_CROP_POLICY:
+    ) or job.input_payload.get(NEURAL_AUTO_CROP_PAYLOAD_KEY) in NEURAL_AUTO_CROP_POLICIES:
         assert job.game_id is not None
         acquire_image_sequence_locks(
             session, game_id=job.game_id, sequence_numbers=set(sequence_numbers)
@@ -62,7 +62,7 @@ def has_protected_lateral_owner(
     rollout = job.input_payload.get("image_geometry_rollout")
     if (
         not isinstance(rollout, Mapping) or rollout.get("lateralPartialGeometry") is None
-    ) and job.input_payload.get(NEURAL_AUTO_CROP_PAYLOAD_KEY) != NEURAL_AUTO_CROP_POLICY:
+    ) and job.input_payload.get(NEURAL_AUTO_CROP_PAYLOAD_KEY) not in NEURAL_AUTO_CROP_POLICIES:
         return False
     assert job.game_id is not None
     acquire_image_sequence_locks(session, game_id=job.game_id, sequence_numbers={sequence_number})

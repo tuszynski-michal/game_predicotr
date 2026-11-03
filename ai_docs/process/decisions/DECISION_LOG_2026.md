@@ -14,6 +14,16 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-584 — Wersjonowana bezpieczna akceptacja siatek
+
+- **Date:** 2026-11-03.
+- **Status:** accepted; operator zlecił cały plan T0–T6 i koszt, focused review Opus R2 PASS.
+- **Context:** D-523 i D-550 pozwalały kwalifikować strukturę mimo FIT_FAILED/FIT_OUTLIERS. Wersji historycznej nie można reinterpretować przy wznowieniu.
+- **Decision:** nowe operacje przypinają `neural-auto-crop-v2` oraz odpowiadającą `v3-engine-acceptance-v2`. Wspólna czysta kwalifikacja API/workera blokuje FIT_FAILED, FIT_OUTLIERS, niepełne/niejednoznaczne przypisania, niepoprawną geometrię, brak rzeczywistych pikseli oraz nieobsługiwany układ. API ponownie sprawdza dowody. Mały dowód kwalifikacji pozostaje metadanymi geometrii bez bitmap. Istniejące kontrole źródła, właściciela, rewizji, renderowania i zgłoszeń pozostają obowiązkowe.
+- **Compatibility:** jawnie znane v1/v2; nieznany pin blokuje. Stare payloady, manifesty, receipt, checkpoint, statusowy backfill i scopeSignature zachowują interpretację v1. Nowe prepare przypina v2 przed pierwszym zapisem; replay odczytuje poprzednią operację. Użycie zabezpieczeń przez starą oczekującą operację wymaga nowego przygotowania. Istniejące pola pokazują zapisaną politykę. Brak migracji historycznych danych i korekt ręcznych.
+- **Boundary:** obecna geometria 3×5; deklaracja capabilities pakietu i kontrola strony przed inferencją w T2. `expectedLayoutCount` jest limitem numerów gry, nie liczbą plansz zdjęcia. T0 nie dowodzi kompletności poprawnej kraty bez sygnału błędu; to T4. Engine acceptance nie tworzy etykiety człowieka.
+- **Source:** `ai_docs/delivery/FULL_BOARD_DETECTION_PLAN_20261103.md`, TASK-1154 i focused review R2. Trening, wdrożenie, operator DB writes, merge/push i restarty nadal wymagają osobnych zgód.
+
 ## D-582 — Przyrostowe wyspy treningu i zwalnianie nieużytych rezerwacji
 
 Status: accepted

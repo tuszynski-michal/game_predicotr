@@ -250,7 +250,7 @@ class SqlAlchemyJobRepository(JobRepository):
         """Only a genuinely empty store can skip a historical backfill."""
         from game_predictor_api.domain.neural_crop_policy import (
             NEURAL_AUTO_CROP_PAYLOAD_KEY,
-            NEURAL_AUTO_CROP_POLICY,
+            NEURAL_AUTO_CROP_POLICIES,
         )
 
         from .image_symbol_review_repository import _COUNT_SEMANTICS, _COUNT_SEMANTICS_KEY
@@ -258,7 +258,7 @@ class SqlAlchemyJobRepository(JobRepository):
         if (
             job.game_id is None
             or job.job_type is not JobType.IMPORT
-            or job.input_payload.get(NEURAL_AUTO_CROP_PAYLOAD_KEY) != NEURAL_AUTO_CROP_POLICY
+            or job.input_payload.get(NEURAL_AUTO_CROP_PAYLOAD_KEY) not in NEURAL_AUTO_CROP_POLICIES
         ):
             return
         self._session.scalar(select(GameModel).where(GameModel.id == job.game_id).with_for_update())

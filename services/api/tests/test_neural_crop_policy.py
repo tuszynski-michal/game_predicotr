@@ -4,6 +4,7 @@ import pytest
 from game_predictor_api.domain.neural_crop_policy import (
     NEURAL_AUTO_CROP_POLICY,
     full_neural_prediction_geometry,
+    neural_auto_crop_evidence,
     pin_neural_crop_policy,
 )
 from game_predictor_api.domain.neural_grid_proposal import associate_expected_slots
@@ -21,6 +22,7 @@ def geometry():
     detection = value["detections"][0]
     return {
         "neuralExecutionPolicy": NEURAL_AUTO_CROP_POLICY,
+        "neuralAcceptanceEvidence": neural_auto_crop_evidence(detection),
         "neuralProposalChecksumSha256": value["proposalChecksumSha256"],
         "detectionId": detection["detectionId"],
         "neuralProposalBinding": associate_expected_slots(value),

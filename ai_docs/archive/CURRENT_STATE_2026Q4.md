@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1154 — Bezpieczna akceptacja siatek (done)
+
+- Plik: `tasks/completed/1154-safe-neural-auto-crop-policy.md`.
+- Commit: **v1.7.558** (hash dopisuje kolejny commit).
+- T0: wspólna polityka neural-auto-crop-v2 API/workera blokuje FIT_FAILED/FIT_OUTLIERS, niepełne przypisanie i błędną geometrię; API ponownie porównuje przypięte dowody przed automatic write. Historyczne operacje v1 zachowują piny i replay; ręczne decyzje i blokady sekwencji pozostają chronione.
+- Weryfikacja: 87 scoped Python, 13 izolowanych PostgreSQL i 4 request testy SDK PASS; Ruff, klient TypeScript, OpenAPI/generated, docs/map PASS. Sześć zastanych błędów mypy potwierdzonych na baseline, zero nowych; moduł zmieniony po audycie mypy PASS.
+- Audyt Opus 5.5/high PASS, 0 P0/P1; pięć P2 rozliczono jedną rundą dokumentacji/testów. Pierwsza próba timeout 480 s bez wyniku, druga instrumentowana próba tej samej rundy PASS. Raporty: `quality/TASK-1154_AUDIT_claude-opus-5-5.md`, `quality/TASK-1154_VERIFICATION.md`.
+- Bez treningu, model runs, aktywacji, usług, migracji ani zmian danych operatora. To zmiana kodu, nie wdrożenie. Następny task: TASK-1155 / T1, diagnoza wejścia i gotowość danych.
+
 ### TASK-1153 — Propozycje modelu w korekcie i pełny kadr (done)
 
 - Plik: `tasks/completed/1153-grid-review-proposals-viewport.md`.

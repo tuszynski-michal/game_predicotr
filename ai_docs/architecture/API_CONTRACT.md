@@ -3834,6 +3834,16 @@ backfill gry. Nie zmienia stanu kompletności źródła ani globalnej gotowości
 projekcji. Sprawdza nadal aktualnego właściciela, render i crop identity;
 pole poza zdjęciem zachowuje powyższy błąd i rollback. Bez nowych pól HTTP.
 
+**D-584 (TASK-1154):** nowe operacje przypinają `neural-auto-crop-v2` i
+`v3-engine-acceptance-v2`; zamknięte payloady nadal odczytują v1. Nowe prepare
+reinferencji zapisuje v2 w istniejącym `acceptancePolicy` oraz fingerprintach;
+GET i wrapper zwracają dokładnie ten pin, także historyczną v1. Brak nowych
+tras, pól żądania i migracji. Wspólna kwalifikacja `neural_auto_crop_blockers`
+odrzuca błędy dopasowania oraz niepełne dowody. V2 przechowuje metadane
+`neuralAcceptanceEvidence` przy geometrii; API porównuje je z przypiętą
+propozycją i nie ufa statusowi automatic. Historyczne manifesty i replay
+zachowują v1; nieznana lub niespójna para polityk blokuje wykonanie.
+
 **D-523 (TASK-0886):** istniejące payloady importu 2/5/6/7 mają opcjonalne
 `neuralGridExecutionPolicyVersion: "neural-auto-crop-v1"`; reprocess 6
 może przypiąć `neuralGridProposal`. Polityka uczestniczy w fingerprintach

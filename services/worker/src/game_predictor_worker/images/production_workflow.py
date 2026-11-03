@@ -42,7 +42,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     derive_virtual_cells,
 )
 from game_predictor_api.domain.jobs import Job
-from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
+from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICIES
 from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
@@ -973,16 +973,25 @@ class ProductionImageStageAdapterSuite:
         self._game_id = game_id
         self._geometry_guard_resolutions = geometry_guard_resolutions
         self._manual_geometry_import = manual_geometry_import
-        from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
 
-        if neural_execution_policy not in (None, NEURAL_AUTO_CROP_POLICY):
+        if (
+            neural_execution_policy is not None
+            and neural_execution_policy not in NEURAL_AUTO_CROP_POLICIES
+        ):
             raise ImagePipelineExecutionError(
                 "NEURAL_GRID_EXECUTION_POLICY_UNSUPPORTED", "Unsupported neural crop policy."
             )
-        self._neural_automatic_crops = neural_execution_policy == NEURAL_AUTO_CROP_POLICY
-        from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICY
+        self._neural_automatic_crops = neural_execution_policy in NEURAL_AUTO_CROP_POLICIES
+        self._neural_execution_policy = neural_execution_policy
+        from game_predictor_api.domain.v3_engine_acceptance import (
+            V3_ENGINE_ACCEPTANCE_POLICIES,
+            crop_policy_for_acceptance,
+        )
 
-        if engine_acceptance_policy not in (None, V3_ENGINE_ACCEPTANCE_POLICY):
+        if engine_acceptance_policy is not None and (
+            engine_acceptance_policy not in V3_ENGINE_ACCEPTANCE_POLICIES
+            or crop_policy_for_acceptance(engine_acceptance_policy) != neural_execution_policy
+        ):
             raise ImagePipelineExecutionError(
                 "V3_ENGINE_ACCEPTANCE_POLICY_UNSUPPORTED", "Unsupported engine acceptance policy."
             )
@@ -1029,7 +1038,7 @@ class ProductionImageStageAdapterSuite:
             FunctionImageStageAdapter(
                 "board_detection",
                 (
-                    NEURAL_AUTO_CROP_POLICY
+                    cast(str, self._neural_execution_policy)
                     if self._neural_automatic_crops
                     else DETECTION_ADAPTER_VERSION
                     if self._geometry_rollout.is_legacy
@@ -1043,7 +1052,7 @@ class ProductionImageStageAdapterSuite:
                 FunctionImageStageAdapter(
                     "board_cell_geometry",
                     (
-                        NEURAL_AUTO_CROP_POLICY
+                        cast(str, self._neural_execution_policy)
                         if self._neural_automatic_crops
                         else BOARD_CELL_PROCESSING_VERSION
                         if self._geometry_rollout.is_legacy
@@ -1201,7 +1210,10 @@ class ProductionImageStageAdapterSuite:
                     structured,
                     entry,
                     automatic_crops=self._neural_automatic_crops,
+                    execution_policy=cast(str, self._neural_execution_policy),
                     engine_acceptance_policy=self._engine_acceptance_policy,
+                    rows=self._board_topology.rows,
+                    columns=self._board_topology.columns,
                 )
             return {
                 "manualGeometryRequired": True,
@@ -1349,7 +1361,7 @@ class ProductionImageStageAdapterSuite:
             structured = _mapping(detection["structuredGeometry"], "structuredGeometry")
             return {
                 "structuredGeometry": structured,
-                "processingVersion": NEURAL_AUTO_CROP_POLICY,
+                "processingVersion": self._neural_execution_policy,
                 "topologyRulesVersionId": self._board_topology.rules_version_id,
                 "configurationFingerprintSha256": structured["configChecksumSha256"],
                 "gridRows": self._board_topology.rows,

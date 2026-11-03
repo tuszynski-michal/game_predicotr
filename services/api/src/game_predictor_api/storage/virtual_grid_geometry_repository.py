@@ -170,6 +170,66 @@ class SqlAlchemyVirtualGridGeometryRepository:
         from game_predictor_api.storage.models import ImageSequenceCanonicalModel
 
         base = prepared.entries[0].context
+        from game_predictor_api.domain.neural_crop_policy import (
+            NEURAL_AUTO_CROP_POLICY,
+            full_neural_prediction_geometry,
+            neural_auto_crop_blockers,
+            neural_auto_crop_evidence,
+        )
+        from game_predictor_api.domain.neural_grid_proposal import (
+            NeuralGridProposalError,
+            validate_neural_source_binding,
+        )
+        from game_predictor_api.domain.v3_engine_acceptance import crop_policy_for_acceptance
+
+        crop_policy = crop_policy_for_acceptance(acceptance_policy)
+        if crop_policy is None:
+            raise ImageGridReviewError(
+                "NEURAL_GRID_EXECUTION_POLICY_UNSUPPORTED", "Unknown automatic write policy."
+            )
+        if crop_policy == NEURAL_AUTO_CROP_POLICY:
+            try:
+                checked_binding = validate_neural_source_binding(binding, proposal)
+            except NeuralGridProposalError as error:
+                raise ImageGridReviewError(error.code, str(error)) from error
+            detections = {item["detectionId"]: item for item in proposal["detections"]}
+            for entry in prepared.entries:
+                geometry = entry.board_geometry
+                detection = detections.get(geometry.get("detectionId"))
+                if (
+                    proposal["engineSnapshot"] != model_snapshot
+                    or proposal["gameId"] != str(base.game_id)
+                    or proposal["sourceChecksumSha256"] != base.source_checksum_sha256
+                    or geometry.get("neuralExecutionPolicy") != crop_policy
+                    or geometry.get("neuralProposalBinding") != checked_binding
+                    or detection is None
+                    or geometry.get("latticeNodes") != detection["latticeNodes"]
+                    or geometry.get("neuralAcceptanceEvidence")
+                    != neural_auto_crop_evidence(detection)
+                    or neural_auto_crop_blockers(
+                        policy=crop_policy,
+                        detection=detection,
+                        binding=checked_binding,
+                        position=entry.context.position_index,
+                        width=base.oriented_width,
+                        height=base.oriented_height,
+                        rows=entry.context.topology.rows,
+                        columns=entry.context.topology.columns,
+                    )
+                    or not full_neural_prediction_geometry(
+                        geometry,
+                        position=entry.context.position_index,
+                        sequence=entry.context.sequence_number,
+                        width=base.oriented_width,
+                        height=base.oriented_height,
+                        game_id=str(base.game_id),
+                        source_checksum_sha256=base.source_checksum_sha256,
+                    )
+                ):
+                    raise ImageGridReviewError(
+                        "NEURAL_GRID_AUTOMATIC_WRITE_BLOCKED",
+                        "The frozen neural evidence does not permit an automatic write.",
+                    )
         acquire_sequence_ownership_lock(self._session, game_id=base.game_id)
         require_active_source(self._session, base.game_id, base.source_image_id)
         for entry in prepared.entries:
@@ -452,6 +512,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     "neuralProposalBinding",
                     "detectionId",
                     "neuralExecutionPolicy",
+                    "neuralAcceptanceEvidence",
                 )
             ) and slot.get("finalQuad") == board.board_geometry.get("quad")
             positions.append(

@@ -2,6 +2,10 @@
 
 Wąska naprawa błędu ujawnionego przy jawnym zastosowaniu nowej wersji. TASK-1152 zachowuje liczniki między lease handlera, bez zmiany zabezpieczeń i danych domenowych. Jedna runda Opus, otwarte P0/P1 blokują commit. Przed wdrożeniem osobna zgoda na merge/push i restart general worker; nie dotyczy API/Admin/GPU. Opis kryteriów i testów: tasks/completed/1152-grid-apply-progress.md.
 
+## Wynik odbioru
+
+Kod/testy/audyt PASS; osobna zgoda na merge/push i restart general worker otrzymana i wykonana. Ten sam apply zakończony, default i MumieA2 revision2/version3ed60010. Raport151plansz/102zdjęcia zapisany bez mutacji geometrii. Szczegóły i granice dowodu w Outcome TASK-1152.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

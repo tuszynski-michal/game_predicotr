@@ -15,7 +15,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 
 
-- **TASK-1108:** default nowych gier=Mumie v1, bez zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
+- **Mumie A2 / TASK-1152:** default i przypisanie gry=wersja3ed60010 (r7a1b3835-4ae3a390), revision2 po jawnym zastosowaniu. Historyczne importy/korekty zachowane. Źródło: `tasks/completed/1152-grid-apply-progress.md`.
 
 
 - **Selektor1.0.5:** zaakceptowany; reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
@@ -54,7 +54,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **Mumie A2 / TASK-1152:** zastosowanie a2eeba17 failed po publish; poprawka licznika Opus PASS, czeka na zgodę na merge/push i restart general worker. Bez zmiany defaultu/przypisania.
+- **Mumie A2 / TASK-1152:** naprawa licznika wdrożona po Opus PASS i zgodzie; ten sam apply zakończony, default i MumieA2 revision2. Porównanie151plansz w root artifacts/grid-applied-comparison-20261103/comparison.html.
 
 
 - **TASK-1147 / P2:** 2 zastane FAIL retencji także na `60f50c64`; produkt fail-closed, naprawa osobno. Źródło: `quality/TASK-1147_VERIFICATION.md`.

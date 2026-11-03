@@ -87,7 +87,7 @@ Brak fizycznego Chrome/FSA i Androida oraz etykiet pilota. A1 końcowy mypy part
 
 ## Outcome
 
-Commit: v1.7.533 (hash dopisuje kolejny commit).
+Commit: v1.7.533 / `675f0135f3bb74d8eeebf7b7912e2913a1fab43c`.
 
 ### Changed
 

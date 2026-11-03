@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1132 — Odbiór detektora i wymiany źródeł (done)
 
 - Plik: `tasks/completed/1132-readability-replacement-acceptance.md`.
-- Commit: **v1.7.533** (hash dopisuje kolejny commit).
+- Commit: **v1.7.533 / `675f0135f3bb74d8eeebf7b7912e2913a1fab43c`** (hash dopisuje kolejny commit).
 - Raport odbioru mapuje wszystkie punkty D1 i DoD na dowody A1–C2. Rzeczywiste buildy klienta/core/Admina/Selektora, board-search-ui typy i świeże OpenAPI/generated/map/docs PASS. Dokładna grupa APK bez deselection47PASS23,81s; historycznej przyczyny nie odtworzono. Tymczasowe własne junctions usunięte bez rekurencji, resolver wrócił do main.
 - Opus5.5/medium R1 PASS, rzeczywisty modelUsage claude-opus-5-5. Bez nowych harnessów/testów/eksperymentów. Bez usług, danych operatora, produkcyjnych migracji, aktywacji i merge/push.
 - Implementacja9/9; skuteczność niezmierzona do etykiet/pilota/TEST i odbioru operatora. Fizyczny Chrome/FSA/Android pending; A1 mypy partial pozostaje jawny. Testowana baza40581449; nowszy main wymaga preflight integracji.

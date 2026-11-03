@@ -68,7 +68,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
-- `services/api/alembic/versions/` (184 py) - migracje `NNNN_*.py`
+- `services/api/alembic/versions/` (185 py) - migracje `NNNN_*.py`
 - `services/test_support/` (2 py) - wspólne helpery testowe API/workera
 
 ### Moduły wejściowe i symbole
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (462 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (135 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (463 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (136 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

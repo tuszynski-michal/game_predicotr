@@ -15,9 +15,9 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0178_grid_correction_growth"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0179_empty_replacement_search"
     assert script.get_revision(schema_readiness.EXPECTED_ALEMBIC_HEAD).down_revision == (
-        "0177_source_replacement_purge"
+        "0178_grid_correction_growth"
     )
 
 
@@ -77,6 +77,7 @@ def test_compact_merge_preserves_super_game_and_management_branches() -> None:
         "0175_source_replacement_guards",
         "0176_source_replacement_closed",
         "0177_source_replacement_purge",
+        "0178_grid_correction_growth",
         "9999_future",
     ),
 )

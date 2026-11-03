@@ -3289,6 +3289,13 @@ Restored zapisuje immutable command receipt z potwierdzonymi snapshotami czyteln
 Nowa publikacja datasetu dla sekwencji z retired scope zapisuje istniejące `layouts.source_board_id` wyłącznie przy zgodności current canonical i staging cells. Mobile rewaliduje ten lineage pod SHARED fence przy build/publish/record/ready; stare NULL, wycofana plansza lub drift komórek wymagają nowego datasetu (`MOBILE_RELEASE_SOURCE_PROOF_STALE`). Brak slots nie zastępuje proof. Historyczne wydane snapshoty oraz exact receipts pozostają czytelne; brak backfillu historycznych layouts.
 
 
+TASK-1151 / migracja0179: publiczny zbiór wykluczonych review ma pustą ścieżkę,
+gdy dana gra nie ma retired, slots ani restoredentries. Nie wykonuje wtedy
+joinów korpusu. Przy dowolnym takim fence deleguje do niezmienionej implementacji
+0176; zachowuje STABLE, SECURITY INVOKER, scope/RLS i dokładne reguły current.
+Dotychczasowa funkcja zachowuje OID/ACL pod nazwą z sufiksem `_impl_v1`;
+downgrade przywraca jej nazwę bez zmian danych lub manifestu.
+
 ## Fizyczny purge starego źródła — TASK-1141 / D-583
 
 Migracja0177 dodaje `source_images.purged_at`. Mały parent zachowuje ID/SHA, import/execution identity i metadane; operacyjne boards/reviews/cells/prediction revisions/geometria oraz dedykowane pliki są usuwane po relacjach konkretnego zdjęcia. Nie ma DELETE modeli/kohort ani globalnego usuwania projection/count state gry. Istniejące triggery kolejki i invalidation aktualizują stan.

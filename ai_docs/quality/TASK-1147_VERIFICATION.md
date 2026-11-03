@@ -139,8 +139,44 @@ Brak nowej logiki produktu; nie ponawiano PG, UI ani buildów. Koordynator nadal
 zachowuje kontrolę root/main/usług/bazy. Synchronizacja nie zamyka TASK-1147.
 
 Audyt: `TASK-1147_AUDIT_claude-opus-5-5.md`, R1 PASS bez P0/P1.
-P2-1/P2-3 zamknięte kontrolami powyżej; P2-2 pozostaje bramką odbioru
-bez aliasów w głównym checkout. P2-4 (dwie zastane porażki retencji)
+P2-1/P2-3 zamknięte kontrolami powyżej; P2-2 zamknięte późniejszym standardowym
+typecheckiem i buildem w głównym checkout, opisanymi poniżej. P2-4 (dwie zastane porażki retencji)
 zaakceptowane jako odłożone przez prowadzącego i zapisane w CURRENT_STATE.
 P2-5: ponowny odczyt tożsamości/rewizji bazy przed migracją zapisany w planie.
 Nie jest to raport pełnego quality PASS ani zakończonego wdrożenia.
+
+## Checkpoint odbioru operatora na 0178
+
+Prowadzący wdrożył root/main `5cfe292b` i przeprowadził rzeczywistą migrację
+0177 → 0178 oraz kontrolę ról aplikacyjnych: PASS. Snapshoty przed i po
+potwierdzają niezmienione 166971 źródeł, 1500019 plansz, 22248975 komórek
+oraz hashe aktywacji; `purged_sources=0`. P2-5 zamknięte: odczytano tożsamość
+bazy i rewizję 0177 przed migracją, bez pominięcia niespodziewanego 0178.
+
+P2-2 zamknięte: standardowy root Admin typecheck i production build bez
+aliasów PASS. Dowody `D:/game_predicotr/artifacts/grid-growth-deploy-20261103/`
+zawierają `root-typecheck.log`, `root-build.log`, `database-before.json`,
+`database-after.json` oraz `migrate-0.log`–`migrate-2.log`.
+
+API/Admin i lane general 7 / grid-training 1 działają. Rzeczywisty panel
+potwierdził loading i zmianę czasu po odświeżeniu, verified przy aktualności
+oraz odblokowanie Apply po potwierdzeniu, bez kliknięcia Apply. Liczniki
+przed nowym startem: 196 zatwierdzonych plansz, TRAIN 146 (77 zapisanych,
+69 nowych), VALIDATION 17, REGRESSION 21, wyłączenia 12. Z UI utworzono
+jeden przebieg `cc7e739e-027c-4f44-87d8-8088c0d86bb1`; odpowiedź i późniejszy
+odczyt historii potwierdzają ten sam trwały identyfikator. Odczyt z 11:17:19 UTC
+ma `processing`, kohortę `8c4d3ab4-4d01-59fe-a826-46883b72ddfe`
+i `trainingRunId=null`. Nie zgłoszono sukcesu treningu ani zastosowania modelu.
+
+Pełny checkpoint wraz z liczbą zdjęć, PID, instrukcją przy przejściowym
+`KillAccessDenied` i granicami dowodów:
+`quality/GRID_CORRECTION_GROWTH_DEPLOYMENT_20261103.md`.
+Prowadzący dopisze wynik uczenia; TASK-1147 nadal pozostaje `in_progress`.
+
+## Checkpoint rzeczywistego odbioru — blokady1149/1150
+
+Pierwszy freeze parenta `cc7e739e-027c-4f44-87d8-8088c0d86bb1` przekroczył60s. Normalny replay tego samego polecenia `freeze:163` i oryginalnego klucza zamroził kohortę `8c4d3ab4-4d01-59fe-a826-46883b72ddfe` do rewizji164 w53,515s; blokady wejść33,641s. To dowód poprawnego zapisu, ale nie trwała naprawa kosztu; TASK-1149 ogranicza per-row SQL do partii200 bez zmiany blokad/limitów.
+
+Oficjalne resume tego samego parenta zachowało historię i utworzyło tylko run `7a1b3835-639c-4439-8f49-3dfaea5e650a`. Dziecko zakończyło się na kroku488: `PermissionError [WinError5]` w atomowym `os.replace` pliku postępu. Budget pozostał488/8000 kroków i161,969/7200 sekund, attempt1; brak kandydata i zmiany defaultu. TASK-1150 dodaje krótki ograniczony retry tej samej podmiany. Nie wznowiono ponownie przed poprawką.
+
+Bramka odbioru pozostaje otwarta: sam PASS statycznego audytu1147 i poprawne liczniki nie stanowią sukcesu uczenia. Źródła: root `artifacts/grid-growth-deploy-20261103/freeze-profile-result.json`, `failed-training-job.json`, `latest-training.json` oraz diagnostyka runa. Zakres naszego178 nie został jeszcze wypchnięty.

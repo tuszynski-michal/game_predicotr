@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+## Przeniesione wpisy operacyjne — 2026-11-03 (TASK-1149)
+
+- **Mumie A2 / TASK-1136–1137:** wdrożony kod v1.7.533, GPU zrestartowany; uczenie i ocena PASS (14/20 → 15/20, błąd -17,77%). HTML: 230 siatek. Default v1 zachowany; zastosowanie osobno. [Odbiór](../quality/GRID_LEARNING_DEPLOYMENT_20261103.md).
+
+- TASK-1102: zaakceptowany, scalony i wypchnięty razem z działającą nawigacją ±15 (TASK-1101); API zrestartowane za zgodą operatora. Ostatni zgłoszony wzór 777a2: POST HTTP 200, 40 wyników w 8,219 s zamiast timeoutu po 66,109 s. Admin, Reviewer i istniejący publiczny adres HTTP 200, bez ich restartu i bez migracji. Źródło: `tasks/completed/1102-board-search-query-timeout.md`, sekcja odbioru wdrożenia. Inne wzory i uwierzytelniony link odbiorcy nie były sprawdzane operacyjnie.
+
 ### TASK-1145 — Uzgodniona numeracja migracji korekt (done)
 
 - Plik: `tasks/completed/1145-grid-growth-migration-number.md`; commit **v1.7.541 / `3df55bcadbd62bf0ab76d745b8fc1d819fcf6ad0`**.

@@ -45,7 +45,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md` | kod: Opus PASS; koordynacja wdrożenia | TASK-1147 | `codex/grid-correction-growth` |
+| `delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md` | 0178 wdrożona; odbiór i poprawka freeze | TASK-1147, TASK-1149, TASK-1150 | `codex/grid-correction-growth` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -55,7 +55,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **TASK-1147:** Opus PASS; kod 0178 po 0177. Odbiór 0178 po przekazaniu okna. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
+- **TASK-1147:** DB0178 i liczniki146/77 wdrożone. Odbiór wymaga poprawek1149 (freeze) i1150 (Windowsprogress); model domyślny zachowany. [Plan](../delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md).
 
 - **TASK-1147 / P2:** 2 zastane FAIL retencji także na `60f50c64`; produkt fail-closed, naprawa osobno. Źródło: `quality/TASK-1147_VERIFICATION.md`.
 
@@ -63,7 +63,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 - **TASK-1137 / P2 Opus:** dwa zastane FAIL w test_grid_training_run_preview.py (lista presetów i stara blokada korekt), potwierdzone baseline main. Nie maskują wyniku nowego testu limitów; naprawa osobno.
 
-- **Mumie A2 / TASK-1136–1137:** wdrożony kod v1.7.533, GPU zrestartowany; uczenie i ocena PASS (14/20 → 15/20, błąd -17,77%). HTML: 230 siatek. Default v1 zachowany; zastosowanie osobno. [Odbiór](../quality/GRID_LEARNING_DEPLOYMENT_20261103.md).
+- **Mumie A2 / TASK-1136–1137:** poprzedni trening PASS, default v1 zachowany. Szczegóły i HTML: [odbiór](../quality/GRID_LEARNING_DEPLOYMENT_20261103.md).
 
 - **TASK-1134 / P2 Opus:** domyślne repo CUDA jest pokryte naprawą CLI; niestandardowy `-GridTrainingPython` i User-only/invalid env w launcherze lane mają nadal odrębną politykę. Ujednolicenie poza zakresem; szczegóły w Outcome TASK-1134.
 
@@ -77,16 +77,24 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - Decyzje architektoniczne: indeks 30 najnowszych w
   `ai_docs/process/DECISION_LOG.md` (starsze w archiwum indeksu); wszystkie wpisy mają status `accepted`
   albo `superseded`, brak wpisów `proposed`.
-- TASK-1102: zaakceptowany, scalony i wypchnięty razem z działającą nawigacją ±15 (TASK-1101); API zrestartowane za zgodą operatora. Ostatni zgłoszony wzór 777a2: POST HTTP 200, 40 wyników w 8,219 s zamiast timeoutu po 66,109 s. Admin, Reviewer i istniejący publiczny adres HTTP 200, bez ich restartu i bez migracji. Źródło: `tasks/completed/1102-board-search-query-timeout.md`, sekcja odbioru wdrożenia. Inne wzory i uwierzytelniony link odbiorcy nie były sprawdzane operacyjnie.
+- TASK-1102: wyszukiwanie wdrożone i odebrane. Szczegóły: `tasks/completed/1102-board-search-query-timeout.md`; pełny wpis zachowany w archiwum Q4 (transfer TASK-1149).
 - Pozycje „Otwarte pytania” i „Blocked / deferred” z lipca 2026 (TASK-0076–0089,
   0143–0171, bramka `massImportAllowed`) są nieaktualne i leżą w
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
 
+### TASK-1150 — Atomowy postęp Windows (in_progress)
+
+- Plik: `tasks/1150-grid-training-windows-atomic-progress.md`. WinError5: krótki retry; testy i Opus.
+
+### TASK-1149 — Partie blokowanych wierszy (in_progress)
+
+- Plik: `tasks/1149-grid-freeze-batched-lock-reads.md`. Partie200; testy PASS, oczekuje na Opus.
+
 ### TASK-1147 — Integracja przyrostu korekt (in_progress)
 
-- Plik: `tasks/1147-grid-growth-integration.md`. Kod 0178 po 0177, Opus PASS; odbiór wdrożenia czeka na koordynatora. Zgody wdrożenia udzielone.
+- Plik: `tasks/1147-grid-growth-integration.md`. DB0178; odbiór po1149/1150, z zachowaniem runa i budżetu.
 
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 

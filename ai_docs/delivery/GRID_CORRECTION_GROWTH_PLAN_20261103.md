@@ -178,6 +178,20 @@ wersje, stan bazy, identyfikatory procesów i wynik kontroli. Push wyłącznie m
 bez force; sprzątanie wyłącznie własnej scalonej gałęzi/worktree po zabezpieczeniu
 dowodów. Brak ponownych zgód na już jawnie zlecone operacje.
 
+## TASK-1149 — Usunięcie kosztu per-row timeout podczas freeze
+
+Rzeczywisty odbiór1147 wykrył przekroczenie60s przy788 źródłach/124 użytych zdjęciach. Pomiary oryginalnego polecenia: blokowanie33,641s, etykiety7,990s, rejestr7,156s, pliki0,252s; identyczne ponowienie prawidłowo zamroziło zestaw w53,515s, ale pozostawia zbyt mały margines. Źródłem dodatkowych zapytań jest deadline.check(session) dla każdego blokowanego wiersza.
+
+Zastosować prywatny strumień fetchmany(200): kontrola SQL przed każdym pobraniem, kontrola zegara po partii, zamknięcie kursora przy zakończeniu/błędzie. Zachować wszystkie SELECT/ORDER BY/FOR UPDATE, pełen zakres strażników i limity60/30/5s. Sekwencje nadal rosnąco i osobno; każdy ich SQL ma istniejący event timeout. Bez migracji, zmiany API i nowych korpusów. Szczegóły: tasks/1149-grid-freeze-batched-lock-reads.md.
+
+Wymagane: test granic partii i timeout/close, PG komplet blokad ponad200 komórek i rollback, registry/restart, lint/types, docs/map oraz Opus przed osobnym commitem/task-close. To konieczna poprawka odbioru1147. Wznowienie istniejącego parenta zachowuje budżet i historię; nie tworzyć nowego treningu ani nie stosować defaultu automatycznie.
+
+## TASK-1150 — Windows: atomowy postęp odporny na krótką blokadę
+
+Rzeczywisty run po wznowieniu doszedł do488 kroków, ale os.replace progress.json zwrócił WinError5. Wdrożyć w istniejącym write_json_atomic ograniczony retry dla winerror5/32/33: ten sam fsync tempplik, najwyżej7 prób i opóźnienia10/20/40/80/160/160ms. Zachować atomowość i stary destination; nie usuwać pliku docelowego. Trwała odmowa i inne błędy nadal propagowane. Budżet/format/lease bez zmian.
+
+Wymagane: deterministyczne granice, rzeczywisty Windows uchwyt bez FILE_SHARE_DELETE i pełny JSON, konsumenckie regresje diagnostyki/restartu/budżetu, lint/types, docs/map i Opus. Bez GPU w testach wykonawcy. Po wdrożeniu prowadzący wznawia ten sam parent/run i istniejący budżet. Zadanie1150 jest niezależną konieczną poprawką odbioru1147; może powstawać równolegle z1149 w rozłącznych plikach.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
@@ -186,3 +200,5 @@ dowodów. Brak ponownych zgód na już jawnie zlecone operacje.
 | TASK-1140 — Panel i aktualność | gpt-6.1-sol | high | Istniejący kontrakt, prowadzony interfejs i ochrona odpowiedzi asynchronicznych | Obowiązkowy Claude Code claude-opus-5-5/high |
 | TASK-1145 — Uzgodnienie numeracji migracji | gpt-6-astra | high | Migracja i zgodność readiness wymagają zachowania historii i grafu rewizji | Obowiązkowy Claude Code claude-opus-5-5/high |
 | TASK-1147 — Integracja i odbiór | gpt-6-astra | high | Połączenie grafu migracji i zmian równoległych bez utraty zachowania | Obowiązkowy Claude Code claude-opus-5-5/high |
+| TASK-1149 — Strumieniowa kontrola czasu freeze | gpt-6-astra | high | Utrzymanie blokad i deadline przy ograniczeniu liczby zapytań | Obowiązkowy Claude Code claude-opus-5-5/high |
+| TASK-1150 — Atomowy postęp Windows | gpt-6.1-sol | high | Wąski zapis plikowy z kontrolą trwałości i granic ponowień | Obowiązkowy Claude Code claude-opus-5-5/high |

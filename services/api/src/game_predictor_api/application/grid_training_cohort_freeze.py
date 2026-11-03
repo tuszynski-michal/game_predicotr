@@ -35,6 +35,9 @@ def _lock_inputs(
     session.execute(text("SELECT pg_advisory_xact_lock(9910994)"))
     session.execute(text("SELECT pg_advisory_xact_lock(9921002)"))
     acquire_sequence_ownership_lock(session, game_id=game)
+    from game_predictor_api.storage.source_replacement_guards import require_cohort_sources
+
+    require_cohort_sources(session, game, identifier)
     session.execute(select(GameModel.id).where(GameModel.id == game).with_for_update())
     sequences = session.execute(
         text("""SELECT DISTINCT b.sequence_number

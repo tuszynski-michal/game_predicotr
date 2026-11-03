@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
@@ -156,3 +157,56 @@ def test_source_override_rejects_candidate_from_another_sequence() -> None:
 
     assert response.status_code == 409
     assert response.json()["code"] == "IMAGE_SEQUENCE_SOURCE_CANDIDATE_INVALID"
+
+
+def test_reserved_gap_response_keeps_manifest_identity_without_candidates() -> None:
+    batch, entry = uuid4(), uuid4()
+
+    class ReservedRepository(QualityRepository):
+        def sequence_source_selection(self, game_id, sequence_number):
+            return ImageSequenceSourceSelection(
+                game_id=game_id,
+                sequence_number=sequence_number,
+                candidates=(),
+                manual_override_review_item_id=None,
+                override_revision=0,
+                state="reserved_gap",
+                replacement_batch_id=batch,
+                replacement_entry_id=entry,
+                replacement_manifest_url=f"/api/v1/admin/games/{game_id}/board-sources/{batch}",
+            )
+
+    repository = ReservedRepository()
+    response = _client(repository).get(
+        f"/api/v1/admin/image-review-items/sequence-sources/{repository.game_id}/7"
+    )
+    assert response.status_code == 200
+    assert response.json()["state"] == "reserved_gap"
+    assert response.json()["candidates"] == []
+    assert response.json()["replacementBatchId"] == str(batch)
+    assert response.json()["replacementEntryId"] == str(entry)
+    assert response.json()["replacementManifestUrl"].endswith(str(batch))
+
+
+def test_history_candidates_expose_permanent_retirement_and_normal_choice() -> None:
+    class HistoryRepository(QualityRepository):
+        def sequence_source_selection(self, game_id, sequence_number):
+            selection = super().sequence_source_selection(game_id, sequence_number)
+            assert selection is not None
+            old, new = selection.candidates
+            return replace(
+                selection,
+                candidates=(
+                    replace(old, selected=False, source_state="replaced", selectable=False),
+                    replace(new, selected=True),
+                ),
+            )
+
+    repository = HistoryRepository()
+    response = _client(repository).get(
+        f"/api/v1/admin/image-review-items/sequence-sources/{repository.game_id}/7"
+    )
+    assert response.status_code == 200
+    old, new = response.json()["candidates"]
+    assert (old["sourceState"], old["selectable"], old["selected"]) == ("replaced", False, False)
+    assert (new["sourceState"], new["selectable"], new["selected"]) == ("active", True, True)

@@ -97,10 +97,13 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 FROM image_symbol_review_cells c
                 JOIN symbols s ON s.id = c.assigned_symbol_id AND s.game_id = c.game_id
                 JOIN recognized_boards rb ON rb.id = c.recognized_board_id
+                JOIN source_images src ON src.id = rb.source_image_id
                 JOIN image_board_search_fast_documents d
                   ON d.game_id = c.game_id AND d.sequence_number = c.sequence_number
                  AND d.review_item_id = c.review_item_id
                 WHERE c.game_id = :game_id AND c.review_state = 'approved'
+                  AND public.source_replacement_current_v1(
+                  c.game_id,src.id,src.checksum_sha256,c.sequence_number,c.review_item_id)
                   AND s.status = 'active' AND s.code <> '?'
                 GROUP BY GROUPING SETS ((s.code), ())
                 """),
@@ -125,6 +128,12 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
         )
 
     def inventory(self, *, game_id: UUID, lock_game: bool) -> SymbolCellTrainingSourceInventory:
+        if lock_game:
+            from game_predictor_api.storage.sequence_ownership_lock import (
+                acquire_sequence_ownership_lock,
+            )
+
+            acquire_sequence_ownership_lock(self._session, game_id=game_id)
         game_query = select(GameModel).where(GameModel.id == game_id)
         if lock_game:
             game_query = game_query.with_for_update()
@@ -149,7 +158,9 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                     JOIN image_symbol_review_cells c ON c.recognized_board_id = rb.id
                     LEFT JOIN image_source_geometry_revisions sgr
                       ON sgr.id = c.source_geometry_revision_id
-                    WHERE c.game_id = :game_id AND c.review_state = 'approved'
+                    WHERE public.source_replacement_current_v1(
+                    c.game_id,src.id,src.checksum_sha256,c.sequence_number,c.review_item_id)
+                    AND c.game_id = :game_id AND c.review_state = 'approved'
                       AND (src.checksum_sha256 = ANY(CAST(:protected_bytes AS text[]))
                         OR (sgr.source_checksum_sha256 = src.checksum_sha256
                           AND sgr.normalized_pixel_checksum_sha256 =
@@ -205,6 +216,8 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                    AND d.sequence_number = c.sequence_number
                    AND d.review_item_id = c.review_item_id
                   WHERE c.game_id = :game_id
+                    AND public.source_replacement_current_v1(
+                    c.game_id,src.id,src.checksum_sha256,c.sequence_number,c.review_item_id)
                     AND NOT (src.checksum_sha256 = ANY(CAST(:protected_bytes AS text[])))
                     AND NOT COALESCE(
                       sgr.source_checksum_sha256 = src.checksum_sha256
@@ -368,7 +381,11 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                    AND d.sequence_number = c.sequence_number
                    AND d.review_item_id = c.review_item_id
                   LEFT JOIN symbols s ON s.id = c.assigned_symbol_id
+                  JOIN recognized_boards rb ON rb.id=c.recognized_board_id
+                  JOIN source_images src ON src.id=rb.source_image_id
                   WHERE c.game_id = :game_id
+                    AND public.source_replacement_current_v1(
+                    c.game_id,src.id,src.checksum_sha256,c.sequence_number,c.review_item_id)
                     AND c.source_available = true
                     AND (c.source_visibility IS NULL OR c.source_visibility = 'full')
                 )

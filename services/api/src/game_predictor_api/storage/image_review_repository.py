@@ -36,13 +36,13 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewPage,
     ImageReviewResolutionEvent,
     ImageReviewView,
-    ImageSequenceSourceCandidate,
     ImageSequenceSourceSelection,
     ValidatedImageReviewResolution,
     canonical_image_review_bytes,
     validate_image_review_resolution,
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
+from game_predictor_api.domain.source_replacement import SourceReplacementError
 from game_predictor_api.domain.verified_training_cohorts import (
     CumulativeVerifiedTrainingSnapshot,
     VerifiedTrainingReviewState,
@@ -85,6 +85,12 @@ from game_predictor_api.storage.sequence_ownership_lock import (
     acquire_sequence_ownership_lock,
     ensure_sequence_ownership_lock,
     require_exclusive_sequence_ownership,
+)
+from game_predictor_api.storage.source_replacement_guards import (
+    RESERVED,
+    current_review_clause,
+    require_current_review,
+    reservation,
 )
 
 ReviewRow = tuple[
@@ -334,88 +340,11 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         sequence_number: int,
     ) -> ImageSequenceSourceSelection | None:
         self._bind(game_id, intent=GameStorageIntent.READ)
-        rows = self._session.execute(
-            select(
-                ImageReviewItemModel,
-                RecognizedBoardModel,
-                SourceImageModel,
-                ImageLayoutStagingRowModel,
-            )
-            .join(
-                ImageLayoutStagingRowModel,
-                ImageLayoutStagingRowModel.review_item_id == ImageReviewItemModel.id,
-            )
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
-            )
-            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-            .join(JobModel, JobModel.id == ImageLayoutStagingRowModel.import_job_id)
-            .where(
-                JobModel.game_id == game_id,
-                ImageLayoutStagingRowModel.sequence_number == sequence_number,
-                ImageReviewItemModel.status.in_(("accepted", "corrected")),
-            )
-            .order_by(
-                RecognizedBoardModel.board_confidence.desc(),
-                RecognizedBoardModel.sequence_confidence.desc(),
-                (SourceImageModel.width * SourceImageModel.height).desc(),
-                ImageReviewItemModel.id,
-            )
-        ).all()
-        if not rows:
-            return None
-        override = self._session.scalar(
-            select(ImageSequenceSourceOverrideEventModel)
-            .where(
-                ImageSequenceSourceOverrideEventModel.game_id == game_id,
-                ImageSequenceSourceOverrideEventModel.sequence_number == sequence_number,
-            )
-            .order_by(ImageSequenceSourceOverrideEventModel.revision.desc())
-            .limit(1)
+        from game_predictor_api.storage.source_replacement_selection import (
+            sequence_source_selection,
         )
-        canonical = self._session.scalar(
-            select(ImageSequenceCanonicalModel).where(
-                ImageSequenceCanonicalModel.game_id == game_id,
-                ImageSequenceCanonicalModel.sequence_number == sequence_number,
-            )
-        )
-        manual_id = None if override is None else override.selected_review_item_id
-        selected_id = (
-            canonical.review_item_id if canonical is not None else manual_id or rows[0][0].id
-        )
-        candidates = tuple(
-            ImageSequenceSourceCandidate(
-                review_item_id=item.id,
-                recognized_board_id=board.id,
-                import_job_id=staging.import_job_id,
-                sequence_number=sequence_number,
-                source_checksum_sha256=source.checksum_sha256,
-                source_relative_path=source.relative_path,
-                width=source.width,
-                height=source.height,
-                board_confidence=board.board_confidence,
-                sequence_confidence=board.sequence_confidence,
-                geometry_revision=board.geometry_revision,
-                automatic_rank=index,
-                quality_score=round(
-                    board.board_confidence * 0.45
-                    + board.sequence_confidence * 0.35
-                    + min(source.width * source.height / 2_073_600, 1.0) * 0.20,
-                    6,
-                ),
-                selected=item.id == selected_id,
-                selected_manually=manual_id is not None and item.id == manual_id,
-            )
-            for index, (item, board, source, staging) in enumerate(rows, start=1)
-        )
-        return ImageSequenceSourceSelection(
-            game_id=game_id,
-            sequence_number=sequence_number,
-            candidates=candidates,
-            manual_override_review_item_id=manual_id,
-            override_revision=0 if override is None else override.revision,
-        )
+
+        return sequence_source_selection(self._session, game_id, sequence_number)
 
     def append_source_override(
         self,
@@ -427,6 +356,12 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
     ) -> None:
         self._bind(game_id, intent=GameStorageIntent.WRITE)
         self._acquire_sequence_lock(game_id, sequence_number)
+        if review_item_id is not None:
+            require_current_review(self._session, game_id, review_item_id)
+        if reservation(self._session, game_id, sequence_number) is not None:
+            raise SourceReplacementError(
+                RESERVED, "Nie można zmienić źródła zarezerwowanego numeru."
+            )
         latest = self._session.scalar(
             select(func.max(ImageSequenceSourceOverrideEventModel.revision)).where(
                 ImageSequenceSourceOverrideEventModel.game_id == game_id,
@@ -642,6 +577,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     JobModel.game_id == game_id,
                     JobModel.status == JobStatus.WAITING_FOR_REVIEW,
                     ImageReviewItemModel.status == "pending",
+                    current_review_clause(ImageReviewItemModel.id),
                     or_(RecognizedBoardModel.sequence_number.is_(None), ~canonical_exists),
                 )
             )
@@ -935,6 +871,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     "The idempotency key already represents another command.",
                 )
             return locked, _event_from_record(prior), False
+        require_current_review(self._session, game_id, review_item_id)
         if locked.status == "superseded":
             if resolution.action.value in {"accepted", "corrected"}:
                 return self._record_late_superseded_command(
@@ -1246,6 +1183,15 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         resolution_revision: int,
         created_at: datetime,
     ) -> ImageSequenceCanonicalModel:
+        from game_predictor_api.storage.source_replacement_guards import require_sequence_binding
+
+        require_sequence_binding(
+            self._session,
+            game=game_id,
+            source=source.id,
+            sequence=sequence_number,
+            review=review_item_id,
+        )
         board_identity_checksum = _current_board_identity_checksum(board)
         self._session.execute(
             postgresql_insert(ImageSequenceCanonicalModel)
@@ -1656,6 +1602,19 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "IMAGE_REVIEW_ITEM_NOT_FOUND",
                 "The operational review item does not exist in this game and job.",
             )
+        prior = self._session.scalar(
+            select(ImageReviewResolutionEventModel).where(
+                ImageReviewResolutionEventModel.review_item_id == review_item_id,
+                ImageReviewResolutionEventModel.idempotency_key == idempotency_key,
+            )
+        )
+        if prior is not None:
+            if prior.command_sha256 != command_sha256:
+                raise ImageReviewConflictError(
+                    "IMAGE_REVIEW_IDEMPOTENCY_CONFLICT", "The key represents another command."
+                )
+            return locked, False
+        require_current_review(self._session, game_id, review_item_id)
         if locked.status == "superseded":
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_SUPERSEDED",
@@ -1809,7 +1768,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 predictions_by_item[symbol_revision.review_item_id] = list(
                     symbol_revision.predictions
                 )
-        return tuple(
+        items = tuple(
             _item_from_records(
                 item,
                 board,
@@ -1821,6 +1780,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
             for item, board, source, queue_item, job in rows
         )
+
+        from game_predictor_api.storage.source_replacement_selection import annotate_review_sources
+
+        return annotate_review_sources(self._session, items)
 
     def _counts(self, game_id: UUID, import_job_id: UUID) -> ImageReviewCounts:
         del game_id
@@ -1840,7 +1803,18 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             .where(JobModel.game_id == game_id)
         ).one()
         return ImageReviewCounts(
-            pending=int(totals[0]),
+            pending=int(
+                self._session.scalar(
+                    select(func.count())
+                    .select_from(ImageReviewItemModel)
+                    .where(
+                        ImageReviewItemModel.game_id == game_id,
+                        ImageReviewItemModel.status == "pending",
+                        current_review_clause(ImageReviewItemModel.id),
+                    )
+                )
+                or 0
+            ),
             accepted=int(totals[1]),
             corrected=int(totals[2]),
             rejected=int(totals[3]),
@@ -1874,8 +1848,17 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 rejected=0,
                 superseded=0,
             )
+        pending_count = self._session.scalar(
+            select(func.count())
+            .select_from(ImageReviewQueueItemModel)
+            .where(
+                ImageReviewQueueItemModel.import_job_id == import_job_id,
+                ImageReviewQueueItemModel.status == "pending",
+                current_review_clause(ImageReviewQueueItemModel.review_item_id),
+            )
+        )
         return state.queue_version, ImageReviewCounts(
-            pending=state.pending_count,
+            pending=int(pending_count or 0),
             accepted=state.accepted_count,
             corrected=state.corrected_count,
             rejected=state.rejected_count,
@@ -2066,7 +2049,10 @@ def _base_query(
         .where(JobModel.id == import_job_id, JobModel.game_id == game_id)
     )
     if view is ImageReviewView.PENDING:
-        query = query.where(ImageReviewQueueItemModel.status == "pending")
+        query = query.where(
+            ImageReviewQueueItemModel.status == "pending",
+            current_review_clause(ImageReviewItemModel.id),
+        )
     elif view is ImageReviewView.COMPLETED:
         query = query.where(ImageReviewQueueItemModel.status.in_(("accepted", "corrected")))
     if grid_issue_view is ImageReviewGridIssueView.NEEDS_GRID_FIX:
@@ -2120,7 +2106,7 @@ def _base_game_query(game_id: UUID) -> Any:
             ),
         )
         .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-        .where(JobModel.game_id == game_id)
+        .where(JobModel.game_id == game_id, current_review_clause(ImageReviewItemModel.id))
     )
 
 
@@ -2155,7 +2141,7 @@ def _verified_training_review_state_query(game_id: UUID) -> Any:
             ),
         )
         .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-        .where(JobModel.game_id == game_id)
+        .where(JobModel.game_id == game_id, current_review_clause(ImageReviewItemModel.id))
     )
 
 

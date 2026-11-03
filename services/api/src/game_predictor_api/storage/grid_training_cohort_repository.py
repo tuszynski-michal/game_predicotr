@@ -303,7 +303,13 @@ class SqlAlchemyGridTrainingCohortRepository:
         except DBAPIError as error:
             code = str(error.orig).splitlines()[0]
             if code.startswith(
-                ("RECORDING_", "SOURCE_REMOVED_", "GRID_COHORT_", "GRID_CORRECTION_")
+                (
+                    "RECORDING_",
+                    "SOURCE_REMOVED_",
+                    "SOURCE_REPLACEMENT_",
+                    "GRID_COHORT_",
+                    "GRID_CORRECTION_",
+                )
             ):
                 raise GridCohortError(
                     code, "The recording dependency is unresolved or changed."

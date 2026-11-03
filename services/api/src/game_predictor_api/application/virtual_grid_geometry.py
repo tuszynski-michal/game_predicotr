@@ -303,6 +303,7 @@ class VirtualGridGeometryRepository(Protocol):
         import_job_id: UUID,
         review_item_id: UUID | None,
         pending_geometry_id: UUID | None,
+        replay_key: UUID | None = None,
     ) -> VirtualGridGeometryContext: ...
 
     def save_virtual_geometry_revision(
@@ -583,7 +584,10 @@ class VirtualGridGeometryService:
         """
 
         context = self._persisted_review_item_context(
-            game_id=game_id, import_job_id=import_job_id, review_item_id=review_item_id
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=review_item_id,
+            replay_key=idempotency_key,
         )
         return self.save(
             game_id=game_id,
@@ -606,13 +610,19 @@ class VirtualGridGeometryService:
         )
 
     def _persisted_review_item_context(
-        self, *, game_id: UUID, import_job_id: UUID, review_item_id: UUID
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        review_item_id: UUID,
+        replay_key: UUID | None = None,
     ) -> VirtualGridGeometryContext:
         return self._repository.virtual_geometry_context(
             game_id=game_id,
             import_job_id=import_job_id,
             review_item_id=review_item_id,
             pending_geometry_id=None,
+            replay_key=replay_key,
         )
 
     def save_source(
@@ -842,6 +852,7 @@ class VirtualGridGeometryService:
             game_id=game_id,
             import_job_id=import_job_id,
             pending_geometry_id=pending_geometry_id,
+            replay_key=idempotency_key,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corners=corners,
@@ -883,6 +894,7 @@ class VirtualGridGeometryService:
         geometry_qualification: GeometryQualification | None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        replay_key: UUID | None = None,
     ) -> VirtualGridGeometrySourceCommand:
         # The deferred item's processing manifest already pins the source
         # checksum; the source identity therefore comes from persistence.
@@ -891,6 +903,7 @@ class VirtualGridGeometryService:
             import_job_id=import_job_id,
             review_item_id=None,
             pending_geometry_id=pending_geometry_id,
+            replay_key=replay_key,
         )
         return VirtualGridGeometrySourceCommand(
             review_item_id=None,
@@ -927,6 +940,7 @@ class VirtualGridGeometryService:
                 import_job_id=import_job_id,
                 review_item_id=value.review_item_id,
                 pending_geometry_id=value.pending_geometry_id,
+                replay_key=idempotency_key,
             )
             contexts.append(context)
             prior = self._repository.virtual_geometry_replay(

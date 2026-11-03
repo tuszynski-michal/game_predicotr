@@ -231,6 +231,26 @@ class StorageGcHandler:
         policy: StorageRetentionPolicy,
         now: datetime,
     ) -> tuple[str, int]:
+        guard = getattr(self._repository, "source_replacement_gc_guard", None)
+        if callable(guard):
+            with guard(str(entry["relativePath"])) as protected:
+                if protected:
+                    return "protectedCount", 0
+                return self._process_entry_after_replacement_guard(
+                    run_id, entry_index, entry, current=current, policy=policy, now=now
+                )
+        return "protectedCount", 0
+
+    def _process_entry_after_replacement_guard(
+        self,
+        run_id: UUID,
+        entry_index: int,
+        entry: Mapping[str, object],
+        *,
+        current: Mapping[tuple[str, str], StorageArtifactObservation],
+        policy: StorageRetentionPolicy,
+        now: datetime,
+    ) -> tuple[str, int]:
         if entry.get("artifactClass") != StorageArtifactClass.GRID_COHORT_ASSET.value:
             return self._process_entry_locked(
                 run_id, entry_index, entry, current=current, policy=policy, now=now

@@ -46,7 +46,9 @@ AS snapshot
  JOIN image_review_items r ON r.id=c.review_item_id AND r.game_id=c.game_id
  JOIN source_images s ON s.id=b.source_image_id AND s.game_id=c.game_id
  LEFT JOIN public.symbols sym ON sym.id=c.assigned_symbol_id AND sym.game_id=c.game_id
- WHERE c.game_id=:game AND r.status<>'rejected' """
+ WHERE c.game_id=:game AND r.status<>'rejected'
+ AND public.source_replacement_current_v1(
+ c.game_id,s.id,s.checksum_sha256,c.sequence_number,r.id) """
 
 
 class SqlAlchemyReadabilityRepository:
@@ -434,6 +436,18 @@ i.snapshot->>'render_identity_v2_sha256')"""),
                 raise ReadabilityWorkflowError(
                     "READABILITY_DUPLICATE_TARGET", "Powtórzone pole w poleceniu."
                 )
+            from game_predictor_api.storage.source_replacement_guards import require_current_review
+
+            for target in request.targets:
+                review = self.session.scalar(
+                    text(
+                        "SELECT review_item_id FROM image_symbol_review_cells "
+                        "WHERE game_id=:game AND id=:cell"
+                    ),
+                    {"game": game, "cell": target.cell_id},
+                )
+                if review is not None:
+                    require_current_review(self.session, game, review)
             current = {
                 t.cell_id: self.current(game, t.cell_id, lock=True)
                 for t in sorted(request.targets, key=lambda t: str(t.cell_id))

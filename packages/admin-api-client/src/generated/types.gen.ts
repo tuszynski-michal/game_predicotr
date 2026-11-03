@@ -13093,6 +13093,10 @@ export type ImageSequenceSourceCandidateResponse = {
    */
   reviewItemId: string;
   /**
+   * Selectable
+   */
+  selectable?: boolean;
+  /**
    * Selected
    */
   selected: boolean;
@@ -13116,6 +13120,10 @@ export type ImageSequenceSourceCandidateResponse = {
    * Sourcerelativepath
    */
   sourceRelativePath: string;
+  /**
+   * Sourcestate
+   */
+  sourceState?: 'active' | 'retired' | 'replaced';
   /**
    * Width
    */
@@ -13157,9 +13165,25 @@ export type ImageSequenceSourceSelectionResponse = {
    */
   overrideRevision: number;
   /**
+   * Replacementbatchid
+   */
+  replacementBatchId?: string | null;
+  /**
+   * Replacemententryid
+   */
+  replacementEntryId?: string | null;
+  /**
+   * Replacementmanifesturl
+   */
+  replacementManifestUrl?: string | null;
+  /**
    * Sequencenumber
    */
   sequenceNumber: number;
+  /**
+   * State
+   */
+  state?: 'available' | 'reserved_gap' | 'pending_bound' | 'history_only';
 };
 
 /**
@@ -16381,6 +16405,10 @@ export type OperationalImageReviewItemResponse = {
     [key: string]: unknown;
   } | null;
   /**
+   * Selectable
+   */
+  selectable?: boolean;
+  /**
    * Sequencenumber
    */
   sequenceNumber?: number | null;
@@ -16398,6 +16426,10 @@ export type OperationalImageReviewItemResponse = {
    * Sourceorderindex
    */
   sourceOrderIndex: number;
+  /**
+   * Sourcestate
+   */
+  sourceState?: 'active' | 'retired' | 'replaced';
   /**
    * Sourcewidth
    *

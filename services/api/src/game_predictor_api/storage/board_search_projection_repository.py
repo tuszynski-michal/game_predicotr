@@ -60,6 +60,7 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
     SymbolModel,
 )
+from game_predictor_api.storage.source_replacement_guards import current_review_clause
 
 _SEARCHABLE_STATUSES = frozenset({"pending", "accepted", "corrected"})
 # A pending cell with one of these reported problems has pixels that are no
@@ -272,6 +273,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
             select(ImageBoardSearchCandidateModel.review_item_id).where(
                 ImageBoardSearchCandidateModel.game_id == game_id,
                 ImageBoardSearchCandidateModel.sequence_number == sequence_number,
+                current_review_clause(ImageBoardSearchCandidateModel.review_item_id),
             )
         ).all()
         self.sync_review_items(tuple(review_item_ids))
@@ -430,7 +432,12 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 mismatch.label("mismatch_count"),
                 unknown.label("unknown_count"),
             )
-            .where(document.game_id == game_id, positive_evidence, scope_filter)
+            .where(
+                document.game_id == game_id,
+                positive_evidence,
+                scope_filter,
+                current_review_clause(document.review_item_id),
+            )
             .order_by(
                 score_expression.desc(),
                 exact_expression.desc(),
@@ -528,6 +535,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 document.game_id == game_id,
                 document.sequence_number >= first_sequence_number,
                 document.sequence_number <= last_sequence_number,
+                current_review_clause(document.review_item_id),
             )
         ).all()
 
@@ -559,7 +567,13 @@ class SqlAlchemyBoardSearchProjectionRepository:
             raise BoardSearchError("GAME_NOT_FOUND", "The selected game does not exist.")
         GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
         document, asset_mode = self._document_source(game_id)
-        record = self._session.get(document, (game_id, sequence_number))
+        record = self._session.scalar(
+            select(document).where(
+                document.game_id == game_id,
+                document.sequence_number == sequence_number,
+                current_review_clause(document.review_item_id),
+            )
+        )
         if record is None:
             return asset_mode, None
         return asset_mode, BoardSearchBoardDocument(
@@ -584,6 +598,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
             .where(
                 ImageBoardSearchCandidateModel.game_id == game_id,
                 ImageBoardSearchCandidateModel.sequence_number == sequence_number,
+                current_review_clause(ImageBoardSearchCandidateModel.review_item_id),
             )
             .execution_options(populate_existing=True)
         ).all()
@@ -771,7 +786,8 @@ class SqlAlchemyBoardSearchProjectionRepository:
         canonical = ImageSequenceCanonicalModel
         candidate = ImageBoardSearchCandidateModel
         eligibility = case(
-            (candidate.review_item_id == canonical.review_item_id, 2),
+            (candidate.review_item_id == canonical.review_item_id, 3),
+            (candidate.status.in_(("accepted", "corrected")), 2),
             (
                 (candidate.status == "pending") & (JobModel.status == JobStatus.WAITING_FOR_REVIEW),
                 1,
@@ -813,7 +829,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 (canonical.game_id == candidate.game_id)
                 & (canonical.sequence_number == candidate.sequence_number),
             )
-            .where(candidate.game_id == game_id)
+            .where(candidate.game_id == game_id, current_review_clause(candidate.review_item_id))
             .subquery()
         )
         selected = select(

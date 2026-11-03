@@ -48,6 +48,7 @@ export type ImageFolderImportClient = Pick<
   | 'setSourceImageGeometryException'
   | 'withdrawSourceImageGeometryException'
   | 'getImageSequenceSourceSelection'
+  | 'operationalImageReviewSourceAssetUrl'
   | 'registerCuratedImageImportSource'
   | 'listCuratedImageImportSources'
   | 'createNextCuratedImageImportBatch'

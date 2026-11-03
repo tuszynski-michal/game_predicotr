@@ -531,7 +531,10 @@ image_symbol_review_cells c WHERE c.game_id=:game AND c.review_item_id=r.id) AS 
         (SELECT to_jsonb(o) FROM image_sequence_canonical o WHERE o.game_id=:game AND
 o.sequence_number=b.sequence_number) AS owner
         FROM recognized_boards b JOIN image_review_items r ON r.recognized_board_id=b.id
-        WHERE b.game_id=:game AND b.source_image_id=:source ORDER BY b.position_index"""),
+        JOIN source_images s ON s.game_id=b.game_id AND s.id=b.source_image_id
+        WHERE b.game_id=:game AND b.source_image_id=:source
+        AND public.source_replacement_current_v1(
+          b.game_id,s.id,s.checksum_sha256,b.sequence_number,r.id) ORDER BY b.position_index"""),
             {"game": game_id, "source": source_image_id},
         ).mappings()
         foreign_rows = self.session.execute(
@@ -542,7 +545,10 @@ o.sequence_number=b.sequence_number) AS owner
                 'status',r.status,'resolution_revision',r.resolution_revision,
                 'geometry_revision',b.geometry_revision) AS owner
             FROM image_review_items r JOIN recognized_boards b ON b.id=r.recognized_board_id
+            JOIN source_images s ON s.game_id=r.game_id AND s.id=b.source_image_id
             WHERE r.game_id=:game AND b.source_image_id<>:source
+              AND public.source_replacement_current_v1(
+              r.game_id,s.id,s.checksum_sha256,r.sequence_number,r.id)
               AND r.status IN ('pending','accepted','corrected') AND b.status<>'rejected'
               AND r.sequence_number IN (
                 SELECT sequence_number FROM recognized_boards
@@ -595,8 +601,10 @@ o.sequence_number=b.sequence_number) AS owner
             pending = self.session.execute(
                 text(
                     """
-SELECT to_jsonb(p) AS pending FROM image_board_geometry_pending p WHERE p.game_id=:game
-AND p.source_image_id=:source AND p.status='pending' ORDER BY p.position_index
+SELECT to_jsonb(p) AS pending FROM image_board_geometry_pending p JOIN source_images s ON
+s.game_id=p.game_id AND s.id=p.source_image_id WHERE p.game_id=:game
+AND p.source_image_id=:source AND p.status='pending' AND public.source_replacement_current_v1(
+p.game_id,s.id,s.checksum_sha256,p.sequence_number,NULL) ORDER BY p.position_index
                     """
                 ),
                 {"game": game_id, "source": source_image_id},

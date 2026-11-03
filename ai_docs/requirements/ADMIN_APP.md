@@ -2379,6 +2379,8 @@ odrzuconym wspólnym kandydatem.
 
 ## Plan wymiany zdjęć — TASK-1127
 
+TASK-1128: wybór źródła rozróżnia dostępną planszę, zarezerwowaną lukę, powiązany zamiennik i samą historię. Wycofany lub zastąpiony kandydat ma czytelne oznaczenie i podgląd zachowanego zdjęcia, ale brak akcji wyboru. Przy rezerwacji Admin wskazuje istniejący manifest batcha i entry. Niepełny roboczy zamiennik nie pojawia się w zwykłych kolejkach. Ten ekran nie uruchamia operatorowego admission/import C2.
+
 W istniejącym obszarze porządkowania źródeł operator zaznacza całe zdjęcia, ogląda dokładne numery, powody nieczytelności, aliasy, zależności i blokery, a następnie jawnie zapisuje plan. Lista kandydatów jest wstępna; aktualny podgląd rozstrzyga kwalifikację. Panel pokazuje, że zapisane zdjęcia pozostają aktywne. Umożliwia ponowne otwarcie planu oraz eksport JSON/CSV.
 
 Przed wysłaniem zapisu panel utrwala dokładną komendę wraz z kluczem i tokenem podglądu. Brak odpowiedzi/5xx zachowuje ją do jawnego ponowienia także po przeładowaniu. Odmowa 4xx wymaga nowego podglądu. Uszkodzony lub niedostępny lokalny zapis blokuje nową komendę. B1 nie udostępnia przycisku wycofania ani eksportu uprawnień do zapełniania luk.

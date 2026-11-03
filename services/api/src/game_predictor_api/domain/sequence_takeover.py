@@ -54,6 +54,47 @@ class SequenceClaimOutcome(StrEnum):
     KEEP_NEWER_SAME_SOURCE = "keep_newer_same_source"
     # A live pending item of another photo owns the sequence: incoming superseded.
     KEEP_EXISTING_OWNER = "keep_existing_owner"
+    KEEP_RESERVED = "keep_reserved"
+    CLAIM_RESERVED = "claim_reserved"
+
+
+@dataclass(frozen=True, slots=True)
+class ReplacementClaimBinding:
+    game_id: str
+    batch_id: str
+    entry_id: str
+    source_id: str
+    source_sha256: str
+    review_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class SequenceReservation:
+    game_id: str
+    batch_id: str
+    entry_id: str
+    new_source_id: str | None
+    new_sha256: str | None
+    bound_review_id: str | None
+    # Supplied only after storage verifies durable admission, never by an HTTP caller.
+    provisional_review_id: str | None = None
+
+    def matches(self, binding: ReplacementClaimBinding | None) -> bool:
+        return binding is not None and (
+            self.game_id,
+            self.batch_id,
+            self.entry_id,
+            self.new_source_id,
+            self.new_sha256,
+            self.bound_review_id or self.provisional_review_id,
+        ) == (
+            binding.game_id,
+            binding.batch_id,
+            binding.entry_id,
+            binding.source_id,
+            binding.source_sha256,
+            binding.review_id,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +133,7 @@ class SequenceClaim:
         return self.outcome in {
             SequenceClaimOutcome.TAKE_OVER,
             SequenceClaimOutcome.REPLACE_SAME_SOURCE,
+            SequenceClaimOutcome.CLAIM_RESERVED,
         }
 
 
@@ -101,6 +143,8 @@ def decide_sequence_claim(
     incumbent: PendingOwnerFacts | None,
     incoming_source_checksum_sha256: str | None,
     incoming_order: ImportOrder,
+    reservation: SequenceReservation | None = None,
+    replacement_binding: ReplacementClaimBinding | None = None,
 ) -> SequenceClaim:
     """Decide the owner of one sequence for an incoming board (D-543).
 
@@ -110,6 +154,13 @@ def decide_sequence_claim(
     only when an incumbent exists; ``None`` never matches a checksum.
     """
 
+    if reservation is not None:
+        if reservation.matches(replacement_binding):
+            return SequenceClaim(SequenceClaimOutcome.CLAIM_RESERVED)
+        return SequenceClaim(
+            SequenceClaimOutcome.KEEP_RESERVED,
+            incoming_reason="source_replacement_reserved",
+        )
     if canonical_exists:
         return SequenceClaim(
             SequenceClaimOutcome.KEEP_CANONICAL, incoming_reason=CANONICAL_OWNER_KEPT_REASON

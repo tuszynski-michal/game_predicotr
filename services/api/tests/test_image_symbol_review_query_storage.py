@@ -22,7 +22,7 @@ from game_predictor_api.storage.models import (
     ImageSymbolReviewCellModel,
     RecognizedBoardModel,
 )
-from sqlalchemy import Column, MetaData, Table, create_engine, select
+from sqlalchemy import Column, MetaData, Table, create_engine, select, true
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import DBAPIError
@@ -63,6 +63,10 @@ class _ExecuteSession:
 
 
 class _CountProjectionSession:
+    def scalar(self, statement: object, parameters: object = None) -> bool:
+        assert "source_replacement" in str(statement)
+        return False  # The ordinary projected-count fixture has no replacements.
+
     def __init__(self, state: object | None) -> None:
         self.state = state
         self.execute_called = False
@@ -320,8 +324,14 @@ def test_unfiltered_and_outside_reads_keep_their_original_visibility(outside_onl
 )
 @pytest.mark.parametrize("descending", [False, True])
 def test_confidence_seek_preserves_rows_counts_and_cursor_order(
-    min_confidence: float | None, max_confidence: float | None, descending: bool
+    min_confidence: float | None, max_confidence: float | None, descending: bool, monkeypatch
 ) -> None:
+    # This SQLite fixture models confidence seeks without any replacement rows.
+    # Real replacement predicates are exercised against migrated PostgreSQL.
+    monkeypatch.setattr(
+        "game_predictor_api.storage.image_symbol_review_repository.current_review_clause",
+        lambda _: true(),
+    )
     game_id, symbol_id = UUID(int=1), UUID(int=2)
     metadata = MetaData()
     rejected_item, live_item = UUID(int=900), UUID(int=901)

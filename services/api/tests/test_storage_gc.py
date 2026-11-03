@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -21,6 +22,10 @@ OLD = NOW - timedelta(hours=25)
 
 
 class GcSourceRepository:
+    @contextmanager
+    def source_replacement_gc_guard(self, relative):
+        yield False
+
     def __init__(self) -> None:
         self.statuses: dict[str, tuple[str, ...]] = {}
         self.staging: tuple[BrowserStagingGcSource, ...] = ()

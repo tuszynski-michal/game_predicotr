@@ -133,6 +133,16 @@ s.checksum_sha256=:sha ORDER BY r.source_image_id, r.revision
                 ):
                     blockers.add("SOURCE_REPLACEMENT_RANGE_AMBIGUOUS")
         ids = sorted(aliases)
+        # Retirement is a permanent game/SHA tombstone. An existing same-SHA
+        # source outside this exact attested alias group would otherwise be
+        # hidden without a snapshot or reservations for its own range.
+        if self.session.scalar(
+            text("""SELECT EXISTS(SELECT 1 FROM source_images
+          WHERE game_id=:game AND checksum_sha256=:sha
+          AND NOT(id=ANY(CAST(:ids AS uuid[]))))"""),
+            {"game": game, "sha": source["checksum_sha256"], "ids": ids},
+        ):
+            blockers.add("SOURCE_REPLACEMENT_SHA_SCOPE_CONFLICT")
         sources = self.documents(
             """
 SELECT to_jsonb(s) AS document FROM source_images s           WHERE

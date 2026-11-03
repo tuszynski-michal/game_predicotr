@@ -40,6 +40,10 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.source_replacement_guards import (
+    current_clause,
+    current_review_clause,
+)
 
 
 def _confirmed_partial_expression() -> ColumnElement[bool]:
@@ -406,6 +410,7 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
                 document.game_id == review_filter.game_id,
                 ImageReviewItemModel.game_id == review_filter.game_id,
                 ImageReviewItemModel.status.in_(("pending", "accepted", "corrected")),
+                current_review_clause(ImageReviewItemModel.id),
             )
         )
         if review_filter.import_job_id is not None:
@@ -453,6 +458,13 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             .where(
                 ImageBoardGeometryPendingModel.game_id == review_filter.game_id,
                 ImageBoardGeometryPendingModel.status == "pending",
+                current_clause(
+                    review_filter.game_id,
+                    SourceImageModel.id,
+                    SourceImageModel.checksum_sha256,
+                    ImageBoardGeometryPendingModel.sequence_number,
+                    None,
+                ),
             )
         )
         if review_filter.import_job_id is not None:

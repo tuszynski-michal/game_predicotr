@@ -1,5 +1,6 @@
 'use client';
 
+import { SequenceSourceCandidates } from './sequence-source-candidates';
 import type {
   CuratedImageImportJobPayload,
   CuratedImageImportSourceResponse,
@@ -2416,46 +2417,15 @@ export function ImageFolderImportPanel({
               ? 'Pobieranie…'
               : 'Pokaż źródła'}
           </button>
-          {sourceSelection?.manualOverrideReviewItemId ? (
-            <button
-              aria-busy={activeAction === 'choose-source'}
-              className="secondaryButton"
-              disabled={busy}
-              onClick={() => void chooseSource(null)}
-              type="button"
-            >
-              Przywróć wybór automatyczny
-            </button>
-          ) : null}
         </div>
         {sourceSelection ? (
-          <ul className="importCompactList">
-            {sourceSelection.candidates.map((candidate) => (
-              <li key={candidate.reviewItemId}>
-                <strong>
-                  #{candidate.automaticRank} · jakość{' '}
-                  {(candidate.qualityScore * 100).toFixed(1)}%
-                  {candidate.selected ? ' · wybrane' : ''}
-                </strong>
-                <span>
-                  {candidate.width} × {candidate.height} · OCR{' '}
-                  {(candidate.sequenceConfidence * 100).toFixed(1)}% · plansza{' '}
-                  {(candidate.boardConfidence * 100).toFixed(1)}%
-                </span>
-                <small>{candidate.sourceRelativePath}</small>
-                {!candidate.selected ? (
-                  <button
-                    className="secondaryButton"
-                    disabled={busy}
-                    onClick={() => void chooseSource(candidate.reviewItemId)}
-                    type="button"
-                  >
-                    Wybierz to źródło
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <SequenceSourceCandidates
+            selection={sourceSelection}
+            busy={busy}
+            apiBaseUrl={resolveAdminApiBaseUrl(apiBaseUrl)}
+            sourceAssetUrl={api.operationalImageReviewSourceAssetUrl}
+            onChoose={(reviewItemId) => void chooseSource(reviewItemId)}
+          />
         ) : null}
       </section>
 

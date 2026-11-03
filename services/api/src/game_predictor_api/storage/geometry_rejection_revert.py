@@ -347,6 +347,7 @@ class GeometryRejectionRevertOperations:
         session = self._session
         pending_id = rejection.pending_id
         assert pending_id is not None and rejection.event_revision is not None
+        assert rejection.sequence_number is not None
         command = {
             "action": "rejection_reverted",
             "rejectionEventId": str(rejection.entry_id),
@@ -363,6 +364,15 @@ class GeometryRejectionRevertOperations:
         # Lock order of the rejection and the manual resolution:
         # ownership -> sequence -> source -> slot.
         acquire_sequence_ownership_lock(session, game_id=game_id)
+        from game_predictor_api.storage.source_replacement_guards import require_sequence_binding
+
+        require_sequence_binding(
+            session,
+            game=game_id,
+            source=rejection.source_image_id,
+            sequence=rejection.sequence_number,
+            review=None,
+        )
         if rejection.sequence_number is not None:
             acquire_image_sequence_locks(
                 session, game_id=game_id, sequence_numbers={rejection.sequence_number}
@@ -511,6 +521,11 @@ class GeometryRejectionRevertOperations:
             if len(uses.resolution_events) != 1 or not matching:
                 raise _key_conflict()
             replay = matching[0]
+        if replay is None:
+            from game_predictor_api.storage.source_replacement_guards import require_current_review
+
+            acquire_sequence_ownership_lock(session, game_id=game_id)
+            require_current_review(session, game_id, item_id)
         acquire_image_review_sequence_locks(
             session, game_id=game_id, review_item_id=item_id, requested_sequence_number=None
         )

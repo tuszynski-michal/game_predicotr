@@ -332,6 +332,13 @@ class GridCohortEvidenceReader:
     def capture(
         self, game: UUID, source_id: UUID, ordinal: int, recording: dict[str, Any], mode: str
     ) -> dict[str, Any]:
+        from game_predictor_api.domain.source_replacement import SourceReplacementError
+        from game_predictor_api.storage.source_replacement_guards import require_active_source
+
+        try:
+            require_active_source(self.session, game, source_id)
+        except SourceReplacementError as error:
+            raise GridCohortError(error.code, str(error)) from error
         source = read_source(self.session, game, source_id)
         if source is None:
             raise GridCohortError(

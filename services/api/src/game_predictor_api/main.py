@@ -976,7 +976,12 @@ def create_app(
         )
         with factory() as session:
             repository = SqlAlchemyCleanupRepository(session, cross_game_owner_session_factory)
-            artifact_store = ManagedCleanupArtifactStore(resolved_settings.artifact_root)
+            artifact_store = ManagedCleanupArtifactStore(
+                resolved_settings.artifact_root,
+                retention_guard=SqlAlchemyStorageGcRepository(
+                    session_factory
+                ).source_replacement_paths_gc_guard,
+            )
             from game_predictor_api.storage.source_replacement import SourceReplacementRepository
 
             service = CleanupService(

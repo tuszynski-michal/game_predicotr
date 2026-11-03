@@ -23311,6 +23311,11 @@
             "title": "Reviewitemid",
             "type": "string"
           },
+          "selectable": {
+            "default": true,
+            "title": "Selectable",
+            "type": "boolean"
+          },
           "selected": {
             "title": "Selected",
             "type": "boolean"
@@ -23337,6 +23342,16 @@
           },
           "sourceRelativePath": {
             "title": "Sourcerelativepath",
+            "type": "string"
+          },
+          "sourceState": {
+            "default": "active",
+            "enum": [
+              "active",
+              "retired",
+              "replaced"
+            ],
+            "title": "Sourcestate",
             "type": "string"
           },
           "width": {
@@ -23401,7 +23416,6 @@
             "items": {
               "$ref": "#/components/schemas/ImageSequenceSourceCandidateResponse"
             },
-            "minItems": 1,
             "title": "Candidates",
             "type": "array"
           },
@@ -23427,10 +23441,56 @@
             "title": "Overriderevision",
             "type": "integer"
           },
+          "replacementBatchId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacementbatchid"
+          },
+          "replacementEntryId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacemententryid"
+          },
+          "replacementManifestUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replacementmanifesturl"
+          },
           "sequenceNumber": {
             "minimum": 1.0,
             "title": "Sequencenumber",
             "type": "integer"
+          },
+          "state": {
+            "default": "available",
+            "enum": [
+              "available",
+              "reserved_gap",
+              "pending_bound",
+              "history_only"
+            ],
+            "title": "State",
+            "type": "string"
           }
         },
         "required": [
@@ -29065,6 +29125,11 @@
             ],
             "title": "Resolvedvalue"
           },
+          "selectable": {
+            "default": true,
+            "title": "Selectable",
+            "type": "boolean"
+          },
           "sequenceNumber": {
             "anyOf": [
               {
@@ -29099,6 +29164,16 @@
             "minimum": 0.0,
             "title": "Sourceorderindex",
             "type": "integer"
+          },
+          "sourceState": {
+            "default": "active",
+            "enum": [
+              "active",
+              "retired",
+              "replaced"
+            ],
+            "title": "Sourcestate",
+            "type": "string"
           },
           "sourceWidth": {
             "anyOf": [

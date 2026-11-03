@@ -3802,6 +3802,16 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { review_item_id: reviewItemId },
         query: context,
       }),
+    operationalImageReviewSourceAssetUrl: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) => {
+      const query = new URLSearchParams({
+        gameId: context.gameId,
+        importJobId: context.importJobId,
+      });
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-review-items/${encodeURIComponent(reviewItemId)}/assets/source?${query.toString()}`;
+    },
     getOperationalImageReviewSourceAsset: (
       reviewItemId: string,
       context: OperationalImageReviewContext,

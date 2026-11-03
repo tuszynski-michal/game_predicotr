@@ -80,6 +80,13 @@ from game_predictor_api.storage.models import (
 from game_predictor_api.storage.pending_sequence_ownership import (
     create_owned_pending_review_item,
 )
+from game_predictor_api.storage.source_replacement_binding import bind_complete_source
+from game_predictor_api.storage.source_replacement_guards import (
+    current_clause,
+    current_review_clause,
+    require_active_source,
+    reservation,
+)
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -156,6 +163,10 @@ class SqlAlchemyImagePipelineStore:
                 with_for_update=True,
             )
             if record is None:
+                game = session.scalar(select(JobModel.game_id).where(JobModel.id == job_id))
+                from game_predictor_api.storage.source_replacement_guards import require_active_sha
+
+                require_active_sha(session, game, candidate.execution.source_checksum_sha256)
                 record = ImagePipelineStageResultModel(
                     file_execution_key=candidate.execution.file_execution_key,
                     stage=stage,
@@ -203,6 +214,10 @@ class SqlAlchemyImagePipelineStore:
                 .with_for_update()
             )
             if source is None:
+                game = session.scalar(select(JobModel.game_id).where(JobModel.id == job_id))
+                from game_predictor_api.storage.source_replacement_guards import require_active_sha
+
+                require_active_sha(session, game, candidate.execution.source_checksum_sha256)
                 session.add(
                     SourceImageModel(
                         import_job_id=job_id,
@@ -444,6 +459,7 @@ class SqlAlchemyImagePipelineStore:
                 ),
             )
             source = _locked_source(session, job_id, candidate.execution.file_execution_key)
+            require_active_source(session, job.game_id, source.id)
             geometry_checksum = _virtual_geometry_checksum(crop_payload)
             source_geometry = (
                 session.scalar(
@@ -478,16 +494,20 @@ class SqlAlchemyImagePipelineStore:
                         protected_owner_is_another_photo,
                     )
 
-                    if has_protected_lateral_owner(
-                        session,
-                        job=job,
-                        sequence_number=sequence_number,
-                        source_checksum_sha256=candidate.execution.source_checksum_sha256,
-                    ) and not protected_owner_is_another_photo(
-                        session,
-                        job=job,
-                        sequence_number=sequence_number,
-                        source_checksum_sha256=candidate.execution.source_checksum_sha256,
+                    if (
+                        reservation(session, job.game_id, sequence_number) is None
+                        and has_protected_lateral_owner(
+                            session,
+                            job=job,
+                            sequence_number=sequence_number,
+                            source_checksum_sha256=candidate.execution.source_checksum_sha256,
+                        )
+                        and not protected_owner_is_another_photo(
+                            session,
+                            job=job,
+                            sequence_number=sequence_number,
+                            source_checksum_sha256=candidate.execution.source_checksum_sha256,
+                        )
                     ):
                         # Reprocessing of the same photo never touches human work.
                         continue
@@ -496,7 +516,11 @@ class SqlAlchemyImagePipelineStore:
                     # save wins, or the live owner is kept); the
                     # incoming board is recorded as skipped, not dropped.
                 canonical = None
-                if isinstance(sequence_number, int) and not isinstance(sequence_number, bool):
+                if (
+                    isinstance(sequence_number, int)
+                    and not isinstance(sequence_number, bool)
+                    and reservation(session, job.game_id, sequence_number) is None
+                ):
                     normalized_sequence_number = sequence_number
                     canonical = session.scalar(
                         select(ImageSequenceCanonicalModel).where(
@@ -758,6 +782,7 @@ class SqlAlchemyImagePipelineStore:
             gate = recompute_source_image_geometry_completeness(
                 session, job.game_id, source.id, actor=_PIPELINE_ACTOR, materialize=False
             )
+            bind_complete_source(session, game=job.game_id, source=source.id, job=job_id)
             synchronized_review_item_ids = set(changed_review_item_ids)
             if gate.became_admitted:
                 synchronized_review_item_ids.update(
@@ -800,6 +825,7 @@ class SqlAlchemyImagePipelineStore:
                     RecognizedBoardModel.source_image_id == source.id,
                     RecognizedBoardModel.completeness_status == "complete",
                     ImageReviewItemModel.status == "pending",
+                    current_review_clause(ImageReviewItemModel.id),
                 )
             )
             deferred = _pending_board_geometry_count(
@@ -910,6 +936,12 @@ class SqlAlchemyImagePipelineStore:
                     "IMAGE_REVIEW_IDEMPOTENCY_CONFLICT",
                     "The image review idempotency key already represents another command.",
                 )
+            from game_predictor_api.storage.source_replacement_guards import (
+                require_current_review,
+                require_sequence_binding,
+            )
+
+            require_current_review(session, game_id, review_item_id)
             if item.status != "pending":
                 raise ImagePipelineStoreError(
                     "IMAGE_REVIEW_ALREADY_RESOLVED",
@@ -936,6 +968,14 @@ class SqlAlchemyImagePipelineStore:
                     "A partial board cannot be accepted as a canonical complete board.",
                 )
             if action != "rejected":
+                assert sequence_number is not None
+                require_sequence_binding(
+                    session,
+                    game=game_id,
+                    source=board.source_image_id,
+                    sequence=sequence_number,
+                    review=review_item_id,
+                )
                 _require_active_symbol_codes(
                     session,
                     board,
@@ -1099,6 +1139,9 @@ class SqlAlchemyImagePipelineStore:
                     "IMAGE_PIPELINE_GAME_MISSING",
                     "The image import job has no game projection.",
                 )
+            from game_predictor_api.storage.source_replacement_guards import require_active_sha
+
+            require_active_sha(session, job.game_id, candidate.execution.source_checksum_sha256)
             sequence_numbers = session.scalars(
                 select(ImageLayoutStagingRowModel.sequence_number).where(
                     ImageLayoutStagingRowModel.import_job_id == job_id
@@ -1128,7 +1171,10 @@ class SqlAlchemyImagePipelineStore:
                     SourceImageModel,
                     SourceImageModel.id == RecognizedBoardModel.source_image_id,
                 )
-                .where(ImageLayoutStagingRowModel.import_job_id == job_id)
+                .where(
+                    ImageLayoutStagingRowModel.import_job_id == job_id,
+                    current_review_clause(ImageReviewItemModel.id),
+                )
                 .order_by(
                     ImageLayoutStagingRowModel.sequence_number,
                     RecognizedBoardModel.position_index,
@@ -1314,10 +1360,22 @@ def _pending_board_geometry_count(
     source_image_id: UUID,
 ) -> int:
     value = session.scalar(
-        select(func.count()).where(
+        select(func.count())
+        .select_from(ImageBoardGeometryPendingModel)
+        .join(
+            SourceImageModel, SourceImageModel.id == ImageBoardGeometryPendingModel.source_image_id
+        )
+        .where(
             ImageBoardGeometryPendingModel.import_job_id == job_id,
             ImageBoardGeometryPendingModel.source_image_id == source_image_id,
             ImageBoardGeometryPendingModel.status == "pending",
+            current_clause(
+                ImageBoardGeometryPendingModel.game_id,
+                SourceImageModel.id,
+                SourceImageModel.checksum_sha256,
+                ImageBoardGeometryPendingModel.sequence_number,
+                None,
+            ),
         )
     )
     return int(value or 0)
@@ -1346,6 +1404,8 @@ def _require_candidate_lease(
         lease_token=lease_token,
         checked_at=checked_at,
     )
+    if job.game_id is not None:
+        acquire_sequence_ownership_lock(session, game_id=job.game_id)
     association = session.get(
         ImageImportJobFileModel,
         {
@@ -1403,6 +1463,8 @@ def _locked_source(
             "IMAGE_SOURCE_PROJECTION_MISSING",
             "Discovery must project the source before recognition.",
         )
+    game = session.scalar(select(JobModel.game_id).where(JobModel.id == job_id))
+    require_active_source(session, game, source.id)
     return source
 
 

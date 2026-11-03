@@ -28,6 +28,13 @@ last_updated: 2026-10-16
 
 - TASK-1102: zaakceptowany, scalony i wypchnięty razem z działającą nawigacją ±15 (TASK-1101); API zrestartowane za zgodą operatora. Ostatni zgłoszony wzór 777a2: POST HTTP 200, 40 wyników w 8,219 s zamiast timeoutu po 66,109 s. Admin, Reviewer i istniejący publiczny adres HTTP 200, bez ich restartu i bez migracji. Źródło: `tasks/completed/1102-board-search-query-timeout.md`, sekcja odbioru wdrożenia. Inne wzory i uwierzytelniony link odbiorcy nie były sprawdzane operacyjnie.
 
+### Pełne wpisy skrócone w TASK-1151 dla budżetu odczytu
+
+- TASK-1102: zaakceptowany, scalony i wypchnięty razem z działającą nawigacją ±15 (TASK-1101); API zrestartowane za zgodą operatora. Ostatni zgłoszony wzór 777a2: POST HTTP 200, 40 wyników w 8,219 s zamiast timeoutu po 66,109 s. Admin, Reviewer i istniejący publiczny adres HTTP 200, bez ich restartu i bez migracji. Źródło: `tasks/completed/1102-board-search-query-timeout.md`, sekcja odbioru wdrożenia. Inne wzory i uwierzytelniony link odbiorcy nie były sprawdzane operacyjnie.
+
+- **TASK-1108 (2026-10-29):** Mumie v1 to opublikowany default nowych gier; GET eligible. Bez treningu i zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
+- **Selektor 1.0.5 / TASK-1142–1144 (2026-11-03):** ZIP i smoke PASS. 42420 JPEG: warm p95 25,4 ms, zero pustych klatek. Wynik zaakceptowany; zgoda na merge/push 2026-11-03. Reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
+
 ### TASK-1145 — Uzgodniona numeracja migracji korekt (done)
 
 - Plik: `tasks/completed/1145-grid-growth-migration-number.md`; commit **v1.7.541 / `3df55bcadbd62bf0ab76d745b8fc1d819fcf6ad0`**.

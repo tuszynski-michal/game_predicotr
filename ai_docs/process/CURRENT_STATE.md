@@ -15,10 +15,10 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 
 
-- **TASK-1108 (2026-10-29):** Mumie v1 to opublikowany default nowych gier; GET eligible. Bez treningu i zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
+- **TASK-1108:** default nowych gier=Mumie v1, bez zmian przypisań. Źródło: `quality/MUMIE_DEFAULT_GEOMETRY_20261029.json`.
 
 
-- **Selektor 1.0.5 / TASK-1142–1144 (2026-11-03):** ZIP i smoke PASS. 42420 JPEG: warm p95 25,4 ms, zero pustych klatek. Wynik zaakceptowany; zgoda na merge/push 2026-11-03. Reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
+- **Selektor1.0.5:** zaakceptowany; reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
 
 - **Odłączenie starego C / TASK-1085–1086 (2026-10-22):** backup i preview v2 179 ścieżek gotowe, audyt Claude PASS, zabezpieczenia P2 rozliczone. Zamiast pełnego skanu historii operator zatwierdził analizę konsumentów plików: 133 kolumny/108 tabel i operacyjne JSON bez dodatkowych zależności. Przed usunięciem C wymagane: zgoda na merge, wdrożenie i restart API/workerów przez operatora, świeży preview i zgoda na relokację, kontrolowane odcięcie i zgoda na usunięcie. Nic z tego nie wykonano. Źródło: [raport przygotowania](../quality/LEGACY_C_COPY_RETIREMENT_20261022.md).
 
@@ -77,12 +77,16 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - Decyzje architektoniczne: indeks 30 najnowszych w
   `ai_docs/process/DECISION_LOG.md` (starsze w archiwum indeksu); wszystkie wpisy mają status `accepted`
   albo `superseded`, brak wpisów `proposed`.
-- TASK-1102: wyszukiwanie wdrożone i odebrane. Szczegóły: `tasks/completed/1102-board-search-query-timeout.md`; pełny wpis zachowany w archiwum Q4 (transfer TASK-1149).
+- TASK-1102: wcześniejszy odbiór777a2=40wyników/8,219s; inne wzory/link odbiorcy niesprawdzone. Źródło: `tasks/completed/1102-board-search-query-timeout.md`; pełny dawny wpis w archiwumQ4/TASK1151.
 - Pozycje „Otwarte pytania” i „Blocked / deferred” z lipca 2026 (TASK-0076–0089,
   0143–0171, bramka `massImportAllowed`) są nieaktualne i leżą w
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-1151 — Regresja wyszukiwania777A2 (in_progress)
+
+- Plik: `tasks/1151-empty-replacement-search-fast-path.md`. Timeout pustego filtra;179 i realny GET przed odbiorem. Drugie okno wstrzymało restart/trening.
 
 ### TASK-1147 — Integracja przyrostu korekt (in_progress)
 

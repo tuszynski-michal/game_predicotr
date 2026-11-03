@@ -25,7 +25,7 @@ gpt-6.1-sol / high. Bez dodatkowego audytu według zaakceptowanego planu.
 
 ## Outcome
 
-Commit: v1.7.535 (hash dopisuje kolejny commit).
+Commit: v1.7.535 / `9efbaa3af743112c33c81a03db132d23a3819728`.
 
 ### Changed
 
@@ -42,4 +42,3 @@ Odbiór dużej kolekcji i finalnego ZIP w TASK-1144. Audyt nie jest wymagany prz
 ### Recommended next task
 
 TASK-1143 — lekkie metadane.
-

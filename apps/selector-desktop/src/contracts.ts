@@ -237,9 +237,12 @@ export interface DesktopWorkspace {
 /** Complete mutable workspace projection; source inventory belongs to bootstrap only. */
 export interface DesktopWorkspaceUpdate extends Omit<
   DesktopWorkspace,
-  'source'
+  'source' | 'acceptedImageIds'
 > {
   sourceId: string | null;
+  acceptedImageIds?: string[];
+  /** Required when acceptedImageIds is omitted. */
+  baseRevision?: number;
 }
 export class SelectorError extends Error {
   readonly code: string;

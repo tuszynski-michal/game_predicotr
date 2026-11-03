@@ -1,3 +1,4 @@
+import { inventoryOrdinal } from '../project/inventory-index.ts';
 import { type ProjectState, type ProjectDecision } from '../project/types.ts';
 
 export const OUTPUT_MANIFEST_NAME = 'manual-image-selection-output-v1.json';
@@ -23,9 +24,9 @@ export interface OperatorLocalManifestV2 {
   updatedAt: string;
 }
 export function projectManifest(state: ProjectState): OperatorLocalManifestV2 {
-  const ordinal = state.inventory.findIndex(
-    (image) => image.relativePath === state.currentRelativePath,
-  );
+  const ordinal =
+    inventoryOrdinal(state.inventory).get(state.currentRelativePath ?? '') ??
+    -1;
   return {
     schemaVersion: 2,
     storageMode: 'operator_local',

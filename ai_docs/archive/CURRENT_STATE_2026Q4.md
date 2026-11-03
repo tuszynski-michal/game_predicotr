@@ -6,10 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1143 — Lekka nawigacja Selektora (done)
+
+- Plik: `tasks/completed/1143-selector-smooth-navigation.md`.
+- Commit: **v1.7.536**.
+- Indeksy inventory/wyborów, podsumowania bez klonowania historii i małe IPC nawigacji z rewizją bazową. 78/78 testów, lint/typecheck/build i Electron fluency PASS. Bez audytu według planu.
+
 ### TASK-1142 — Ciągły podgląd Selektora (done)
 
 - Plik: `tasks/completed/1142-selector-smooth-navigation.md`.
-- Commit: **v1.7.535**.
+- Commit: **v1.7.535 / `9efbaa3af743112c33c81a03db132d23a3819728`**.
 - Atomowa podmiana obrazu, prefetch według skoku i ochrona widocznego JPEG-a. Testy 34/34, lint/typecheck i Electron fluency PASS. Bez audytu według planu; duża partia i ZIP w TASK-1144.
 
 ### TASK-1137 — Wspólne limity uczenia siatek (done)

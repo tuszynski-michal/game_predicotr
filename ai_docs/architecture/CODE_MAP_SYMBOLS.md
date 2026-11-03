@@ -200,6 +200,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/grid_audit_proposals.py: class GridAuditProposalError, class GridAuditImportStatus, class GridAuditQueueStatus, class GridAuditPoint, class GridAuditProposalGrid, class GridAuditProposalItem, class GridAuditProposalArtifact, class GridAuditBoardState, derive_grid_audit_queue_status, proposal_grid_from_nodes, parse_grid_audit_proposal_document, grid_audit_proposal_item_document
 - domain/grid_calibration.py: class GridProfileStatus, class GridProfileActivationAction, class VerifiedGeometrySample, class GeometryCohort, class GridCalibrationProfile, class GridProfileActivation, class GridProfileActivationPreview, class GeometryCohortDiagnostics, build_geometry_manifest, train_grid_profile, profile_checksum, grid_profile_end_to_end_gate_is_current, activation_command_sha256
 - domain/grid_correction_evaluation.py: require_metrics, decide_game, require_scope, require_checkpoint_selection, build_report, require_report
+- domain/grid_correction_incremental_split.py: solve_incremental_split
+- domain/grid_correction_progress.py: correction_progress_counts
 - domain/grid_correction_split.py: correction_data_availability, class CorrectionSplitError, class CorrectionSplitSource, class CorrectionImportOrder, class CorrectionRoleCount, class CorrectionSplitResult, solve_correction_split
 - domain/grid_engine_profiles.py: class GridEngineModelStatus, class GridEngineModelError, class GridEngineModelFile, class GridEngineReportResult, class GridEngineModelVersion, class GridEngineProfile, class GridEngineModelFileState, class GridEngineModelState, grid_engine_profile_for, neural_import_profile, grid_engine_manifest
 - domain/grid_model_evaluation.py: class GridEvaluationReportError, require_metrics, decide_game, verdict_of, build_report, require_report, proof_state
@@ -280,7 +282,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/grid_audit_proposals.py: class GridAuditQueueCountsResponse, class GridAuditQueueItemResponse, class GridAuditQueuePageResponse, class GridAuditNodeResponse, class GridAuditProposalGridResponse, class GridAuditSymbolSuggestionsResponse, class GridAuditProposalResponse, to_grid_audit_queue_item_response, to_grid_audit_queue_page_response, to_grid_audit_proposal_response
 - schemas/grid_calibration.py: class GeometryCohortResponse, class GridCalibrationProfileResponse, class CreateGridCalibrationCandidateResponse, class GridEndToEndGateSource, class GridEndToEndGateReportCommand, class CreateGridCalibrationCandidateCommand, class GeometryCohortDiagnosticsResponse, class GridProfileActivationCommand, class GridProfileActivationPreviewResponse, class GridProfileActivationResponse, class GridProfileActivationCommandResponse, to_cohort_response, to_diagnostics_response, to_profile_response, to_activation_preview_response, to_activation_response
 - schemas/grid_correction_apply.py: class GridCorrectionApplyTarget, class GridCorrectionApplyPreview, class GridCorrectionApplyStartCommand, class GridCorrectionApplyStep, class GridCorrectionApplyView, class GridCorrectionApplyList
-- schemas/grid_correction_learning.py: class CorrectionLearningClosedModel, class GridCorrectionLearningExclusion, class GridCorrectionLearningPreviewCommand, class GridCorrectionLearningStartCommand, class GridCorrectionLearningRoleCount, class GridCorrectionDataAvailability, class GridCorrectionLearningPreview, class GridCorrectionLearningView, class GridCorrectionLearningList
+- schemas/grid_correction_learning.py: class CorrectionLearningClosedModel, class GridCorrectionLearningExclusion, class GridCorrectionLearningPreviewCommand, class GridCorrectionLearningStartCommand, class GridCorrectionLearningRoleCount, class GridCorrectionDataAvailability, class GridCorrectionLearningCount, class GridCorrectionLearningExclusionCount, class GridCorrectionLearningProgressCounts, class GridCorrectionLearningPreview, class GridCorrectionLearningView, class GridCorrectionLearningList
 - schemas/grid_engine_acceptance.py: class HistoricalAcceptanceCreateCommand, class HistoricalAcceptancePreviewCommand, class HistoricalAcceptanceConfirmCommand, class HistoricalAcceptanceRunCommand, class HistoricalAcceptanceItemResponse, class HistoricalAcceptanceResponse, historical_acceptance_response
 - schemas/grid_engine_profiles.py: class GridEngineModelFileResponse, class GridEngineReportResultResponse, class GridEngineProfileResponse
 - schemas/grid_geometry_proposals.py: class ProposalCreateCommand, class ProposalAcceptCommand, class ProposalRejectCommand, class ProposalCandidateResponse, class ProposalDiscoveryResponse, class GridGeometryProposalResponse, class ProposalCommandResponse, class ProposalCandidatesResponse
@@ -381,7 +383,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_audit_board_reader.py: class SqlAlchemyGridAuditBoardReader
 - storage/grid_calibration_repository.py: class SqlAlchemyGridCalibrationRepository
 - storage/grid_cohort_asset_retention.py: class AssetDeadline, class CohortAssetDeadline, cohort_asset_guard_key, acquire_cohort_asset_guard, parse_cohort_asset_path, read_cohort_asset_reference
-- storage/grid_correction_split.py: class GridCorrectionSplitPreparationError, population, population_sha, contexts, prepare_split, validate_population, split_mapping
+- storage/grid_correction_split.py: previously_used_train_boards, class GridCorrectionSplitPreparationError, population, population_sha, contexts, prepare_split, validate_population, split_mapping
 - storage/grid_diagnostics_repository.py: read_grid_diagnostics
 - storage/grid_engine_acceptance_models.py: class HistoricalGridAcceptanceOperationModel, class HistoricalGridAcceptanceTargetModel, class HistoricalGridAcceptanceReceiptModel
 - storage/grid_engine_acceptance_repository.py: class SqlAlchemyHistoricalAcceptanceRepository
@@ -472,6 +474,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/source_recording_permissions_v3.py: grant_recording_capability_dependencies, recording_permission_errors, enforce_recording_permissions
 - storage/source_recording_permissions_v4.py: recording_permission_errors, enforce_recording_permissions
 - storage/source_recording_permissions_v5.py: grant_recording_capability_dependencies, recording_permission_errors, enforce_recording_permissions
+- storage/source_recording_permissions_v6.py: recording_permission_errors, enforce_recording_permissions
 - storage/source_recording_providers.py: read_provider, class TrustedRecordingProviders, install_recording_provider
 - storage/storage_gc_repository.py: class SqlAlchemyStorageGcRepository
 - storage/super_game_input_version.py: class SuperGameInputWritePoint, lock_super_game_state, enqueue_super_game_series_derive, record_super_game_input_change

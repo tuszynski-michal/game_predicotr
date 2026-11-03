@@ -67,6 +67,11 @@ def test_presets_are_versioned_distinct_and_fingerprint_their_parameters() -> No
         is PRESETS["grid-corrections-v1"]
     )
     assert PRESETS["grid-corrections-v1"].fingerprint != GRID_ONLY_V1.fingerprint
+    assert (
+        preset_for_mode("grid-only", policy="application-grid-corrections-v2")
+        is PRESETS["grid-corrections-v1"]
+    )
+    assert preset_for_mode("screen+grid", policy="application-grid-corrections-v2") is None
     assert GRID_ONLY_V1.mode == "grid-only" and SCREEN_GRID_V1.mode == "screen+grid"
     assert GRID_ONLY_V1.frozen_modules == ("detector", "batchnorm")
     assert GRID_ONLY_V1.fingerprint != SCREEN_GRID_V1.fingerprint

@@ -14,6 +14,50 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-582 — Przyrostowe wyspy treningu i zwalnianie nieużytych rezerwacji
+
+Status: accepted
+Data: 2026-11-03
+
+Operator zlecił przyrostowe uczenie korekt i zaakceptował cały plan TASK-1139–1140.
+Wyjątek od D-577 dotyczy wyłącznie nieużytych rezerwacji metadanych polityki v1,
+jeżeli cały komponent kopii i znanych sesji nie zawiera rzeczywistego użycia,
+bufora, jawnego holdoutu, ancestor use lub innej trwałej ochrony. Oryginalnych
+użyć, kohort i raportów nie zmieniamy. Addytywne zdarzenie zwolnienia powstaje
+atomowo z nowym freeze, po sprawdzeniu tożsamości, rewizji i proof pod blokadą
+rejestru. Preview wyłącznie czyta. Nowe rezerwy v2 pozostają chronione.
+
+`application-grid-corrections-v2` używa deterministycznych chronionych wysp.
+Przy wystarczających kontrolach zachowuje rzeczywiste role i bufory, a wolne
+opisane komponenty oddalone o ponad dziesięć wszystkich zdjęć od kontroli
+przeznacza do TRAIN. Pozwala na dodatkowe bloki TRAIN; nie deklaruje optimum
+70/15/15 dawnej klasy trzech bloków. Brak kompletnych kontroli uruchamia
+dotychczasowy ograniczony solver startowy, z usunięciem nieopisanych ogonów
+niepowiązanych z chronionym komponentem. Nieznana kolejność nadal czyni import
+nierozdzielnym. Atesty i minima 30/10, 15/5, 15/5 pozostają bez zmian.
+
+Przyszła rezerwa wynosi najwyżej pięć nieopisanych zdjęć na rolę, wybieranych
+w istniejącym chronionym sąsiedztwie, bez zmniejszania TRAIN. Brak miejsca jest
+jawnym ograniczeniem, nie blokuje wystarczających kontroli. Wolne nieopisane
+zdjęcia nie dostają automatycznie roli TRAIN. Bliskie kontrolom nowe korekty
+bez bezpiecznej roli pozostają wyłączone z jawnym powodem. Bufory utrwalają
+dziesięć zdjęć przy zmianie roli i wszystkie wcześniejsze bufory.
+
+Walidacja dawnych dowodów wymaga niezmiennych historycznych bindingów. Kontrolę
+bieżącego konfliktu ról stosuje do rzeczywiście użytych członków i buforów;
+legalnie zwolniona dawna rezerwacja bez użycia nie unieważnia historycznej oceny.
+Nowa polityka nie przypisuje jej nowych wyników jakości.
+
+Liczniki plansz TRAIN rozdzielają aktualne dokładne etykiety wcześniej użyte
+i nowe. Zdjęcie z dawną oraz nową planszą jest obecne w obu licznikach zdjęć;
+nie sumuje się tych zdjęć. Kontrole pokazują obecne kwalifikujące etykiety,
+nie historyczny rozmiar testu. Rezerwy bez etykiet mają zero plansz. Wszystkie
+liczniki bazują na reprezentantach tego samego podziału.
+
+Preflight wskazuje potencjał 38 zdjęć/69 plansz po ochronie, nie obietnicę
+przesunięcia wszystkich 79 nowych zatwierdzeń. Migracja operatora, restart,
+trening, zastosowanie i merge/push pozostają poza tym poleceniem.
+
 ## D-581 — Wspólne pułapy budżetu uczenia siatek
 
 - **Date:** 2026-11-03.

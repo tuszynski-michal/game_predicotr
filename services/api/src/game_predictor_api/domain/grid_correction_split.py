@@ -77,6 +77,7 @@ class CorrectionSplitSource:
     allowed_roles: frozenset[str] = frozenset(ROLES)
     frozen_role: str | None = None
     frozen_buffer: bool = False
+    pending_correction: bool = False
 
 
 @dataclass(frozen=True, slots=True)

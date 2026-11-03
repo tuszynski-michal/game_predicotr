@@ -16,7 +16,7 @@ from test_grid_model_evaluation import Context, colour
 pytest_plugins = ["test_grid_model_evaluation"]
 
 
-def correction(s, screen_eligible=False):
+def correction(s, screen_eligible=False, policy="application-grid-corrections-v1"):
     for fixture in s.store.games.values():
         for source in fixture.sources:
             source["targets"] = source["targets"][:3]
@@ -24,7 +24,7 @@ def correction(s, screen_eligible=False):
         fixture.publish(
             change=lambda root: root.update(
                 schemaVersion="application-grid-snapshot-v2",
-                policyVersion="application-grid-corrections-v1",
+                policyVersion=policy,
             )
         )
     selection = {
@@ -71,9 +71,12 @@ def engine_factory(s, missing=()):
 
 
 @pytest.mark.parametrize("screen_eligible", [False, True])
-def test_partial_both_roles_whole_job_report_and_restart(scenario, screen_eligible):
+@pytest.mark.parametrize(
+    "policy", ["application-grid-corrections-v1", "application-grid-corrections-v2"]
+)
+def test_partial_both_roles_whole_job_report_and_restart(scenario, screen_eligible, policy):
     s = scenario
-    job = correction(s, screen_eligible)
+    job = correction(s, screen_eligible, policy)
     worker = GridModelEvaluationJobHandler(
         s.store, s.root, engine_factory=engine_factory(s, [s.keys[s.training]["REGRESSION"][0]])
     )

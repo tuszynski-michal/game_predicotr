@@ -12,6 +12,7 @@ from PIL import __version__ as pillow_version
 from sqlalchemy import Uuid, column, func, select, table
 
 from game_predictor_api.domain.canonical_source import CANONICAL_SOURCE_LOADER_VERSION
+from game_predictor_api.domain.grid_correction_policy import CORRECTION_POLICIES
 from game_predictor_api.domain.grid_training_cohorts import (
     MATERIALIZATION_PAGE_SIZE,
     POLICY,
@@ -24,7 +25,6 @@ from game_predictor_api.domain.grid_training_cohorts import (
 from game_predictor_api.domain.new_game_geometry import verified_json
 from game_predictor_api.storage.grid_cohort_asset_retention import acquire_cohort_asset_guard
 from game_predictor_api.storage.grid_correction_split import (
-    CORRECTIONS_POLICY,
     prepare_split,
     split_mapping,
     validate_population,
@@ -97,7 +97,7 @@ def prepare(
     identifier = uuid5(game, "grid-cohort:" + body["idempotencyKey"])
     policy = body.get("policyVersion", POLICY)
     photo_split = None
-    if policy == CORRECTIONS_POLICY:
+    if policy in CORRECTION_POLICIES:
         if body["mode"] != "grid-only" or body["recordings"] or selection.get("sourceIds"):
             raise GridCohortError(
                 "GRID_CORRECTION_SELECTION_INVALID",
@@ -109,6 +109,7 @@ def prepare(
             game,
             sorted(str(value) for value in imports) if imports else [selection["importJobId"]],
             deadline,
+            policy=policy,
         )
     elif policy != POLICY:
         raise GridCohortError("GRID_COHORT_POLICY_UNSUPPORTED", "Unknown cohort policy.", 422)
@@ -242,7 +243,7 @@ def _capture(
                 Member.game_id == game, Member.cohort_id == row.id, Member.ordinal == cursor - 1
             )
         )
-    if row.document.get("policyVersion") == CORRECTIONS_POLICY:
+    if row.document.get("policyVersion") in CORRECTION_POLICIES:
         validate_population(repo, game, row.document["photoSplit"])
         mapping = split_mapping(row.document["photoSplit"])
     else:
@@ -408,7 +409,7 @@ def _materialize(
             row.id,
             {
                 "schemaVersion": "application-grid-snapshot-v2"
-                if row.document["policyVersion"] == CORRECTIONS_POLICY
+                if row.document["policyVersion"] in CORRECTION_POLICIES
                 else SNAPSHOT_FORMAT,
                 "policyVersion": row.document["policyVersion"],
                 **(

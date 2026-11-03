@@ -187,13 +187,18 @@ def test_grid_only_partial_photo_preserves_deformed_nodes_and_weights(tmp_path):
 
 
 @pytest.mark.parametrize("role", ["VALIDATION", "REGRESSION"])
-def test_correction_snapshot_consumes_partial_control_without_dropping_targets(tmp_path, role):
+@pytest.mark.parametrize(
+    "policy", ["application-grid-corrections-v1", "application-grid-corrections-v2"]
+)
+def test_correction_snapshot_consumes_partial_control_without_dropping_targets(
+    tmp_path, role, policy
+):
     fixture = SnapshotFixture(tmp_path)
     source = fixture.source(role)
     snapshot = fixture.publish(
         change=lambda root: root.update(
             schemaVersion="application-grid-snapshot-v2",
-            policyVersion="application-grid-corrections-v1",
+            policyVersion=policy,
         )
     )
     dataset = GridBoardDataset(snapshot, role)
@@ -202,7 +207,10 @@ def test_correction_snapshot_consumes_partial_control_without_dropping_targets(t
     assert len(list(dataset.indexed())) == 1
 
 
-def test_correction_snapshot_rejects_screen_training(tmp_path):
+@pytest.mark.parametrize(
+    "policy", ["application-grid-corrections-v1", "application-grid-corrections-v2"]
+)
+def test_correction_snapshot_rejects_screen_training(tmp_path, policy):
     fixture = SnapshotFixture(tmp_path)
     fixture.source(full=True)
     with pytest.raises(GridCohortDatasetError):
@@ -210,7 +218,7 @@ def test_correction_snapshot_rejects_screen_training(tmp_path):
             mode="screen+grid",
             change=lambda root: root.update(
                 schemaVersion="application-grid-snapshot-v2",
-                policyVersion="application-grid-corrections-v1",
+                policyVersion=policy,
             ),
         )
 

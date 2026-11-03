@@ -5798,7 +5798,9 @@ export type GridCohortPrepareCommand = {
    * Policyversion
    */
   policyVersion?:
-    'application-grid-cohort-v1' | 'application-grid-corrections-v1';
+    | 'application-grid-cohort-v1'
+    | 'application-grid-corrections-v1'
+    | 'application-grid-corrections-v2';
   /**
    * Recordings
    */
@@ -6633,6 +6635,20 @@ export type GridCorrectionEvaluationScope = {
 };
 
 /**
+ * GridCorrectionLearningCount
+ */
+export type GridCorrectionLearningCount = {
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Photos
+   */
+  photos: number;
+};
+
+/**
  * GridCorrectionLearningExclusion
  */
 export type GridCorrectionLearningExclusion = {
@@ -6644,6 +6660,24 @@ export type GridCorrectionLearningExclusion = {
    * Gameid
    */
   gameId: string;
+  /**
+   * Reason
+   */
+  reason: string;
+};
+
+/**
+ * GridCorrectionLearningExclusionCount
+ */
+export type GridCorrectionLearningExclusionCount = {
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Photos
+   */
+  photos: number;
   /**
    * Reason
    */
@@ -6780,6 +6814,7 @@ export type GridCorrectionLearningPreview = {
    * Priorscopedocumented
    */
   priorScopeDocumented: boolean;
+  progressCounts?: GridCorrectionLearningProgressCounts | null;
   /**
    * Requiredgameids
    */
@@ -6802,6 +6837,28 @@ export type GridCorrectionLearningPreviewCommand = {
    * Importjobids
    */
   importJobIds?: Array<string>;
+};
+
+/**
+ * GridCorrectionLearningProgressCounts
+ *
+ * Boards partition TRAIN; used/new photos may overlap on different positions.
+ */
+export type GridCorrectionLearningProgressCounts = {
+  approved: GridCorrectionLearningCount;
+  availableTrain: GridCorrectionLearningCount;
+  buffers: GridCorrectionLearningCount;
+  excluded: GridCorrectionLearningCount;
+  /**
+   * Exclusionreasons
+   */
+  exclusionReasons: Array<GridCorrectionLearningExclusionCount>;
+  newTrain: GridCorrectionLearningCount;
+  regression: GridCorrectionLearningCount;
+  regressionReserve: GridCorrectionLearningCount;
+  usedTrain: GridCorrectionLearningCount;
+  validation: GridCorrectionLearningCount;
+  validationReserve: GridCorrectionLearningCount;
 };
 
 /**

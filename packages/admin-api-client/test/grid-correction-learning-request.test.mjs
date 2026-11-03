@@ -2,6 +2,50 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('ready and preview preserve deduplicated progress, overlapping photos and exclusions', async () => {
+  const progressCounts = {
+    approved: { photos: 2, boards: 4 },
+    availableTrain: { photos: 1, boards: 3 },
+    usedTrain: { photos: 1, boards: 2 },
+    newTrain: { photos: 1, boards: 1 },
+    validation: { photos: 0, boards: 0 },
+    regression: { photos: 0, boards: 0 },
+    validationReserve: { photos: 5, boards: 0 },
+    regressionReserve: { photos: 0, boards: 0 },
+    buffers: { photos: 10, boards: 1 },
+    excluded: { photos: 1, boards: 1 },
+    exclusionReasons: [
+      { reason: 'GRID_CORRECTION_BUFFER', photos: 1, boards: 1 },
+    ],
+  };
+  const calls = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      calls.push(request.method);
+      return new Response(JSON.stringify({ progressCounts }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  });
+  const game = '11111111-1111-4111-8111-111111111111';
+  assert.deepEqual(
+    (await client.getGridCorrectionLearningReady(game)).data.progressCounts,
+    progressCounts,
+  );
+  assert.deepEqual(
+    (
+      await client.previewGridCorrectionLearning(game, {
+        importJobIds: [],
+        exclusions: [],
+      })
+    ).data.progressCounts,
+    progressCounts,
+  );
+  assert.deepEqual(calls, ['GET', 'POST']);
+});
+
 test('readiness carries server availability and lower-bound deficits unchanged', async () => {
   for (const dataAvailability of [
     null,

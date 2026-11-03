@@ -40,6 +40,7 @@ def preview_value() -> dict[str, Any]:
             "splitStatus": "ready",
         },
         "bufferPhotos": 20,
+        "progressCounts": None,
         "priorScopeDocumented": False,
         "priorGameIds": [],
         "historicalCohorts": [],
@@ -436,7 +437,7 @@ def test_openapi_has_eight_operations_and_closed_preview_view_schemas(tmp_path: 
     ]:
         assert schemas[name]["additionalProperties"] is False
         assert set(schemas[name]["properties"]) == set(expected)
-        assert set(schemas[name]["required"]) == set(expected)
+        assert set(schemas[name]["required"]) == set(expected) - {"progressCounts"}
     assert (
         schemas["GridCorrectionLearningPreviewCommand"]["properties"]["importJobIds"]["maxItems"]
         == 100

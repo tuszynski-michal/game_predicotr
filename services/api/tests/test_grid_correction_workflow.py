@@ -110,7 +110,18 @@ def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_populatio
     split = {
         "sha256": "b" * 64,
         "sources": [
-            {"buffer": index == 0, "representative": True, "eligibleBoards": 3}
+            {
+                "buffer": index == 0,
+                "representative": True,
+                "eligibleBoards": 3,
+                "role": None
+                if index == 0
+                else "TRAIN"
+                if index <= 10
+                else "VALIDATION"
+                if index <= 15
+                else "REGRESSION",
+            }
             for index in range(21)
         ]
         + [{"buffer": False, "representative": False, "eligibleBoards": 3}],

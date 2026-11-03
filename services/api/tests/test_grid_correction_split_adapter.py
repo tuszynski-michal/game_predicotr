@@ -73,14 +73,17 @@ def test_prepare_uses_proof_counts_and_preserves_all_sources_without_permanent_u
         def capture(self, game, source, ordinal, recording, mode):
             calls.append(source)
             assert mode == "grid-only"
-            return {"boardEligibleCount": 3}
+            return {
+                "boardEligibleCount": 3,
+                "positions": [{"label": {"positionIndex": i}} for i in range(3)],
+            }
 
     monkeypatch.setattr(adapter, "population", lambda *args: population)
     monkeypatch.setattr(adapter, "GridCohortEvidenceReader", Reader)
     monkeypatch.setattr(
         adapter,
         "contexts",
-        lambda repo, game, ids: {
+        lambda repo, game, ids, **kwargs: {
             key: {
                 "componentIds": [],
                 "allowedRoles": ["TRAIN", "VALIDATION", "REGRESSION"],
@@ -118,6 +121,29 @@ def test_population_fence_ignores_symbol_status_but_not_source_membership():
     assert adapter.population_sha(original) != adapter.population_sha(changed[:-1])
 
 
+def test_pending_reserve_changes_fence_only_freeze_not_historical_currentness(monkeypatch):
+    original = rows()
+    original[0]["pendingCorrection"] = True
+    split = {
+        "schemaVersion": "grid-correction-split-v2",
+        "importIds": [],
+        "populationSha256": adapter.population_sha(original),
+        "sources": [
+            {
+                "sourceId": original[0]["source"]["id"],
+                "pendingCorrection": True,
+                "role": "REGRESSION",
+                "eligibleBoards": 0,
+            }
+        ],
+    }
+    original[0]["pendingCorrection"] = False
+    monkeypatch.setattr(adapter, "population", lambda *args: original)
+    adapter.validate_population(None, uuid4(), split)
+    with pytest.raises(GridCohortError, match="no longer awaiting"):
+        adapter.validate_population(None, uuid4(), split, for_freeze=True)
+
+
 def test_population_fence_allows_new_geometry_revision_with_identical_attestation():
     original = rows()
     changed = deepcopy(original)
@@ -143,7 +169,7 @@ def test_infeasible_adapter_error_keeps_available_counts(monkeypatch, count, pro
     monkeypatch.setattr(
         adapter,
         "contexts",
-        lambda repo, game, ids: {
+        lambda repo, game, ids, **kwargs: {
             key: {
                 "componentIds": [],
                 "allowedRoles": ["TRAIN"] if protected else ["TRAIN", "VALIDATION", "REGRESSION"],
@@ -156,7 +182,12 @@ def test_infeasible_adapter_error_keeps_available_counts(monkeypatch, count, pro
     monkeypatch.setattr(
         adapter,
         "GridCohortEvidenceReader",
-        lambda *args: SimpleNamespace(capture=lambda *args: {"boardEligibleCount": 3}),
+        lambda *args: SimpleNamespace(
+            capture=lambda *args: {
+                "boardEligibleCount": 3,
+                "positions": [{"label": {"positionIndex": i}} for i in range(3)],
+            }
+        ),
     )
     with pytest.raises(GridCohortError) as error:
         adapter.prepare_split(
@@ -214,3 +245,64 @@ def test_capture_rejects_labels_changed_since_split_before_publishing(monkeypatc
             service, uuid4(), row, {"cursor": 0}, SimpleNamespace(check=lambda *args: None)
         )
     assert error.value.code == "GRID_CORRECTION_LABELS_CHANGED"
+
+
+@pytest.mark.parametrize("roles", [["TRAIN", "VALIDATION"], ["VALIDATION"], []])
+def test_ambiguous_or_roleless_external_protection_fails_closed(monkeypatch, roles):
+    population = rows()[:1]
+    monkeypatch.setattr(adapter, "population", lambda *args: population)
+    monkeypatch.setattr(
+        adapter,
+        "contexts",
+        lambda repo, game, ids, **kwargs: {
+            ids[0]: {
+                "componentIds": [],
+                "allowedRoles": [],
+                "priorRoles": roles,
+                "proofSha256": "a" * 64,
+            }
+        },
+    )
+    monkeypatch.setattr(
+        adapter,
+        "GridCohortEvidenceReader",
+        lambda *args: SimpleNamespace(
+            capture=lambda *args: {
+                "boardEligibleCount": 3,
+                "positions": [{"label": {"positionIndex": i}} for i in range(3)],
+            }
+        ),
+    )
+    with pytest.raises(GridCohortError) as error:
+        adapter.prepare_split(
+            SimpleNamespace(session=None, artifact_root="unused"),
+            uuid4(),
+            [population[0]["source"]["import_job_id"]],
+            SimpleNamespace(check=lambda *args: None),
+        )
+    assert error.value.code == "GRID_CORRECTION_PROTECTION_CONFLICT"
+
+
+def test_used_train_targets_survive_changed_copy_representative_but_not_new_geometry():
+    label = {"positionIndex": 0, "nodes": [[0, 0], [1, 1]], "revision": 1}
+    alias = {"sourcePixelSha256": "a" * 64, "positionIndex": 0, "nodes": label["nodes"]}
+    context = {"usedTrainAliasLabels": [alias], "usedTrainLabels": []}
+    assert adapter.previously_used_train_boards([label], context, "a" * 64) == 1
+    assert (
+        adapter.previously_used_train_boards(
+            [{**label, "nodes": [[-0.0, 0.0], [1.0, 1.0]]}], context, "a" * 64
+        )
+        == 1
+    )
+    assert adapter.previously_used_train_boards([label], context, "b" * 64) == 0
+    assert (
+        adapter.previously_used_train_boards([{**label, "nodes": [[0, 1]]}], context, "a" * 64) == 0
+    )
+    assert (
+        adapter.previously_used_train_boards([{**label, "positionIndex": 1}], context, "a" * 64)
+        == 0
+    )
+    # Own-source revision identity takes precedence over an identical alias target.
+    context["usedTrainLabels"] = [label]
+    assert adapter.previously_used_train_boards([label], context, "a" * 64) == 1
+    assert adapter.previously_used_train_boards([{**label, "revision": 2}], context, "a" * 64) == 0

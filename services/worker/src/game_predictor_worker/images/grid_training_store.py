@@ -67,10 +67,9 @@ class SqlGridTrainingStore:
             repository = SqlAlchemyGridTrainingCohortRepository(session, self.artifact_root)
             try:
                 repository.bind(game_id)
-                correction = (
-                    repository.cohort(game_id, cohort_id).document.get("policyVersion")
-                    == "application-grid-corrections-v1"
-                )
+                correction = repository.cohort(game_id, cohort_id).document.get(
+                    "policyVersion"
+                ) in ("application-grid-corrections-v1", "application-grid-corrections-v2")
                 groups: dict[str, str] = {}
                 for member in repository.iter_members(game_id, cohort_id):
                     frozen = member.frozen

@@ -400,7 +400,10 @@ def _train(
     screen_mode = preset.mode == "screen+grid"
     train_photos: Any = CohortPhotos(snapshot, "TRAIN", full_only=screen_mode)
     corrections = preset.preset_id == "grid-corrections-v1"
-    if corrections != (snapshot.manifest["policyVersion"] == "application-grid-corrections-v1"):
+    if corrections != (
+        snapshot.manifest["policyVersion"]
+        in ("application-grid-corrections-v1", "application-grid-corrections-v2")
+    ):
         raise ChildError("GRID_RUN_COHORT_POLICY_MISMATCH")
     validation = CohortPhotos(snapshot, "VALIDATION", full_only=not corrections)
     crops, labels = validation_crops(validation, recipe)

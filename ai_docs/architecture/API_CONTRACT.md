@@ -6,6 +6,38 @@ last_updated: 2026-11-01
 
 # Kontrakty API i danych mobilnych
 
+## Liczniki przyrostowego uczenia korekt — TASK-1139
+
+Istniejące `getGridCorrectionLearningReady` i `previewGridCorrectionLearning`
+zwracają addytywne nullable `progressCounts`. Każda miara ma `photos` i `boards`:
+`approved`, `availableTrain`, `usedTrain`, `newTrain`, `validation`, `regression`,
+`validationReserve`, `regressionReserve`, `buffers` i `excluded`.
+`exclusionReasons` w tym samym obiekcie zawiera `reason`, `photos`, `boards`.
+Wartości bazują na tych samych reprezentantach podziału. Liczniki plansz
+`usedTrain + newTrain = availableTrain`; zdjęcia użyte i nowe mogą się nakładać.
+`usedTrain` oznacza etykiety w zapisanych kohortach TRAIN z `used_in_cohort=true`,
+także po anulowaniu zadania już po freeze. Nie potwierdza zakończenia treningu GPU.
+Na tym samym źródle porównywane są pełne zamrożone etykiety wraz z rewizją.
+Zmiana reprezentanta identycznej kopii zachowuje użycie przez tożsamość pikseli,
+pozycję planszy i współrzędne węzłów; nowe cele lub rewizje własnego źródła są nowe.
+Rezerwa oznacza wyłącznie zdjęcia oczekujące na korektę i ma zero plansz.
+Chronione kontrole bez etykiet i bez bieżącego oczekiwania na korektę należą do
+wykluczeń z powodem `GRID_CORRECTION_CONTROL_NOT_PENDING` (zero plansz).
+Bufory z etykietami należą także do wykluczeń. Brak poprawnego podziału zachowuje
+`progressCounts=null` oraz dotychczasowe `blockers` i `dataAvailability`.
+
+Nowy workflow jawnie przygotowuje `application-grid-corrections-v2`; kohorta
+akceptuje nadal v1, a snapshot-v2 identyfikuje konkretną politykę. Minima bez
+zmian. Odczyty nie utrwalają rezerwacji. Nowe capability wymaga migracji 0172,
+która pozostaje niewykonana na bazie operatora. Downgrade jest dozwolony wyłącznie
+bez historii zwolnień i bez rezerwacji v2; w innym przypadku odmawia usunięcia historii.
+Niezamrożone drafty v1 sprzed 0172 wymagają nowego preview: zmieniony proof rejestru
+powoduje `GRID_CORRECTION_REGISTRY_CHANGED`. Zamrożone kohorty pozostają weryfikowalne;
+wyjątkiem fail-closed jest ujawniona ochrona holdout/ancestor/use bez określonej roli:
+niepełny dowód ochrony blokuje także nowe potwierdzenie historycznej kohorty v1.
+Nie przepisuje to historii ani nie pozwala zwolnić chronionego komponentu.
+Kontrola roli nieużytej rezerwacji v1 jest pomijana tylko po zapisanym legalnym zwolnieniu.
+
 ## Tworzenie i pierwszy transfer geometrii V3 — TASK-1004
 
 Istniejący `POST /api/v1/admin/games` wymaga teraz `idempotencyKey: UUID`.

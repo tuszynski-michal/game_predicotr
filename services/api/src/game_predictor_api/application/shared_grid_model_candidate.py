@@ -47,9 +47,9 @@ class SharedGridCandidateService:
                     group = recording.get("groupId")
                     if isinstance(group, str):
                         groups[str(member.source_id)] = group
-                if (
-                    member.frozen.get("used") is True
-                    and row.document.get("policyVersion") == "application-grid-corrections-v1"
+                if member.frozen.get("used") is True and row.document.get("policyVersion") in (
+                    "application-grid-corrections-v1",
+                    "application-grid-corrections-v2",
                 ):
                     groups.setdefault(str(member.source_id), str(member.source_id))
             return {**header, "manifestPath": row.manifest_path}, eligibility, groups
@@ -84,7 +84,10 @@ class SharedGridCandidateService:
                 )
             pinned.append((header, groups))
         try:
-            correction = pinned[0][0].get("policyVersion") == "application-grid-corrections-v1"
+            correction = pinned[0][0].get("policyVersion") in (
+                "application-grid-corrections-v1",
+                "application-grid-corrections-v2",
+            )
             if correction:
                 from game_predictor_api.storage.grid_model_registry import (
                     SqlAlchemyGridModelRegistryRepository,

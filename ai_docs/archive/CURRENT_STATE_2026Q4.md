@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1139 — Przyrostowy podział korekt i liczniki (done)
+
+- Plik: `tasks/completed/1139-grid-correction-growth-data.md`; commit **v1.7.537**.
+- Polityka v2, migracja 0172 i append-only zwolnienia nieużytych rezerwacji. Użyte kontrole, kopie/sesje i bufory chronione. Ready/preview, OpenAPI, klient i request test wspólne.
+- Końcowa symulacja READ ONLY: TRAIN 146 plansz (77 zapisanych +69 nowych), VALIDATION17, REGRESSION21, 12 plansz w buforach, brak bezpiecznej przyszłej rezerwy. Bez freeze lub treningu operatora.
+- Opus 5.5/high R1 REVISE, jedna runda poprawek, focused R2 PASS. P2-6: cleanup_reset odpowiada wcześniej opisanej usterce; świeży baseline i pełny stats niewykonane. P2-7: bezrolowa ochrona fail-closed udokumentowana.
+- PASS: 54 domena/adapter/readiness, 104 API/worker, 5 evaluator, 3 request, guarded downgrade i registry z nowym interpreterem, 5 migration lifecycle, 4 crop runs, 1 evaluation bridge; scoped mypy20 i lint32. Szersze reinference6PASS/1FAIL, stats120s bez PASS; własne zasoby testowe uprzątnięte.
+- Migracja operatora, usługi, trening, model i przypisania bez zmian. TASK-1140 pozostaje do osobnego commita.
+
 ### TASK-1138 — Widoczne odświeżanie uczenia (done)
 
 - Plik: `tasks/completed/1138-grid-learning-refresh.md`.

@@ -102,6 +102,8 @@ export type {
   GridCorrectionLearningPreviewCommand,
   GridCorrectionLearningStartCommand,
   GridCorrectionLearningPreview,
+  GridCorrectionLearningCount,
+  GridCorrectionLearningProgressCounts,
   GridCorrectionDataAvailability,
   GridCorrectionLearningView,
   GridCorrectionLearningList,

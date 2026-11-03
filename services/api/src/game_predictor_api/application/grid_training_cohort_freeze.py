@@ -54,7 +54,8 @@ def _lock_inputs(
       JOIN grid_training_cohort_members m ON m.game_id=s.game_id AND m.source_id=s.id
       WHERE m.game_id=:game AND m.cohort_id=:cohort AND (m.frozen->'used'='true'::jsonb
        OR EXISTS(SELECT 1 FROM grid_training_cohorts c WHERE c.game_id=m.game_id
-        AND c.id=m.cohort_id AND c.document->>'policyVersion'='application-grid-corrections-v1'))
+        AND c.id=m.cohort_id AND c.document->>'policyVersion'
+         IN ('application-grid-corrections-v1','application-grid-corrections-v2')))
       ORDER BY s.id FOR UPDATE OF s""").execution_options(yield_per=200),
         {"game": game, "cohort": identifier},
     )
@@ -169,7 +170,7 @@ def freeze(
             if "photoSplit" in row.document:
                 from game_predictor_api.storage.grid_correction_split import validate_population
 
-                validate_population(repo, game, row.document["photoSplit"])
+                validate_population(repo, game, row.document["photoSplit"], for_freeze=True)
             for member in repo.iter_members(game, identifier):
                 deadline.check(session)
                 check_member(repo, member)

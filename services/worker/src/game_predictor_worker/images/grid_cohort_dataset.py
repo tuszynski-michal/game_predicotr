@@ -157,11 +157,13 @@ class GridCohortSnapshot:
         policies = {
             ("application-grid-snapshot-v1", "application-grid-cohort-v1"),
             ("application-grid-snapshot-v2", "application-grid-corrections-v1"),
+            ("application-grid-snapshot-v2", "application-grid-corrections-v2"),
         }
         if (
             (value.get("schemaVersion"), value.get("policyVersion")) not in policies
             or (
-                value.get("policyVersion") == "application-grid-corrections-v1"
+                value.get("policyVersion")
+                in ("application-grid-corrections-v1", "application-grid-corrections-v2")
                 and value.get("mode") != "grid-only"
             )
             or value.get("weightPolicy") != "correction-weight-4-to-1-v1"
@@ -448,7 +450,10 @@ class GridBoardDataset:
                     or (
                         self.role != "TRAIN"
                         and self.snapshot._manifest["policyVersion"]
-                        != "application-grid-corrections-v1"
+                        not in (
+                            "application-grid-corrections-v1",
+                            "application-grid-corrections-v2",
+                        )
                     )
                 ) and not full:
                     _fail(

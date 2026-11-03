@@ -73,6 +73,31 @@ class GridCorrectionDataAvailability(CorrectionLearningClosedModel):
     splitStatus: Literal["minima", "infeasible", "ready"]
 
 
+class GridCorrectionLearningCount(CorrectionLearningClosedModel):
+    photos: int = Field(ge=0)
+    boards: int = Field(ge=0)
+
+
+class GridCorrectionLearningExclusionCount(GridCorrectionLearningCount):
+    reason: str
+
+
+class GridCorrectionLearningProgressCounts(CorrectionLearningClosedModel):
+    """Boards partition TRAIN; used/new photos may overlap on different positions."""
+
+    approved: GridCorrectionLearningCount
+    availableTrain: GridCorrectionLearningCount
+    usedTrain: GridCorrectionLearningCount
+    newTrain: GridCorrectionLearningCount
+    validation: GridCorrectionLearningCount
+    regression: GridCorrectionLearningCount
+    validationReserve: GridCorrectionLearningCount
+    regressionReserve: GridCorrectionLearningCount
+    buffers: GridCorrectionLearningCount
+    excluded: GridCorrectionLearningCount
+    exclusionReasons: list[GridCorrectionLearningExclusionCount]
+
+
 class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
     gameId: UUID
     baseVersionId: UUID | None
@@ -81,6 +106,7 @@ class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
     importJobIds: list[UUID]
     roleCounts: list[GridCorrectionLearningRoleCount]
     dataAvailability: GridCorrectionDataAvailability | None
+    progressCounts: GridCorrectionLearningProgressCounts | None = None
     bufferPhotos: int = Field(ge=0)
     priorScopeDocumented: bool
     priorGameIds: list[UUID]

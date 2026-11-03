@@ -66,6 +66,9 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Przyrostowe uczenie siatek i aktualność oceny](delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md)
+  — TASK-1139–1140, przyrost TRAIN przy zachowaniu kontroli, liczniki i sprawdzanie aktualności.
+
 - [Ulepszanie wspólnego modelu siatek z korekt](delivery/GRID_CORRECTIONS_LEARNING_PLAN_20261102.md) — accepted, 2026-11-02; TASK-1120–1123, preflight przed implementacją, obowiązkowe audyty Opus 5.5/high.
 
 - [Usunięcie wyszukiwania wielu układów](delivery/BOARD_SEARCH_SINGLE_BOARD_REMOVAL_PLAN_20261030.md)

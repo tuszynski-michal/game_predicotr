@@ -243,7 +243,8 @@ def preset_for_mode(
         for p in presets.values()
         if p.mode == mode
         and p.approved
-        and (p.preset_id == "grid-corrections-v1") == (policy == "application-grid-corrections-v1")
+        and (p.preset_id == "grid-corrections-v1")
+        == (policy in ("application-grid-corrections-v1", "application-grid-corrections-v2"))
     ]
     return max(matching, key=lambda p: p.version) if matching else None
 

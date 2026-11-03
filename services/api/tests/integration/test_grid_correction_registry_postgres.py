@@ -2,6 +2,8 @@
 
 import json
 import os
+import subprocess
+import sys
 from uuid import uuid4
 
 import pytest
@@ -281,6 +283,188 @@ def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions
                     command(s, game, legacy, "register_cohort_use", 1)
 
         _assert_command_lifecycle(db, tmp_path, game, job, pins, monkeypatch)
+        _assert_incremental_release(db, game, cohort, source_ids)
+
+
+def _assert_incremental_release(db, game, old_cohort, source_ids):
+    """Real capability: abandoned preview, rollback, release, restart, old proof."""
+    from copy import deepcopy
+
+    from _grid_correction_growth_protections import (
+        assert_copy_target_metadata,
+        assert_external_protections,
+    )
+    from game_predictor_api.storage.source_recording_permissions_v6 import (
+        recording_permission_errors as errors,
+    )
+
+    new_cohort = uuid4()
+    assert_external_protections(db, game, old_cohort, source_ids, scope, command)
+    assert_copy_target_metadata(db, game, old_cohort, source_ids[0], scope)
+    with db.owner_engine.connect() as c:
+        assert errors(c, db.role) == ()
+    # New metadata-only reserves and actual use of a known copy are both hard.
+    with Session(db.owner_engine) as s, s.begin():
+        scope(s, game)
+        for used, policy in ((False, "incremental-v2"), (True, "legacy-v1")):
+            staged = s.begin_nested()
+            s.execute(
+                text("""INSERT INTO public.recording_photo_uses
+             (game_id,cohort_id,source_id,family_id,import_id,source_sha256,pixel_sha256,
+              role,group_ids,split_sha256,used_in_cohort,reservation_policy)
+             SELECT game_id,:new,source_id,family_id,import_id,source_sha256,pixel_sha256,
+              role,group_ids,split_sha256,:used,:policy FROM public.recording_photo_uses
+             WHERE game_id=:g AND cohort_id=:old AND source_id=:last"""),
+                {
+                    "new": uuid4(),
+                    "used": used,
+                    "policy": policy,
+                    "g": game,
+                    "old": old_cohort,
+                    "last": source_ids[-1],
+                },
+            )
+            protected = s.scalar(
+                text("SELECT public.recording_photo_context_v2(:g,CAST(:ids AS uuid[]))"),
+                {"g": game, "ids": [source_ids[-1]]},
+            )[0]
+            assert protected["priorRoles"] == ["VALIDATION"]
+            assert protected["allowedRoles"] == ["VALIDATION"]
+            staged.rollback()
+    with Session(db.app_engine) as s, s.begin():
+        scope(s, game)
+        context2 = s.scalar(
+            text("SELECT public.recording_photo_context_v2(:g,CAST(:ids AS uuid[]))"),
+            {"g": game, "ids": source_ids},
+        )
+        preview = {r["sourceId"]: r for r in context2}
+        assert preview[str(source_ids[0])]["priorRoles"] == ["TRAIN"]
+        assert preview[str(source_ids[10])]["priorRoles"] == ["VALIDATION"]
+        assert preview[str(source_ids[-2])]["priorRoles"] == ["BUFFER"]
+        assert preview[str(source_ids[-1])]["priorRoles"] == []
+        assert "releaseUses" not in preview[str(source_ids[-1])]
+        with pytest.raises(DBAPIError), s.begin_nested():
+            s.execute(text("SELECT * FROM public.recording_photo_reservation_releases"))
+        with pytest.raises(DBAPIError), s.begin_nested():
+            s.execute(
+                text("SELECT public.recording_photo_context_data_v2(:g,CAST(:ids AS uuid[]),true)"),
+                {"g": game, "ids": source_ids},
+            )
+    with db.owner_engine.connect() as c:
+        assert (
+            c.scalar(text("SELECT count(*) FROM public.recording_photo_reservation_releases")) == 0
+        )
+    with Session(db.owner_engine) as s, s.begin():
+        scope(s, game)
+        doc = deepcopy(
+            s.scalar(
+                text("SELECT document FROM grid_training_cohorts WHERE game_id=:g AND id=:c"),
+                {"g": game, "c": old_cohort},
+            )
+        )
+        doc["policyVersion"] = "application-grid-corrections-v2"
+        doc["photoSplit"]["sha256"] = "c" * 64
+        for pin in doc["photoSplit"]["sources"]:
+            pin["registryProofSha256"] = preview[pin["sourceId"]]["proofSha256"]
+            if pin["sourceId"] == str(source_ids[-1]):
+                pin["role"] = "TRAIN"
+        s.execute(
+            text(
+                "INSERT INTO grid_training_cohorts(game_id,id,status,document,created_by) "
+                "VALUES(:g,:c,'preparing',CAST(:d AS jsonb),'fixture:1139')"
+            ),
+            {"g": game, "c": new_cohort, "d": json.dumps(doc)},
+        )
+        s.execute(
+            text("""INSERT INTO grid_training_cohort_members(game_id,cohort_id,source_id,
+             live_source_image_id,ordinal,role,frozen)
+         SELECT game_id,:new,source_id,live_source_image_id,ordinal,
+          CASE WHEN source_id=:last THEN 'TRAIN' ELSE role END,
+          CASE WHEN source_id=:last THEN frozen||CAST(:f AS jsonb) ELSE frozen END
+         FROM grid_training_cohort_members WHERE game_id=:g AND cohort_id=:old"""),
+            {
+                "g": game,
+                "new": new_cohort,
+                "old": old_cohort,
+                "last": source_ids[-1],
+                "f": json.dumps(
+                    {
+                        "used": True,
+                        "boardEligibleCount": 3,
+                        "positions": [{"label": {} if i < 3 else None} for i in range(9)],
+                    }
+                ),
+            },
+        )
+        for revision, status in enumerate(("preview_ready", "materializing", "ready_to_freeze"), 2):
+            s.execute(
+                text(
+                    "UPDATE grid_training_cohorts SET status=:s,revision=:r,manifest_sha256=:h,"
+                    "manifest_path='fixture.json' WHERE game_id=:g AND id=:c"
+                ),
+                {"s": status, "r": revision, "h": "a" * 64, "g": game, "c": new_cohort},
+            )
+    with Session(db.app_engine) as s, s.begin():
+        scope(s, game)
+        savepoint = s.begin_nested()
+        command(s, game, new_cohort, "register_cohort_use", 4)
+        savepoint.rollback()
+        assert context(s, game, [source_ids[-1]])[0]["priorRoles"] == ["VALIDATION"]
+        command(s, game, new_cohort, "register_cohort_use", 4)
+        s.execute(
+            text(
+                "UPDATE grid_training_cohorts SET status='frozen',revision=5 "
+                "WHERE game_id=:g AND id=:c"
+            ),
+            {"g": game, "c": new_cohort},
+        )
+    with Session(db.app_engine) as s, s.begin():
+        s.execute(text("SET TRANSACTION READ ONLY"))
+        scope(s, game)
+        assert context(s, game, [source_ids[-1]])[0]["priorRoles"] == ["TRAIN"]
+        command(s, game, old_cohort, "validate_cohort_use", 5)
+        command(s, game, new_cohort, "validate_cohort_use", 5)
+    with db.owner_engine.connect() as c:
+        assert (
+            c.scalar(text("SELECT count(*) FROM public.recording_photo_reservation_releases")) >= 1
+        )
+    child = r"""
+import json,os
+from uuid import UUID
+from sqlalchemy import create_engine,text
+from sqlalchemy.orm import Session
+from game_predictor_api.storage.game_storage_routing import GameStorageRouter,GameStorageIntent
+engine=create_engine(os.environ['TASK1139_DB_URL'],connect_args={'connect_timeout':4})
+game=UUID(os.environ['TASK1139_GAME'])
+with Session(engine) as s,s.begin():
+ s.execute(text('SET TRANSACTION READ ONLY'))
+ GameStorageRouter().bind(s,game,intent=GameStorageIntent.READ)
+ facts=s.scalar(text('SELECT public.recording_photo_context_v2(:g,CAST(:ids AS uuid[]))'),
+                {'g':game,'ids':[os.environ['TASK1139_SOURCE']]})
+ assert facts[0]['priorRoles']==['TRAIN']
+ for cohort in json.loads(os.environ['TASK1139_COHORTS']):
+  req={'kind':'validate_cohort_use','cohortId':cohort,'expectedRevision':5,
+       'manifestSha256':'a'*64}
+  query=text("SELECT public.recording_cohort_command_v3(:g,CAST(:q AS jsonb),'fixture:1139')")
+  first=s.scalar(query,{'g':game,'q':json.dumps(req)})
+  assert first==s.scalar(query,{'g':game,'q':json.dumps(req)})
+engine.dispose()
+print('fresh process: old and new cohort validated')
+"""
+    restarted = subprocess.run(
+        [sys.executable, "-c", child],
+        env=db.subprocess_environment(
+            TASK1139_DB_URL=db.app_url.render_as_string(hide_password=False),
+            TASK1139_GAME=str(game),
+            TASK1139_SOURCE=str(source_ids[-1]),
+            TASK1139_COHORTS=json.dumps([str(old_cohort), str(new_cohort)]),
+        ),
+        timeout=30,
+        capture_output=True,
+        text=True,
+    )
+    assert restarted.returncode == 0, restarted.stderr
+    assert "old and new cohort validated" in restarted.stdout
 
 
 def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
@@ -310,8 +494,8 @@ def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
     for index, pin in enumerate(pins):
         pin.update(eligibleBoards=3 if index < 20 else 0, representative=True)
 
-    def split(repo, game, imports, deadline):
-        facts = adapter.contexts(repo, game, [p["sourceId"] for p in pins])
+    def split(repo, game, imports, deadline, **kwargs):
+        facts = adapter.contexts(repo, game, [p["sourceId"] for p in pins], incremental=False)
         return {
             "sha256": "b" * 64,
             "sources": [
@@ -356,7 +540,7 @@ def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
 
     monkeypatch.setattr(commands, "prepare_split", split)
     monkeypatch.setattr(commands, "validate_population", lambda *args: None)
-    monkeypatch.setattr(adapter, "validate_population", lambda *args: None)
+    monkeypatch.setattr(adapter, "validate_population", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         commands, "GridCohortEvidenceReader", lambda *args: SimpleNamespace(capture=capture)
     )
@@ -376,7 +560,7 @@ def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
         "baseVersionId": str(version),
         "selector": {"importJobId": str(job)},
         "recordings": [],
-        "policyVersion": adapter.CORRECTIONS_POLICY,
+        "policyVersion": "application-grid-corrections-v1",
     }
     with Session(db.app_engine) as session:
         prepared = service(session).prepare(game, request, "fixture:1120-workflow")

@@ -6,6 +6,28 @@ last_updated: 2026-10-16
 
 # Laboratorium wizji
 
+## Incremental correction cohorts (D-582, TASK-1139)
+
+New learning uses `application-grid-corrections-v2`. Actual uses, existing buffers,
+explicit holdouts, ancestry and entire known copy/session components stay protected.
+Only legacy metadata reservations without any component protection may be released;
+freeze appends release evidence atomically, never edits history. New reservations
+are protected. Historical unused reservations do not invalidate actual old controls
+after a lawful release.
+
+With sufficient controls, deterministic protected islands admit additional labelled
+TRAIN blocks beyond ten complete photos from controls. Unlabelled tails remain free.
+Up to five pending photos per control role may be reserved in protected neighborhoods
+without consuming TRAIN. Missing reserves are explicit. The bootstrap retains the
+bounded solver and original minima. Unknown ordering still means an indivisible import.
+This policy does not claim a 70/15/15 optimum. Labelled exclusions have explicit reasons.
+
+Ready/preview counters share deduplicated split representatives and expose photos
+and boards. Available TRAIN boards partition into previously used exact labels and
+new labels; used/new photo counts may overlap when one photo contains both.
+Control counts describe current labels, not the size of a completed evaluation.
+Unlabelled reserves have zero measured boards; buffers are also exclusions when labelled.
+
 ## Photo-only correction cohorts (D-577, TASK-1120)
 
 The explicit `application-grid-corrections-v1` policy extends the existing cohort

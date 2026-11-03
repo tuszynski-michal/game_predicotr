@@ -1,0 +1,77 @@
+{
+  "mode": "READ ONLY domain simulation before operator migration",
+  "policy": "application-grid-corrections-v2",
+  "counts": {
+    "approved": {
+      "photos": 133,
+      "boards": 196
+    },
+    "availableTrain": {
+      "photos": 98,
+      "boards": 146
+    },
+    "usedTrain": {
+      "photos": 60,
+      "boards": 77
+    },
+    "newTrain": {
+      "photos": 38,
+      "boards": 69
+    },
+    "validation": {
+      "photos": 13,
+      "boards": 17
+    },
+    "regression": {
+      "photos": 13,
+      "boards": 21
+    },
+    "validationReserve": {
+      "photos": 0,
+      "boards": 0
+    },
+    "regressionReserve": {
+      "photos": 0,
+      "boards": 0
+    },
+    "buffers": {
+      "photos": 53,
+      "boards": 12
+    },
+    "excluded": {
+      "photos": 9,
+      "boards": 12
+    },
+    "exclusionReasons": [
+      {
+        "reason": "GRID_CORRECTION_BUFFER",
+        "photos": 9,
+        "boards": 12
+      }
+    ]
+  },
+  "roleCounts": [
+    {
+      "role": "TRAIN",
+      "photos": 98,
+      "boards": 146
+    },
+    {
+      "role": "VALIDATION",
+      "photos": 13,
+      "boards": 17
+    },
+    {
+      "role": "REGRESSION",
+      "photos": 13,
+      "boards": 21
+    }
+  ],
+  "limitations": [
+    "PHOTO_ONLY_NO_PROVEN_SESSION_INDEPENDENCE",
+    "UNKNOWN_ANCESTOR_USE_NOT_PROVEN",
+    "VALIDATION_RESERVE_SHORTFALL",
+    "REGRESSION_RESERVE_SHORTFALL"
+  ],
+  "pendingSources": 102
+}

@@ -20,6 +20,7 @@ from game_predictor_api.domain.grid_correction_evaluation import (
     require_scope,
 )
 from game_predictor_api.domain.grid_correction_policy import CORRECTION_POLICY, CORRECTION_PRESET
+from game_predictor_api.domain.grid_correction_progress import correction_progress_counts
 from game_predictor_api.domain.grid_correction_split import correction_data_availability
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError, descriptor_sha256
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError
@@ -104,6 +105,7 @@ class GridCorrectionLearningService:
             "importJobIds": [],
             "roleCounts": [],
             "dataAvailability": None,
+            "progressCounts": None,
             "bufferPhotos": 0,
             "priorScopeDocumented": False,
             "priorGameIds": [],
@@ -224,7 +226,8 @@ class GridCorrectionLearningService:
                     "ready",
                 ),
                 roleCounts=split["roleCounts"],
-                bufferPhotos=sum(bool(item["buffer"]) for item in split["sources"]),
+                bufferPhotos=sum(bool(item["buffer"]) for item in representatives),
+                progressCounts=correction_progress_counts(split),
             )
             summaries = [
                 {

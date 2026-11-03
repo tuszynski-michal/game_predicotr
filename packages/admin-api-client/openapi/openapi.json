@@ -10510,7 +10510,8 @@
             "default": "application-grid-cohort-v1",
             "enum": [
               "application-grid-cohort-v1",
-              "application-grid-corrections-v1"
+              "application-grid-corrections-v1",
+              "application-grid-corrections-v2"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -12027,6 +12028,27 @@
         "title": "GridCorrectionEvaluationScope",
         "type": "object"
       },
+      "GridCorrectionLearningCount": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "minimum": 0.0,
+            "title": "Boards",
+            "type": "integer"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "photos",
+          "boards"
+        ],
+        "title": "GridCorrectionLearningCount",
+        "type": "object"
+      },
       "GridCorrectionLearningExclusion": {
         "additionalProperties": false,
         "properties": {
@@ -12052,6 +12074,32 @@
           "confirmed"
         ],
         "title": "GridCorrectionLearningExclusion",
+        "type": "object"
+      },
+      "GridCorrectionLearningExclusionCount": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "minimum": 0.0,
+            "title": "Boards",
+            "type": "integer"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "photos",
+          "boards",
+          "reason"
+        ],
+        "title": "GridCorrectionLearningExclusionCount",
         "type": "object"
       },
       "GridCorrectionLearningJobPayload": {
@@ -12269,6 +12317,16 @@
             "title": "Priorscopedocumented",
             "type": "boolean"
           },
+          "progressCounts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionLearningProgressCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requiredGameIds": {
             "items": {
               "format": "uuid",
@@ -12334,6 +12392,64 @@
           }
         },
         "title": "GridCorrectionLearningPreviewCommand",
+        "type": "object"
+      },
+      "GridCorrectionLearningProgressCounts": {
+        "additionalProperties": false,
+        "description": "Boards partition TRAIN; used/new photos may overlap on different positions.",
+        "properties": {
+          "approved": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          },
+          "availableTrain": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          },
+          "buffers": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          },
+          "excluded": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          },
+          "exclusionReasons": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionLearningExclusionCount"
+            },
+            "title": "Exclusionreasons",
+            "type": "array"
+          },
+          "newTrain": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          },
+          "regression": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          },
+          "regressionReserve": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          },
+          "usedTrain": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          },
+          "validationReserve": {
+            "$ref": "#/components/schemas/GridCorrectionLearningCount"
+          }
+        },
+        "required": [
+          "approved",
+          "availableTrain",
+          "usedTrain",
+          "newTrain",
+          "validation",
+          "regression",
+          "validationReserve",
+          "regressionReserve",
+          "buffers",
+          "excluded",
+          "exclusionReasons"
+        ],
+        "title": "GridCorrectionLearningProgressCounts",
         "type": "object"
       },
       "GridCorrectionLearningRoleCount": {

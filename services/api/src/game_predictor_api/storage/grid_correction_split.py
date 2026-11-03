@@ -9,6 +9,7 @@ from uuid import UUID
 
 from sqlalchemy import text
 
+from game_predictor_api.domain.grid_correction_incremental_split import solve_incremental_split
 from game_predictor_api.domain.grid_correction_policy import CORRECTION_POLICY
 from game_predictor_api.domain.grid_correction_split import (
     CorrectionSplitError,
@@ -20,6 +21,44 @@ from game_predictor_api.domain.grid_training_cohorts import GridCohortError, dig
 from game_predictor_api.storage.grid_training_cohort_evidence import GridCohortEvidenceReader
 
 CORRECTIONS_POLICY = CORRECTION_POLICY
+
+
+def previously_used_train_boards(
+    labels: list[dict[str, Any]], context: dict[str, Any], pixel_sha256: str
+) -> int:
+    """Keep exact revisions on a source; recognize unchanged targets on another copy."""
+
+    def normalize_nodes(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {key: normalize_nodes(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [normalize_nodes(item) for item in value]
+        if isinstance(value, int | float) and not isinstance(value, bool):
+            return 0.0 if value == 0 else float(value)
+        return value
+
+    def alias_key(label: dict[str, Any]) -> str:
+        return digest({**label, "nodes": normalize_nodes(label.get("nodes"))})
+
+    prior = context.get("usedTrainLabels", [])
+    exact = {digest(label) for label in prior}
+    existing_positions = {label.get("positionIndex") for label in prior}
+    aliases = {alias_key(label) for label in context.get("usedTrainAliasLabels", [])}
+    return sum(
+        digest(label) in exact
+        or (
+            label.get("positionIndex") not in existing_positions
+            and alias_key(
+                {
+                    "sourcePixelSha256": pixel_sha256,
+                    "positionIndex": label["positionIndex"],
+                    "nodes": label.get("nodes"),
+                }
+            )
+            in aliases
+        )
+        for label in labels
+    )
 
 
 class GridCorrectionSplitPreparationError(GridCohortError):
@@ -44,6 +83,13 @@ def population(repo: Any, game: UUID, imports: list[str]) -> list[dict[str, Any]
         repo.session.execute(
             text("""
       SELECT to_jsonb(s) source, f.source_relative_path logical_name,
+       EXISTS(SELECT 1 FROM recognized_boards pb JOIN image_review_items pr
+        ON pr.game_id=pb.game_id AND pr.recognized_board_id=pb.id
+        JOIN image_symbol_review_cells pc ON pc.game_id=pr.game_id AND pc.review_item_id=pr.id
+        WHERE pb.game_id=s.game_id AND pb.source_image_id=s.id
+         AND pc.recognized_board_id=pb.id AND pc.source_available=true
+         AND pc.quality_issue='grid_issue'
+         AND pc.geometry_revision=pb.geometry_revision) pending_correction,
        EXISTS(SELECT 1 FROM recognized_boards b WHERE b.game_id=s.game_id
         AND b.source_image_id=s.id AND b.approved_geometry_revision=b.geometry_revision
         AND b.geometry_approved_by IS NOT NULL AND b.geometry_approved_at IS NOT NULL
@@ -96,6 +142,7 @@ def population(repo: Any, game: UUID, imports: list[str]) -> list[dict[str, Any]
             "source": r["source"],
             "logicalName": r["logical_name"] or "",
             "approved": r["approved"],
+            "pendingCorrection": r["pending_correction"],
             "revisions": revisions[r["source"]["id"]],
             "bindings": bindings[r["source"]["id"]],
         }
@@ -138,11 +185,16 @@ def population_sha(rows: list[dict[str, Any]]) -> str:
     )
 
 
-def contexts(repo: Any, game: UUID, ids: list[str]) -> dict[str, dict[str, Any]]:
+def contexts(
+    repo: Any, game: UUID, ids: list[str], *, incremental: bool = True
+) -> dict[str, dict[str, Any]]:
     result = {}
     for offset in range(0, len(ids), 200):
         values = repo.session.scalar(
-            text("SELECT public.recording_photo_context_v1(:game,CAST(:ids AS uuid[]))"),
+            text(
+                f"SELECT public.recording_photo_context_v{2 if incremental else 1}"
+                "(:game,CAST(:ids AS uuid[]))"
+            ),
             {"game": game, "ids": ids[offset : offset + 200]},
         )
         result.update({item["sourceId"]: item for item in values})
@@ -151,9 +203,12 @@ def contexts(repo: Any, game: UUID, ids: list[str]) -> dict[str, dict[str, Any]]
     return result
 
 
-def prepare_split(repo: Any, game: UUID, imports: list[str], deadline: Any) -> dict[str, Any]:
+def prepare_split(
+    repo: Any, game: UUID, imports: list[str], deadline: Any, *, policy: str = CORRECTION_POLICY
+) -> dict[str, Any]:
     rows = population(repo, game, imports)
-    metadata = contexts(repo, game, [r["source"]["id"] for r in rows])
+    incremental = policy == CORRECTION_POLICY
+    metadata = contexts(repo, game, [r["source"]["id"] for r in rows], incremental=incremental)
     reader = GridCohortEvidenceReader(repo.session, repo.artifact_root)
     sources, pins = [], []
     for index, row in enumerate(rows):
@@ -189,6 +244,7 @@ def prepare_split(repo: Any, game: UUID, imports: list[str], deadline: Any) -> d
         valid = valid and all(all(r[k] == revs[0][k] for k in order_fields) for r in revs)
         first = revs[0] if valid else {}
         count = 0
+        labels: list[dict[str, Any]] = []
         if row["approved"]:
             measured = reader.capture(
                 game,
@@ -198,8 +254,16 @@ def prepare_split(repo: Any, game: UUID, imports: list[str], deadline: Any) -> d
                 "grid-only",
             )
             count = measured["boardEligibleCount"]
+            labels = [p["label"] for p in measured["positions"] if p["label"] is not None]
         context = metadata[key]
         roles = context["priorRoles"]
+        if incremental and (
+            len(roles) > 1 or (not context["allowedRoles"] and roles != ["BUFFER"])
+        ):
+            raise GridCohortError(
+                "GRID_CORRECTION_PROTECTION_CONFLICT",
+                "Conflicting or unspecified component protection requires review.",
+            )
         sources.append(
             CorrectionSplitSource(
                 source_id=key,
@@ -213,12 +277,14 @@ def prepare_split(repo: Any, game: UUID, imports: list[str], deadline: Any) -> d
                 attested_slots=tuple(first.get("active_board_slots") or ()),
                 attestation_checksum_sha256=first.get("sequence_attestation_checksum_sha256"),
                 board_bindings=tuple(row["bindings"]),
-                component_ids=tuple(context["componentIds"]),
+                component_ids=tuple(context["componentIds"])
+                + (tuple(context.get("aliasComponentIds", [])) if incremental else ()),
                 allowed_roles=frozenset(context["allowedRoles"]),
                 frozen_role=roles[0]
                 if len(roles) == 1 and roles[0] in context["allowedRoles"]
                 else None,
                 frozen_buffer=roles == ["BUFFER"],
+                pending_correction=row.get("pendingCorrection", False),
             )
         )
         pins.append(
@@ -230,12 +296,28 @@ def prepare_split(repo: Any, game: UUID, imports: list[str], deadline: Any) -> d
                 "registryProofSha256": context["proofSha256"],
                 "componentIds": context["componentIds"],
                 "eligibleBoards": count,
+                **(
+                    {"pendingCorrection": row.get("pendingCorrection", False)}
+                    if incremental
+                    else {}
+                ),
+                **(
+                    {
+                        "usedTrainBoards": previously_used_train_boards(
+                            labels, context, source["normalized_pixel_checksum_sha256"]
+                        )
+                    }
+                    if incremental
+                    else {}
+                ),
                 "rangeStart": first.get("sequence_range_start"),
                 "rangeEnd": first.get("sequence_range_end"),
             }
         )
     try:
-        solved = solve_correction_split(sources)
+        solved = (
+            solve_incremental_split(sources) if incremental else solve_correction_split(sources)
+        )
     except CorrectionSplitError as error:
         raise GridCorrectionSplitPreparationError(error) from error
     assignments = dict(solved.assignments)
@@ -262,12 +344,28 @@ def prepare_split(repo: Any, game: UUID, imports: list[str], deadline: Any) -> d
     return {**result, "sha256": digest(result)}
 
 
-def validate_population(repo: Any, game: UUID, split: dict[str, Any]) -> None:
-    if population_sha(population(repo, game, split["importIds"])) != split["populationSha256"]:
+def validate_population(
+    repo: Any, game: UUID, split: dict[str, Any], *, for_freeze: bool = False
+) -> None:
+    rows = population(repo, game, split["importIds"])
+    if population_sha(rows) != split["populationSha256"]:
         raise GridCohortError(
             "GRID_CORRECTION_POPULATION_CHANGED",
             "Source population or attested order changed; create a new preview.",
         )
+    if for_freeze and split.get("schemaVersion") == "grid-correction-split-v2":
+        pending = {row["source"]["id"] for row in rows if row.get("pendingCorrection")}
+        if any(
+            item.get("pendingCorrection")
+            and item["eligibleBoards"] == 0
+            and item["role"] in ("VALIDATION", "REGRESSION")
+            and item["sourceId"] not in pending
+            for item in split["sources"]
+        ):
+            raise GridCohortError(
+                "GRID_CORRECTION_RESERVE_CHANGED",
+                "A proposed reserve is no longer awaiting correction.",
+            )
 
 
 def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -285,6 +383,8 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             if item["buffer"]
             else ["GRID_CORRECTION_EXACT_ALIAS"]
             if not item["representative"]
+            else ["GRID_CORRECTION_PROTECTED_NEIGHBORHOOD"]
+            if item["role"] is None
             else [],
             "splitSha256": split["sha256"],
             "expectedBoardCount": item["eligibleBoards"],

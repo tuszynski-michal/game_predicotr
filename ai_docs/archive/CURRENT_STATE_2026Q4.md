@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1148 — Spójne zależności React podczas wdrożenia (done)
+
+- Plik: `tasks/completed/1148-workspace-react-build-alignment.md`.
+- Commit: **v1.7.543** (hash dopisuje kolejny commit).
+- Root @types/react19.2.2, board-search-ui React/DOM19.2.3 i lockfile npm11.18.0 usuwają konflikt nominalnych Ref. Standardowe rootbuildy Admin/Reviewer,113testów board-search-ui, mobile typecheck i Prettier PASS, bez aliasów lub skipTypecheck.
+- Opus5.5/high PASS, bez P0/P1; P2 mobilne pokryte typecheckiem, dwa transitiveReact jawnie przyjęte. Własny staging odtworzono względem nowego main0bcabfc4 z zachowaniem Selector1.0.5; migracja177 wykonana, start i push w dalszym wdrożeniu.
+
 ### TASK-1146 — Kontrola schematu przy starcie (done)
 
 - Task: `tasks/completed/1146-readability-startup-schema-head.md`; commit **v1.7.540 / `5660c2b0afb6e046c20b53e369c6b9d064f945ed`** (hash dopisuje kolejny commit).

@@ -85,6 +85,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1148** — Spójne zależności React podczas wdrożenia — v1.7.543 — tasks/completed/1148-workspace-react-build-alignment.md
 - **TASK-1146** — Kontrola schematu przy starcie — v1.7.540 / `5660c2b0` — tasks/completed/1146-readability-startup-schema-head.md
 - **TASK-1141** — Fizyczne usuwanie zastępowanego zdjęcia — v1.7.535 / `77651b67` — tasks/completed/1141-source-replacement-physical-purge.md
 - **TASK-1138** — Widoczne odświeżanie uczenia — v1.7.535 / `961b6b47` — tasks/completed/1138-grid-learning-refresh.md
@@ -94,4 +95,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1129** — Wycofanie źródła z zachowaniem historii — v1.7.527 / `6ba198b9` — tasks/completed/1129-source-replacement-retirement.md
 - **TASK-1128** — Strażnicy własności i historii wymiany źródeł — v1.7.525 / `a41f8d8d` — tasks/completed/1128-source-replacement-ownership.md
 - **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md
-- **TASK-1127** — Manifest wymiany całych źródeł — v1.7.523 / `c4436c79` — tasks/completed/1127-source-replacement-manifest.md

@@ -13,6 +13,7 @@ for (const key of [
   'Element',
   'Event',
   'MouseEvent',
+  'localStorage',
 ]) {
   Object.defineProperty(globalThis, key, {
     configurable: true,
@@ -1039,4 +1040,268 @@ test('symbol keys are inert while the "Braki zdjęć" tab is shown (TASK-0962)',
   await pressKey('2');
   assert.ok(cropButton('Crop 1 — wybrany symbol: Star'));
   await act(async () => root.unmount());
+});
+
+test('framing changes only the viewport, preserves preview and saved geometry, and keeps full mode when centered', async () => {
+  const { api, calls } = fakeApi({ queue: [reportedBoard()] });
+  const root = await render(api);
+  try {
+    const canvas = document.querySelector('canvas');
+    const contextWidth = canvas.width;
+    const preview = structuredClone(calls.preview.at(-1).command);
+    const imageCount = images.length;
+    const previewCount = calls.preview.length;
+    await act(async () => button('Całe zdjęcie').click());
+    assert.ok(canvas.width >= 1200 && canvas.height >= 900);
+    assert.equal(button('Całe zdjęcie').getAttribute('aria-pressed'), 'true');
+    await act(async () => button('Wycentruj widok na siatce').click());
+    assert.ok(canvas.width >= 1200 && canvas.height >= 900);
+    assert.equal(
+      images.length,
+      imageCount,
+      'no geometry/source reload on framing',
+    );
+    assert.equal(
+      calls.preview.length,
+      previewCount,
+      'no new preview or mutation',
+    );
+    await act(async () => button('Szerszy kadr').click());
+    assert.equal(canvas.width, contextWidth);
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    assert.deepEqual(calls.save[0].command.corners, preview.corners);
+    assert.deepEqual(calls.save[0].command.latticeNodes, preview.latticeNodes);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('legacy editor consumers retain the 35 percent viewport without new controls', async () => {
+  const { BoardGeometryCorrectionEditor } =
+    await import('../src/features/operational-reviews/deferred-board-cell-geometry-editor.tsx');
+  const { reportedBoardGeometryTarget } =
+    await import('../src/features/operational-reviews/board-geometry-correction-target.ts');
+  const { api } = fakeApi({ queue: [reportedBoard()] });
+  const target = reportedBoardGeometryTarget({ api, item: reportedBoard() });
+  const root = await render(api, {}, () =>
+    React.createElement(BoardGeometryCorrectionEditor, {
+      target,
+      onSaved: async () => {},
+      onConflict: async () => {},
+    }),
+  );
+  try {
+    assert.equal(button('Całe zdjęcie'), undefined);
+    assert.equal(document.querySelector('canvas').width, 680);
+    assert.equal(document.querySelector('canvas').height, 426);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('the main correction queue discovers proposals read-only and advances only after explicit human acceptance', async () => {
+  const board = reportedBoard();
+  const state = { queue: [board] };
+  const { api, calls } = fakeApi(state);
+  const proposalCalls = [];
+  const nodes = Array.from({ length: 24 }, (_, index) => ({
+    x: 300 + (index % 6) * 80,
+    y: 250 + Math.floor(index / 6) * 80,
+  }));
+  const candidate = {
+    originalGeometry: { corners: QUAD, latticeNodes: nodes },
+    expectedGeometryRevision: 2,
+    expectedResolutionRevision: 0,
+    originalCandidateSha256: 'b'.repeat(64),
+    modelSnapshot: { model: { version: 'new-model' } },
+  };
+  const proposal = {
+    id: 'proposal',
+    revision: 1,
+    state: 'pending',
+    applicable: true,
+    reasons: [],
+    candidate,
+  };
+  Object.assign(api, {
+    getOperationalImageReviewItem: async () => ({
+      data: { ...board, id: board.reviewItemId },
+    }),
+    listOperationalGridGeometryProposals: async () => {
+      proposalCalls.push('read');
+      return { data: { candidates: [], proposals: [proposal] } };
+    },
+    createOperationalGridGeometryProposal: async () =>
+      assert.fail('no creation on mount'),
+    previewOperationalImageReviewGeometry: async () =>
+      assert.fail('no proposal edit on mount'),
+    createOperationalImageReviewGeometryRevision: async () =>
+      assert.fail('proposal uses its acceptance endpoint'),
+    rejectOperationalGridGeometryProposal: async () =>
+      assert.fail('not requested'),
+    acceptOperationalGridGeometryProposal: async (
+      id,
+      proposalId,
+      scope,
+      body,
+    ) => {
+      proposalCalls.push(['accept', id, proposalId, scope, body]);
+      state.queue = [];
+      return {
+        data: {
+          current: { ...proposal, state: 'accepted', applicable: false },
+        },
+      };
+    },
+  });
+  const root = await render(api);
+  try {
+    assert.deepEqual(proposalCalls, ['read']);
+    assert.ok(button('Przyjmij propozycję'));
+    assert.equal(state.queue.length, 1);
+    assert.equal(calls.save.length, 0);
+    await act(async () => button('Przyjmij propozycję').click());
+    await settle();
+    assert.equal(proposalCalls[1][1], 'r1');
+    assert.equal(proposalCalls[1][4].mode, 'model');
+    assert.match(document.body.textContent, /Brak plansz do korekty/);
+    assert.match(document.body.textContent, /Przyjęto propozycję siatki/);
+    assert.equal(calls.save.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('full-photo mode survives corner drag release and qualification changes', async () => {
+  const { api, calls } = fakeApi({ queue: [reportedBoard()] });
+  dom.window.Element.prototype.setPointerCapture = () => {};
+  dom.window.Element.prototype.hasPointerCapture = () => false;
+  const root = await render(api);
+  try {
+    await act(async () => button('Całe zdjęcie').click());
+    const canvas = document.querySelector('canvas');
+    for (const [type, x] of [
+      ['pointerdown', 300],
+      ['pointermove', 330],
+      ['pointerup', 340],
+    ]) {
+      const event = new dom.window.MouseEvent(type, {
+        bubbles: true,
+        clientX: x,
+        clientY: 250,
+        button: 0,
+      });
+      Object.defineProperty(event, 'pointerId', { value: 1 });
+      await act(async () => canvas.dispatchEvent(event));
+    }
+    await settle();
+    assert.equal(calls.preview.at(-1).command.corners[0].x, 340);
+    assert.ok(canvas.width >= 1200 && canvas.height >= 900);
+    const partial = document.querySelector('input[type="checkbox"]');
+    assert.ok(partial);
+    await act(async () => partial.click());
+    assert.ok(canvas.width >= 1200 && canvas.height >= 900);
+    assert.equal(button('Całe zdjęcie').getAttribute('aria-pressed'), 'true');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+function proposalQueueApi(state, api) {
+  const rejected = new Set();
+  const nodes = Array.from({ length: 24 }, (_, i) => ({
+    x: 300 + (i % 6) * 80,
+    y: 250 + Math.floor(i / 6) * 80,
+  }));
+  const proposal = (id) => ({
+    id: `proposal-${id}`,
+    revision: 1,
+    state: rejected.has(id) ? 'rejected' : 'pending',
+    applicable: !rejected.has(id),
+    reasons: [],
+    candidate: {
+      originalGeometry: { corners: QUAD, latticeNodes: nodes },
+      originalCandidateSha256: 'b'.repeat(64),
+      expectedGeometryRevision: 2,
+      expectedResolutionRevision: 0,
+      modelSnapshot: { model: { version: 'test' } },
+    },
+  });
+  const calls = [];
+  Object.assign(api, {
+    getOperationalImageReviewItem: async (id) => ({
+      data: { ...state.queue.find((board) => board.reviewItemId === id), id },
+    }),
+    listOperationalGridGeometryProposals: async (id) => ({
+      data: { candidates: [], proposals: [proposal(id)] },
+    }),
+    createOperationalGridGeometryProposal: async () =>
+      assert.fail('not on discovery'),
+    acceptOperationalGridGeometryProposal: async () =>
+      assert.fail('not on rejection/read'),
+    previewOperationalImageReviewGeometry: async () =>
+      assert.fail('not editing'),
+    createOperationalImageReviewGeometryRevision: async () =>
+      assert.fail('not a geometry write'),
+    rejectOperationalGridGeometryProposal: async (id) => {
+      calls.push(id);
+      rejected.add(id);
+      return { data: { current: proposal(id) } };
+    },
+  });
+  return calls;
+}
+
+test('rejecting a proposal after skipping keeps the current board, navigation history and confirmation', async () => {
+  const state = {
+    queue: [
+      reportedBoard(),
+      reportedBoard({ slotId: 's2', reviewItemId: 'r2', sequenceNumber: 1235 }),
+    ],
+  };
+  const { api, calls } = fakeApi(state);
+  const rejections = proposalQueueApi(state, api);
+  const root = await render(api);
+  try {
+    await act(async () => button('Pomiń na razie →').click());
+    await loadImageAndPreview();
+    assert.equal(images.at(-1).url, 'http://localhost/source/r2');
+    await act(async () => button('Odrzuć propozycję').click());
+    await settle();
+    assert.deepEqual(rejections, ['r2']);
+    assert.equal(state.queue.length, 2);
+    assert.equal(calls.list.at(-1).afterCursor, '1');
+    assert.equal(button('← Poprzednia').disabled, false);
+    assert.equal(images.at(-1).url, 'http://localhost/source/r2');
+    assert.match(
+      document.body.textContent,
+      /Zgłoszenie siatki pozostaje otwarte/,
+    );
+    assert.equal(calls.save.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('stale proposal identity offers a working read-only queue refresh even on its first board', async () => {
+  const state = { queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  proposalQueueApi(state, api);
+  api.getOperationalImageReviewItem = async (id) => {
+    state.queue = [{ ...state.queue[0], geometryRevision: 3 }];
+    return { data: { ...state.queue[0], id } };
+  };
+  const root = await render(api);
+  try {
+    assert.match(document.body.textContent, /aktualnej wersji planszy/);
+    assert.ok(button('Odśwież kolejkę'));
+    await act(async () => button('Odśwież kolejkę').click());
+    await loadImageAndPreview();
+    assert.doesNotMatch(document.body.textContent, /aktualnej wersji planszy/);
+    assert.ok(button('Przyjmij propozycję'));
+    assert.equal(calls.preview.at(-1).command.expectedGeometryRevision, 3);
+    assert.equal(calls.save.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
 });

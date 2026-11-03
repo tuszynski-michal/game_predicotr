@@ -90,6 +90,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1153** — Propozycje modelu w korekcie i pełny kadr — v1.7.556 — tasks/completed/1153-grid-review-proposals-viewport.md
 - **TASK-1152** — Trwałe liczniki zastosowania — v1.7.553 / `5a9fcb14` — tasks/completed/1152-grid-apply-progress.md
 - **TASK-1147** — Integracja i odbiór przyrostu korekt — v1.7.551 / `95ce934e` — tasks/completed/1147-grid-growth-integration.md
 - **TASK-1151** — Wyszukiwanie bez historii wymiany — v1.7.550 / `eec2f304` — tasks/completed/1151-empty-replacement-search-fast-path.md
@@ -99,4 +100,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1146** — Kontrola schematu przy starcie — v1.7.540 / `5660c2b0` — tasks/completed/1146-readability-startup-schema-head.md
 - **TASK-1145** — Uzgodniona numeracja migracji korekt — v1.7.541 / `3df55bca` — tasks/completed/1145-grid-growth-migration-number.md
 - **TASK-1144** — Odbiór i wydanie Selektora — v1.7.539 / `a4993720` — tasks/completed/1144-selector-smooth-navigation.md
-- **TASK-1143** — Lekka nawigacja Selektora — v1.7.536 / `aa1d1e27` — tasks/completed/1143-selector-smooth-navigation.md

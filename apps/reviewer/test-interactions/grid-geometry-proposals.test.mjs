@@ -306,6 +306,7 @@ for (const partial of [false, true]) {
     localStorage.clear();
     const calls = [];
     let reloads = 0;
+    const editing = [];
     const api = {
       listOperationalGridGeometryProposals: async () => ({
         data: { proposals: [proposal], candidates: [] },
@@ -332,6 +333,7 @@ for (const partial of [false, true]) {
           importJobId: uuid,
           item,
           onChanged: () => reloads++,
+          onEditingChange: (value) => editing.push(value),
         }),
       ),
     );
@@ -345,6 +347,8 @@ for (const partial of [false, true]) {
       await new Promise((r) => setTimeout(r, 200));
     });
     assert.ok(document.body.textContent.includes('Dokładna korekta'));
+    assert.equal(editing.at(-1), true);
+    assert.ok(button('Całe zdjęcie'));
     if (partial) {
       const partialControl = [...document.querySelectorAll('label')]
         .find((label) => label.textContent.trim() === 'Niepełna plansza')
@@ -362,6 +366,7 @@ for (const partial of [false, true]) {
     await act(async () => button('Przyjmij własną korektę').click());
     assert.equal(calls.length, 1);
     assert.equal(calls[0][3].mode, 'edited');
+    assert.equal(editing.at(-1), false);
     assert.equal(
       calls[0][3].originalCandidateSha256,
       proposal.candidate.originalCandidateSha256,
@@ -433,3 +438,269 @@ else:
     await act(async () => root.unmount());
   });
 }
+
+test('correction integration reads current identity, retries errors and ignores late reads for the previous board', async () => {
+  const { CorrectionGridProposals } =
+    await import('../src/features/operational-reviews/correction-grid-proposals.tsx');
+  const calls = [];
+  let resolveOld;
+  let failed = true;
+  let changed = 0;
+  const current = {
+    ...item,
+    id: 'next',
+    importJobId: uuid,
+    geometryRevision: 2,
+  };
+  const api = {
+    getOperationalImageReviewItem: async (id) => {
+      calls.push(['get', id]);
+      if (id === uuid)
+        return new Promise((resolve) => {
+          resolveOld = resolve;
+        });
+      if (failed) {
+        failed = false;
+        throw new Error('offline');
+      }
+      return { data: current };
+    },
+    listOperationalGridGeometryProposals: async (id) => {
+      calls.push(['list', id]);
+      return {
+        data: {
+          candidates: [],
+          proposals: [
+            {
+              ...proposal,
+              candidate: { ...proposal.candidate, expectedGeometryRevision: 2 },
+            },
+          ],
+        },
+      };
+    },
+    createOperationalGridGeometryProposal: async () => {
+      calls.push(['create']);
+      throw new Error('not needed');
+    },
+    createOperationalImageReviewGeometryRevision: async () =>
+      assert.fail('no manual write on mount'),
+    previewOperationalImageReviewGeometry: async () =>
+      assert.fail('no preview on mount'),
+    acceptOperationalGridGeometryProposal: async (
+      id,
+      proposalId,
+      context,
+      body,
+    ) => {
+      calls.push(['accept', id, body]);
+      return {
+        data: {
+          current: {
+            ...proposal,
+            state: 'accepted',
+            applicable: false,
+            reasons: [],
+          },
+        },
+      };
+    },
+    rejectOperationalGridGeometryProposal: async () =>
+      assert.fail('no reject on mount'),
+  };
+  const root = createRoot(document.getElementById('root'));
+  const show = (review) =>
+    act(async () =>
+      root.render(
+        React.createElement(CorrectionGridProposals, {
+          api,
+          apiBaseUrl: 'http://localhost',
+          item: { ...review, reviewItemId: review.id },
+          onChanged: () => changed++,
+        }),
+      ),
+    );
+  try {
+    await show({ ...item, importJobId: uuid });
+    await show(current);
+    assert.match(document.body.textContent, /Nie udało się pobrać/);
+    await act(async () => resolveOld({ data: { ...item, importJobId: uuid } }));
+    assert.equal(
+      calls.filter(([name]) => name === 'list').length,
+      0,
+      'old read cannot mount old proposals',
+    );
+    await act(async () =>
+      [...document.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Odśwież propozycje')
+        .click(),
+    );
+    await settle();
+    assert.deepEqual(
+      calls.filter(([name]) => name === 'list'),
+      [['list', 'next']],
+    );
+    assert.equal(
+      calls.some(([name]) => name === 'accept' || name === 'create'),
+      false,
+    );
+    await act(async () =>
+      [...document.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Przyjmij propozycję')
+        .click(),
+    );
+    assert.equal(changed, 1);
+    assert.equal(calls.at(-1)[1], 'next');
+    assert.equal(calls.at(-1)[2].expectedGeometryRevision, 2);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('correction integration rejects mismatched source/revisions and tolerates legacy clients', async () => {
+  const { CorrectionGridProposals } =
+    await import('../src/features/operational-reviews/correction-grid-proposals.tsx');
+  const root = createRoot(document.getElementById('root'));
+  const board = { ...item, importJobId: uuid, reviewItemId: uuid };
+  const unused = async () =>
+    assert.fail('stale data must not discover or mutate proposals');
+  const api = {
+    getOperationalImageReviewItem: async () => ({
+      data: { ...item, importJobId: uuid, geometryRevision: 99 },
+    }),
+    listOperationalGridGeometryProposals: unused,
+    createOperationalGridGeometryProposal: unused,
+    acceptOperationalGridGeometryProposal: unused,
+    rejectOperationalGridGeometryProposal: unused,
+    createOperationalImageReviewGeometryRevision: unused,
+    previewOperationalImageReviewGeometry: unused,
+  };
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(CorrectionGridProposals, {
+          api,
+          item: board,
+          apiBaseUrl: '',
+          onChanged() {},
+        }),
+      ),
+    );
+    assert.match(document.body.textContent, /aktualnej wersji planszy/);
+    await act(async () =>
+      root.render(
+        React.createElement(CorrectionGridProposals, {
+          api: {},
+          item: board,
+          apiBaseUrl: '',
+          onChanged() {},
+        }),
+      ),
+    );
+    assert.equal(document.body.textContent, '');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('rejecting a model proposal keeps the grid issue open and only requests a queue refresh when opted in', async () => {
+  localStorage.clear();
+  const calls = [];
+  let acceptedChanges = 0;
+  let refreshes = 0;
+  const api = {
+    listOperationalGridGeometryProposals: async () => ({
+      data: { proposals: [proposal], candidates: [] },
+    }),
+    rejectOperationalGridGeometryProposal: async (...args) => {
+      calls.push(args);
+      return {
+        data: {
+          current: {
+            ...proposal,
+            state: 'rejected',
+            applicable: false,
+            reasons: ['PROPOSAL_REJECTED'],
+          },
+        },
+      };
+    },
+    acceptOperationalGridGeometryProposal: async () =>
+      assert.fail('reject cannot approve geometry'),
+  };
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(GridGeometryProposals, {
+          api,
+          apiBaseUrl: '',
+          importJobId: uuid,
+          item,
+          onChanged: () => acceptedChanges++,
+          onRejected: () => refreshes++,
+        }),
+      ),
+    );
+    await act(async () =>
+      [...document.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Odrzuć propozycję')
+        .click(),
+    );
+    assert.equal(calls.length, 1);
+    assert.equal(acceptedChanges, 0);
+    assert.equal(refreshes, 1);
+    assert.match(
+      document.body.textContent,
+      /Zgłoszenie siatki pozostaje otwarte/,
+    );
+    assert.equal('geometry' in calls[0][3], false);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('an API read error is distinct from stale identity and can retry without refreshing the queue', async () => {
+  const { CorrectionGridProposals } =
+    await import('../src/features/operational-reviews/correction-grid-proposals.tsx');
+  const root = createRoot(document.getElementById('root'));
+  const unused = async () =>
+    assert.fail('failed read cannot mutate or discover');
+  const api = {
+    getOperationalImageReviewItem: async () => ({ error: {} }),
+    listOperationalGridGeometryProposals: unused,
+    createOperationalGridGeometryProposal: unused,
+    acceptOperationalGridGeometryProposal: unused,
+    rejectOperationalGridGeometryProposal: unused,
+    createOperationalImageReviewGeometryRevision: unused,
+    previewOperationalImageReviewGeometry: unused,
+  };
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(CorrectionGridProposals, {
+          api,
+          item: { ...item, importJobId: uuid, reviewItemId: uuid },
+          apiBaseUrl: '',
+          onChanged: unused,
+          onReloadQueue: unused,
+        }),
+      ),
+    );
+    assert.match(document.body.textContent, /Nie udało się pobrać propozycji/);
+    assert.doesNotMatch(document.body.textContent, /aktualnej wersji planszy/);
+    assert.equal(
+      [...document.querySelectorAll('button')].some(
+        (b) => b.textContent === 'Odśwież kolejkę',
+      ),
+      false,
+    );
+    assert.ok(
+      [...document.querySelectorAll('button')].some(
+        (b) => b.textContent === 'Odśwież propozycje',
+      ),
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});

@@ -373,7 +373,9 @@ function GridReinferenceWorkspace({
       <h3>Ponowne rozpoznanie siatek</h3>
       <p>
         Aktualna przypisana baza, bez nowego treningu. Przygotowanie i
-        uruchomienie są osobnymi działaniami.
+        uruchomienie są osobnymi działaniami. Dla plansz „Zła siatka” powstają
+        propozycje do przyjęcia, edycji lub odrzucenia w Korekcie cięcia siatki.
+        Uruchomienie nie zatwierdza ich automatycznie.
       </p>
       <fieldset disabled={busy}>
         <legend>Nowy zakres</legend>

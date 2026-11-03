@@ -7,6 +7,11 @@ import type {
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  CorrectionGridProposals,
+  type CorrectionGridProposalsClient,
+} from './correction-grid-proposals';
+
 import { apiErrorMessage } from '../catalog/catalog-api-error';
 
 import {
@@ -33,7 +38,8 @@ import { buildOperationalReviewSymbolShortcuts } from './operational-review-stat
 
 type LoadState = 'error' | 'loading' | 'ready';
 
-export type BoardGeometryCorrectionClient = GeometryCorrectionHistoryClient &
+export type BoardGeometryCorrectionClient = CorrectionGridProposalsClient &
+  GeometryCorrectionHistoryClient &
   BoardRejectionClient &
   Pick<
     AdminApiClient,
@@ -72,6 +78,7 @@ export function BoardGeometryCorrectionWorkspace({
   /** False while a sibling tab is shown; keeps the editor mounted. */
   readonly keyboardEnabled?: boolean;
 }) {
+  const [proposalEditing, setProposalEditing] = useState(false);
   const [page, setPage] = useState<ImageGridReviewPageResponse | null>(null);
   const [history, setHistory] = useState<
     readonly ImageGridReviewPageResponse[]
@@ -356,9 +363,43 @@ export function BoardGeometryCorrectionWorkspace({
               submit={submitRejection}
             />
           </div>
+          <CorrectionGridProposals
+            key={`proposals:${target.key}`}
+            api={api}
+            apiBaseUrl={apiBaseUrl}
+            item={item}
+            onEditingChange={setProposalEditing}
+            onChanged={() => {
+              setNotice(
+                'Przyjęto propozycję siatki. Zatwierdzone punkty zapisano; odświeżono kolejkę.',
+              );
+              void loadPage(undefined, {
+                preserveNotice: true,
+                resetHistory: true,
+              });
+              setHistoryRefresh((value) => value + 1);
+            }}
+            onRejected={() => {
+              setNotice(
+                'Odrzucono propozycję. Zgłoszenie siatki pozostaje otwarte; możesz poprawić tę planszę ręcznie.',
+              );
+              void loadPage(history.at(-1)?.nextCursor ?? undefined, {
+                preserveNotice: true,
+              });
+            }}
+            onReloadQueue={() => {
+              setNotice(
+                'Odświeżono bieżącą kolejkę. Wczytano aktualną wersję planszy.',
+              );
+              void loadPage(history.at(-1)?.nextCursor ?? undefined, {
+                preserveNotice: true,
+              });
+            }}
+          />
           <BoardGeometryCorrectionEditor
+            viewportControls
             key={target.key}
-            keyboardEnabled={keyboardEnabled}
+            keyboardEnabled={keyboardEnabled && !proposalEditing}
             onConflict={handleConflict}
             onSaved={handleSaved}
             symbols={symbols}

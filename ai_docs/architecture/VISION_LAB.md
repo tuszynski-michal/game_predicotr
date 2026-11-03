@@ -1084,3 +1084,39 @@ SHA, and its D-559 evaluation must cover every cohort it trained on.
 ### Atomowy postęp trenera na Windows
 
 `write_json_atomic` zachowuje fsync i atomową podmianę kompletnego pliku. Krótka blokada współdzielenia Windows (winerror5/32/33) ponawia wyłącznie tę samą podmianę: maksymalnie7prób, opóźnienia10/20/40/80/160/160ms. Inne i trwałe błędy propagują się; poprzedni plik docelowy pozostaje, sprzątany jest tylko własny tempplik. Mechanizm nie zmienia formatu, budżetu, checkpointów ani lease treningu.
+
+
+## Propozycje w kolejce korekt i kadr podglądu (TASK-1153)
+
+`CorrectionGridProposals` wiąże bieżący `ImageGridReviewItemResponse` z istniejącym
+operacyjnym review przez odczyt identyfikatora, importu, gry, SHA źródła i dwóch
+rewizji. Montuje wspólne `GridGeometryProposals`; nie tworzy drugiego źródła
+propozycji ani endpointu. Klienci bez opcjonalnych metod nadal obsługują korektę
+ręczną. Edycja propozycji wyłącza skróty klawiaturowe edytora w tle.
+
+Opcjonalny `viewportControls` w `BoardGeometryCorrectionEditor` zachowuje domyślne
+35% u dotychczasowych konsumentów. Kolejka i edycja propozycji wybierają 70% lub
+pełny obraz z zakresem wszystkich punktów. Wszystkie operacje centrowania,
+przeciągania i zmiany kwalifikacji czytają ten sam wybrany tryb. Punkty pozostają
+w oryginalnych współrzędnych. To nie zmienia `board.margin` inferencji.
+
+`scripts/render_grid_correction_comparison.py --directory <katalog>` renderuje
+zapisane, przypięte do modeli i sum źródeł wyniki oraz metryki; nie uruchamia
+inferencji i nie zapisuje geometrii. Szablon jest w `scripts/templates/`.
+Status zastosowania wymaga pasujących ukończonych receiptów; brak dowodu jest
+jawny. Test Node uruchamia czystą logikę podglądu w stub DOM, bez przeglądarki
+lub sieci. Raport jest snapshotem z chwili zebrania materiału.
+
+
+Testy renderera nie wchodzą do domyślnego `python:test` (testpaths obejmuje serwisy).
+Uruchomienie przy zmianie renderera/szablonu:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s scripts/tests -p test_grid_correction_comparison.py -v
+.\.venv\Scripts\python.exe -m mypy scripts/render_grid_correction_comparison.py scripts/tests/test_grid_correction_comparison.py
+```
+
+Odrzucenie propozycji odczytuje bieżący kursor kolejki bez utraty historii;
+przyjęcie przechodzi do odświeżonego początku. Obie decyzje pozostawiają komunikat
+po odczycie. Niezgodna tożsamość daje jawny przycisk odczytu kolejki, a błąd API
+osobny retry propozycji; odczyty nigdy nie stosują geometrii.

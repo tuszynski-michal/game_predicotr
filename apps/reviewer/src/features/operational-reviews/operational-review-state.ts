@@ -521,19 +521,28 @@ export function operationalReviewGeometryViewport(
   imageHeight: number,
   paddingRatio = 0.25,
   allowOutsideSource = false,
+  fullImage = false,
 ): OperationalReviewGeometryViewport {
   const boundedWidth = Math.max(1, Math.round(imageWidth));
   const boundedHeight = Math.max(1, Math.round(imageHeight));
   const xs = corners.map((point) =>
-    allowOutsideSource
+    allowOutsideSource || fullImage
       ? point.x
       : Math.min(boundedWidth - 1, Math.max(0, point.x)),
   );
   const ys = corners.map((point) =>
-    allowOutsideSource
+    allowOutsideSource || fullImage
       ? point.y
       : Math.min(boundedHeight - 1, Math.max(0, point.y)),
   );
+  if (fullImage) {
+    // Include the actual photograph and every displayed point, even off-image.
+    const x = Math.min(0, Math.floor(Math.min(...xs)) - 16);
+    const y = Math.min(0, Math.floor(Math.min(...ys)) - 16);
+    const right = Math.max(boundedWidth, Math.ceil(Math.max(...xs)) + 16);
+    const bottom = Math.max(boundedHeight, Math.ceil(Math.max(...ys)) + 16);
+    return { x, y, width: right - x, height: bottom - y };
+  }
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);

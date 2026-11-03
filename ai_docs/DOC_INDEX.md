@@ -66,6 +66,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Propozycje do korekty i pełny kadr](delivery/GRID_REVIEW_PROPOSALS_VIEWPORT_20261103.md) — TASK-1153; ręczna ocena modelu i kontekst zdjęcia.
+
 - [Naprawa postępu zastosowania modelu](delivery/GRID_APPLY_PROGRESS_FIX_20261103.md) — TASK-1152; zachowanie liczników między etapami apply.
 
 - [Przyrostowe uczenie siatek i aktualność oceny](delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md)

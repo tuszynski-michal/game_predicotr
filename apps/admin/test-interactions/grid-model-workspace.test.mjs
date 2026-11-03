@@ -257,6 +257,22 @@ test('entering the whole V3 section only reads, whatever the backend answers', a
     );
     assert.ok(advanced);
     assert.equal(advanced.open, false);
+    const tool = [...document.querySelectorAll('details')].find(
+      (item) =>
+        item.querySelector('summary')?.textContent ===
+        'Osobne narzędzie: Ponowne rozpoznanie',
+    );
+    assert.equal(tool.open, false);
+    await click('Propozycje siatek do ręcznej oceny');
+    assert.equal(tool.open, true);
+    assert.deepEqual(
+      calls.filter((name) => !/^(list|get|preview)/.test(name)),
+      [],
+    );
+    assert.match(
+      document.body.textContent,
+      /Uruchomienie nie zatwierdza ich automatycznie/,
+    );
     assert.match(
       document.querySelector('ol.gridModelSteps').textContent,
       /Dostępne korekty i braki/,

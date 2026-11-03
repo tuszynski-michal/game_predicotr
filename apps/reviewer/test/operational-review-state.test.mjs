@@ -816,3 +816,33 @@ test('keeps partial-grid translation outside the source and recognizes the quad 
     false,
   );
 });
+
+test('full-photo viewport includes the source and off-image nodes while legacy framing stays unchanged', () => {
+  const corners = [
+    { x: 300, y: 250 },
+    { x: 700, y: 250 },
+    { x: 700, y: 500 },
+    { x: 300, y: 500 },
+  ];
+  assert.deepEqual(
+    operationalReviewGeometryViewport(corners, 1200, 900, 0.35),
+    { x: 160, y: 162, width: 680, height: 426 },
+  );
+  const wide = operationalReviewGeometryViewport(corners, 1200, 900, 0.7);
+  assert.ok(wide.width > 680 && wide.height > 426);
+  const full = operationalReviewGeometryViewport(
+    [
+      { x: -50, y: 20 },
+      { x: 500, y: 20 },
+      { x: 1400, y: 1000 },
+      { x: 0, y: 1000 },
+    ],
+    1200,
+    900,
+    0.7,
+    false,
+    true,
+  );
+  assert.ok(full.x <= -50 && full.y <= 0);
+  assert.ok(full.x + full.width >= 1400 && full.y + full.height >= 1000);
+});

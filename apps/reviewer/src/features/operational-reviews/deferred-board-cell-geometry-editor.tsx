@@ -140,6 +140,7 @@ export function BoardGeometryCorrectionEditor({
   symbolsLoading = false,
   target,
   unknownSymbolShortcut,
+  viewportControls = false,
 }: {
   readonly autoSelectFirstCell?: boolean;
   readonly canvasLabel?: string;
@@ -153,8 +154,13 @@ export function BoardGeometryCorrectionEditor({
   readonly symbolsLoading?: boolean;
   readonly target: BoardGeometryCorrectionTarget;
   readonly unknownSymbolShortcut?: string;
+  /** Opt-in: existing editor consumers retain their original framing. */
+  readonly viewportControls?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [fullImage, setFullImage] = useState(false);
+  const fullImageRef = useRef(false);
+  const viewportPadding = viewportControls ? 0.7 : 0.35;
   const [sourceImage, setSourceImage] = useState<{
     image: HTMLImageElement;
     url: string;
@@ -336,13 +342,20 @@ export function BoardGeometryCorrectionEditor({
               : boardLatticeViewportExtent(latestLatticeRef.current),
             context.sourceWidth,
             context.sourceHeight,
-            0.35,
+            viewportPadding,
             allowOutsideSource,
+            viewportControls && fullImageRef.current,
           ),
         );
       }
     },
-    [allowOutsideSource, clearPreview, context],
+    [
+      allowOutsideSource,
+      clearPreview,
+      context,
+      viewportControls,
+      viewportPadding,
+    ],
   );
 
   const updateFlags = useCallback(
@@ -359,13 +372,14 @@ export function BoardGeometryCorrectionEditor({
               : boardLatticeViewportExtent(latestLatticeRef.current),
             context.sourceWidth,
             context.sourceHeight,
-            0.35,
+            viewportPadding,
             next.partial,
+            viewportControls && fullImageRef.current,
           ),
         );
       }
     },
-    [clearPreview, context, corners],
+    [clearPreview, context, corners, viewportControls, viewportPadding],
   );
 
   const replaceLattice = useCallback(
@@ -483,8 +497,9 @@ export function BoardGeometryCorrectionEditor({
             : boardLatticeViewportExtent(initialLattice),
           result.view.sourceWidth,
           result.view.sourceHeight,
-          0.35,
+          viewportPadding,
           initialFlags.partial,
+          viewportControls && fullImageRef.current,
         ),
       );
       setContextState('ready');
@@ -494,7 +509,14 @@ export function BoardGeometryCorrectionEditor({
       active = false;
       previewRequestRef.current += 1;
     };
-  }, [autoSelectFirstCell, clearPreview, onConflict, target]);
+  }, [
+    autoSelectFirstCell,
+    clearPreview,
+    onConflict,
+    target,
+    viewportControls,
+    viewportPadding,
+  ]);
 
   useEffect(() => {
     if (
@@ -537,11 +559,12 @@ export function BoardGeometryCorrectionEditor({
           : boardLatticeViewportExtent(latestLatticeRef.current),
         context.sourceWidth,
         context.sourceHeight,
-        0.35,
+        viewportPadding,
         allowOutsideSource,
+        viewportControls && fullImageRef.current,
       ),
     );
-  }, [allowOutsideSource, context, corners]);
+  }, [allowOutsideSource, context, corners, viewportControls, viewportPadding]);
 
   useEffect(() => {
     if (context === null || sourceUrl === null) return;
@@ -1197,8 +1220,9 @@ export function BoardGeometryCorrectionEditor({
             : boardLatticeViewportExtent(latestLatticeRef.current),
           context.sourceWidth,
           context.sourceHeight,
-          0.35,
+          viewportPadding,
           allowOutsideSource,
+          viewportControls && fullImageRef.current,
         ),
       );
     }
@@ -1397,6 +1421,30 @@ export function BoardGeometryCorrectionEditor({
             >
               Cofnij zmianę siatki
             </button>
+            {viewportControls ? (
+              <div
+                role="group"
+                aria-label="Kadr zdjęcia"
+                className="geometryViewportControls"
+              >
+                {[false, true].map((whole) => (
+                  <button
+                    key={String(whole)}
+                    className="secondaryButton"
+                    type="button"
+                    aria-pressed={fullImage === whole}
+                    disabled={saving || dragging || corners === null}
+                    onClick={() => {
+                      fullImageRef.current = whole;
+                      setFullImage(whole);
+                      centerViewport();
+                    }}
+                  >
+                    {whole ? 'Całe zdjęcie' : 'Szerszy kadr'}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <button
               className="textButton"
               disabled={
@@ -1408,6 +1456,12 @@ export function BoardGeometryCorrectionEditor({
               Wycentruj widok na siatce
             </button>
           </div>
+          {viewportControls ? (
+            <p className="operationalReviewNotice">
+              Kadr zmienia tylko podgląd. Punkty siatki i wejście modelu
+              pozostają bez zmian.
+            </p>
+          ) : null}
           {context.suggestionNotice ? (
             <p className="operationalReviewNotice" role="note">
               {context.suggestionNotice}

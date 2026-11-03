@@ -2331,6 +2331,22 @@ konflikty i brak źródła. Szczegóły zachowują przyczyny i provenance. Link 
 istniejącej lokalnej Korekty cięcia siatki pozwala ocenić trwałe propozycje;
 dopiero jej decyzja człowieka stosuje korektę.
 
+TASK-1153: widoczny skrót „Propozycje siatek do ręcznej oceny” otwiera istniejące
+narzędzie ponownego rozpoznania; samo otwarcie nie wykonuje polecenia.
+Główna Korekta cięcia siatki pokazuje trwałe propozycje dla aktualnej zgłoszonej
+planszy, z tym samym przyjęciem, edycją i odrzuceniem co przegląd operacyjny.
+Odczyt sprawdza grę, import, SHA źródła oraz rewizje geometrii i rozwiązania;
+spóźniona odpowiedź nie trafia do następnej planszy. Po decyzji kolejka jest
+odczytywana ponownie. Odrzucenie propozycji nie jest odrzuceniem planszy.
+
+Edytor kolejki i edycji propozycji udostępnia „Szerszy kadr” (70% kontekstu)
+i „Całe zdjęcie” (oryginał oraz wszystkie punkty, również poza zdjęciem).
+Zmiana kadru zachowuje punkty i szkic; nie zmienia wejścia sieci. Pozostali
+konsumenci wspólnego edytora zachowują dotychczasowy kadr 35%.
+Statyczne porównanie HTML ma te same dwa tryby; zmiana punktów bez docelowych
+etykiet nadal nie stanowi pomiaru poprawności.
+
+
 Statystyki efektów pochodzą z atomowych receiptów backendu. Nowe komórki,
 rzeczywiście zmienione piksele, niezmienione piksele i niedostępne porównanie
 są odrębne. Ponowna ocena może obejmować te same komórki co zmienione piksele;

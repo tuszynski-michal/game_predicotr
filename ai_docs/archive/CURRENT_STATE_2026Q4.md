@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1153 — Propozycje modelu w korekcie i pełny kadr (done)
+
+- Plik: `tasks/completed/1153-grid-review-proposals-viewport.md`.
+- Commit: **v1.7.556** (hash dopisuje kolejny commit).
+- Główna Korekta pokazuje propozycje z ręcznym accept/edit/reject; GET na wejściu, CAS/provenance bez zmian. Bieżący kursor i komunikaty zachowane po odrzuceniu; jawny refresh nieaktualnej kolejki.
+- Edytor oraz HTML: szerszy kadr i pełne zdjęcie; inni konsumenci zachowują 35%. Model i geometria operatora bez zmian. Raport150/101 ma identyczny hash danych.
+- Reviewer59/59, Admin16/16, renderer3/3, scoped lint/types/mypy, buildy, docs/map PASS. Opus5.5/high runda2 PASS; uwagi pierwszej rundy zamknięte, P2 świeżości logów uzupełnione finalnymi kontrolami.
+- Dowody: `quality/TASK-1153_VERIFICATION.md`, raporty audytów, D:/game_predicotr/artifacts/task1153/. Wdrożenie, restart UI i rzeczywisty batch wymagają osobnej zgody.
+
 ### TASK-1152 — Trwałe liczniki zastosowania (done)
 
 - Plik: `tasks/completed/1152-grid-apply-progress.md`; commit **v1.7.553 / `5a9fcb148920fe1c702568cc94e58159d7babc4b`** (hash dopisuje kolejny commit).

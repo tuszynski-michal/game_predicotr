@@ -1129,6 +1129,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/operational-reviews/board-lattice-state.ts: BoardLatticeNodes, boardLatticePayload, parseBoardLattice, regularBoardLattice, transformedBoardLattice, boardLatticeCorners, boardLatticeViewportExtent, boardLatticeTransportCorners, boardLatticeCells, boardLatticeUnavailable, boardLatticeWithoutPixels, boardLatticeQualification, boardLatticePointInSource, translatedBoardLattice
 - features/operational-reviews/board-rejection-actions.ts: BoardRejectionClient, BoardRejectionScope, rejectDeferredSlot, rejectReviewItem
 - features/operational-reviews/board-rejection-state.ts: BoardRejectionReason, BOARD_REJECTION_REASONS, MAX_BOARD_REJECTION_NOTE_LENGTH, BoardRejectionRequest, boardRejectionReasonLabel, boardRejectionDraftError, boardRejectionNote, boardRejectionReasonText, slotRejectionCommand, boardRejectionCommand
+- features/operational-reviews/correction-grid-proposals.tsx: CorrectionGridProposalsClient, CorrectionGridProposals
 - features/operational-reviews/deferred-board-cell-geometry-actions.ts: DeferredBoardCellGeometryClient, DeferredBoardCellGeometryScope, DeferredBoardCellGeometryFailure, loadDeferredBoardCellGeometryPage, loadDeferredBoardCellGeometryContext, previewDeferredBoardCellGeometry, resolveDeferredBoardCellGeometry
 - features/operational-reviews/deferred-board-cell-geometry-editor.tsx: CorrectionSymbol, DeferredBoardCellGeometryEditor, BoardGeometryCorrectionEditor
 - features/operational-reviews/deferred-board-cell-geometry-queue.tsx: DeferredBoardCellGeometryQueue
@@ -1138,7 +1139,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/operational-reviews/geometry-gaps-workspace.tsx: GeometryGapsClient, GeometryGapsWorkspace
 - features/operational-reviews/grid-audit-correction-state.ts: gridAuditPreviewCommandsEqual, gridAuditClassLabel, gridAuditSuggestedCorners, gridAuditProgressText
 - features/operational-reviews/grid-audit-correction-workspace.tsx: GridAuditCorrectionClient, GridAuditCorrectionWorkspace
-- features/operational-reviews/grid-geometry-proposals.tsx: proposalCommandKey, GridGeometryProposals
+- features/operational-reviews/grid-geometry-proposals.tsx: GridGeometryProposalsClient, proposalCommandKey, GridGeometryProposals
 - features/operational-reviews/grid-shadow-correction-target.ts: GridShadowCorrectionClient, gridShadowCornerProposal, gridShadowBoardGeometryTarget
 - features/operational-reviews/grid-shadow-correction-workspace.tsx: GridShadowCorrectionWorkspace
 - features/operational-reviews/mutation-outcome.ts: LOST_CONNECTION, MutationResultLike, isDefiniteRefusal, MutationOutcome, MUTATION_TIMEOUT_MS, runMutation
@@ -1413,6 +1414,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - release_m6_spatial_symbol_model.py: main
 - remote_manual_selection_rollout_stage_two.py: build_stage_two_local_report
 - remove_superseded_import_images.py: main
+- render_grid_correction_comparison.py: render, main
 - reverify_777_grids.py: parse_quad, max_corner_distance, scale_quad, quad_inside, class VerifierObservation, run_verifier, class Thresholds, verifier_is_confident, validation_board_accepted, class GoldenBoard, class SampleBoard, hint_quad, engine_quad, load_golden, load_samples, load_source_rgb, sweep, calibrate, review_sheet, v3_sample, fit_board_layout, cv2_find_homography, is_extrapolated, predict_board, shape_consistent, place_board, refine_board, refine_board_affine, halves_consistent, hybrid_sample, dry_run, dry_run_all, execute, main
 - review_m5_cell_grid.py: main
 - review_m5_local_grid_calibration.py: main
@@ -1451,6 +1453,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - start_v20_ready_staging.py: run
 - symbol_rgb_v2.py: class RgbError, shard_of, index_rows_to_summary, run_index, select_scope, rgb_rows, run_preview, run_manifest, build_boards, read_manifest, manifest_policy, board_plan, run_apply, classify_target, run_verify, main
 - test_mumie_folder.py: sha, range_key, select_rows, write_new, read_bound, load_image, prepare, validate_result, render, run, evaluation_object, collect, finish, write_gallery, reference_audit, main
+- tests/test_grid_correction_comparison.py: class ComparisonTest
 - token_pilot_collect.py: class Usage, read_transcript, locate_session, session_usage, usage_row, cmd_usage, cmd_collect, to_int, row_usage, fmt, render_table, cmd_render, build_parser, main
 - train_m6_symbol_classifier.py: main
 - train_symbol_model.py: main

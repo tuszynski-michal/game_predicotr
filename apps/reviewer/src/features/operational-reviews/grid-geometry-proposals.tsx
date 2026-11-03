@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  AdminApiClient,
   GridGeometryProposalResponse,
   OperationalImageReviewItemResponse,
   ProposalCandidatesResponse,
@@ -11,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiErrorMessage } from '../catalog/catalog-api-error';
 import {
   operationalBoardGeometryTarget,
+  type OperationalBoardGeometryClient,
   type BoardGeometryCorrectionTarget,
 } from './board-geometry-correction-target';
 import {
@@ -18,8 +20,18 @@ import {
   boardLatticeTransportCorners,
 } from './board-lattice-state';
 import { BoardGeometryCorrectionEditor } from './deferred-board-cell-geometry-editor';
-import type { OperationalReviewsClient } from './operational-review-actions';
 import { operationalReviewAssetUrl } from './operational-review-state';
+
+export type GridGeometryProposalsClient = OperationalBoardGeometryClient &
+  Partial<
+    Pick<
+      AdminApiClient,
+      | 'listOperationalGridGeometryProposals'
+      | 'createOperationalGridGeometryProposal'
+      | 'acceptOperationalGridGeometryProposal'
+      | 'rejectOperationalGridGeometryProposal'
+    >
+  >;
 
 /** Persist command identity before network I/O, including a lost create response. */
 export function proposalCommandKey(
@@ -60,12 +72,16 @@ export function GridGeometryProposals({
   importJobId,
   item,
   onChanged,
+  onEditingChange,
+  onRejected,
 }: {
-  readonly api: OperationalReviewsClient;
+  readonly api: GridGeometryProposalsClient;
   readonly apiBaseUrl: string;
   readonly importJobId: string;
   readonly item: OperationalImageReviewItemResponse;
   readonly onChanged: () => void;
+  readonly onRejected?: () => void;
+  readonly onEditingChange?: (editing: boolean) => void;
 }) {
   const [data, setData] = useState<ProposalCandidatesResponse | null>(null);
   const [message, setMessage] = useState('');
@@ -73,6 +89,10 @@ export function GridGeometryProposals({
   const [editing, setEditing] = useState<GridGeometryProposalResponse | null>(
     null,
   );
+  useEffect(() => {
+    onEditingChange?.(editing !== null);
+    return () => onEditingChange?.(false);
+  }, [editing, onEditingChange]);
   const dialog = useRef<HTMLDialogElement>(null);
   const context = useMemo(
     () => ({ gameId: item.gameId, importJobId }),
@@ -230,6 +250,7 @@ export function GridGeometryProposals({
           : 'Zapisano decyzję. Odświeżono bieżący stan.',
       );
       if (action === 'accept') onChanged();
+      else onRejected?.();
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -384,26 +405,32 @@ export function GridGeometryProposals({
                 bieżącej geometrii.
               </p>
             ) : null}
-            <button
-              disabled={busy || !candidate.applicable}
-              onClick={() => void act(candidate, 'accept')}
-            >
-              Przyjmij propozycję
-            </button>
-            <button
-              disabled={busy || !candidate.applicable}
-              onClick={() => void act(candidate, 'edit')}
-            >
-              Edytuj propozycję
-            </button>
-            <button
-              disabled={
-                busy || ('state' in candidate && candidate.state !== 'pending')
-              }
-              onClick={() => void act(candidate, 'reject')}
-            >
-              Odrzuć propozycję
-            </button>
+            <div className="geometryViewportControls">
+              <button
+                className="primaryButton"
+                disabled={busy || !candidate.applicable}
+                onClick={() => void act(candidate, 'accept')}
+              >
+                Przyjmij propozycję
+              </button>
+              <button
+                disabled={busy || !candidate.applicable}
+                className="secondaryButton"
+                onClick={() => void act(candidate, 'edit')}
+              >
+                Edytuj propozycję
+              </button>
+              <button
+                disabled={
+                  busy ||
+                  ('state' in candidate && candidate.state !== 'pending')
+                }
+                className="secondaryButton"
+                onClick={() => void act(candidate, 'reject')}
+              >
+                Odrzuć propozycję
+              </button>
+            </div>
           </details>
         );
       })}
@@ -415,13 +442,14 @@ export function GridGeometryProposals({
         }}
         aria-label="Edytuj propozycję modelu"
       >
-        <button onClick={() => setEditing(null)}>
+        <button className="secondaryButton" onClick={() => setEditing(null)}>
           Zamknij edytor propozycji
         </button>
         {target ? (
           <BoardGeometryCorrectionEditor
             key={target.key}
             target={target}
+            viewportControls
             saveLabel="Przyjmij własną korektę"
             onConflict={async (message) =>
               setMessage(`${message} Odśwież planszę; szkic zachowano.`)

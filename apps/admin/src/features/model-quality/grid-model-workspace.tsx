@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { GridModelAssignmentSummary } from '@/features/games/grid-model-assignment-summary';
@@ -31,6 +31,7 @@ export function GridModelWorkspace({
     () => createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl],
   );
+  const reinference = useRef<HTMLDetailsElement>(null);
   const scope = `${apiBaseUrl}:${gameId}`;
   const [refreshKey, setRefreshKey] = useState(0);
   const onChanged = useCallback(() => setRefreshKey((value) => value + 1), []);
@@ -56,6 +57,21 @@ export function GridModelWorkspace({
         gameId={gameId}
         onChanged={onChanged}
       />
+      <button
+        className="secondaryButton"
+        type="button"
+        onClick={() => {
+          if (reinference.current) {
+            reinference.current.open = true;
+            reinference.current.scrollIntoView?.({
+              behavior: 'smooth',
+              block: 'start',
+            });
+          }
+        }}
+      >
+        Propozycje siatek do ręcznej oceny
+      </button>
       <details>
         <summary>Zaawansowane: nagrania, kohorty i parametry</summary>
         <RecordingGroupsPanel
@@ -77,7 +93,7 @@ export function GridModelWorkspace({
           gameId={gameId}
         />
       </details>
-      <details>
+      <details ref={reinference}>
         <summary>Osobne narzędzie: Ponowne rozpoznanie</summary>
         <GridReinferencePreview
           api={api}

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1153 — Propozycje modelu w korekcie i pełny kadr (done)
 
 - Plik: `tasks/completed/1153-grid-review-proposals-viewport.md`.
-- Commit: **v1.7.556** (hash dopisuje kolejny commit).
+- Commit: **v1.7.556 / `4319f702ee089428d6805a0ac92c4aefe13ef860`** (hash dopisuje kolejny commit).
 - Główna Korekta pokazuje propozycje z ręcznym accept/edit/reject; GET na wejściu, CAS/provenance bez zmian. Bieżący kursor i komunikaty zachowane po odrzuceniu; jawny refresh nieaktualnej kolejki.
 - Edytor oraz HTML: szerszy kadr i pełne zdjęcie; inni konsumenci zachowują 35%. Model i geometria operatora bez zmian. Raport150/101 ma identyczny hash danych.
 - Reviewer59/59, Admin16/16, renderer3/3, scoped lint/types/mypy, buildy, docs/map PASS. Opus5.5/high runda2 PASS; uwagi pierwszej rundy zamknięte, P2 świeżości logów uzupełnione finalnymi kontrolami.

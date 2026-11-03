@@ -65,7 +65,7 @@ gdyby pozostało P0/P1. Pozostałe części miały pozytywną ocenę statyczną 
 
 ## Outcome
 
-Commit: v1.7.556 (hash dopisuje kolejny commit).
+Commit: v1.7.556 / `4319f702ee089428d6805a0ac92c4aefe13ef860`.
 
 ### Changed
 

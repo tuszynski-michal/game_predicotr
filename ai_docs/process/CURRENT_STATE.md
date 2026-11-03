@@ -88,7 +88,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1147** — Integracja i odbiór przyrostu korekt — v1.7.551 — tasks/completed/1147-grid-growth-integration.md
+- **TASK-1147** — Integracja i odbiór przyrostu korekt — v1.7.551 / `95ce934e` — tasks/completed/1147-grid-growth-integration.md
 - **TASK-1151** — Wyszukiwanie bez historii wymiany — v1.7.550 / `eec2f304` — tasks/completed/1151-empty-replacement-search-fast-path.md
 - **TASK-1150** — Atomowy postęp Windows — v1.7.547 / `5efb3ea0` — tasks/completed/1150-grid-training-windows-atomic-progress.md
 - **TASK-1149** — Partie blokowanych wierszy — v1.7.546 / `4827f2a6` — tasks/completed/1149-grid-freeze-batched-lock-reads.md

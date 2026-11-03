@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1147 — Integracja i odbiór przyrostu korekt (done)
 
-- Plik: `tasks/completed/1147-grid-growth-integration.md`; commit **v1.7.551** (hash dopisuje kolejny commit).
+- Plik: `tasks/completed/1147-grid-growth-integration.md`; commit **v1.7.551 / `95ce934e43f5c61680fdee8afdbe98e1e8110a30`** (hash dopisuje kolejny commit).
 - Zintegrowano oba tory i zachowano ochrony migracji0175 po0178; skoordynowano0179. Root/origin d01a0f07, baza0179, dane166971/1500019/22248975 i aktywacje zachowane, purged0. API/Admin/general7/grid1 działają po zatwierdzonym restarcie.
 - Standardowy build/typecheck root bez aliasów PASS, wymagane PG/backend/UI/scopedlint/types/docs/map PASS, Opus1147 PASS bezP0/P1. Konieczne poprawki1149/1150 osobno zamknięte i audytowane Opus PASS; znane zastane P2 opisane.
 - Nowe69korekt powiększyłoTRAIN77→146; po freeze nowe0, kontrole17/21 osobno. Realne resume tego samego parenta/runu zachowało488 wcześniejszych kroków; łącznie2888/8000 i865,313/7200s, earlystop2400, wybrany checkpoint1200.

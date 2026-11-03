@@ -79,7 +79,7 @@ Wdrożenie napotkało `GAME_STORAGE_LIFECYCLE_IN_PROGRESS`: stary running delete
 
 ## Outcome
 
-Commit: v1.7.551 (hash dopisuje kolejny commit).
+Commit: v1.7.551 / `95ce934e43f5c61680fdee8afdbe98e1e8110a30`.
 
 ### Changed
 

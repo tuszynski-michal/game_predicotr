@@ -113,7 +113,7 @@ function fixture(overrides = {}) {
   );
   return { api, calls };
 }
-async function mount(api, saved = {}) {
+async function mount(api, saved = {}, gameId = GAME) {
   const dom = new JSDOM('<div id="root"></div>', {
     url: 'http://127.0.0.1:3000',
   });
@@ -134,7 +134,7 @@ async function mount(api, saved = {}) {
     root.render(
       React.createElement(GridCorrectionLearningPanel, {
         apiBaseUrl,
-        gameId: GAME,
+        gameId,
         client: api,
       }),
     ),
@@ -164,6 +164,366 @@ async function check(text) {
   assert.ok(label, text);
   await act(async () => label.querySelector('input').click());
 }
+
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  return { promise, resolve, reject };
+}
+
+test('pending default model is shown as loading even when readiness is already known', async () => {
+  const defaults = deferred();
+  const setup = fixture({ getGridModelDefault: () => defaults.promise });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    const model = document.querySelector('.gridCorrectionLearning > p');
+    assert.match(model.textContent, /Wczytywanie/);
+    assert.doesNotMatch(model.textContent, /Nie udało się ustalić/);
+    await act(async () =>
+      defaults.resolve({ data: { version: null, revision: 2 } }),
+    );
+    await settle();
+    assert.match(model.textContent, /Brak wersji domyślnej/);
+  } finally {
+    await view.close();
+  }
+});
+
+test('a failed refresh list still completes the operator selection invalidated by refresh', async () => {
+  const oldDetail = deferred();
+  let lists = 0,
+    details = 0;
+  const first = { ...run, verdict: null };
+  const next = {
+    ...run,
+    learningId: 'chosen-next',
+    verdict: null,
+    status: 'failed',
+    errorCode: 'FRESH_SELECTED_B',
+  };
+  const setup = fixture({
+    listGridCorrectionLearning: () => {
+      if (++lists === 2) throw new Error('List read failed');
+      return { data: { items: [first, next] } };
+    },
+    getGridCorrectionLearning: (_game, id) =>
+      id === RUN
+        ? { data: first }
+        : ++details === 1
+          ? oldDetail.promise
+          : { data: next },
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    const button = [
+      ...document.querySelectorAll('[aria-label="Przebiegi uczenia"] button'),
+    ].find((b) => b.textContent.endsWith('Błąd'));
+    await act(async () => button.click());
+    await click('Odśwież stan uczenia');
+    await settle();
+    assert.match(
+      document.querySelector('[aria-label="Postęp uczenia"]').textContent,
+      /FRESH_SELECTED_B/,
+    );
+    assert.match(document.body.textContent, /List read failed/);
+    await act(async () =>
+      oldDetail.resolve({ data: { ...next, errorCode: 'OLD_SELECTED_B' } }),
+    );
+    await settle();
+    assert.doesNotMatch(document.body.textContent, /OLD_SELECTED_B/);
+    assert.equal(details, 2);
+  } finally {
+    await view.close();
+  }
+});
+
+for (const changed of [false, true]) {
+  test(`report fetch failure ${changed ? 'clears a changed evaluation' : 'retains the same evaluation'}`, async () => {
+    let refreshing = false;
+    const setup = fixture({
+      listGridCorrectionLearning: () => ({
+        data: { items: [{ ...run, verdict: null }] },
+      }),
+      getGridCorrectionLearning: () => ({
+        data: {
+          ...run,
+          verdict: null,
+          evaluationId: refreshing && changed ? 'new-report' : 'old-report',
+        },
+      }),
+      getGridCorrectionLearningEvaluation: () => {
+        if (refreshing) throw new Error('Report read failed');
+        return {
+          data: { evaluationId: 'old-report', report: null, verdict: 'PASS' },
+        };
+      },
+    });
+    const view = await mount(setup.api);
+    try {
+      await settle();
+      assert.match(document.body.textContent, /Raport oceny: PASS/);
+      refreshing = true;
+      await click('Odśwież stan uczenia');
+      await settle();
+      assert.match(document.body.textContent, /Report read failed/);
+      assert.equal(
+        document.body.textContent.includes('Raport oceny: PASS'),
+        !changed,
+      );
+    } finally {
+      await view.close();
+    }
+  });
+}
+
+test('slow readiness does not hide existing workflow status on entry', async () => {
+  const ready = deferred();
+  const failed = {
+    ...run,
+    verdict: null,
+    status: 'failed',
+    errorCode: 'VISIBLE_HISTORY',
+  };
+  const setup = fixture({
+    getGridCorrectionLearningReady: () => ready.promise,
+    listGridCorrectionLearning: () => ({ data: { items: [failed] } }),
+    getGridCorrectionLearning: () => ({ data: failed }),
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    assert.match(
+      document.querySelector('[aria-label="Postęp uczenia"]').textContent,
+      /VISIBLE_HISTORY/,
+    );
+    const button = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Odświeżanie stanu uczenia…',
+    );
+    assert.ok(button?.disabled);
+    assert.equal(button.getAttribute('aria-busy'), 'true');
+    await act(async () => ready.resolve({ data: readiness }));
+    await settle();
+    assert.ok(setup.calls.every(([name]) => /^(get|list)/.test(name)));
+  } finally {
+    await view.close();
+  }
+});
+
+test('manual refresh immediately loads, deduplicates clicks and shows fresh status before readiness', async (t) => {
+  let now = Date.parse('2026-11-03T12:00:00Z');
+  t.mock.method(Date, 'now', () => now);
+  const ready = deferred();
+  let reads = 0,
+    changed = false;
+  const setup = fixture({
+    getGridCorrectionLearningReady: () =>
+      ++reads === 1 ? { data: readiness } : ready.promise,
+    listGridCorrectionLearning: () => ({
+      data: { items: [{ ...run, verdict: null }] },
+    }),
+    getGridCorrectionLearning: () => ({
+      data: {
+        ...run,
+        verdict: null,
+        errorCode: changed ? 'FRESH_STATUS' : 'PREVIOUS_STATUS',
+      },
+    }),
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    const previous = [...document.querySelectorAll('[role="status"]')].find(
+      (p) => p.textContent.startsWith('Stan odświeżony:'),
+    ).textContent;
+    now += 1000;
+    changed = true;
+    const button = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Odśwież stan uczenia',
+    );
+    await act(async () => {
+      button.click();
+      assert.equal(button.disabled, false); // before React commits this event batch
+      button.click();
+    });
+    assert.equal(button.textContent, 'Odświeżanie stanu uczenia…');
+    assert.equal(button.disabled, true);
+    assert.equal(button.getAttribute('aria-busy'), 'true');
+    await settle();
+    assert.equal(reads, 2);
+    assert.match(
+      document.querySelector('[aria-label="Postęp uczenia"]').textContent,
+      /FRESH_STATUS/,
+    );
+    await act(async () => ready.resolve({ data: readiness }));
+    await settle();
+    assert.equal(button.disabled, false);
+    assert.equal(button.getAttribute('aria-busy'), 'false');
+    assert.equal(button.textContent, 'Odśwież stan uczenia');
+    const confirmation = [...document.querySelectorAll('[role="status"]')].find(
+      (p) => p.textContent.startsWith('Stan odświeżony:'),
+    ).textContent;
+    assert.notEqual(confirmation, previous);
+    assert.ok(setup.calls.every(([name]) => /^(get|list)/.test(name)));
+  } finally {
+    await view.close();
+  }
+});
+
+test('readiness failure preserves workflow data and releases refresh for explicit retry', async () => {
+  let reads = 0;
+  const setup = fixture({
+    getGridCorrectionLearningReady: () => {
+      if (++reads === 2) throw new Error('Readiness timed out');
+      return { data: readiness };
+    },
+    listGridCorrectionLearning: () => ({
+      data: { items: [{ ...run, verdict: null }] },
+    }),
+    getGridCorrectionLearning: () => ({
+      data: {
+        ...run,
+        verdict: null,
+        errorCode: reads > 1 ? 'FRESH_AFTER_FAILURE' : 'RETAINED_WORKFLOW',
+      },
+    }),
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    await click('Odśwież stan uczenia');
+    await settle();
+    assert.match(document.body.textContent, /Readiness timed out/);
+    assert.match(
+      document.querySelector('[aria-label="Postęp uczenia"]').textContent,
+      /FRESH_AFTER_FAILURE/,
+    );
+    await click('Odśwież stan uczenia');
+    await settle();
+    assert.equal(reads, 3);
+    assert.doesNotMatch(document.body.textContent, /Readiness timed out/);
+    assert.ok(setup.calls.every(([name]) => /^(get|list)/.test(name)));
+  } finally {
+    await view.close();
+  }
+});
+
+test('late refresh responses after unmount cannot replace another game or trigger a stale status read', async () => {
+  const oldReady = deferred(),
+    oldList = deferred();
+  const old = fixture({
+    getGridCorrectionLearningReady: () => oldReady.promise,
+    listGridCorrectionLearning: () => oldList.promise,
+  });
+  const first = await mount(old.api);
+  await first.close();
+  const next = {
+    ...run,
+    gameId: OTHER,
+    verdict: null,
+    errorCode: 'NEW_GAME_STATUS',
+  };
+  const fresh = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: { ...readiness, gameId: OTHER },
+    }),
+    listGridCorrectionLearning: () => ({ data: { items: [next] } }),
+    getGridCorrectionLearning: () => ({ data: next }),
+  });
+  const second = await mount(fresh.api, {}, OTHER);
+  try {
+    await settle();
+    await act(async () => {
+      oldReady.resolve({ data: readiness });
+      oldList.resolve({
+        data: { items: [{ ...run, errorCode: 'OLD_GAME_STATUS' }] },
+      });
+    });
+    await settle();
+    assert.match(document.body.textContent, /NEW_GAME_STATUS/);
+    assert.doesNotMatch(document.body.textContent, /OLD_GAME_STATUS/);
+    assert.equal(
+      old.calls.some(([name]) => name === 'getGridCorrectionLearning'),
+      false,
+    );
+  } finally {
+    await second.close();
+  }
+});
+
+test('refresh after an explicit resume supersedes an older in-flight refresh', async () => {
+  const oldReady = deferred(),
+    oldList = deferred();
+  let readyReads = 0,
+    listReads = 0,
+    resumed = false;
+  const previous = { ...run, status: 'failed', verdict: null };
+  const latest = {
+    ...run,
+    status: 'created',
+    verdict: null,
+    errorCode: 'LATEST_RESUMED',
+  };
+  const setup = fixture({
+    getGridCorrectionLearningReady: () => {
+      if (++readyReads === 2) return oldReady.promise;
+      return { data: readiness };
+    },
+    listGridCorrectionLearning: () => {
+      if (++listReads === 2) return oldList.promise;
+      return { data: { items: [resumed ? latest : previous] } };
+    },
+    getGridCorrectionLearning: () => ({ data: resumed ? latest : previous }),
+    resumeGridCorrectionLearning: () => {
+      resumed = true;
+      return { data: latest };
+    },
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    await click('Odśwież stan uczenia');
+    await click('Wznów uczenie');
+    await settle();
+    assert.match(document.body.textContent, /LATEST_RESUMED/);
+    await act(async () => {
+      oldReady.resolve({
+        data: { ...readiness, blockers: ['STALE_READINESS'], canStart: false },
+      });
+      oldList.resolve({
+        data: { items: [{ ...previous, errorCode: 'STALE_WORKFLOW' }] },
+      });
+    });
+    await settle();
+    assert.match(document.body.textContent, /LATEST_RESUMED/);
+    assert.doesNotMatch(
+      document.body.textContent,
+      /STALE_READINESS|STALE_WORKFLOW/,
+    );
+    assert.equal(
+      setup.calls.filter(([name]) => name === 'resumeGridCorrectionLearning')
+        .length,
+      1,
+    );
+    assert.equal(
+      setup.calls.filter(([name]) => name === 'getGridCorrectionLearning')
+        .length,
+      2,
+    );
+    assert.equal(
+      [...document.querySelectorAll('button')].find(
+        (b) => b.textContent === 'Odśwież stan uczenia',
+      ).disabled,
+      false,
+    );
+  } finally {
+    await view.close();
+  }
+});
 
 test('entry reads readiness and history without creating a workflow, even when ready', async () => {
   const { api, calls } = fixture();

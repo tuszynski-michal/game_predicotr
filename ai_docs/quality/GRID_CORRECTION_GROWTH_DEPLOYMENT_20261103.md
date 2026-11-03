@@ -127,3 +127,12 @@ Pierwszy freeze parenta `cc7e739e-027c-4f44-87d8-8088c0d86bb1` przekroczył60s. 
 Oficjalne resume tego samego parenta zachowało historię i utworzyło tylko run `7a1b3835-639c-4439-8f49-3dfaea5e650a`. Dziecko zakończyło się na kroku488: `PermissionError [WinError5]` w atomowym `os.replace` pliku postępu. Budget pozostał488/8000 kroków i161,969/7200 sekund, attempt1; brak kandydata i zmiany defaultu. TASK-1150 dodaje krótki ograniczony retry tej samej podmiany. Nie wznowiono ponownie przed poprawką.
 
 Bramka odbioru pozostaje otwarta: sam PASS statycznego audytu1147 i poprawne liczniki nie stanowią sukcesu uczenia. Źródła: root `artifacts/grid-growth-deploy-20261103/freeze-profile-result.json`, `failed-training-job.json`, `latest-training.json` oraz diagnostyka runa. Zakres naszego178 nie został jeszcze wypchnięty.
+
+
+## Checkpoint po audytach 1149/1150 i pauza operacyjna
+
+TASK-1149 zamknięto jako v1.7.546 / `4827f2a6`; TASK-1150 jako v1.7.547 / `5efb3ea0`. Oba rzeczywiste audyty Claude Code Opus 5.5/high zakończyły się PASS bez P0/P1. Drobne uwagi P2 rozliczono testami. Zmiany pozostają na gałęzi roboczej; root/main nadal `5cfe292b`, DB0178, origin/main `be10f90e`.
+
+Kontrolowany odczyt blokad nowym helperem na tej samej kohorcie trwał 3,968s zamiast poprzednich 33,641s; transakcja została jawnie wycofana, stan frozen/revision164 pozostał niezmieniony. Testy Windows obejmują rzeczywisty uchwyt pliku bez FILE_SHARE_DELETE. Są to dowody napraw mechanizmu, nie ukończenia treningu.
+
+Koordynator drugiego okna potwierdził osobną regresję wyszukiwania plansz w filtrze źródeł 0175/0176. Zarezerwował TASK-1151 i migrację0179. Uzgodniono pauzę: bez kolejnych freeze, restartów i resume do gotowej, przetestowanej i audytowanej poprawki oraz ustalenia jednego właściciela wspólnego wdrożenia. Nie uruchomiono nowych zadań GPU. Zachowano parent `cc7e739e-027c-4f44-87d8-8088c0d86bb1`, dziecko `7a1b3835-639c-4439-8f49-3dfaea5e650a` i ich dotychczasowe zużycie budżetu.

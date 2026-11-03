@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1150 — Atomowy postęp Windows (done)
 
-- Plik: `tasks/completed/1150-grid-training-windows-atomic-progress.md`; commit **v1.7.547** (hash dopisuje kolejny commit).
+- Plik: `tasks/completed/1150-grid-training-windows-atomic-progress.md`; commit **v1.7.547 / `5efb3ea0b7a2b8f888a75c693dc6b96f25b19828`** (hash dopisuje kolejny commit).
 - Istniejący writer ponawia wyłącznie atomową podmianę tego samego fsync-temp dla jawnych winerror5/32/33, maksymalnie7prób i470ms oczekiwania. Trwałe/inne błędy propagowane, stary JSON zachowany, budżet i protokół bez zmian.
 - 12unit PASS, rzeczywisty Windows uchwyt bez FILE_SHARE_DELETE bez skip;34 regresje konsumentów PASS/1deselected (wyłącznie realny trening). Scoped lint/mypy/format PASS.
 - Opus5.5/high R1 PASS, bezP0/P1. Jedna rundaP2-1 poprawiła tylko zamknięcie uchwytu testowego;12unit ponowniePASS, produkcja bez zmian.

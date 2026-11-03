@@ -74,7 +74,7 @@ WinError5 może oznaczać trwały ACL, dlatego retry jest krótkie i skończone;
 
 ## Outcome
 
-Commit: v1.7.547 (hash dopisuje kolejny commit).
+Commit: v1.7.547 / `5efb3ea0b7a2b8f888a75c693dc6b96f25b19828`.
 
 ### Changed
 

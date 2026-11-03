@@ -45,7 +45,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md` | 0178 wdrożona; odbiór i poprawka freeze | TASK-1147 | `codex/grid-correction-growth` |
+| `delivery/GRID_CORRECTION_GROWTH_PLAN_20261103.md` | 0178 wdrożona; odbiór po skoordynowanym 0179 | TASK-1147 | `codex/grid-correction-growth` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -86,7 +86,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ### TASK-1147 — Integracja przyrostu korekt (in_progress)
 
-- Plik: `tasks/1147-grid-growth-integration.md`. DB0178; odbiór po1149/1150, z zachowaniem runa i budżetu.
+- Plik: `tasks/1147-grid-growth-integration.md`. DB0178; 1149/1150 Opus PASS. Pauza do skoordynowanego wdrożenia 0179; zachowany run i budżet.
 
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
@@ -94,7 +94,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1150** — Atomowy postęp Windows — v1.7.547 — tasks/completed/1150-grid-training-windows-atomic-progress.md
+- **TASK-1150** — Atomowy postęp Windows — v1.7.547 / `5efb3ea0` — tasks/completed/1150-grid-training-windows-atomic-progress.md
 - **TASK-1149** — Partie blokowanych wierszy — v1.7.546 / `4827f2a6` — tasks/completed/1149-grid-freeze-batched-lock-reads.md
 - **TASK-1148** — Spójne zależności React podczas wdrożenia — v1.7.543 / `879db371` — tasks/completed/1148-workspace-react-build-alignment.md
 - **TASK-1146** — Kontrola schematu przy starcie — v1.7.540 / `5660c2b0` — tasks/completed/1146-readability-startup-schema-head.md

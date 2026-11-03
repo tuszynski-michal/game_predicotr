@@ -60,7 +60,7 @@ Celowane testy Node i tsx interakcji w apps/admin, lint zmienionych modułów i 
 
 ## Outcome
 
-Commit: v1.7.521 (hash dopisuje kolejny commit).
+Commit: v1.7.521 / `2720e7aab26c6c0f29add4fe7dd376fd996903ea`.
 
 ### Audit corrections (runda 1)
 

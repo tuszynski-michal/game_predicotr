@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1126 — Shift i trwały zapis grup jakości (done)
 
 - Plik: `tasks/completed/1126-shift-range-selection.md`.
-- Commit: **v1.7.521** (hash dopisuje kolejny commit).
+- Commit: **v1.7.521 / `2720e7aab26c6c0f29add4fe7dd376fd996903ea`** (hash dopisuje kolejny commit).
 - Inclusive Shift obu workspace po pełnych danych strony, skip locked, reset anchor i atomowy cap10000/all_matching. Readability zachowuje snapshoty między stronami i trwałe porcje250 z kluczami przed pierwszym requestem, checkpoint/replay oraz jawnym potwierdzonym porzuceniem bez cofania zapisów.
 - Finalnie37/37 pure/keyboard/contracts i30/30UI PASS; scopedlint/typecheck, code-map i cztery kontrole docsPASS. Audyt claude-opus-5-5/medium R2PASS po jednej rundzie poprawek; N-1/N-2 (P2) odnotowane wOutcome. Bez usług, danych operatora, merge/push i smoke Androida.
 

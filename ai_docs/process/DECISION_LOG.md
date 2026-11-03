@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-03
 ---
 
 # Decision Log
@@ -32,6 +32,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-579](decisions/DECISION_LOG_2026.md#d-579--wspólne-pułapy-budżetu-uczenia-siatek) | Wspólne pułapy budżetu uczenia siatek | accepted | 2026-11-03 | 8000 kroków/7200 s, jednorazowa polityka legacy przy wznowieniu, bez resetu zużycia i zmiany planu. |
 | [D-578](decisions/DECISION_LOG_2026.md#d-578--uczenie-korekt-i-ocena-w-jawnym-zakresie) | Uczenie korekt i ocena w jawnym zakresie | accepted | 2026-11-02 | Partial controls, report v3/gate v2 i trwały parent zwalniający slot. |
 | [D-577](decisions/DECISION_LOG_2026.md#d-577--podział-korekt-geometrii-z-atestów-i-trwała-ochrona-zdjęć) | Podział korekt geometrii z atestów i trwała ochrona zdjęć | accepted | 2026-11-02 | Photo-only, atesty SHA, trzy bloki i trwałe role/bufory; stare polityki bez zmian. |
 | [D-576](decisions/DECISION_LOG_2026.md#d-576--uproszczenie-wyszukiwarki-i-modal-supergry-w-adminie) | Uproszczenie wyszukiwarki i modal supergry w Adminie | accepted | 2026-11-01 | TASK-1115: tabela pod wykresem, PLN i najnowsze reguły; modal w miejscu, 0 dla dziesiątego symbolu. |
@@ -61,4 +62,3 @@ Reguły:
 | [D-551](decisions/DECISION_LOG_2026.md#d-551--propozycje-dla-błędnej-siatki-v3) | Propozycje dla błędnej siatki V3 | accepted | 2026-10-14 | W zgodzie z D-462/D-543 ponowne rozpoznanie zgłoszonej Złej siatki tworzy trwałą propozycję i zdarzenia bez zmiany cropów lub zgłoszenia. |
 | [D-550](decisions/DECISION_LOG_2026.md#d-550--akceptacja-silnika-v3-i-statusowy-backfill) | Akceptacja silnika V3 i statusowy backfill | accepted | 2026-10-14 | Doprecyzowanie D-484/D-541 zachowuje późniejsze wyjątki V3. |
 | [D-549](decisions/DECISION_LOG_2026.md#d-549--wspólna-geometria-v3-i-domyślna-wersja) | Wspólna geometria V3 i domyślna wersja | accepted | 2026-10-14 | Rozszerzenie D-527 obejmuje wspólną geometrię i katalog; od TASK-1012 nowe preflighty V3 wybierają przypiętą wersję z assignment, a nie formatu. Serwerowy dowód oceny i invalidation nie przełączają assignment; stale blokuje nowe komendy. Nowa gra ma atomową rezerwację/transfer, fork-lineage i własny cold-start symboli. |
-| [D-548](decisions/DECISION_LOG_2026.md#d-548--doszkalanie-geometrii-z-ręcznych-korekt-v3) | Doszkalanie geometrii z ręcznych korekt V3 | accepted | 2026-10-14 | Odrębny zakres D-480 dopuszcza aktualne geometrie zatwierdzone przez człowieka do TRAIN. |

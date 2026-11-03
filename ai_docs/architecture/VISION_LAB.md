@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-11-02
+last_updated: 2026-11-03
 ---
 
 # Architektura laboratorium wizji
@@ -933,7 +933,20 @@ self-stop (at most 100 s); a whole-process watchdog in the child enforces that b
 the child publishes a step checkpoint when it is cancelled, out of budget or loses its
 supervisor. A re-claim first waits for the previous trainer to end, then charges its time and
 reported steps, adopts a newer intact checkpoint and recovers a finished export without new
-budget. Steps are reserved in blocks of 200 in the job payload before the trainer may run them
+budget. D-579 separates the immutable optimisation plan/fingerprint from the cumulative execution
+allowance: known training presets receive 8000 steps and 7200 charged seconds (minimum),
+across all games, while smoke keeps 50 steps/600 seconds. New budgets carry
+`limit_policy=grid-training-limits-v2`; absent metadata means historical `preset-v1`.
+Explicit admission of a resumed, recognised legacy budget with exact historical ceilings
+adopts the shared ceiling once, retaining all consumption, attempts and checkpoints.
+The supervisor adopts the ceiling before charging an orphan's final interval, avoiding
+clipping consumption to the old ceiling; it records the pre-recovery budget and new
+ceilings in history before launch.
+Further resumes do not replenish the allowance. Unknown legacy ceilings remain unchanged;
+unknown policy tags fail closed. Preview maxSteps/maxRunSeconds use the same execution
+ceilings; planned training steps and historical recipe fingerprints remain unchanged.
+
+Steps are reserved in blocks of 200 in the job payload before the trainer may run them
 (`allowance.json`) and settled to the confirmed count when the trainer ends. The API `grid-training-runs` creates, lists, reads, cancels and resumes runs.
 
 The child keeps Python stderr, unexpected tracebacks and faults supported by Python's

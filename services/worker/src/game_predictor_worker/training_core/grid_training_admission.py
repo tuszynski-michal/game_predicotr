@@ -16,6 +16,10 @@ from typing import Any, Literal
 PRESET_POLICY = "grid-training-preset-v1"
 ADMISSION_POLICY = "grid-training-admission-v1"
 BUDGET_FORMAT = "grid-training-budget-v1"
+LEGACY_LIMIT_POLICY = "preset-v1"
+TRAIN_LIMIT_POLICY = "grid-training-limits-v2"
+TRAIN_MAX_STEPS = 8000
+TRAIN_MAX_SECONDS = 7200.0
 
 Mode = Literal["grid-only", "screen+grid"]
 Purpose = Literal["train", "smoke"]
@@ -213,6 +217,20 @@ PRESETS: Mapping[str, GridTrainingPreset] = {
 }
 
 
+def training_budget_limits(preset: GridTrainingPreset) -> tuple[int, float]:
+    """Cumulative run allowance, separate from the immutable optimisation plan (D-579).
+
+    Only known presets receive the shared allowance. Custom/foreign parameters retain
+    their own ceilings; this policy must not silently bless another training recipe.
+    """
+    known = PRESETS.get(preset.preset_id)
+    if known is not None and known.fingerprint == preset.fingerprint:
+        return max(preset.max_steps, TRAIN_MAX_STEPS), max(
+            preset.max_run_seconds, TRAIN_MAX_SECONDS
+        )
+    return preset.max_steps, preset.max_run_seconds
+
+
 def preset_for_mode(
     mode: str,
     presets: Mapping[str, GridTrainingPreset] = PRESETS,
@@ -319,7 +337,7 @@ def estimate_cohort_cost(preset: GridTrainingPreset, counts: CohortCounts) -> Co
         epochs_planned=round(steps / steps_per_epoch, 3) if steps_per_epoch else 0.0,
         evaluations_planned=evaluations,
         estimated_run_seconds=total,
-        within_budget=total <= preset.max_run_seconds,
+        within_budget=total <= training_budget_limits(preset)[1],
     )
 
 
@@ -381,14 +399,37 @@ class RunBudget:
     reserved_steps: int = 0
     used_seconds: float = 0.0
     attempts: int = 0
+    limit_policy: str = LEGACY_LIMIT_POLICY
 
     @classmethod
     def for_preset(cls, preset: GridTrainingPreset, purpose: Purpose) -> RunBudget:
         if purpose == "smoke":
             steps, seconds = SMOKE_MAX_STEPS, SMOKE_MAX_SECONDS
         else:
-            steps, seconds = preset.max_steps, preset.max_run_seconds
-        return cls(preset.preset_id, preset.fingerprint, purpose, steps, seconds)
+            steps, seconds = training_budget_limits(preset)
+        return cls(
+            preset.preset_id,
+            preset.fingerprint,
+            purpose,
+            steps,
+            seconds,
+            limit_policy=TRAIN_LIMIT_POLICY if purpose == "train" else LEGACY_LIMIT_POLICY,
+        )
+
+    def with_current_limits(self, preset: GridTrainingPreset) -> RunBudget:
+        """Adopt the operator-approved global ceiling once; never replenish consumption."""
+        if (
+            self.purpose != "train"
+            or self.limit_policy != LEGACY_LIMIT_POLICY
+            or self.preset_id != preset.preset_id
+            or self.preset_fingerprint != preset.fingerprint
+            or (self.max_steps, self.max_seconds) != (preset.max_steps, preset.max_run_seconds)
+        ):
+            return self
+        steps, seconds = training_budget_limits(preset)
+        if (steps, seconds) == (self.max_steps, self.max_seconds):
+            return self
+        return replace(self, max_steps=steps, max_seconds=seconds, limit_policy=TRAIN_LIMIT_POLICY)
 
     @property
     def remaining_steps(self) -> int:
@@ -436,6 +477,7 @@ class RunBudget:
             raise GridRunBudgetError("GRID_RUN_BUDGET_CORRUPT") from error
         if (
             budget.purpose not in ("train", "smoke")
+            or budget.limit_policy not in (LEGACY_LIMIT_POLICY, TRAIN_LIMIT_POLICY)
             or budget.reserved_steps < 0
             or budget.used_seconds < 0
         ):
@@ -516,7 +558,7 @@ def evaluate_admission(
         ):
             found.add("GRID_RUN_BUDGET_PRESET_MISMATCH")
         else:
-            budget = stored_budget
+            budget = stored_budget.with_current_limits(preset)
         if budget is not None and budget.exhausted:
             found.add("GRID_RUN_BUDGET_EXHAUSTED")
     reasons = tuple(code for code in REASONS if code in found)
@@ -550,8 +592,8 @@ def preset_view(preset: GridTrainingPreset) -> dict[str, Any]:
         "trainSecondsPerTrainPhoto": preset.train_seconds_per_train_photo,
         "minTrainSeconds": preset.min_train_seconds,
         "maxTrainSeconds": preset.max_train_seconds,
-        "maxSteps": preset.max_steps,
-        "maxRunSeconds": preset.max_run_seconds,
+        "maxSteps": training_budget_limits(preset)[0],
+        "maxRunSeconds": training_budget_limits(preset)[1],
         "stepsPerSecondEstimate": preset.steps_per_second_estimate,
         "minTotalVramBytes": preset.min_total_vram_bytes,
         "minFreeVramBytes": preset.min_free_vram_bytes,

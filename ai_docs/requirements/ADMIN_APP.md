@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-11-02
+last_updated: 2026-11-03
 ---
 
 # Wymagania modułu administracyjnego
@@ -31,6 +31,12 @@ Lista przebiegów uczenia używa oddzielonych odstępami przycisków primary,
 bez punktorów. Przyciski mają 38 px minimum na desktopie i 44 px dla wskaźnika
 dotykowego; długie etykiety mogą zwiększyć wysokość. Wybór przebiegu nadal
 odczytuje jego stan i nie ponawia treningu.
+
+D-579: wspólny budżet wykonania uczenia siatek wszystkich gier ma 8000 kroków
+i 7200 sekund, bez zwiększania liczby zaplanowanych kroków samego treningu.
+Jawne wznowienie rozpoznanego historycznego budżetu przyjmuje nowe pułapy raz,
+zachowując zużycie i historię. Dalsze wznowienia nie odnawiają limitu; odczyt
+panelu nie zmienia budżetu. Smoke zachowuje dotychczasowe małe limity.
 
 Uczenie nie publikuje modelu ani nie zmienia przypisań. Zastosowanie domyślnie
 obejmuje globalny default i bieżącą grę; pozostałe ocenione gry wymagają osobnego

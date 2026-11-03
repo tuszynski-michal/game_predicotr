@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-03
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,16 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-579 — Wspólne pułapy budżetu uczenia siatek
+
+- **Date:** 2026-11-03.
+- **Status:** accepted; polecenie operatora: podnieść limity ogólnie zamiast dopisywać +200 kroków pojedynczemu treningowi. Liczby 8000/7200 przedstawione w czacie i utrwalone w TASK-1137.
+- **Context:** po awarii bez wyniku zachowano rezerwację 600 kroków. Wznowienie skończyło się na 3400/3600 kroków po wyczerpaniu wspólnego pułapu 4000, mimo zachowanego czasu i checkpointu.
+- **Decision:** polityka `grid-training-limits-v2` daje znanym, zatwierdzanym przez dotychczasowe admission presetom geometrii minimum 8000 skumulowanych kroków i 7200 s naliczonego czasu. Pułapy dotyczą wszystkich gier i zwykłego purpose=train, nie smoke ani klasyfikatora symboli. Fingerprint i plan optymalizacji pozostają historyczne; podwyższenie budżetu nie zwiększa planned_steps, liczby epok ani learning rate. W podglądzie maxSteps/maxRunSeconds oznaczają pułapy wykonania, a nie parametr planu.
+- **Compatibility:** historyczna koperta bez limit_policy znaczy `preset-v1`. Przy jawnym uruchomieniu/wznowieniu znanego presetu o zgodnym fingerprint i dokładnie historycznych pułapach admission jednorazowo przyjmuje nową politykę. Zużycie, rezerwacje, próby i checkpoint pozostają. Nadzorca przyjmuje politykę przed rozliczeniem osieroconej próby, aby nie obcinać jej końcowego zużycia do starego pułapu. Przed uruchomieniem procesu zapisuje receipt z budżetem sprzed odzysku i nowymi pułapami w istniejącej historii checkpointu. Następne wznowienia nie odnawiają pułapów. Obce fingerprinty, nieznane historyczne limity i smoke nie dostają niejawnego upgrade; nieznany znacznik polityki jest błędem koperty.
+- **Consequences:** doprecyzowanie D-557/D-558 wyłącznie w pułapach wykonania. Brak nowych tabel, migracji i zmian kształtu API. Stare raporty/snapshoty zachowują interpretację; nowy serwer zapisuje jawny znacznik polityki w istniejącym JSON. Przed wznowieniem wymagane wdrożenie i restart nadzorcy GPU, który ma załadowaną starą klasę budżetu. Po zapisie koperty ze znacznikiem limit_policy sam rollback kodu do v1.7.530 lub wcześniejszego jest nieobsługiwany: stary reader zgłosi uszkodzony budżet. Ewentualny rollback wymaga zachowania nowego readera albo osobno zaplanowanej konwersji, nigdy usuwania metadanych w ciemno. Sam odczyt UI niczego nie podnosi. Nowy pułap nadal ograniczony; błędy, niezgodność środowiska i wyczerpanie nadal blokują.
+- **Source:** TASK-1137 i polecenie operatora 2026-11-03. Nie upoważnia do automatycznej publikacji, aktywacji/defaultu, restartu usług ani do indywidualnej mutacji starego joba skryptem.
 
 ## D-578 — Uczenie korekt i ocena w jawnym zakresie
 

@@ -354,7 +354,7 @@ def test_resume_passes_the_valid_checkpoint_and_charges_only_the_unconfirmed_int
     handler(tmp_path, store, child)(resumed, resumed.job)  # type: ignore[arg-type]
     spec = child.launches[0]
     assert spec["resume"]["path"] == "c.pt" and spec["attempt"] == 2
-    assert spec["budget"]["remainingSeconds"] == pytest.approx(3600 - 100 - 100)
+    assert spec["budget"]["remainingSeconds"] == pytest.approx(7200 - 100 - 100)
     final = RunBudget.from_payload(resumed.payloads[-1][1]["budget"])
     assert final.attempts == 2 and final.used_seconds >= 200
 
@@ -448,9 +448,96 @@ def test_steps_repeated_after_a_resume_are_charged_again(tmp_path: Path) -> None
     )
     resumed = Context(replace(current, checkpoint_payload=state.payload()))
     handler(tmp_path, store, child)(resumed, resumed.job)  # type: ignore[arg-type]
-    assert child.launches[0]["budget"]["remainingSteps"] == GRID_ONLY_V1.max_steps - 100
+    assert child.launches[0]["budget"]["remainingSteps"] == 8000 - 100
     final = RunBudget.from_payload(resumed.payloads[-1][1]["budget"])
     assert final.reserved_steps == 100 + (30 - 10)  # 20 more steps, not max(100, 30)
+
+
+def test_legacy_limit_receipt_precedes_launch_and_survives_response_loss(tmp_path: Path) -> None:
+    store, child = Store(tmp_path), FakeChild()
+    current = job()
+    run = run_directory(tmp_path, current.id) / "checkpoints"
+    run.mkdir(parents=True)
+    (run / "legacy.pt").write_bytes(b"step ten")
+    pointer = {"path": "legacy.pt", "sha256": _sha(run / "legacy.pt"), "step": 10}
+    legacy = RunBudget(
+        GRID_ONLY_V1.preset_id,
+        GRID_ONLY_V1.fingerprint,
+        "train",
+        4000,
+        3600.0,
+        reserved_steps=4000,
+        used_seconds=1149.282,
+        attempts=2,
+    )
+    old = RunState(budget=legacy, attempt=2, checkpoint=pointer).payload()
+
+    class LostResponse(Context):
+        def checkpoint(self, *, checkpoint_payload, stage, **kwargs):
+            super().checkpoint(checkpoint_payload=checkpoint_payload, stage=stage, **kwargs)
+            if stage == "admitted":
+                raise RuntimeError("response lost after durable admission")
+
+    first = LostResponse(replace(current, checkpoint_payload=old))
+    with pytest.raises(RuntimeError, match="response lost after durable admission"):
+        handler(tmp_path, store, child)(first, first.job)  # type: ignore[arg-type]
+    assert child.launches == []
+    persisted = first.payloads[-1][1]
+    receipts = [r for r in persisted["history"] if r["status"] == "budget_limits_updated"]
+    assert len(receipts) == 1
+    before = RunBudget.from_payload(receipts[0]["previousBudget"])
+    assert before == legacy
+    assert (receipts[0]["maxSteps"], receipts[0]["maxSeconds"]) == (8000, 7200.0)
+    assert persisted["checkpoint"] == pointer
+    assert RunBudget.from_payload(persisted["budget"]).used_seconds == 1149.282
+
+    resumed = Context(replace(current, checkpoint_payload=persisted))
+
+    def checked_launch(command, environment, cwd):
+        admitted = resumed.payloads[-1][1]
+        assert len([r for r in admitted["history"] if r["status"] == "budget_limits_updated"]) == 1
+        return child(command, environment, cwd)
+
+    second = handler(tmp_path, store, child)
+    second.launcher = checked_launch
+    second(resumed, resumed.job)  # type: ignore[arg-type]
+    assert len(child.launches) == 1
+    assert child.launches[0]["resume"] == pointer
+    assert child.launches[0]["budget"]["remainingSteps"] == 3800
+    final = resumed.payloads[-1][1]
+    assert len([r for r in final["history"] if r["status"] == "budget_limits_updated"]) == 1
+    budget = RunBudget.from_payload(final["budget"])
+    assert (budget.max_steps, budget.max_seconds) == (8000, 7200.0)
+    assert budget.reserved_steps == 4220  # prior use + lost reservation + confirmed 20 steps
+    assert budget.attempts == 4
+
+
+def test_legacy_orphan_recovery_preserves_charge_above_old_ceiling(tmp_path: Path) -> None:
+    store, child = Store(tmp_path), FakeChild()
+    legacy = RunBudget(
+        GRID_ONLY_V1.preset_id,
+        GRID_ONLY_V1.fingerprint,
+        "train",
+        4000,
+        3600.0,
+        used_seconds=3550.0,
+        attempts=1,
+    )
+    state = RunState(
+        budget=legacy,
+        attempt=1,
+        charged_at=(NOW - timedelta(seconds=100)).isoformat(),
+    )
+    current = job()
+    context = Context(replace(current, checkpoint_payload=state.payload()))
+    handler(tmp_path, store, child)(context, context.job)  # type: ignore[arg-type]
+    recovered = next(payload for stage, payload in context.payloads if stage == "recovered")
+    budget = RunBudget.from_payload(recovered["budget"])
+    assert budget.used_seconds == 3650.0  # not silently clipped to the old 3600 ceiling
+    assert budget.max_seconds == 7200.0
+    receipt = next(r for r in recovered["history"] if r["status"] == "budget_limits_updated")
+    assert RunBudget.from_payload(receipt["previousBudget"]) == legacy
+    assert child.launches[0]["budget"]["remainingSeconds"] == 3550.0
 
 
 def test_newer_checkpoint_of_an_orphaned_trainer_is_adopted_on_reclaim(tmp_path: Path) -> None:
@@ -499,7 +586,7 @@ def test_adopted_orphan_steps_are_charged_from_the_attempt_start(tmp_path: Path)
     resumed = Context(replace(current, checkpoint_payload=state.payload()))
     handler(tmp_path, store, child)(resumed, resumed.job)  # type: ignore[arg-type]
     assert child.launches[0]["resume"]["step"] == 26
-    assert child.launches[0]["budget"]["remainingSteps"] == GRID_ONLY_V1.max_steps - 26
+    assert child.launches[0]["budget"]["remainingSteps"] == 8000 - 26
     final = RunBudget.from_payload(resumed.payloads[-1][1]["budget"])
     assert final.reserved_steps == 26 + (30 - 26)
 
@@ -529,7 +616,7 @@ def test_reported_steps_are_charged_even_without_a_newer_checkpoint(tmp_path: Pa
     handler(tmp_path, store, child)(context, context.job)  # type: ignore[arg-type]
     spec = child.launches[0]
     assert spec["resume"]["step"] == 10  # same checkpoint, but its 140 extra steps were charged
-    assert spec["budget"]["remainingSteps"] == GRID_ONLY_V1.max_steps - (90 + 140)
+    assert spec["budget"]["remainingSteps"] == 8000 - (90 + 140)
 
 
 def test_reclaim_waits_for_the_old_trainer_then_adopts_its_last_checkpoint(tmp_path: Path) -> None:
@@ -570,7 +657,7 @@ def test_reclaim_waits_for_the_old_trainer_then_adopts_its_last_checkpoint(tmp_p
     spec = child.launches[0]
     assert spec["resume"]["path"] == "last.pt"
     # The 80 s spent waiting for the old trainer are charged in full, beyond the 100 s bound.
-    assert spec["budget"]["remainingSeconds"] == pytest.approx(GRID_ONLY_V1.max_run_seconds - 80)
+    assert spec["budget"]["remainingSeconds"] == pytest.approx(7200.0 - 80)
 
 
 def test_finished_export_of_a_lost_supervisor_is_registered_without_new_budget(
@@ -583,7 +670,7 @@ def test_finished_export_of_a_lost_supervisor_is_registered_without_new_budget(
     store.registered.clear()
     # Same run, but its supervisor died after the trainer wrote result-1.json.
     admitted = [payload for stage, payload in first_context.payloads if stage == "admitted"][-1]
-    spent = RunBudget.from_payload(admitted["budget"]).charge(GRID_ONLY_V1.max_run_seconds)
+    spent = RunBudget.from_payload(admitted["budget"]).charge(7200.0)
     admitted = {**admitted, "budget": spent.to_payload(), "chargedAt": NOW.isoformat()}
     import shutil
 
@@ -677,7 +764,7 @@ def test_verified_export_without_a_result_file_is_registered_without_new_budget(
     run = run_directory(tmp_path, first.id)
     (run / "result-1.json").unlink()  # crashed after the export, before its result
     admitted = [payload for stage, payload in first_context.payloads if stage == "admitted"][-1]
-    spent = RunBudget.from_payload(admitted["budget"]).charge(GRID_ONLY_V1.max_run_seconds)
+    spent = RunBudget.from_payload(admitted["budget"]).charge(7200.0)
     lost = Context(replace(first, checkpoint_payload={**admitted, "budget": spent.to_payload()}))
     handler(tmp_path, store, child)(lost, lost.job)  # type: ignore[arg-type]
     assert len(child.launches) == 1 and len(store.registered) == 1

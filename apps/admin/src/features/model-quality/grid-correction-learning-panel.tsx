@@ -96,6 +96,8 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const [corrupt, setCorrupt] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [rollbackTarget, setRollbackTarget] = useState('');
@@ -107,51 +109,99 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const readSequence = useRef(0);
   const chosen = useRef('');
   const locked = useRef(false);
+  const refreshInFlight = useRef(false);
 
   async function refresh() {
     const token = ++readSequence.current;
-    const results = await Promise.all([
-      api.getGridCorrectionLearningReady(gameId),
-      api.getGridModelDefault(),
-      api.listGridCorrectionLearning(gameId),
-      api.listGames(),
-      api.listGridModelVersions(),
-      api.getGameGridModelHistory(gameId),
-    ]);
-    if (token !== readSequence.current) return;
-    const [readiness, defaultView, list, gameList, versionList, events] =
-      results;
-    if (
-      !readiness.data ||
-      !defaultView.data ||
-      !list.data ||
-      !gameList.data ||
-      !versionList.data ||
-      !events.data
-    )
-      throw new Error('Nie udało się odczytać gotowości, modeli lub historii.');
-    if (readiness.data.gameId !== gameId)
-      throw new Error('Odpowiedź dotyczy innej gry.');
-    setReady(readiness.data);
-    setDefaults(defaultView.data);
-    setRuns(list.data.items);
-    setGames(gameList.data);
-    setVersions(versionList.data);
-    setHistory(events.data);
-    setExclusions({});
-    setLoading(false);
+    generation.current += 1;
+    refreshInFlight.current = true;
+    setRefreshing(true);
     setError('');
-    // Existing workflows are read after reload. No POST is replayed automatically.
-    const active =
-      list.data.items.find((item) => item.learningId === chosen.current) ??
-      list.data.items[0];
-    if (active) await open(active.learningId);
+    const current = () => token === readSequence.current;
+    async function retainChosenOnListFailure(failure: unknown): Promise<never> {
+      // Refresh invalidated the previous detail request, so a failed list must
+      // still re-read the operator's selection instead of stranding the old one.
+      if (current() && chosen.current) await open(chosen.current);
+      throw failure;
+    }
+    try {
+      const results = await Promise.allSettled([
+        api
+          .getGridCorrectionLearningReady(gameId)
+          .then((result) => {
+            if (!current()) return;
+            if (!result.data)
+              throw new Error('Nie udało się odczytać gotowości korekt.');
+            if (result.data.gameId !== gameId)
+              throw new Error('Odpowiedź dotyczy innej gry.');
+            setReady(result.data);
+            setExclusions({});
+          })
+          .finally(() => {
+            if (current()) setLoading(false);
+          }),
+        api.getGridModelDefault().then((result) => {
+          if (!current()) return;
+          if (!result.data)
+            throw new Error('Nie udało się odczytać modelu domyślnego.');
+          setDefaults(result.data);
+        }),
+        api.listGridCorrectionLearning(gameId).then(async (result) => {
+          if (!current()) return;
+          if (!result.data)
+            return retainChosenOnListFailure(
+              new Error('Nie udało się odczytać przebiegów uczenia.'),
+            );
+          setRuns(result.data.items);
+          // Status does not wait for the more expensive readiness calculation.
+          // Existing workflows are read only; no POST is replayed after reload.
+          const active =
+            result.data.items.find(
+              (item) => item.learningId === chosen.current,
+            ) ?? result.data.items[0];
+          if (active) await open(active.learningId);
+          else {
+            chosen.current = '';
+            generation.current += 1;
+            setSelected(null);
+            setEvaluation(null);
+          }
+        }, retainChosenOnListFailure),
+        api.listGames().then((result) => {
+          if (!current()) return;
+          if (!result.data) throw new Error('Nie udało się odczytać gier.');
+          setGames(result.data);
+        }),
+        api.listGridModelVersions().then((result) => {
+          if (!current()) return;
+          if (!result.data)
+            throw new Error('Nie udało się odczytać wersji modeli.');
+          setVersions(result.data);
+        }),
+        api.getGameGridModelHistory(gameId).then((result) => {
+          if (!current()) return;
+          if (!result.data)
+            throw new Error('Nie udało się odczytać historii modeli.');
+          setHistory(result.data);
+        }),
+      ]);
+      if (!current()) return;
+      const failures = results.filter((result) => result.status === 'rejected');
+      if (failures.length)
+        setError(failures.map((result) => String(result.reason)).join(' '));
+      else setRefreshedAt(Date.now());
+    } finally {
+      if (current()) {
+        refreshInFlight.current = false;
+        setRefreshing(false);
+      }
+    }
   }
 
   async function open(id: string) {
+    if (chosen.current !== id) setEvaluation(null);
     chosen.current = id;
     const token = ++generation.current;
-    setEvaluation(null);
     const result = await api
       .getGridCorrectionLearning(gameId, id)
       .catch((failure) => {
@@ -167,6 +217,9 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     )
       throw new Error('Nie udało się odczytać przebiegu uczenia.');
     setSelected(result.data);
+    setEvaluation((existing) =>
+      existing?.evaluationId === result.data.evaluationId ? existing : null,
+    );
     setRuns((current) =>
       current.map((run) => (run.learningId === id ? result.data : run)),
     );
@@ -182,7 +235,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       if (!report.data)
         throw new Error('Nie udało się odczytać raportu oceny.');
       setEvaluation(report.data);
-    }
+    } else setEvaluation(null);
   }
 
   useEffect(() => {
@@ -347,7 +400,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         Wspólny model:{' '}
         {defaults?.version
           ? versionName(versions, defaults.version.manifest.versionId)
-          : loading
+          : loading || (refreshing && defaults === null)
             ? 'Wczytywanie…'
             : defaults === null
               ? 'Nie udało się ustalić wersji'
@@ -405,13 +458,20 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       <button
         className="secondaryButton"
         type="button"
-        disabled={busy}
-        onClick={() =>
-          void refresh().catch((failure) => setError(String(failure)))
-        }
+        disabled={busy || refreshing}
+        aria-busy={refreshing}
+        onClick={() => {
+          if (refreshInFlight.current) return;
+          void refresh().catch((failure) => setError(String(failure)));
+        }}
       >
-        Odśwież stan uczenia
+        {refreshing ? 'Odświeżanie stanu uczenia…' : 'Odśwież stan uczenia'}
       </button>
+      {refreshedAt !== null ? (
+        <p role="status">
+          Stan odświeżony: {new Date(refreshedAt).toLocaleTimeString('pl-PL')}.
+        </p>
+      ) : null}
       {ready ? (
         <>
           <section aria-label="Dostępność zapisanych korekt">
@@ -618,7 +678,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         </>
       ) : null}
       <h4>Przebiegi uczenia</h4>
-      {!runs.length && !loading ? (
+      {!runs.length && !loading && !refreshing ? (
         <p>Brak wcześniejszych przebiegów uczenia.</p>
       ) : null}
       <ul className="gridCorrectionRunList" aria-label="Przebiegi uczenia">

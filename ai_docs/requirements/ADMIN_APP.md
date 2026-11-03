@@ -27,6 +27,14 @@ kohorty, parametry i ręczne sterowanie wersjami pozostają w zwiniętej sekcji
 Zaawansowane. Losowa kontrola jakości i ponowne rozpoznanie są osobnymi narzędziami.
 Wejście, zmiana gry, przeładowanie i odczyt postępu wykonują wyłącznie GET.
 
+Przycisk „Odśwież stan uczenia” natychmiast pokazuje „Odświeżanie stanu
+uczenia…”, aria-busy i blokadę kolejnego kliknięcia do zakończenia odczytu.
+Historia i wybrany przebieg pojawiają się niezależnie od wolniejszej gotowości
+korekt. Błąd jednego GET nie ukrywa poprawnie odczytanych danych; pokazuje
+komunikat i pozwala ponowić odczyt. Udany pełny odczyt potwierdza czas
+odświeżenia, także gdy stan przebiegu się nie zmienił. Stare odpowiedzi nie
+zastępują nowszego odczytu ani wyboru innej gry.
+
 Lista przebiegów uczenia używa oddzielonych odstępami przycisków primary,
 bez punktorów. Przyciski mają 38 px minimum na desktopie i 44 px dla wskaźnika
 dotykowego; długie etykiety mogą zwiększyć wysokość. Wybór przebiegu nadal

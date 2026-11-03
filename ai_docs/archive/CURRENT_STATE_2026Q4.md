@@ -90,6 +90,15 @@ last_updated: 2026-10-16
 - Weryfikacja: 37/37 testów PASS (17,24 s), ruff PASS; mapa i cztery kontrole docs PASS. Mypy po korektach partial: błąd narzędzia przy zapisie cache i timeout bez cache; wcześniejszy mypy PASS. Szczegóły w Outcome.
 - Audyt: `quality/TASK-1124_AUDIT_claude-opus-5-5.md`, Opus5.5/high, oryginalny REVISE; jedna runda poprawek i reconciliation leada zamykają P1-1 oraz P2-1/4/5. P2-2 to jawne ograniczenie przypiętej pary SHA, P2-3 operacyjna niezależna pula audit200; bez otwartych P0/P1 po rozliczeniu.
 - Bez empirycznego pilota, skanu, treningu lub aktywacji kandydata nr 5; bez usług, migracji, merge/push. Kolejny task: TASK-1125, etykiety przed gotowością detektora.
+### TASK-1138 — Widoczne odświeżanie uczenia (done)
+
+- Plik: `tasks/completed/1138-grid-learning-refresh.md`.
+- Commit: **v1.7.535 / `961b6b47bff01fee8dab84284225d886faefb148`** (hash dopisuje kolejny commit).
+- Przycisk ma własne loading/aria-busy i blokadę kliknięć, a pełny udany odczyt potwierdza czas. Historia/status nie czekają na wolniejszą gotowość; częściowy błąd nie usuwa danych. Zachowana ochrona spóźnionych odpowiedzi i tożsamości raportu.
+- Finalne 48 testów interakcji PASS, pełny typecheck i build Admina PASS, lint/format/docs/map PASS. Rzeczywisty panel potwierdził loading, status oraz zmianę czasu odczytu; GET-only, bez zmian modeli lub restartów.
+- Opus 5.5/high R1 PASS. P2-1..5 naprawione w jednej rundzie wraz z regresjami. Pierwszy build EPERM Windows niezaliczony; kontrolowane powtórzenie z właściwymi uprawnieniami PASS.
+- Merge/push poprawki oczekuje na akceptację; nie wymaga migracji ani restartu usług. Fizyczny Android nieodbierany.
+
 ### TASK-1137 — Wspólne limity uczenia siatek (done)
 
 - Plik: `tasks/completed/1137-grid-training-shared-budget.md`.

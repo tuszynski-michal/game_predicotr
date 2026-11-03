@@ -49,6 +49,16 @@ steps to be completed. A conflicting external publication remains a command bloc
 but leaves the historical publish step pending instead of failing the whole read.
 Corrupt own receipts and other unexpected failures still fail closed.
 
+TASK-1138: the Admin learning panel accepts each GET result independently. The
+workflow list/detail/report is not gated by the slower readiness calculation;
+allSettled collects read errors without dropping successful history. A read
+sequence and selection generation discard superseded/unmounted answers. Refresh
+has its own busy state and synchronous click guard; command locking and durable
+POST intents remain separate. A failed list still re-reads the explicit selection;
+retained reports must match the selected evaluation identity. Successful full reads
+show a timestamp; no read
+starts training, publishes or activates a version.
+
 ## Photo-only correction split (D-577, TASK-1120)
 
 `domain/grid_correction_split.py` implements bounded exact one-to-three-block

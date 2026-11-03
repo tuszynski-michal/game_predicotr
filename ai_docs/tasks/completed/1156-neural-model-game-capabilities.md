@@ -83,7 +83,7 @@ Historyczny model bez jawnego raportu gry nie ma automatu dla nowych operacji. T
 
 ## Outcome
 
-Commit: v1.7.560 (hash dopisuje kolejny commit).
+Commit: v1.7.560 / `337affe8155478edf5f3d634ac259675518111d3`.
 
 ### Changed
 

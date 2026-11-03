@@ -91,7 +91,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1156** — Możliwości modelu i kwalifikacja gry — v1.7.560 — tasks/completed/1156-neural-model-game-capabilities.md
+- **TASK-1156** — Możliwości modelu i kwalifikacja gry — v1.7.560 / `337affe8` — tasks/completed/1156-neural-model-game-capabilities.md
 - **TASK-1155** — Odtwarzalne wejście sieci i dowody gotowości — v1.7.559 / `887d8a3b` — tasks/completed/1155-full-board-input-diagnostics.md
 - **TASK-1154** — Bezpieczna akceptacja siatek — v1.7.558 / `0a7ef2d3` — tasks/completed/1154-safe-neural-auto-crop-policy.md
 - **TASK-1153** — Propozycje modelu w korekcie i pełny kadr — v1.7.556 / `4319f702` — tasks/completed/1153-grid-review-proposals-viewport.md

@@ -67,7 +67,7 @@ Obca gałąź nie jest jeszcze częścią tego grafu. Nowa numeracja nie upoważ
 
 ## Outcome
 
-Commit: v1.7.541 (hash dopisuje kolejny commit).
+Commit: v1.7.541 / `3df55bcadbd62bf0ab76d745b8fc1d819fcf6ad0`.
 
 ### Changed
 

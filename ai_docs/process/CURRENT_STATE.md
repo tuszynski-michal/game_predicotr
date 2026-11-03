@@ -82,7 +82,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1145** — Uzgodniona numeracja migracji korekt — v1.7.541 — tasks/completed/1145-grid-growth-migration-number.md
+- **TASK-1145** — Uzgodniona numeracja migracji korekt — v1.7.541 / `3df55bca` — tasks/completed/1145-grid-growth-migration-number.md
 - **TASK-1140** — Czytelne liczniki i aktualność oceny — v1.7.538 / `febbf91e` — tasks/completed/1140-grid-correction-growth-panel.md
 - **TASK-1139** — Przyrostowy podział korekt i liczniki — v1.7.537 / `e33b71ab` — tasks/completed/1139-grid-correction-growth-data.md
 - **TASK-1138** — Widoczne odświeżanie uczenia — v1.7.535 / `961b6b47` — tasks/completed/1138-grid-learning-refresh.md

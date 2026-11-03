@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1145 — Uzgodniona numeracja migracji korekt (done)
 
-- Plik: `tasks/completed/1145-grid-growth-migration-number.md`; commit **v1.7.541**.
+- Plik: `tasks/completed/1145-grid-growth-migration-number.md`; commit **v1.7.541 / `3df55bcadbd62bf0ab76d745b8fc1d819fcf6ad0`**.
 - Po zweryfikowanej zgodzie operatora w czacie koordynującym: niewdrożona rewizja 0172_grid_correction_growth przenumerowana na wolną 0178_grid_correction_growth. Rodzic pozostaje 0171; późniejsza integracja grafu z nowym main osobno.
 - Upgrade/downgrade i SQL capability identyczne z v1.7.540. Aktualne readiness, testy i noty dokumentacji używają 0178; historyczne audyty i zamknięte taski zachowane.
 - PASS: readiness19, guarded PostgreSQL1, scoped lint4 i mypy2, AST/tożsamość tekstu migracji, mapa. Opus 5.5/high PASS; P2 doprecyzowania planu i indeksu poprawione.

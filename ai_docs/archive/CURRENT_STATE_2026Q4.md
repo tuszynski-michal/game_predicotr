@@ -10,7 +10,7 @@ last_updated: 2026-10-16
 
 - Plik: `tasks/completed/1137-grid-training-shared-budget.md`.
 - Commit: **v1.7.531 / `409829afb17829072f5e59b0ce7b3b8fa90d5139`** (hash dopisuje kolejny commit).
-- D-579: wspólne pułapy 8000 kroków/7200 s, bez zmiany parametrów optymalizacji i planned_steps. Znane legacy budżety przyjmują politykę raz podczas jawnego wznowienia, z zachowaniem zużycia/checkpointu i receiptem sprzed odzysku; kolejne wznowienia nie odnawiają pułapu.
+- D-581: wspólne pułapy 8000 kroków/7200 s, bez zmiany parametrów optymalizacji i planned_steps. Znane legacy budżety przyjmują politykę raz podczas jawnego wznowienia, z zachowaniem zużycia/checkpointu i receiptem sprzed odzysku; kolejne wznowienia nie odnawiają pułapu.
 - 95 finalnych testów worker PASS, nowy test podglądu API PASS; lint/format/scoped mypy/docs/map PASS. 40 pozostałych testów API PASS, dwa zastane FAIL potwierdzone izolowanym modułem z main i opisane w oknie. Nowy interpreter sprawdza trwałość budżetu.
 - Opus 5.5/high R1 PASS. P2-1 naprawione (3650 s nie obcięte do 3600), P2-2 zaakceptowane i opisane (rollback starego readera nieobsługiwany), P2-3 wskaźnik zastanych regresji w CURRENT_STATE.
 - Operator polecił rozwiązanie ogólne; jednostkowy skrypt +200 wyłączono bez wykonania. Rzeczywisty trening pozostaje zatrzymany przy checkpoint 3400/3600, bez kandydata/porównania/defaultu. Merge/push i wymagany restart GPU czekają na akceptację wyniku.

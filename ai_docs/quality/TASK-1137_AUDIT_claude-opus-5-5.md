@@ -53,3 +53,5 @@ Otwarte: P2-1, P2-2, P2-3.
 ## Zakres przeglądu i ograniczenia
 
 Przeczytałem cały brief z diffem, a do tego `grid_training_admission.py` (presety, `training_budget_limits`, `estimate_cohort_cost`, `RunBudget`, `evaluate_admission`, `preset_view`) i fragmenty `grid_training_handler.py` (`RunState`, `__call__`, `_recover_previous_attempt`, `_admit`, `_train`, `_reserve`, `_settle_steps`). Przejrzałem też `TrainingPlan.of` w `grid_training.py`, ścieżki `resume` i `view` w `services/api/.../grid_training_runs.py`, miejsca używające `RunBudget` i historii stanu, regułę AGENTS.md o zastanych błędach oraz artefakty `artifacts/task1137-*.log` i `task1137-operator-budget-preview.json`. Testów, lintów, mypy ani `docs:check` nie uruchamiałem. Wyniki weryfikacji pochodzą z logów wykonawcy. Nie sprawdzałem zachowania na rzeczywistej bazie ani działania nadzorcy GPU po restarcie.
+
+Uwaga wykonawcy po audycie: przed integracją decyzję D-579 przenumerowano na D-581 z powodu kolizji z równoległą gałęzią. Powyższy raport zachowuje historyczną numerację audytowanego diffu; treść polityki nie uległa zmianie.

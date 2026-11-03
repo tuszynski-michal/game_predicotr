@@ -14,7 +14,7 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
-## D-579 — Wspólne pułapy budżetu uczenia siatek
+## D-581 — Wspólne pułapy budżetu uczenia siatek
 
 - **Date:** 2026-11-03.
 - **Status:** accepted; polecenie operatora: podnieść limity ogólnie zamiast dopisywać +200 kroków pojedynczemu treningowi. Liczby 8000/7200 przedstawione w czacie i utrwalone w TASK-1137.

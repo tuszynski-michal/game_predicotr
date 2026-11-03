@@ -933,7 +933,7 @@ self-stop (at most 100 s); a whole-process watchdog in the child enforces that b
 the child publishes a step checkpoint when it is cancelled, out of budget or loses its
 supervisor. A re-claim first waits for the previous trainer to end, then charges its time and
 reported steps, adopts a newer intact checkpoint and recovers a finished export without new
-budget. D-579 separates the immutable optimisation plan/fingerprint from the cumulative execution
+budget. D-581 separates the immutable optimisation plan/fingerprint from the cumulative execution
 allowance: known training presets receive 8000 steps and 7200 charged seconds (minimum),
 across all games, while smoke keeps 50 steps/600 seconds. New budgets carry
 `limit_policy=grid-training-limits-v2`; absent metadata means historical `preset-v1`.

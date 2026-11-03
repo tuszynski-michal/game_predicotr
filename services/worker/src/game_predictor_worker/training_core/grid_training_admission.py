@@ -218,7 +218,7 @@ PRESETS: Mapping[str, GridTrainingPreset] = {
 
 
 def training_budget_limits(preset: GridTrainingPreset) -> tuple[int, float]:
-    """Cumulative run allowance, separate from the immutable optimisation plan (D-579).
+    """Cumulative run allowance, separate from the immutable optimisation plan (D-581).
 
     Only known presets receive the shared allowance. Custom/foreign parameters retain
     their own ceilings; this policy must not silently bless another training recipe.

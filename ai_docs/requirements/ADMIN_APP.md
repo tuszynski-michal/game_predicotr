@@ -32,7 +32,7 @@ bez punktorów. Przyciski mają 38 px minimum na desktopie i 44 px dla wskaźnik
 dotykowego; długie etykiety mogą zwiększyć wysokość. Wybór przebiegu nadal
 odczytuje jego stan i nie ponawia treningu.
 
-D-579: wspólny budżet wykonania uczenia siatek wszystkich gier ma 8000 kroków
+D-581: wspólny budżet wykonania uczenia siatek wszystkich gier ma 8000 kroków
 i 7200 sekund, bez zwiększania liczby zaplanowanych kroków samego treningu.
 Jawne wznowienie rozpoznanego historycznego budżetu przyjmuje nowe pułapy raz,
 zachowując zużycie i historię. Dalsze wznowienia nie odnawiają limitu; odczyt

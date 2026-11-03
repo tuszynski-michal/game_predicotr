@@ -29,7 +29,7 @@ gpt-6.1-sol / high, bez delegowania. Opus claude-opus-5-5 / high przed commitem.
 - `ai_docs/architecture/CODE_MAP.md`, `CODE_MAP_SYMBOLS.md`.
 - `ai_docs/process/PLAN_STANDARD.md`, `TASK_TEMPLATE.md`, `DEFINITION_OF_DONE.md`.
 - `ai_docs/process/decisions/DECISION_LOG_2026.md#d-557--presety-treningu-geometrii-v3-dzierżawa-gpu-i-dopuszczenie-runu`.
-- D-579 (nowa decyzja tej pracy): wspólna polityka budżetu, bez zmiany parametrów uczenia.
+- D-581 (nowa decyzja tej pracy): wspólna polityka budżetu, bez zmiany parametrów uczenia.
 
 ## Scope / technical notes
 
@@ -52,7 +52,7 @@ gpt-6.1-sol / high, bez delegowania. Opus claude-opus-5-5 / high przed commitem.
 - `images/grid_training_handler.py`: trwały receipt jednorazowej zmiany limitów.
 - Test podglądu API w `services/api/tests/test_grid_training_run_preview.py` (tylko nowy przypadek wspólnych limitów).
 - Testy resource_admission i handler; nowy test round-trip/restart i wyczerpania nowego limitu.
-- ADMIN_APP, VISION_LAB, D-579/indeksy, mapa, task/Outcome/audyt.
+- ADMIN_APP, VISION_LAB, D-581/indeksy, mapa, task/Outcome/audyt.
 
 ## Acceptance criteria
 
@@ -98,7 +98,7 @@ Commit: v1.7.531 / `409829afb17829072f5e59b0ce7b3b8fa90d5139`.
 
 - Rzeczywisty trening nadal zatrzymany na checkpoint 3400; model/kandydat i porównanie nie powstały. Jednostkowy skrypt +200 nie został wykonany.
 - Wdrożenie i wymagany restart nadzorcy GPU wymagają osobnej zgody po wyniku. Nie restartowano usług, nie migrowano bazy, nie zmieniono defaultu/geometrii i nie uruchomiono nowego treningu.
-- Audyt [Opus 5.5/high R1](../../quality/TASK-1137_AUDIT_claude-opus-5-5.md) PASS, bez P0/P1. Jedna runda poprawek P2: P2-1 usunięte — limit przyjmowany przed odzyskiem, nowa regresja 3550+100=3650 s potwierdza brak obcięcia do 3600 i receipt sprzed odzysku. P2-2 zaakceptowane i opisane w D-579: rollback samego kodu do starego readera nieobsługiwany po pierwszym zapisie limit_policy. P2-3 trwały wskaźnik dwóch zastanych FAIL dodany do CURRENT_STATE. Zamknięcie skillem task-close i osobny commit po końcowych kontrolach.
+- Audyt [Opus 5.5/high R1](../../quality/TASK-1137_AUDIT_claude-opus-5-5.md) PASS, bez P0/P1. Jedna runda poprawek P2: P2-1 usunięte — limit przyjmowany przed odzyskiem, nowa regresja 3550+100=3650 s potwierdza brak obcięcia do 3600 i receipt sprzed odzysku. P2-2 zaakceptowane i opisane w D-581: rollback samego kodu do starego readera nieobsługiwany po pierwszym zapisie limit_policy. P2-3 trwały wskaźnik dwóch zastanych FAIL dodany do CURRENT_STATE. Zamknięcie skillem task-close i osobny commit po końcowych kontrolach.
 
 ### Definition of Done
 
@@ -106,9 +106,13 @@ Commit: v1.7.531 / `409829afb17829072f5e59b0ce7b3b8fa90d5139`.
 - Brak zmian tabel, OpenAPI shape, UI, zależności i algorytmu uczenia; SDK/build/migracja niewymagane. Zastane błędy API i ograniczenie rollbacku jawnie opisane; nie osłabiono testów.
 - Audyt PASS, dokumentacja, lint/format/scoped typy i mapa wykonane; task-close i commit zgodnie z procedurą.
 
+### Integration preflight
+
+- Operator zatwierdził scalenie, push, restart GPU i wznowienie istniejącego uczenia. Własna decyzja D-579 została przenumerowana na D-581 z powodu kolizji D-579 i zajętego D-580 na równoległej gałęzi 777 A2. Treść polityki i kod wykonania bez zmian. Historyczne numery commitów v1.7.529–530 kolidują z tamtą gałęzią; zgodnie ze skillem zachowane bez przepisywania historii. Cudze worktree pozostają nietknięte.
+
 ### Documentation updates
 
-- ADMIN_APP, VISION_LAB i D-579: wspólne limity, interpretacja legacy, zachowanie planu i zużycia oraz granica wdrożenia.
+- ADMIN_APP, VISION_LAB i D-581: wspólne limity, interpretacja legacy, zachowanie planu i zużycia oraz granica wdrożenia.
 
 ### Recommended next task
 

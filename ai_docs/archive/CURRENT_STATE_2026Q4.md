@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1130 — Przygotowanie nowych zdjęć dla otwartych luk (done)
+
+- Plik: `ai_docs/tasks/completed/1130-source-replacement-repair.md`.
+- Commit: **v1.7.529**.
+- Wynik: Admin/FSA przyjmuje typed request-v1, exact ranges i source read-only, zapisuje osobny repair-v3 z trwałym journal/recovery i current API entry check. Filled-gaps-v1 zachowuje kontrakt; lokalny wynik nie zamyka backendowej luki.
+- Weryfikacja: core14 PASS; Admin/FS/UI/regresje60 PASS, scoped TS/lint/format i docs/map PASS. Realny filesystem, fresh process, lost-response, foreign files, inspector/write lock i readonly crop handoff bez zapisów.
+- Audyt: Opus5.5/medium R1 PASS; jedna runda poprawek, lead P1-COMPAT i celowany R2 PASS, brak P0/P1/P2. Raporty TASK-1130_AUDIT_claude-opus-5-5.md i _R1.md.
+- Granice: bez usług, danych operatora, migracji, importu, aktywacji, merge/push. Fizyczny Windows/Chrome .crswap i pełny build w D1; C2 dostaje wyłącznie wybrane committed/verified descriptors przy zachowaniu oryginalnego requestu.
+
 ### TASK-1129 — Wycofanie źródła z zachowaniem historii (done)
 
 - Plik: `tasks/completed/1129-source-replacement-retirement.md`.

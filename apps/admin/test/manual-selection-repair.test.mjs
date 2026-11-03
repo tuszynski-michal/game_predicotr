@@ -524,7 +524,7 @@ test('admin mounts repair directly below local selection and redirects repaired 
   );
   assert.match(
     workspace,
-    /<LocalManualImageSelectionWorkspace\s*\/>[\s\S]*<ManualSelectionRepairWorkspace\s*\/>/,
+    /<LocalManualImageSelectionWorkspace\s*\/>[\s\S]*<ManualSelectionRepairWorkspace apiBaseUrl=\{apiBaseUrl\}\s*\/>/,
   );
   assert.match(workspace, /readRepairManifest\(outputDirectory\)/);
   assert.match(workspace, /Kontynuuj w sekcji „Popraw selekcję”/);

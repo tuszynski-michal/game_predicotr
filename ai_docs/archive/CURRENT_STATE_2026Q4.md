@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1143 — Lekka nawigacja Selektora (done)
 
 - Plik: `tasks/completed/1143-selector-smooth-navigation.md`.
-- Commit: **v1.7.536**.
+- Commit: **v1.7.536 / `aa1d1e277192b7a339b062653ec290f5d2d025b8`**.
 - Indeksy inventory/wyborów, podsumowania bez klonowania historii i małe IPC nawigacji z rewizją bazową. 78/78 testów, lint/typecheck/build i Electron fluency PASS. Bez audytu według planu.
 
 ### TASK-1142 — Ciągły podgląd Selektora (done)

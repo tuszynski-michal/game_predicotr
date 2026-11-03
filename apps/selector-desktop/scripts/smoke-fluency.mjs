@@ -406,6 +406,9 @@ try {
     for (let n = 0; n < 5; n++) await page.keyboard.press('ArrowLeft');
     await cursor(page, 3);
     await ready(page);
+    const retainedBounds = await page
+      .locator('.preview-image-host img')
+      .boundingBox();
     const retainedSrc = await page
       .locator('.preview-image-host img')
       .getAttribute('src');
@@ -416,6 +419,10 @@ try {
       retainedSrc,
     );
     await page.getByRole('status').filter({ hasText: 'Ładowanie:' }).waitFor();
+    assert.deepEqual(
+      await page.locator('.preview-image-host img').boundingBox(),
+      retainedBounds,
+    );
     await page.keyboard.press('f');
     await page.getByText('Oczekuje na zapis', { exact: true }).waitFor();
     await page

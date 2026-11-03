@@ -74,7 +74,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1144 — Odbiór i wydanie Selektora (todo)
+### TASK-1144 — Odbiór i wydanie Selektora (in_progress)
 
 - Plik: `tasks/1144-selector-smooth-navigation.md`. Plan `delivery/SELECTOR_SMOOTH_NAVIGATION_20261103.md`; cały zakres i koszt zaakceptowane. Następny krok: P3.
 
@@ -84,7 +84,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1143** — Lekka nawigacja Selektora — v1.7.536 — tasks/completed/1143-selector-smooth-navigation.md
+- **TASK-1143** — Lekka nawigacja Selektora — v1.7.536 / `aa1d1e27` — tasks/completed/1143-selector-smooth-navigation.md
 - **TASK-1142** — Ciągły podgląd Selektora — v1.7.535 / `9efbaa3a` — tasks/completed/1142-selector-smooth-navigation.md
 - **TASK-1137** — Wspólne limity uczenia siatek — v1.7.531 / `409829af` — tasks/completed/1137-grid-training-shared-budget.md
 - **TASK-1136** — Trwała diagnostyka błędów trenera — v1.7.529 / `910bb70e` — tasks/completed/1136-grid-training-runtime-failure.md

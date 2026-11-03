@@ -25,7 +25,7 @@ gpt-6.1-sol / high. Bez dodatkowego audytu według zaakceptowanego planu.
 
 ## Outcome
 
-Commit: v1.7.536 (hash dopisuje kolejny commit).
+Commit: v1.7.536 / `aa1d1e277192b7a339b062653ec290f5d2d025b8`.
 
 ### Changed
 

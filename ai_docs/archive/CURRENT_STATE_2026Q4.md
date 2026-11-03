@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1151 — Wyszukiwanie bez historii wymiany (done)
+
+- Plik: `tasks/completed/1151-empty-replacement-search-fast-path.md`; commit **v1.7.550** (hash dopisuje kolejny commit).
+- Implementacja `2e9237eb969d1d1dee0d6593213b5dfdcc0dd333`, integracja i pierwszy push `d01a0f07`; migracja0179 i restart wykonane przez jednego koordynatora. Bez zmian zdjęć i modeli.
+- 29testów PG/schema PASS, Ruff/mypy/docs/map PASS, Opus5.5/high PASS bezP0/P1. P2-1/2 jawnie przyjęte; liveHTTP zamykaP2-3.
+- Dokładny wzór15symboli:40wyników/13,032s; detail425837/0,296s; obraz3950bajtów/0,093s; wszystkie HTTP200. Dane166971/1500019/22248975, aktywacje zachowane, purged0.
+- Dowody: root artifacts/deploy-777a2-20261103/search-live-fixed.json i artifacts/grid-growth-deploy-20261103/database-before179.json/database-after179.json. Trening1147 pozostaje osobnym odbiorem.
+
 ### TASK-1150 — Atomowy postęp Windows (done)
 
 - Plik: `tasks/completed/1150-grid-training-windows-atomic-progress.md`; commit **v1.7.547 / `5efb3ea0b7a2b8f888a75c693dc6b96f25b19828`** (hash dopisuje kolejny commit).

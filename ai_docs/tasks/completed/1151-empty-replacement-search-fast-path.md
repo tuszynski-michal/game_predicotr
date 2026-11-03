@@ -1,6 +1,6 @@
 ---
 title: Przywrócenie wyszukiwania bez historii wymiany zdjęć
-status: in_progress
+status: done
 last_updated: 2026-11-03
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-11-03
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -44,7 +44,7 @@ Nowa Alembic0179 (parent178): dotychczasowa funkcja zmienia nazwę na source_rep
 - [x] OwnedPG dowodzi niewykonania kosztownej implementacji przy pustej historii, także rola runtime.
 - [x] Dotychczasowe retired/reserved/closed guards zachowane w PG; downgrade/upgrade roundtrip.
 - [x] Testy head/lint/types/docs/map i Opus bez P0/P1.
-- [ ] Odbiór operatora na dokładnym wzorze15symboli z jego logu: HTTP200 z wynikami, czas zmierzony, podgląd/range sprawdzony; dane bez zmian.
+- [x] Odbiór operatora na dokładnym wzorze15symboli z jego logu: HTTP200 z wynikami, czas zmierzony, podgląd/range sprawdzony; dane bez zmian.
 
 ## Expected files
 
@@ -59,6 +59,8 @@ RootPython z PYTHONPATH wskazującym tenWT dlaapi/worker i tests; subprocess tim
 Fast path dotyczy dowiedzionej pustej historii tej gry. Nie prognozuje wydajności pełnego zbioru po rzeczywistej wymianie; dotychczasowe fences pozostają. Testy nie mają dodawać danych do bazy operatora. Restart jest konieczny również dla starych preparedplans odnoszących się doOID przemianowanej funkcji.
 
 ## Outcome
+
+Commit: v1.7.550 (hash dopisuje kolejny commit).
 
 ### Changed
 
@@ -83,3 +85,14 @@ Task/CURRENT_STATE, DATA_MODEL i generowana mapa. Po odbiorze wpisać dokładny 
 ### Recommended next task
 
 Najpierw odbiór wyszukiwarki777A2 na wzorze użytkownika. Dopiero potem wznowienie pozostałego odbioru drugiegookna.
+
+
+### Live acceptance and integration
+
+Implementacja: v1.7.545 / `2e9237eb969d1d1dee0d6593213b5dfdcc0dd333`, zintegrowana do root/main jako v1.7.549 / `d01a0f07cc72d44f54711cd1a1a60a27df4823df`. Ten sam ref jest na origin. Konflikty wyłącznie w oknie/archiwum rozwiązano bez utraty historii, startup44674/45000B i head test26 PASS. Zachowano P2-1 i P2-2 z powyższego rozliczenia; P2-3 zamknięto dowodem rzeczywistego HTTP.
+
+Koordynator wykonał stop usług, fast-forward, migrację0178→0179 i sprawdzenie ról compliant, następnie start API/Admin oraz workerów general7/grid1. Drugi chat sprawdził dokładny wzór15symboli użytkownika: HTTP200, 40wyników,13,032s. Szczegóły pierwszej planszy425837: HTTP200,0,296s; jej obraz: HTTP200 image/webp,3950bajtów,0,093s. Dowód: `D:/game_predicotr/artifacts/deploy-777a2-20261103/search-live-fixed.json`. Jest to odbiór konkretnego wzoru, nie benchmark wszystkich wyszukiwań.
+
+`database-before179.json` i `database-after179.json` w root artifacts/grid-growth-deploy-20261103 potwierdzają tę samą bazę127.0.0.1:5432/game_predictor, nowy head179, niezmienione166971źródeł/1500019plansz/22248975pól, identyczne hashe aktywacji i purged0. Naprawa nie zmieniła danych ani defaultu. Pozostały trening i odbiór jego jakości są osobnym TASK-1147.
+
+Dodatkowy odczyt zakresu approximate-win start425837/spinCount10: HTTP200,0,125s. Dowód search-live-fixed.json obejmuje search/detail/image/range. Nie wykonano kolejnego wzorca ani benchmarku.

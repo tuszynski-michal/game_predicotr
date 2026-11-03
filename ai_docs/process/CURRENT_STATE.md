@@ -45,7 +45,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/FULL_BOARD_DETECTION_PLAN_20261103.md` | accepted, focused Opus R2 PASS; koszt i wykonanie T0–T6 zatwierdzone | TASK-1156–1160; T0–T1 done; trening i integracja osobno | `codex/full-board-detection` |
+| `delivery/FULL_BOARD_DETECTION_PLAN_20261103.md` | accepted; etap A T0–T2 done, Opus PASS; T3–T6 czekają na ponowną decyzję kosztową po prawie4h A (dalsze4–6h) | TASK-1157–1160; punkt A:197GT/134foto, pełnych0; bez treningu/aktywacji/migracji/usług; integracja osobno | `codex/full-board-detection` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -91,7 +91,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1155** — Odtwarzalne wejście sieci i dowody gotowości — v1.7.559 — tasks/completed/1155-full-board-input-diagnostics.md
+- **TASK-1156** — Możliwości modelu i kwalifikacja gry — v1.7.560 — tasks/completed/1156-neural-model-game-capabilities.md
+- **TASK-1155** — Odtwarzalne wejście sieci i dowody gotowości — v1.7.559 / `887d8a3b` — tasks/completed/1155-full-board-input-diagnostics.md
 - **TASK-1154** — Bezpieczna akceptacja siatek — v1.7.558 / `0a7ef2d3` — tasks/completed/1154-safe-neural-auto-crop-policy.md
 - **TASK-1153** — Propozycje modelu w korekcie i pełny kadr — v1.7.556 / `4319f702` — tasks/completed/1153-grid-review-proposals-viewport.md
 - **TASK-1152** — Trwałe liczniki zastosowania — v1.7.553 / `5a9fcb14` — tasks/completed/1152-grid-apply-progress.md
@@ -100,4 +101,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1150** — Atomowy postęp Windows — v1.7.547 / `5efb3ea0` — tasks/completed/1150-grid-training-windows-atomic-progress.md
 - **TASK-1149** — Partie blokowanych wierszy — v1.7.546 / `4827f2a6` — tasks/completed/1149-grid-freeze-batched-lock-reads.md
 - **TASK-1148** — Spójne zależności React podczas wdrożenia — v1.7.543 / `879db371` — tasks/completed/1148-workspace-react-build-alignment.md
-- **TASK-1146** — Kontrola schematu przy starcie — v1.7.540 / `5660c2b0` — tasks/completed/1146-readability-startup-schema-head.md

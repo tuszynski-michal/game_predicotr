@@ -119,10 +119,23 @@ def test_new_pin_changes_neural_fingerprint_but_never_rewrites_legacy_payload():
     before = deepcopy(legacy)
     assert pin_v3_engine_acceptance_policy(legacy, "a" * 64) == "a" * 64
     assert legacy == before
-    neural = {"neural_grid_proposal": facts()["model_snapshot"]}
+    from game_predictor_api.domain.neural_grid_operation_pin import OPERATION_PIN_KEY
+    from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+    from game_predictor_api.domain.v3_engine_acceptance import (
+        GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+    )
+    from test_neural_grid_operation_pin import unqualified_pin
+
+    data = facts()
+    neural = {
+        "neural_grid_proposal": data["model_snapshot"],
+        OPERATION_PIN_KEY: unqualified_pin(
+            NeuralGridSnapshot.from_payload(data["model_snapshot"]), data["game_id"]
+        ),
+    }
     digest = pin_v3_engine_acceptance_policy(neural, "a" * 64)
     assert digest != "a" * 64
-    assert neural[V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY] == V3_ENGINE_ACCEPTANCE_POLICY
+    assert neural[V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY] == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
     assert digest == pin_v3_engine_acceptance_policy(deepcopy(neural), "a" * 64)
 
 

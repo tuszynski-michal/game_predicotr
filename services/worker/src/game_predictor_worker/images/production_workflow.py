@@ -12,7 +12,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 from uuid import UUID
 
 import numpy as np
@@ -651,8 +651,8 @@ class ProductionImageImportWorkflow:
             pipeline_fingerprint=_pipeline_fingerprint(job),
             registered_at=context.now(),
         )
-        adapters = ProductionImageStageAdapterSuite(
-            self._artifact_root,
+        adapters = self._new_stage_adapters(
+            job,
             manual_geometry_import=manual_geometry_import,
             neural_execution_policy=cast(
                 str | None, job.input_payload.get("neural_grid_execution_policy_version")
@@ -716,6 +716,36 @@ class ProductionImageImportWorkflow:
             },
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
+
+    def _new_stage_adapters(self, job: Job, **options: Any) -> ProductionImageStageAdapterSuite:
+        """Recheck the exact game evidence and pass the result to the production suite."""
+        from game_predictor_api.domain.neural_grid_operation_pin import OPERATION_PIN_KEY
+        from game_predictor_api.domain.v3_engine_acceptance import (
+            GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        )
+        from game_predictor_api.storage.neural_grid_operation_qualification import (
+            recheck_operation_pin,
+        )
+
+        qualification_blockers = None
+        if (
+            job.input_payload.get("v3_engine_acceptance_policy_version")
+            == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+        ):
+            assert job.game_id is not None
+            with self._session_factory() as session, session.begin():
+                qualification_blockers = recheck_operation_pin(
+                    session,
+                    pin=job.input_payload.get(OPERATION_PIN_KEY),
+                    model_snapshot=job.input_payload.get("neural_grid_proposal"),
+                    game_id=job.game_id,
+                )
+        return ProductionImageStageAdapterSuite(
+            self._artifact_root,
+            operation_pin=job.input_payload.get(OPERATION_PIN_KEY),
+            qualification_blockers=qualification_blockers,
+            **options,
+        )
 
     def _replaced_originals(self, manifest: ManagedSourceManifest) -> frozenset[str]:
         """Originals of the manifest whose registry row is ``original_deleted``."""
@@ -940,6 +970,8 @@ class ProductionImageStageAdapterSuite:
         manual_geometry_import: bool = False,
         neural_execution_policy: str | None = None,
         engine_acceptance_policy: str | None = None,
+        operation_pin: object = None,
+        qualification_blockers: tuple[str, ...] | None = None,
         geometry_engine_variant: str | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
@@ -996,6 +1028,8 @@ class ProductionImageStageAdapterSuite:
                 "V3_ENGINE_ACCEPTANCE_POLICY_UNSUPPORTED", "Unsupported engine acceptance policy."
             )
         self._engine_acceptance_policy = engine_acceptance_policy
+        self._operation_pin = operation_pin
+        self._qualification_blockers = qualification_blockers
         self._geometry_engine_variant = geometry_engine_variant
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
@@ -1212,6 +1246,8 @@ class ProductionImageStageAdapterSuite:
                     automatic_crops=self._neural_automatic_crops,
                     execution_policy=cast(str, self._neural_execution_policy),
                     engine_acceptance_policy=self._engine_acceptance_policy,
+                    operation_pin=self._operation_pin,
+                    qualification_blockers=self._qualification_blockers,
                     rows=self._board_topology.rows,
                     columns=self._board_topology.columns,
                 )

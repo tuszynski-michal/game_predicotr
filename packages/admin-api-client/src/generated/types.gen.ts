@@ -8736,7 +8736,10 @@ export type GridReinferenceJobPayload = {
   /**
    * Acceptancepolicy
    */
-  acceptancePolicy: 'v3-engine-acceptance-v1' | 'v3-engine-acceptance-v2';
+  acceptancePolicy:
+    | 'v3-engine-acceptance-v1'
+    | 'v3-engine-acceptance-v2'
+    | 'v3-engine-acceptance-v3';
   /**
    * Inferencekind
    */
@@ -16739,6 +16742,7 @@ export type PageGeometryPreflightJobPayload = {
     | 'page-geometry-preflight-v3-board-area-mask'
     | 'page-geometry-preflight-v12-contrast-frame-grid'
     | 'page-geometry-preflight-v13-neural-mumie-pilot'
+    | 'page-geometry-preflight-v14-neural-capabilities'
     | null;
   /**
    * Replacementparentmanifestsha256

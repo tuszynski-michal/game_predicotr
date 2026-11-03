@@ -28,6 +28,7 @@ from game_predictor_api.domain.v3_engine_acceptance import (
     V3_ENGINE_ACCEPTANCE_ACTOR,
     V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
     V3_ENGINE_ACCEPTANCE_POLICIES,
+    is_game_scoped_neural_acceptance,
 )
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     v2_render_identity_from_spec,
@@ -368,7 +369,12 @@ class SqlAlchemyImagePipelineStore:
                         else "auto",
                         status=(
                             "accepted"
-                            if structured["status"] == "ready"
+                            # Only the server finalizer may accept a new neural
+                            # job. A worker claim of manual kind cannot bypass it.
+                            if not is_game_scoped_neural_acceptance(
+                                job.input_payload.get(V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY)
+                            )
+                            and structured["status"] == "ready"
                             and structured.get("rolloutMode")
                             in {"structured_default", "structured_lattice_v3"}
                             else "needs_review"
@@ -678,6 +684,9 @@ class SqlAlchemyImagePipelineStore:
                                 "geometry_approved_by": "system:import-qualified-manual-geometry",
                             }
                             if cropped.get("geometryQualification") is not None
+                            and not is_game_scoped_neural_acceptance(
+                                job.input_payload.get(V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY)
+                            )
                             else {}
                         ),
                         unavailable_cell_indices=unavailable_cell_indices,

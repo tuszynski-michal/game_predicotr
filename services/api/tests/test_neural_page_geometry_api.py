@@ -45,6 +45,7 @@ from test_managed_reprocess_evidence import (
     _terminal_import,
     _write_managed_manifest,
 )
+from test_neural_grid_operation_pin import resolve_unqualified_operation_pin
 from test_neural_grid_proposal import proposal
 from test_page_geometry_overrides import MemoryPageGeometryOverrideRepository
 
@@ -578,6 +579,7 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     repository.add_job(job)
     grid = SimpleNamespace(
         uses_neural_grid_pilot=lambda **_: True,
+        resolve_neural_operation_pin=resolve_unqualified_operation_pin,
         neural_grid_profile=lambda **_: "grid_profile_mumie_v1",
         resolve=lambda **_: _baseline_grid_profile_snapshot(),
     )
@@ -699,8 +701,11 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     assert started.json()["created"] is True
     frozen = repository.get_job(UUID(started.json()["job"]["id"]))
     assert frozen.input_payload["neural_grid_proposal"] == value["engineSnapshot"]
-    assert frozen.input_payload["neural_grid_execution_policy_version"] == "neural-auto-crop-v1"
-    assert frozen.input_payload["v3_engine_acceptance_policy_version"] == "v3-engine-acceptance-v1"
+    assert frozen.input_payload["neural_grid_execution_policy_version"] == "neural-auto-crop-v2"
+    assert frozen.input_payload["v3_engine_acceptance_policy_version"] == "v3-engine-acceptance-v3"
+    assert (
+        frozen.input_payload["neural_grid_operation_pin"]["qualification"]["state"] == "unqualified"
+    )
     assert "v3EngineAcceptancePolicyVersion" not in started.json()["job"]["inputPayload"]
     assert "v3_engine_acceptance_policy_version" not in started.json()["job"]["inputPayload"]
     from game_predictor_api.schemas.jobs import JobResponse
@@ -715,7 +720,7 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
         )
     assert (
         started.json()["job"]["inputPayload"]["neuralGridExecutionPolicyVersion"]
-        == "neural-auto-crop-v1"
+        == "neural-auto-crop-v2"
     )
     with pytest.raises(JobConflictError) as replay_refused:
         client.post(prefix + "/start", json=command)
@@ -882,6 +887,7 @@ def _neural_jobs(tmp_path, monkeypatch, repository, profile: str) -> JobService:
     )
     grid = SimpleNamespace(
         uses_neural_grid_pilot=lambda **_: True,
+        resolve_neural_operation_pin=resolve_unqualified_operation_pin,
         neural_grid_profile=lambda **_: profile,
         resolve_neural_grid_proposal=lambda **_: fresh,
         resolve=lambda **_: _baseline_grid_profile_snapshot(),

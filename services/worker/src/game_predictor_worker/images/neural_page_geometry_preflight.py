@@ -14,6 +14,11 @@ from uuid import UUID
 import numpy as np
 from game_predictor_api.domain.image_geometry_v2 import AttestedSequenceRange, canonical_json_bytes
 from game_predictor_api.domain.jobs import Job, JobType
+from game_predictor_api.domain.neural_grid_operation_pin import (
+    CAPABILITY_PREFLIGHT_POLICY,
+    OPERATION_PIN_KEY,
+    require_operation_pin,
+)
 from game_predictor_api.domain.neural_grid_proposal import (
     NEURAL_GRID_MANIFEST_SCHEMA_VERSION,
     NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
@@ -69,6 +74,7 @@ def _input(job: Job) -> tuple[dict[str, object], NeuralGridSnapshot]:
         "neural_grid_proposal",
     }
     optional = {
+        OPERATION_PIN_KEY,
         "source_directory_relocation",
         "source_display_name",
         "source_exclusions",
@@ -85,7 +91,8 @@ def _input(job: Job) -> tuple[dict[str, object], NeuralGridSnapshot]:
         or not set(raw).issubset(required | optional)
         or raw["schema_version"] != 2
         or raw["validation_kind"] != "page_geometry_preflight"
-        or raw["preflight_policy_version"] != NEURAL_GRID_PREFLIGHT_POLICY_VERSION
+        or raw["preflight_policy_version"]
+        not in (NEURAL_GRID_PREFLIGHT_POLICY_VERSION, CAPABILITY_PREFLIGHT_POLICY)
     ):
         raise JobHandlerError(
             "INVALID_PAGE_GEOMETRY_PREFLIGHT_PAYLOAD", "The neural page-geometry input is invalid."
@@ -93,6 +100,12 @@ def _input(job: Job) -> tuple[dict[str, object], NeuralGridSnapshot]:
     try:
         snapshot = NeuralGridSnapshot.from_payload(raw["neural_grid_proposal"])
         snapshot.require_game(str(job.game_id))
+        if raw["preflight_policy_version"] == CAPABILITY_PREFLIGHT_POLICY:
+            require_operation_pin(
+                raw.get(OPERATION_PIN_KEY), snapshot=snapshot, game_id=str(job.game_id)
+            )
+        elif OPERATION_PIN_KEY in raw:
+            raise ValueError("A legacy preflight cannot carry a new operation pin.")
         UUID(str(raw["source_selection_id"]))
         if (
             not isinstance(raw["source_directory"], str)
@@ -120,7 +133,8 @@ def _input(job: Job) -> tuple[dict[str, object], NeuralGridSnapshot]:
         "pageRegistrationProfile": raw["page_registration_profile"],
         "pageGeometryOverrides": raw["page_geometry_overrides"],
         "canonicalSequenceNumbers": set(canonical),
-        "preflightPolicyVersion": NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
+        "preflightPolicyVersion": raw["preflight_policy_version"],
+        **({OPERATION_PIN_KEY: raw[OPERATION_PIN_KEY]} if OPERATION_PIN_KEY in raw else {}),
     }, snapshot
 
 
@@ -136,7 +150,8 @@ def validate_neural_page_manifest(
     if (
         not isinstance(value, Mapping)
         or value.get("schemaVersion") != NEURAL_GRID_MANIFEST_SCHEMA_VERSION
-        or value.get("version") != NEURAL_GRID_PREFLIGHT_POLICY_VERSION
+        or value.get("version")
+        not in (NEURAL_GRID_PREFLIGHT_POLICY_VERSION, CAPABILITY_PREFLIGHT_POLICY)
         or value.get("gameId") != game_id
         or value.get("sourceSelectionId") != source_selection_id
         or value.get("sourceManifestChecksumSha256") != source_manifest_sha256
@@ -146,6 +161,8 @@ def validate_neural_page_manifest(
             "IMAGE_PAGE_GEOMETRY_MANIFEST_DRIFT",
             "The neural manifest has incompatible source or model pins.",
         )
+    if value.get("version") == CAPABILITY_PREFLIGHT_POLICY:
+        require_operation_pin(value.get(OPERATION_PIN_KEY), snapshot=snapshot, game_id=game_id)
     entries = value.get("entries")
     for field in (
         "sourceCount",
@@ -392,7 +409,12 @@ class NeuralPageGeometryPreflightHandler:
         skipped = len(entries) - reviews
         value: dict[str, object] = {
             "schemaVersion": NEURAL_GRID_MANIFEST_SCHEMA_VERSION,
-            "version": NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
+            "version": payload["preflightPolicyVersion"],
+            **(
+                {OPERATION_PIN_KEY: payload[OPERATION_PIN_KEY]}
+                if OPERATION_PIN_KEY in payload
+                else {}
+            ),
             "gameId": str(job.game_id),
             "sourceSelectionId": payload["sourceSelectionId"],
             "sourceManifestChecksumSha256": payload["sourceManifestChecksumSha256"],

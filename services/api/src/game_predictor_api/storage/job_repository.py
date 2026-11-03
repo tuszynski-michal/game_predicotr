@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -60,6 +61,73 @@ class SqlAlchemyJobRepository(JobRepository):
     ) -> None:
         self._session = session
         self._storage_router = storage_router or GameStorageRouter()
+
+    def find_neural_operation_pin(
+        self,
+        *,
+        game_id: UUID,
+        job_type: JobType,
+        input_payload: Mapping[str, object],
+    ) -> dict[str, object] | None:
+        from game_predictor_api.domain.grid_model_registry import canonical_json
+        from game_predictor_api.domain.neural_grid_operation_pin import (
+            CAPABILITY_PREFLIGHT_POLICY,
+            NEURAL_OPERATION_DERIVED_KEYS,
+            OPERATION_PIN_KEY,
+            neural_operation_request_identity,
+        )
+        from game_predictor_api.domain.v3_engine_acceptance import (
+            GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        )
+
+        from .job_admission import acquire_job_admission
+
+        acquire_job_admission(self._session, game_id, require_idle=False)
+        if self._session.get_bind().dialect.name != "postgresql":
+            raise JobConflictError(
+                "NEURAL_GRID_OPERATION_STORE_UNSUPPORTED",
+                "Exact neural operation lookup requires PostgreSQL.",
+            )
+        # LIMIT 2 detects ambiguous identities; it is not a candidate scan window.
+        # The transaction admission lock remains held through resolver and persist.
+        rows = (
+            self._session.execute(
+                text("""
+SELECT input_payload -> :pin_key
+FROM public.jobs
+WHERE game_id=:game_id AND job_type=CAST(:job_type AS job_type)
+  AND input_payload ? :pin_key
+  AND ((:job_type='import' AND input_payload ->> 'v3_engine_acceptance_policy_version'=:acceptance)
+    OR (:job_type='validate' AND input_payload ->> 'preflight_policy_version'=:preflight))
+  AND (input_payload - CAST(:derived_keys AS text[])) = CAST(:identity AS jsonb)
+ORDER BY id
+LIMIT 2
+"""),
+                {
+                    "pin_key": OPERATION_PIN_KEY,
+                    "game_id": game_id,
+                    "job_type": job_type.value,
+                    "acceptance": GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+                    "preflight": CAPABILITY_PREFLIGHT_POLICY,
+                    "derived_keys": sorted(NEURAL_OPERATION_DERIVED_KEYS),
+                    "identity": canonical_json(neural_operation_request_identity(input_payload)),
+                },
+            )
+            .scalars()
+            .all()
+        )
+        if len(rows) > 1:
+            raise JobConflictError(
+                "NEURAL_GRID_OPERATION_IDENTITY_AMBIGUOUS",
+                "Several operations have the same stable input; no pin can be selected safely.",
+            )
+        if not rows:
+            return None
+        if not isinstance(rows[0], dict):
+            raise JobConflictError(
+                "NEURAL_GRID_OPERATION_PIN_INVALID", "The stored operation pin is not an object."
+            )
+        return dict(rows[0])
 
     def game_exists(self, game_id: UUID) -> bool:
         return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None

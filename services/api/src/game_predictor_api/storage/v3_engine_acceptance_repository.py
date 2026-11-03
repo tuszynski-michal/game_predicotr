@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_PAYLOAD_KEY
 from game_predictor_api.domain.v3_engine_acceptance import (
+    GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
     V3_ENGINE_ACCEPTANCE_ACTOR,
     V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
     V3_ENGINE_ACCEPTANCE_POLICIES,
@@ -89,6 +90,25 @@ def finalize_v3_engine_acceptance(
     if not isinstance(evidence, Mapping) or not isinstance(structured, Mapping):
         blockers = ("V3_ACCEPTANCE_EVIDENCE_MISSING",)
     else:
+        from game_predictor_api.domain.neural_grid_operation_pin import OPERATION_PIN_KEY
+
+        from .neural_grid_operation_qualification import recheck_operation_pin
+
+        qualification_blockers = None
+        operation_pin = job.input_payload.get(OPERATION_PIN_KEY)
+        if evidence.get("policyVersion") != job.input_payload.get(V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY):
+            revision.status = "needs_review"
+            return ("V3_ACCEPTANCE_POLICY_DRIFT",)
+        if evidence.get("policyVersion") == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+            if evidence.get("operationPin") != operation_pin:
+                revision.status = "needs_review"
+                return ("NEURAL_GRID_OPERATION_PIN_INVALID",)
+            qualification_blockers = recheck_operation_pin(
+                session,
+                pin=operation_pin,
+                model_snapshot=job.input_payload.get("neural_grid_proposal"),
+                game_id=job.game_id,
+            )
         boards = session.scalars(
             select(RecognizedBoardModel)
             .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
@@ -210,6 +230,8 @@ def finalize_v3_engine_acceptance(
                 )
             )
         blockers = qualify_v3_engine_acceptance(
+            operation_pin=operation_pin,
+            qualification_blockers=qualification_blockers,
             policy=evidence.get("policyVersion"),
             proposal=evidence.get("proposal"),
             binding=evidence.get("binding"),

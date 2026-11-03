@@ -6,10 +6,18 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1156 — Możliwości modelu i kwalifikacja gry (done)
+
+- Plik: `tasks/completed/1156-neural-model-game-capabilities.md`.
+- Commit: **v1.7.560** (hash dopisuje kolejny commit).
+- Adapter catalogue-v1 zachowuje SHA; nowe preflight-v14/acceptance-v3 przypinają możliwości 3×5/3×3 i exact per-game report albo frozen-unqualified. Worker i API egzekwują dowody; retry ma exact lookup pod admission lock; model nie nadaje human approval.
+- Scoped testy i disposable PG PASS, cleanup DB0/roles0; lint/format/docs/map PASS. Scoped mypy bez nowych błędów wobec jawnego baseline; izolowany Admin strict typecheck PASS, standardowy Admin tsc ma blocker junction. R1 i focused R2 Opus5.5/high PASS, bez P0/P1; cztery nowe P2 ograniczeń żywotności/manual approval/PG coverage opisano bez dalszej zmiany zachowania.
+- Punkt A:197GT/134foto, pełnych9/9=0; brak treningu, aktywacji, migracji operatora i usług. T3–T6 czekają na ponowną decyzję kosztową. Raporty: `quality/TASK-1156_VERIFICATION.md`, `quality/TASK-1156_AUDIT_claude-opus-5-5.md`.
+
 ### TASK-1155 — Odtwarzalne wejście sieci i dowody gotowości (done)
 
 - Plik: `tasks/completed/1155-full-board-input-diagnostics.md`.
-- Commit: **v1.7.559** (hash dopisuje kolejny commit).
+- Commit: **v1.7.559 / `887d8a3b3204049b0c986e175c6125c4eac50ce4`** (hash dopisuje kolejny commit).
 - Wersjonowany diagnostic record i CLI odtwarzają oba etapy preprocessingu, osobne RGB uint8 i rzeczywiste tensory float32, pełny preset/hash/version, bez inferencji. LIVE/frozen używają istniejących readerów z jawnym budżetem; diagnosticUse ma dedup i powiązanie rekordów. Historia ról bez zmian.
 - Dowody: LIVE 197 GT/134 źródła/0 pełnych zdjęć; frozen 788 źródeł, screenEligible0. Brak GT462205/raw pozostaje unavailable. Readiness access nie jest użyciem do projektowania. T4 egzekwuje wykluczenia faktycznej diagnostyki z B/REGRESSION.
 - Weryfikacja: 38 unit +2 disposable PG PASS; ruff7, mypy silent3, docs/map PASS; rzeczywisty capture i dwa procesy replay R2 zgodne RGB/tensor SHA. Bez ponowienia197 LIVE.

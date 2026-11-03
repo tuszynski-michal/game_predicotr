@@ -31,6 +31,7 @@ from game_predictor_worker.images.pipeline_contract import (
     GeometryPipelineRolloutSnapshot,
 )
 from test_jobs_domain import MemoryJobRepository
+from test_neural_grid_operation_pin import resolve_unqualified_operation_pin
 from test_neural_grid_proposal import proposal
 
 NOW = datetime(2026, 9, 4, 12, tzinfo=UTC)
@@ -299,6 +300,7 @@ def test_neural_managed_reprocess_preserves_provenance_and_cold_retry(
         artifact_root=root,
         grid_profile_snapshot_resolver=SimpleNamespace(
             uses_neural_grid_pilot=lambda **_: True,
+            resolve_neural_operation_pin=resolve_unqualified_operation_pin,
             resolve=lambda **_: _baseline_grid_profile_snapshot(),
         ),
     )
@@ -309,18 +311,27 @@ def test_neural_managed_reprocess_preserves_provenance_and_cold_retry(
         assert error.value.code == "IMAGE_REPROCESS_PAGE_GEOMETRY_MANIFEST_INCOMPATIBLE"
         return
     job = service.create_managed_image_reprocess_job(source.id, pipeline_fingerprint="d" * 64)
-    assert job.input_payload["neural_grid_execution_policy_version"] == "neural-auto-crop-v1"
+    assert job.input_payload["neural_grid_execution_policy_version"] == "neural-auto-crop-v2"
     assert job.input_payload["neural_grid_proposal"] == value["engineSnapshot"]
     assert (
         JobResponse.from_domain(job).input_payload.neural_grid_execution_policy_version
-        == "neural-auto-crop-v1"
+        == "neural-auto-crop-v2"
     )
+    frozen_pin = job.input_payload["neural_grid_operation_pin"]
+
+    def forbid_qualification_refresh(**_):
+        raise AssertionError("A retry must not read a new game evaluation.")
+
+    options[
+        "grid_profile_snapshot_resolver"
+    ].resolve_neural_operation_pin = forbid_qualification_refresh
     assert (
         JobService(repository, **options)
         .create_managed_image_reprocess_job(source.id, pipeline_fingerprint="d" * 64)
         .id
         == job.id
     )
+    assert job.input_payload["neural_grid_operation_pin"] == frozen_pin
 
 
 @pytest.mark.parametrize("relocated", [False, True])

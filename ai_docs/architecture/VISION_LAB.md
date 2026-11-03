@@ -6,6 +6,50 @@ last_updated: 2026-11-03
 
 # Architektura laboratorium wizji
 
+## Operation capabilities and per-game evidence (TASK-1156, D-585)
+
+`domain/neural_grid_operation_pin.py` adapts catalogue-v1's historical axis names:
+boardRows is the horizontal count, boardColumns the vertical count. Logical
+capabilities are board rows3/columns5 and page rows3/columns3. Original descriptors,
+proposal snapshots v1/v2 and their hashes remain unchanged.
+
+New preflight-v14 and engine-acceptance-v3 carry a strict top-level operation pin:
+game/model/manifest SHA, capabilities, topology rules ID, qualification policy,
+exact report/publication evidence or unqualified, and canonical pin SHA.
+`storage/neural_grid_operation_qualification.py` reuses the publication reader,
+per-game evaluator contract and D-559 currentness. It never substitutes the mutable
+default/assignment for an old execution. Worker and API recheck; the API checks
+before automatic write in the existing source transaction. Evidence loss returns
+blockers; infrastructure failures propagate. No new qualification/GT/role table.
+
+Acceptance-v3 maps to crop-v2. Legacy preflight-v13 and acceptance-v1/v2 preserve
+their interpretation. Public job schemas recognise v14/v3; internal pins are
+omitted from transport without adding None fields to historical payloads.
+Admin recognises both preflight versions. T4 requires a later qualification policy.
+
+For a trusted acceptance-v3 job, `project_source_geometry` always appends the new
+revision as `needs_review`, regardless of worker `ready`, engine kind or claimed
+manual source. Only the authoritative recognition finalizer can later promote
+it to `accepted`, after the exact game evidence recheck. Promotion changes the
+status without rewriting sealed geometry. Other policies and manual writers
+retain their existing behavior.
+
+Stable import identity removes only the operation/policy pins, derived pipeline
+fingerprint and derived base-manifest hint. SqlAlchemyJobRepository performs an
+exact game/type/JSONB comparison under acquire_job_admission(require_idle=False)
+before any new evaluation resolution and retains that transaction lock through
+persist. A two-row cardinality probe fails closed on ambiguous identities; it is
+not a history window. Repeating the same input freezes the original qualification.
+To consume new evidence, prepare new explicit grid reinference or change the
+explicit source/model/preflight; T5 must expose this operator guidance.
+
+is_game_scoped_neural_acceptance also blocks the worker-metadata human approval
+stamp for strict jobs. Availability metadata remains diagnostic; geometry approval
+is created only by the existing real manual server command. Production workflow
+constructs its stage suite through _new_stage_adapters, which performs the real
+exact-evidence recheck and forwards its tuple of blockers without replacing it.
+
+
 ## Input replay and readiness diagnostics (TASK-1155)
 
 `geometry_core/input_diagnostics.py` defines the strict

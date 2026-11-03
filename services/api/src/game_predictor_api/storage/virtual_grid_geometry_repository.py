@@ -160,6 +160,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
         binding: Mapping[str, Any],
         model_snapshot: Mapping[str, Any],
         acceptance_policy: str,
+        operation_pin: object = None,
         effect_collector: dict[UUID, dict[str, Any]] | None = None,
     ) -> tuple[dict[UUID, UUID], tuple[str, ...]]:
         """Write only checked automatic targets; caller owns source fences/receipts.
@@ -170,6 +171,22 @@ class SqlAlchemyVirtualGridGeometryRepository:
         from game_predictor_api.storage.models import ImageSequenceCanonicalModel
 
         base = prepared.entries[0].context
+        from game_predictor_api.domain.v3_engine_acceptance import (
+            GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        )
+
+        from .neural_grid_operation_qualification import recheck_operation_pin
+
+        qualification_blockers = None
+        if acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+            qualification_blockers = recheck_operation_pin(
+                self._session,
+                pin=operation_pin,
+                model_snapshot=model_snapshot,
+                game_id=base.game_id,
+            )
+            if qualification_blockers:
+                return {}, qualification_blockers
         from game_predictor_api.domain.neural_crop_policy import (
             NEURAL_AUTO_CROP_POLICY,
             full_neural_prediction_geometry,
@@ -298,6 +315,11 @@ class SqlAlchemyVirtualGridGeometryRepository:
                         "proposal": dict(proposal),
                         "binding": dict(binding),
                         "acceptancePolicy": acceptance_policy,
+                        **(
+                            {"operationPin": operation_pin}
+                            if acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+                            else {}
+                        ),
                     },
                 },
                 board_geometries=tuple(dict(value) for value in prepared.board_geometries),
@@ -393,6 +415,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
             binding=binding,
             model_snapshot=model_snapshot,
             policy=acceptance_policy,
+            operation_pin=operation_pin,
+            qualification_blockers=qualification_blockers,
         )
         source_revision = self._session.get(ImageSourceGeometryRevisionModel, stored.id)
         assert source_revision is not None
@@ -439,6 +463,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
         binding: Mapping[str, Any],
         model_snapshot: Mapping[str, Any],
         policy: str,
+        operation_pin: object = None,
+        qualification_blockers: tuple[str, ...] | None = None,
     ) -> tuple[str, ...]:
         """D-550 qualification of all current slots, independent of import rev0."""
         from game_predictor_api.domain.v3_engine_acceptance import (
@@ -575,6 +601,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
             and newest == revision_id
         )
         return qualify_v3_engine_acceptance(
+            operation_pin=operation_pin,
+            qualification_blockers=qualification_blockers,
             policy=policy,
             proposal=proposal,
             binding=binding,

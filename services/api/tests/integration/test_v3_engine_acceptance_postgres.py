@@ -1,9 +1,10 @@
 """New neural acceptance, cold replay and rollback on disposable PostgreSQL."""
 
 import json
-from contextlib import suppress
+from contextlib import nullcontext, suppress
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from itertools import count
 from unittest.mock import patch
 from uuid import uuid4
@@ -11,7 +12,7 @@ from uuid import uuid4
 import pytest
 from game_predictor_api.domain.catalog import GameShapeGeometryConfiguration
 from game_predictor_api.domain.grid_engine_profiles import grid_engine_profile_for
-from game_predictor_api.domain.image_geometry_v2 import AttestedSequenceRange
+from game_predictor_api.domain.image_geometry_v2 import AttestedSequenceRange, canonical_json_bytes
 from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
 from game_predictor_api.domain.neural_grid_proposal import (
     NeuralGridSnapshot,
@@ -22,6 +23,7 @@ from game_predictor_api.domain.neural_grid_proposal import (
 )
 from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
 from game_predictor_api.domain.v3_engine_acceptance import (
+    GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
     V3_ENGINE_ACCEPTANCE_ACTOR,
     V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
     V3_ENGINE_ACCEPTANCE_POLICY,
@@ -101,6 +103,11 @@ def execution(
     crop_policy=NEURAL_AUTO_CROP_POLICY,
     acceptance_policy=V3_ENGINE_ACCEPTANCE_POLICY,
     fit_reason=None,
+    forged_game_evidence=False,
+    evaluated_game=False,
+    forged_ready=False,
+    forged_manual=False,
+    workflow_recheck=False,
 ):
     game = _provision_game(database.engine, "task1017-" + uuid4().hex[:8])
     factory = _factory(database.engine)
@@ -115,6 +122,19 @@ def execution(
         500000,
         grid_engine_profile_for(GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1).current,
     )
+    evaluated_descriptor = None
+    if evaluated_game:
+        from test_grid_model_registry import candidate as candidate_descriptor
+
+        evaluated_descriptor = candidate_descriptor(tmp_path)
+        evaluated_descriptor["cohortId"] = str(uuid4())
+        evaluated_descriptor["familyCode"] = "t1156_" + uuid4().hex[:12]
+        snapshot = NeuralGridSnapshot.from_catalogue(
+            game_id=str(game),
+            game_configuration="neural_grid_v3",
+            expected_layout_count=500000,
+            descriptor=evaluated_descriptor,
+        )
     with game_storage_scope(game), factory.begin() as session:
         job = session.get(JobModel, seed.import_job_id)
         source = session.get(SourceImageModel, seed.source_image_id)
@@ -138,11 +158,59 @@ def execution(
             now,
             now + timedelta(minutes=5),
         )
+        operation_pin = None
+        if acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+            from game_predictor_api.domain.neural_grid_operation_pin import (
+                GAME_EVALUATION_REQUIRED,
+                make_operation_pin,
+            )
+
+            qualification = {"state": "unqualified", "reasonCodes": [GAME_EVALUATION_REQUIRED]}
+            if forged_game_evidence:
+                qualification = {
+                    "state": "qualified",
+                    "reasonCodes": [],
+                    "evaluationId": str(uuid4()),
+                    "evaluationSha256": "a" * 64,
+                    "publicationEvidenceSha256": "b" * 64,
+                }
+            operation_pin = make_operation_pin(
+                snapshot=snapshot,
+                game_id=str(game),
+                rules_version_id=str(revision.topology_rules_version_id),
+                rows=3,
+                columns=5,
+                qualification=qualification,
+            )
+            if evaluated_game:
+                from game_predictor_api.storage.neural_grid_operation_qualification import (
+                    prepare_operation_pin,
+                )
+                from test_grid_model_publication_and_activation import (
+                    execute,
+                    registry,
+                    seed_report,
+                )
+
+                service = registry(session, tmp_path)
+                service.register(uuid4(), evaluated_descriptor)
+                report = seed_report(session, evaluated_descriptor, [game])
+                execute(service, "publish", evaluated_descriptor["versionId"], evaluation=report)
+                operation_pin = prepare_operation_pin(
+                    session,
+                    snapshot=snapshot,
+                    game_id=game,
+                    rules_version_id=revision.topology_rules_version_id,
+                    rows=3,
+                    columns=5,
+                )
+                assert operation_pin["qualification"]["state"] == "qualified"
         job.input_payload = {
             **job.input_payload,
             "neural_grid_execution_policy_version": crop_policy,
             "neural_grid_proposal": snapshot.to_payload(),
             **({} if legacy else {V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY: acceptance_policy}),
+            **({"neural_grid_operation_pin": operation_pin} if operation_pin is not None else {}),
         }
         for pending in session.scalars(
             select(ImageBoardGeometryPendingModel).where(
@@ -159,6 +227,9 @@ def execution(
             source.checksum_sha256,
             source.relative_path,
         )
+        from game_predictor_api.storage.job_repository import job_from_record
+
+        domain_job = job_from_record(job)
         model = SymbolModelJobSnapshot.from_payload(job.input_payload["symbol_model"])
         rollout = GeometryPipelineRolloutSnapshot.from_payload(
             job.input_payload["image_geometry_rollout"]
@@ -199,8 +270,7 @@ def execution(
         confirmed_range=AttestedSequenceRange(start=100, end=101),
         assignments=[{"positionIndex": i, "detectionId": str(i)} for i in range(len(detections))],
     )
-    suite = ProductionImageStageAdapterSuite(
-        root,
+    suite_options = dict(
         repository_root=tmp_path,
         manual_geometry_import=True,
         neural_execution_policy=crop_policy,
@@ -219,19 +289,57 @@ def execution(
             topology=BoardCellTopology(rows=3, columns=5, rules_version_id=str(rules)),
         ),
     )
+    if workflow_recheck:
+        from game_predictor_worker.images.production_workflow import ProductionImageImportWorkflow
+
+        workflow = ProductionImageImportWorkflow.__new__(ProductionImageImportWorkflow)
+        workflow._artifact_root = root
+        workflow._session_factory = factory
+        with game_storage_scope(game):
+            suite = workflow._new_stage_adapters(domain_job, **suite_options)
+        expected = () if evaluated_game else ("NEURAL_GRID_GAME_EVALUATION_REQUIRED",)
+        assert suite._qualification_blockers == expected
+    else:
+        suite = ProductionImageStageAdapterSuite(
+            root,
+            operation_pin=operation_pin,
+            # Only deliberate forged-worker fixtures bypass the workflow reader.
+            qualification_blockers=() if forged_game_evidence or evaluated_game else None,
+            **suite_options,
+        )
     context = ImageStageContext(
         seed.import_job_id, source_key, source_sha, relative, "b" * 64, {}, (100, 101)
     )
     stages = {}
-    for adapter in suite.adapters():
-        if adapter.stage == "discovery":
-            continue
-        payload = adapter.execute(context)
-        validate_stage_payload(adapter.stage, payload, context)
-        stages[adapter.stage] = StoredImageStageResult(adapter.version, payload)
-        context = replace(
-            context, previous_results={name: item.payload for name, item in stages.items()}
+    from game_predictor_worker.images.neural_pending_geometry import neural_pending_payload
+
+    def forged_pending(*args, **kwargs):
+        result = neural_pending_payload(*args, **kwargs)
+        structured = result["structuredGeometry"]
+        structured.update(status="ready", rolloutMode="structured_default")
+        if forged_manual:
+            structured.update(engineKind="manual_v1", geometrySource="manual")
+        structured.pop("resultChecksumSha256")
+        structured["resultChecksumSha256"] = sha256(canonical_json_bytes(structured)).hexdigest()
+        return result
+
+    with (
+        patch(
+            "game_predictor_worker.images.neural_pending_geometry.neural_pending_payload",
+            side_effect=forged_pending,
         )
+        if forged_ready
+        else nullcontext()
+    ):
+        for adapter in suite.adapters():
+            if adapter.stage == "discovery":
+                continue
+            payload = adapter.execute(context)
+            validate_stage_payload(adapter.stage, payload, context)
+            stages[adapter.stage] = StoredImageStageResult(adapter.version, payload)
+            context = replace(
+                context, previous_results={name: item.payload for name, item in stages.items()}
+            )
     candidate = ImageBatchCandidate(
         ImageFileExecution(source_key, source_sha, "b" * 64, {}, "processing", False),
         0,
@@ -294,6 +402,326 @@ def snapshot_state(factory, game, seed):
             session.get(SourceImageModel, seed.source_image_id).geometry_completeness_status,
             [(cell.id, cell.revision, cell.crop_sample_id, cell.quality_issue) for cell in cells],
         )
+
+
+@pytest.mark.parametrize("forged_game_evidence", [False, True])
+def test_v3_new_game_keeps_source_and_api_rejects_unqualified_or_forged_worker(
+    database,
+    tmp_path,
+    forged_game_evidence,
+):
+    game, factory, seed, candidate, stages = execution(
+        database,
+        tmp_path,
+        acceptance_policy=GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        forged_game_evidence=forged_game_evidence,
+    )
+    before = snapshot_state(factory, game, seed)
+    with game_storage_scope(game):
+        SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
+    after = snapshot_state(factory, game, seed)
+    assert after[0] == "needs_review"
+    assert after[2:5] == before[2:5]
+    with game_storage_scope(game), factory() as session:
+        assert session.get(SourceImageModel, seed.source_image_id) is not None
+        pin = session.get(JobModel, seed.import_job_id).input_payload["neural_grid_operation_pin"]
+        assert pin["qualification"]["state"] == (
+            "qualified" if forged_game_evidence else "unqualified"
+        )
+
+
+def test_v3_exact_evaluated_game_passes_real_prewrite_guard(database, tmp_path):
+    game, factory, seed, candidate, stages = execution(
+        database,
+        tmp_path,
+        acceptance_policy=GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        evaluated_game=True,
+    )
+    with game_storage_scope(game):
+        SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
+    after = snapshot_state(factory, game, seed)
+    assert after[0] == "accepted"
+    assert after[5] == "geometry_complete"
+    assert all(board["disposition"] == "automatic" for board in after[3])
+
+
+@pytest.mark.parametrize("forged_manual", [False, True])
+def test_v3_forged_ready_is_not_accepted_before_recognition(database, tmp_path, forged_manual):
+    game, factory, seed, _candidate, stages = execution(
+        database,
+        tmp_path,
+        acceptance_policy=GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        forged_ready=True,
+        forged_manual=forged_manual,
+    )
+    # execution committed project_source_geometry in its own transaction. Stop
+    # here, then read only durable state through a fresh session, as after a crash.
+    structured = stages["board_cell_geometry"].payload["structuredGeometry"]
+    assert structured["status"] == "ready"
+    assert structured["engineKind"] == ("manual_v1" if forged_manual else "neural_grid_v1")
+    assert snapshot_state(factory, game, seed)[0] == "needs_review"
+    with game_storage_scope(game), factory() as session:
+        accepted = session.scalars(
+            select(ImageSourceGeometryRevisionModel).where(
+                ImageSourceGeometryRevisionModel.game_id == game,
+                ImageSourceGeometryRevisionModel.source_image_id == seed.source_image_id,
+                # The shared fixture deliberately retains an older accepted
+                # manual revision. Only the new forged candidate is in scope.
+                ImageSourceGeometryRevisionModel.geometry_checksum_sha256
+                == structured["resultChecksumSha256"],
+                ImageSourceGeometryRevisionModel.status == "accepted",
+            )
+        ).all()
+        assert accepted == []
+        assert session.get(SourceImageModel, seed.source_image_id) is not None
+
+
+def test_v3_qualified_ready_promotes_only_at_finalize_without_rewriting_sealed_geometry(
+    database,
+    tmp_path,
+):
+    game, factory, seed, candidate, stages = execution(
+        database,
+        tmp_path,
+        acceptance_policy=GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        evaluated_game=True,
+        forged_ready=True,
+    )
+    before = snapshot_state(factory, game, seed)
+    assert before[0] == "needs_review"
+    with game_storage_scope(game):
+        SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
+    after = snapshot_state(factory, game, seed)
+    assert after[0] == "accepted"
+    assert after[5] == "geometry_complete"
+    assert after[2:5] == before[2:5]  # sealed SHA, board payload and initialization
+
+
+@pytest.mark.parametrize("qualified", [False, True])
+def test_workflow_real_recheck_reaches_production_suite(database, tmp_path, qualified):
+    game, factory, seed, candidate, stages = execution(
+        database,
+        tmp_path,
+        acceptance_policy=GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        evaluated_game=qualified,
+        workflow_recheck=True,
+    )
+    boards = stages["board_detection"].payload["structuredGeometry"]["boards"]
+    assert all(
+        board["disposition"] == ("automatic" if qualified else "needs_manual_review")
+        for board in boards
+    )
+    assert all(
+        "NEURAL_GRID_GAME_EVALUATION_UNCHECKED" not in board["reasonCodes"] for board in boards
+    )
+    with game_storage_scope(game):
+        SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
+    assert snapshot_state(factory, game, seed)[0] == ("accepted" if qualified else "needs_review")
+
+
+@pytest.mark.parametrize(
+    "policy", [V3_ENGINE_ACCEPTANCE_POLICY, GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY]
+)
+def test_worker_qualification_cannot_mint_human_approval_for_strict_jobs(
+    database, tmp_path, policy
+):
+    from game_predictor_api.domain.geometry_qualification import GeometryQualification
+    from game_predictor_worker.vision_lab.production_geometry import (
+        LabelFacts,
+        classify_label_level,
+    )
+
+    strict = policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+    game, factory, seed, candidate, stages = execution(
+        database,
+        tmp_path,
+        acceptance_policy=policy,
+        forged_game_evidence=strict,
+    )
+    # A forged worker can keep its own crop/symbol metadata mutually consistent;
+    # the test must reach the human-stamp branch, not fail that structural fence.
+    for stage in ("board_crops", "symbol_inference"):
+        for board in stages[stage].payload["boards"]:
+            board["geometryQualification"] = GeometryQualification().to_dict()
+    with game_storage_scope(game):
+        SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
+    with game_storage_scope(game), factory() as session:
+        boards = session.scalars(
+            select(RecognizedBoardModel).where(
+                RecognizedBoardModel.source_image_id == seed.source_image_id
+            )
+        ).all()
+        assert boards
+        for board in boards:
+            assert board.geometry_qualification is not None  # availability metadata stays
+            assert board.approved_geometry_revision == (None if strict else 0)
+            if strict:
+                assert board.geometry_approved_by is None and board.geometry_approved_at is None
+                revision = session.get(
+                    ImageSourceGeometryRevisionModel, board.source_geometry_revision_id
+                )
+                level = classify_label_level(
+                    LabelFacts(
+                        geometry_revision=board.geometry_revision,
+                        approved_geometry_revision=board.approved_geometry_revision,
+                        approved_by=board.geometry_approved_by,
+                        revision_authors=[],
+                        source_geometry_source=revision.geometry_source,
+                        source_status=revision.status,
+                        source_created_by=revision.created_by,
+                    )
+                )
+                assert level.level == "U" and level.approval_actor is None
+        source = session.get(SourceImageModel, seed.source_image_id)
+        assert source.geometry_completeness_status == (
+            "geometry_incomplete" if strict else "geometry_complete"
+        )
+
+
+def test_exact_prepare_is_serialized_across_publication_and_rejects_duplicate_identity(
+    database, tmp_path
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from types import SimpleNamespace
+
+    from game_predictor_api.application.jobs import JobService
+    from game_predictor_api.domain.jobs import JobConflictError, JobStatus, JobType, create_job
+    from game_predictor_api.domain.neural_grid_operation_pin import (
+        CAPABILITY_PREFLIGHT_POLICY,
+        OPERATION_PIN_KEY,
+    )
+    from game_predictor_api.storage.job_repository import (
+        SqlAlchemyJobRepository,
+        job_record_from_domain,
+    )
+    from game_predictor_api.storage.neural_grid_operation_qualification import prepare_operation_pin
+    from test_grid_model_publication_and_activation import execute, registry, seed_report
+    from test_grid_model_registry import candidate as candidate_descriptor
+
+    game = _provision_game(database.engine, "t1156-cas-" + uuid4().hex[:8])
+    factory = _factory(database.engine)
+    root = tmp_path / "artifacts"
+    seed = _seed(factory, game, root, label="t1156-exact", slot_count=2)
+    descriptor = candidate_descriptor(tmp_path)
+    descriptor["familyCode"] = "t1156_cas_" + uuid4().hex[:10]
+    descriptor["cohortId"] = str(uuid4())
+    snapshot = NeuralGridSnapshot.from_catalogue(
+        game_id=str(game),
+        game_configuration="neural_grid_v3",
+        expected_layout_count=500000,
+        descriptor=descriptor,
+    )
+    with game_storage_scope(game), factory.begin() as session:
+        session.get(JobModel, seed.import_job_id).status = JobStatus.COMPLETED
+        registry(session, tmp_path).register(uuid4(), descriptor)
+        report = seed_report(session, descriptor, [game])
+    request = {
+        "schema_version": 2,
+        "validation_kind": "page_geometry_preflight",
+        "preflight_policy_version": CAPABILITY_PREFLIGHT_POLICY,
+        "source_selection_id": str(uuid4()),
+        "source_manifest_sha256": "a" * 64,
+        "source_directory": str(root),
+        "source_display_name": "same explicit selection",
+        "neural_grid_proposal": snapshot.to_payload(),
+    }
+    first_read, second_started, allow_commit = Event(), Event(), Event()
+    calls = []
+
+    def prepare(second):
+        if second:
+            assert first_read.wait(5)
+            second_started.set()
+        with game_storage_scope(game), factory.begin() as session:
+
+            def resolve(**kwargs):
+                calls.append(second)
+                pin = prepare_operation_pin(
+                    session,
+                    snapshot=snapshot,
+                    game_id=game,
+                    rules_version_id=kwargs["rules_version_id"],
+                    rows=kwargs["rows"],
+                    columns=kwargs["columns"],
+                )
+                assert pin["qualification"]["state"] == "unqualified"
+                first_read.set()
+                assert allow_commit.wait(5)
+                return pin
+
+            repository = SqlAlchemyJobRepository(session)
+            service = JobService(
+                repository,
+                grid_profile_snapshot_resolver=SimpleNamespace(
+                    resolve_neural_operation_pin=resolve
+                ),
+            )
+            payload = dict(request)
+            service._pin_neural_operation(game, payload)
+            try:
+                job = service._persist_job(
+                    JobType.VALIDATE,
+                    game_id=game,
+                    input_payload=payload,
+                    game_already_validated=True,
+                )
+            except JobConflictError as error:
+                assert error.code == "JOB_INPUT_ALREADY_EXISTS"
+                job = repository.get_job_by_input_key(
+                    create_job(JobType.VALIDATE, game_id=game, input_payload=payload).input_key
+                )
+            assert job is not None
+            return job.id, payload[OPERATION_PIN_KEY]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(prepare, False)
+        assert first_read.wait(5)
+        second = pool.submit(prepare, True)
+        assert second_started.wait(5)
+        try:
+            # A real immutable publication can happen while the first operation
+            # holds admission: registry publication has its own existing lock.
+            with game_storage_scope(game), factory.begin() as session:
+                execute(
+                    registry(session, tmp_path),
+                    "publish",
+                    descriptor["versionId"],
+                    evaluation=report,
+                )
+        finally:
+            allow_commit.set()
+        left, right = first.result(timeout=10), second.result(timeout=10)
+    assert left == right and calls == [False]
+    assert left[1]["qualification"]["state"] == "unqualified"
+    with game_storage_scope(game), factory.begin() as session:
+        topology = SqlAlchemyJobRepository(session).get_or_pin_board_topology(game)
+        assert topology is not None
+        fresh = prepare_operation_pin(
+            session,
+            snapshot=snapshot,
+            game_id=game,
+            rules_version_id=topology.rules_version_id,
+            rows=3,
+            columns=5,
+        )
+        assert fresh["qualification"]["evaluationId"] == str(report)
+        assert fresh["qualification"]["state"] == "qualified"
+        # Model a pre-existing duplicate from earlier faulty code: a different
+        # derived fingerprint must not permit arbitrary selection of one pin.
+        duplicate = create_job(
+            JobType.VALIDATE,
+            game_id=game,
+            input_payload={**request, OPERATION_PIN_KEY: left[1], "pipeline_fingerprint": "b" * 64},
+        )
+        session.add(job_record_from_domain(replace(duplicate, status=JobStatus.COMPLETED)))
+    with game_storage_scope(game), factory.begin() as session:
+        repository = SqlAlchemyJobRepository(session)
+        with pytest.raises(JobConflictError) as error:
+            repository.find_neural_operation_pin(
+                game_id=game, job_type=JobType.VALIDATE, input_payload=request
+            )
+        assert error.value.code == "NEURAL_GRID_OPERATION_IDENTITY_AMBIGUOUS"
 
 
 @pytest.mark.parametrize("legacy,missing", [(False, False), (True, False), (False, True)])

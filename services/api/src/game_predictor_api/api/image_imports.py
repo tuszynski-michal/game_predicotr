@@ -59,6 +59,11 @@ from game_predictor_api.domain.image_sequence_canonical import (
     ImageSequenceImportPreflight,
 )
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobError, JobStatus, JobType
+from game_predictor_api.domain.neural_grid_operation_pin import (
+    CAPABILITY_PREFLIGHT_POLICY,
+    OPERATION_PIN_KEY,
+    require_operation_pin,
+)
 from game_predictor_api.domain.neural_grid_proposal import (
     NEURAL_GRID_MANIFEST_SCHEMA_VERSION,
     NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
@@ -279,8 +284,17 @@ def _load_page_geometry_manifest(
     if value.get("schemaVersion") == NEURAL_GRID_MANIFEST_SCHEMA_VERSION:
         try:
             snapshot = NeuralGridSnapshot.from_payload(value.get("neuralGridProposal"))
-            if value.get("version") != NEURAL_GRID_PREFLIGHT_POLICY_VERSION:
+            if value.get("version") not in (
+                NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
+                CAPABILITY_PREFLIGHT_POLICY,
+            ):
                 raise ValueError("The neural manifest policy differs.")
+            if value.get("version") == CAPABILITY_PREFLIGHT_POLICY:
+                require_operation_pin(
+                    value.get(OPERATION_PIN_KEY),
+                    snapshot=snapshot,
+                    game_id=str(value.get("gameId")),
+                )
             for source_sha, entry in value["entries"].items():
                 if not isinstance(entry, dict):
                     raise ValueError("The neural source entry is invalid.")

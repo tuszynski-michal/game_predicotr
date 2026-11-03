@@ -37,7 +37,9 @@ def freeze(document):
     command_transition(document, "freeze", cmd, actor="operator")
 
 
-@pytest.mark.parametrize("policy", ["v3-engine-acceptance-v1", "v3-engine-acceptance-v2"])
+@pytest.mark.parametrize(
+    "policy", ["v3-engine-acceptance-v1", "v3-engine-acceptance-v2", "v3-engine-acceptance-v3"]
+)
 def test_freeze_start_lost_reply_keeps_pin_and_receipts(policy):
     document = operation()
     document["acceptancePolicy"] = policy
@@ -157,7 +159,9 @@ def test_receipt_namespaces_and_hash_are_order_independent():
     assert len(document["receipts"]) == 2
 
 
-@pytest.mark.parametrize("policy", ["v3-engine-acceptance-v1", "v3-engine-acceptance-v2"])
+@pytest.mark.parametrize(
+    "policy", ["v3-engine-acceptance-v1", "v3-engine-acceptance-v2", "v3-engine-acceptance-v3"]
+)
 def test_http_prepare_closed_defaults_and_typed_start_request(policy):
     from types import SimpleNamespace
 

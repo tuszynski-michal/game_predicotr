@@ -603,6 +603,7 @@ class PageGeometryPreflightJobPayload(RelocatableSourceJobPayload):
             "page-geometry-preflight-v3-board-area-mask",
             "page-geometry-preflight-v12-contrast-frame-grid",
             "page-geometry-preflight-v13-neural-mumie-pilot",
+            "page-geometry-preflight-v14-neural-capabilities",
         ]
         | None
     ) = None
@@ -721,7 +722,9 @@ class GridReinferenceJobPayload(ApiModel):
     operation_id: UUID
     model_snapshot: dict[str, object]
     runtime_policy: Literal["grid-reinference-runtime-v1"]
-    acceptance_policy: Literal["v3-engine-acceptance-v1", "v3-engine-acceptance-v2"]
+    acceptance_policy: Literal[
+        "v3-engine-acceptance-v1", "v3-engine-acceptance-v2", "v3-engine-acceptance-v3"
+    ]
 
 
 class PendingGridReinferenceJobPayload(ApiModel):
@@ -1435,6 +1438,8 @@ def _image_selection_counters(value: object) -> dict[str, int] | None:
 
 
 def _payload_from_domain(job: Job) -> JobPayloadResponse:
+    from game_predictor_api.domain.neural_grid_operation_pin import OPERATION_PIN_KEY
+
     if job.job_type is JobType.IMPORT:
         if job.input_payload.get("import_kind") == "image_directory":
             # Engine acceptance is an internal execution pin, not a new public
@@ -1446,7 +1451,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
             payload = {
                 key: value
                 for key, value in job.input_payload.items()
-                if key not in {V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY, "source_replacement"}
+                if key
+                not in {V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY, OPERATION_PIN_KEY, "source_replacement"}
             }
             if job.input_payload.get("schema_version") == 1:
                 return LegacyImageImportJobPayload.model_validate(payload)
@@ -1474,7 +1480,9 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         if job.input_payload.get("validation_kind") == "layout_import":
             return LayoutImportValidateJobPayload.model_validate(job.input_payload)
         if job.input_payload.get("validation_kind") == "page_geometry_preflight":
-            return PageGeometryPreflightJobPayload.model_validate(job.input_payload)
+            return PageGeometryPreflightJobPayload.model_validate(
+                {key: value for key, value in job.input_payload.items() if key != OPERATION_PIN_KEY}
+            )
         if job.input_payload.get("validation_kind") == "image_geometry_guard_report_reconstruction":
             return ImageGeometryGuardReportReconstructionJobPayload.model_validate(
                 job.input_payload
@@ -1506,7 +1514,13 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:
         if job.input_payload.get("inference_kind") == "grid-reinference-v1":
-            return GridReinferenceJobPayload.model_validate(job.input_payload)
+            return GridReinferenceJobPayload.model_validate(
+                {
+                    key: value
+                    for key, value in job.input_payload.items()
+                    if key not in {OPERATION_PIN_KEY, "stats_policy"}
+                }
+            )
         return PendingGridReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.GRID_TRAINING:
         return GridTrainingJobPayload.model_validate(job.input_payload)

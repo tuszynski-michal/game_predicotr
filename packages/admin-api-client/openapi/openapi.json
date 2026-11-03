@@ -15798,7 +15798,8 @@
           "acceptancePolicy": {
             "enum": [
               "v3-engine-acceptance-v1",
-              "v3-engine-acceptance-v2"
+              "v3-engine-acceptance-v2",
+              "v3-engine-acceptance-v3"
             ],
             "title": "Acceptancepolicy",
             "type": "string"
@@ -29832,7 +29833,8 @@
                   "page-geometry-preflight-v2-auto-anchor",
                   "page-geometry-preflight-v3-board-area-mask",
                   "page-geometry-preflight-v12-contrast-frame-grid",
-                  "page-geometry-preflight-v13-neural-mumie-pilot"
+                  "page-geometry-preflight-v13-neural-mumie-pilot",
+                  "page-geometry-preflight-v14-neural-capabilities"
                 ],
                 "type": "string"
               },

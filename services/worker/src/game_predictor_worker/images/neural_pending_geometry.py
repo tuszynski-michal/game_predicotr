@@ -14,13 +14,17 @@ from game_predictor_api.domain.neural_crop_policy import (
     neural_auto_crop_blockers,
     neural_auto_crop_evidence,
 )
+from game_predictor_api.domain.neural_grid_operation_pin import operation_pin_blockers
 from game_predictor_api.domain.neural_grid_proposal import (
     NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
     NEURAL_GRID_REVIEW_REASON,
     validate_neural_source_binding,
     validate_neural_source_proposal,
 )
-from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICIES
+from game_predictor_api.domain.v3_engine_acceptance import (
+    GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+    V3_ENGINE_ACCEPTANCE_POLICIES,
+)
 
 from .source_ingestion import ManagedOriginal
 
@@ -68,6 +72,8 @@ def neural_pending_payload(
     engine_acceptance_policy: str | None = None,
     rows: int = 3,
     columns: int = 5,
+    operation_pin: object = None,
+    qualification_blockers: tuple[str, ...] | None = None,
 ) -> dict[str, object]:
     """Keep all active positions, including missing middle cells, in deferred review."""
     proposal = validate_neural_source_proposal(entry.get("neuralProposal"))
@@ -122,6 +128,17 @@ def neural_pending_payload(
             rows=rows,
             columns=columns,
         )
+        if engine_acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+            blockers += operation_pin_blockers(
+                operation_pin,
+                model_snapshot=proposal["engineSnapshot"],
+                game_id=str(proposal["gameId"]),
+            )
+            blockers += (
+                qualification_blockers
+                if qualification_blockers is not None
+                else ("NEURAL_GRID_GAME_EVALUATION_UNCHECKED",)
+            )
         automatic = automatic_crops and not blockers
         if automatic_crops and execution_policy == NEURAL_AUTO_CROP_POLICY:
             reasons.extend(blockers)
@@ -183,6 +200,11 @@ def neural_pending_payload(
                 "policyVersion": engine_acceptance_policy,
                 "proposal": dict(proposal),
                 "binding": dict(binding),
+                **(
+                    {"operationPin": operation_pin}
+                    if engine_acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+                    else {}
+                ),
             },
         }
     structured["resultChecksumSha256"] = hashlib.sha256(

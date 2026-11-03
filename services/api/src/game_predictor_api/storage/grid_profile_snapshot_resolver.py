@@ -44,6 +44,33 @@ class SqlAlchemyGridProfileSnapshotResolver(GridProfileSnapshotResolver):
         self._session = session
         self._artifact_root = artifact_root
 
+    def resolve_neural_operation_pin(
+        self,
+        *,
+        game_id: UUID,
+        model_snapshot: object,
+        rules_version_id: UUID,
+        rows: int,
+        columns: int,
+    ) -> dict[str, object]:
+        from game_predictor_api.domain.neural_grid_operation_pin import NeuralOperationPinError
+
+        from .neural_grid_operation_qualification import prepare_operation_pin
+
+        try:
+            return prepare_operation_pin(
+                self._session,
+                snapshot=NeuralGridSnapshot.from_payload(model_snapshot),
+                game_id=game_id,
+                rules_version_id=rules_version_id,
+                rows=rows,
+                columns=columns,
+            )
+        except GridModelRegistryError as error:
+            raise JobConflictError(error.code, error.message) from error
+        except NeuralOperationPinError as error:
+            raise JobConflictError(error.code, str(error)) from error
+
     def resolve_neural_grid_proposal(self, *, game_id: UUID) -> dict[str, object] | None:
         """Pin the explicit assignment once; never infer a default or static current."""
         game = self._session.get(GameModel, game_id)

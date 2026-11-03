@@ -10,6 +10,7 @@ import {
 } from '../src/features/imports/image-folder-import-state.ts';
 import {
   canResumeNeuralImport,
+  isNeuralGeometryPreflight,
   neuralImportSnapshot,
   neuralUnboundReasonLabel,
   neuralUnboundSkipConfirmed,
@@ -56,6 +57,23 @@ export const geometry = {
     },
   },
 };
+
+test('neural preflight recognises historical v13 and capability v14 without changing snapshots', () => {
+  for (const policy of [
+    'page-geometry-preflight-v13-neural-mumie-pilot',
+    'page-geometry-preflight-v14-neural-capabilities',
+  ]) {
+    const job = {
+      ...geometry,
+      inputPayload: {
+        ...geometry.inputPayload,
+        preflightPolicyVersion: policy,
+      },
+    };
+    assert.equal(isNeuralGeometryPreflight(job), true);
+    assert.deepEqual(neuralImportSnapshot(job), snapshot);
+  }
+});
 export const report = {
   gameId: 'game',
   uploadId: 'selection',

@@ -196,7 +196,7 @@ Poniższe wyniki preflight nie są testami przyszłej implementacji.
 
 ## Outcome
 
-Commit: v1.7.559 (hash dopisuje kolejny commit).
+Commit: v1.7.559 / `887d8a3b3204049b0c986e175c6125c4eac50ce4`.
 
 ### Changed
 

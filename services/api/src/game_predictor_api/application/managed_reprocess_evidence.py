@@ -12,6 +12,10 @@ from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
+from game_predictor_api.domain.neural_grid_operation_pin import (
+    CAPABILITY_PREFLIGHT_POLICY,
+    OPERATION_PIN_KEY,
+)
 from game_predictor_api.domain.neural_grid_proposal import (
     NEURAL_GRID_MANIFEST_SCHEMA_VERSION,
     NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
@@ -31,6 +35,7 @@ _PAGE_MANIFEST_VERSIONS = {
     (2, "page-geometry-preflight-v2-auto-anchor"),
     (2, "page-geometry-preflight-v3-board-area-mask"),
     (NEURAL_GRID_MANIFEST_SCHEMA_VERSION, NEURAL_GRID_PREFLIGHT_POLICY_VERSION),
+    (NEURAL_GRID_MANIFEST_SCHEMA_VERSION, CAPABILITY_PREFLIGHT_POLICY),
 }
 
 
@@ -416,7 +421,14 @@ def _validate_page_geometry_evidence(
     if set(entries) != set(by_checksum):
         raise _incompatible("The page-geometry manifest source inventory is incompatible.")
     counts = {"registered": 0, "review_required": 0, "skipped_human_resolved": 0}
-    neural = manifest.get("version") == NEURAL_GRID_PREFLIGHT_POLICY_VERSION
+    neural = manifest.get("version") in (
+        NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
+        CAPABILITY_PREFLIGHT_POLICY,
+    )
+    if manifest.get("version") == CAPABILITY_PREFLIGHT_POLICY and manifest.get(
+        OPERATION_PIN_KEY
+    ) != preflight.input_payload.get(OPERATION_PIN_KEY):
+        raise _incompatible("The neural capability pin differs from its immutable preflight.")
     if neural and manifest.get("neuralGridProposal") != preflight.input_payload.get(
         "neural_grid_proposal"
     ):

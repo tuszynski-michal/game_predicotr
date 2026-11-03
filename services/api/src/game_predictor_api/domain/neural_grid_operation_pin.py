@@ -1,0 +1,189 @@
+"""Versioned operation capabilities and exact per-game evaluation pins.
+
+Catalogue v1 used boardRows for the horizontal axis. Adapt that exact contract;
+never rewrite its immutable descriptor or change proposal snapshot v1/v2 bytes.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections.abc import Mapping
+from typing import Any
+from uuid import UUID
+
+from .grid_engine_profiles import grid_engine_manifest
+from .grid_model_registry import (
+    canonical_json,
+    descriptor_sha256,
+    historical_catalogue,
+    validate_manifest,
+)
+from .neural_grid_proposal import NeuralGridSnapshot
+
+OPERATION_PIN_KEY = "neural_grid_operation_pin"
+OPERATION_PIN_VERSION = "neural-grid-operation-pin-v1"
+GAME_QUALIFICATION_POLICY = "neural-game-evaluation-v1"
+CAPABILITY_PREFLIGHT_POLICY = "page-geometry-preflight-v14-neural-capabilities"
+GAME_EVALUATION_REQUIRED = "NEURAL_GRID_GAME_EVALUATION_REQUIRED"
+_SHA = re.compile(r"[0-9a-f]{64}")
+NEURAL_OPERATION_DERIVED_KEYS = frozenset(
+    {
+        OPERATION_PIN_KEY,
+        "v3_engine_acceptance_policy_version",
+        "pipeline_fingerprint",
+        "base_page_geometry_manifest",
+    }
+)
+
+
+def neural_operation_request_identity(payload: Mapping[str, object]) -> dict[str, object]:
+    """Exact stable input: only execution pins and derived server fields are removed."""
+    return {
+        key: value for key, value in payload.items() if key not in NEURAL_OPERATION_DERIVED_KEYS
+    }
+
+
+class NeuralOperationPinError(ValueError):
+    code = "NEURAL_GRID_OPERATION_PIN_INVALID"
+
+
+def snapshot_descriptor(snapshot: NeuralGridSnapshot) -> dict[str, Any]:
+    if snapshot.version.catalogue_manifest_json is not None:
+        return dict(json.loads(snapshot.version.catalogue_manifest_json))
+    manifest = grid_engine_manifest(snapshot.version)
+    matches = [item for item in historical_catalogue() if item["inferenceManifest"] == manifest]
+    if len(matches) != 1:
+        raise NeuralOperationPinError("The legacy model has no exact capability descriptor.")
+    return matches[0]
+
+
+def model_capabilities(snapshot: NeuralGridSnapshot) -> dict[str, object]:
+    descriptor = snapshot_descriptor(snapshot)
+    validate_manifest(descriptor)
+    topology = descriptor["topology"]
+    return {
+        "contractVersion": "neural-grid-capabilities-v1",
+        "catalogueManifestSha256": descriptor_sha256(descriptor),
+        # Explicit adapter of grid-model-catalogue-v1 names only.
+        "boardRows": topology["boardColumns"],
+        "boardColumns": topology["boardRows"],
+        "pageRows": topology["screenRows"],
+        "pageColumns": topology["screenColumns"],
+        "capabilities": list(descriptor["capabilities"]),
+    }
+
+
+def make_operation_pin(
+    *,
+    snapshot: NeuralGridSnapshot,
+    game_id: str,
+    rules_version_id: str,
+    rows: int,
+    columns: int,
+    qualification: dict[str, object],
+) -> dict[str, object]:
+    descriptor = snapshot_descriptor(snapshot)
+    pin: dict[str, object] = {
+        "contractVersion": OPERATION_PIN_VERSION,
+        "gameId": game_id,
+        "modelVersionId": descriptor["versionId"],
+        "catalogueManifestSha256": descriptor_sha256(descriptor),
+        "capabilities": model_capabilities(snapshot),
+        "topologyRulesVersionId": rules_version_id,
+        "boardRows": rows,
+        "boardColumns": columns,
+        "qualificationPolicyVersion": GAME_QUALIFICATION_POLICY,
+        "qualification": qualification,
+    }
+    pin["pinSha256"] = descriptor_sha256(pin)
+    return require_operation_pin(pin, snapshot=snapshot, game_id=game_id)
+
+
+def require_operation_pin(
+    value: object,
+    *,
+    snapshot: NeuralGridSnapshot,
+    game_id: str,
+) -> dict[str, Any]:
+    try:
+        if not isinstance(value, Mapping) or value.keys() != {
+            "contractVersion",
+            "gameId",
+            "modelVersionId",
+            "catalogueManifestSha256",
+            "capabilities",
+            "topologyRulesVersionId",
+            "boardRows",
+            "boardColumns",
+            "qualificationPolicyVersion",
+            "qualification",
+            "pinSha256",
+        }:
+            raise ValueError("Operation pin fields differ.")
+        pin = dict(value)
+        snapshot.require_game(game_id)
+        descriptor = snapshot_descriptor(snapshot)
+        if (
+            pin["contractVersion"] != OPERATION_PIN_VERSION
+            or pin["gameId"] != game_id
+            or str(UUID(game_id)) != game_id
+            or str(UUID(pin["topologyRulesVersionId"])) != pin["topologyRulesVersionId"]
+            or pin["modelVersionId"] != descriptor["versionId"]
+            or pin["catalogueManifestSha256"] != descriptor_sha256(descriptor)
+            or canonical_json(pin["capabilities"]) != canonical_json(model_capabilities(snapshot))
+            or type(pin["boardRows"]) is not int
+            or pin["boardRows"] != 3
+            or type(pin["boardColumns"]) is not int
+            or pin["boardColumns"] != 5
+            or pin["qualificationPolicyVersion"] != GAME_QUALIFICATION_POLICY
+            or pin["pinSha256"]
+            != descriptor_sha256({k: v for k, v in pin.items() if k != "pinSha256"})
+        ):
+            raise ValueError("Unsupported topology or mismatched operation identity.")
+        qualification = pin["qualification"]
+        if not isinstance(qualification, dict):
+            raise ValueError("Qualification must be an object.")
+        if qualification.get("state") == "unqualified":
+            if qualification != {"state": "unqualified", "reasonCodes": [GAME_EVALUATION_REQUIRED]}:
+                raise ValueError("Unqualified evidence fields differ.")
+        elif qualification.get("state") == "qualified":
+            if (
+                qualification.keys()
+                != {
+                    "state",
+                    "reasonCodes",
+                    "evaluationId",
+                    "evaluationSha256",
+                    "publicationEvidenceSha256",
+                }
+                or qualification["reasonCodes"] != []
+            ):
+                raise ValueError("Qualified evidence fields differ.")
+            if str(UUID(qualification["evaluationId"])) != qualification["evaluationId"]:
+                raise ValueError("Evaluation ID must be canonical.")
+            for field in ("evaluationSha256", "publicationEvidenceSha256"):
+                if (
+                    not isinstance(qualification[field], str)
+                    or _SHA.fullmatch(qualification[field]) is None
+                ):
+                    raise ValueError("Evaluation evidence requires SHA-256.")
+        else:
+            raise ValueError("Unknown qualification state.")
+        return pin
+    except (ValueError, TypeError, KeyError, AttributeError) as error:
+        raise NeuralOperationPinError(str(error)) from error
+
+
+def operation_pin_blockers(
+    value: object, *, model_snapshot: object, game_id: str
+) -> tuple[str, ...]:
+    try:
+        pin = require_operation_pin(
+            value, snapshot=NeuralGridSnapshot.from_payload(model_snapshot), game_id=game_id
+        )
+    except ValueError:
+        return (NeuralOperationPinError.code,)
+    if pin["qualification"]["state"] != "qualified":
+        return (GAME_EVALUATION_REQUIRED,)
+    return ()

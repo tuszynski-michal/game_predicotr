@@ -85,6 +85,10 @@ from game_predictor_api.domain.jobs import (
     requeue_job_with_fresh_progress,
 )
 from game_predictor_api.domain.neural_crop_policy import pin_neural_crop_policy
+from game_predictor_api.domain.neural_grid_operation_pin import (
+    CAPABILITY_PREFLIGHT_POLICY,
+    OPERATION_PIN_KEY,
+)
 from game_predictor_api.domain.neural_grid_proposal import (
     NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
     NeuralGridSnapshot,
@@ -298,6 +302,16 @@ class ManagedImageSelectionDeletionArtifactStore:
 
 
 class JobRepository(Protocol):
+    def find_neural_operation_pin(
+        self,
+        *,
+        game_id: UUID,
+        job_type: JobType,
+        input_payload: Mapping[str, object],
+    ) -> dict[str, object] | None:
+        """Lock admission, then exact lookup in the caller's transaction; ambiguity fails."""
+        ...
+
     def game_exists(self, game_id: UUID) -> bool: ...
 
     def get_or_pin_board_topology(
@@ -398,6 +412,51 @@ class ShapeGeometryV2ProfileSnapshotResolver(Protocol):
 
 
 class JobService:
+    def _pin_neural_operation(self, game_id: UUID, payload: dict[str, object]) -> None:
+        if payload.get("neural_grid_proposal") is None:
+            return
+        job_type = (
+            JobType.VALIDATE
+            if payload.get("validation_kind") == "page_geometry_preflight"
+            else JobType.IMPORT
+        )
+        # Repository holds the existing transaction-scoped game admission lock
+        # across exact lookup, new evaluation resolution and job persistence.
+        frozen = self._repository.find_neural_operation_pin(
+            game_id=game_id,
+            job_type=job_type,
+            input_payload=payload,
+        )
+        if frozen is not None:
+            payload[OPERATION_PIN_KEY] = frozen
+            return
+        topology = self._repository.get_or_pin_board_topology(game_id)
+        if topology is None:
+            raise JobError(
+                "GAME_BOARD_TOPOLOGY_REQUIRED",
+                "A rules version must define board dimensions before neural inference.",
+            )
+        if (topology.rows, topology.columns) != (3, 5):
+            raise JobError(
+                "NEURAL_GRID_TOPOLOGY_UNSUPPORTED",
+                "The model supports 5 columns by 3 rows and a 3 by 3 page only.",
+            )
+        resolve = getattr(
+            self._grid_profile_snapshot_resolver, "resolve_neural_operation_pin", None
+        )
+        if not callable(resolve):
+            raise JobError(
+                "NEURAL_GRID_OPERATION_PIN_UNAVAILABLE",
+                "The operation pin resolver is unavailable.",
+            )
+        payload[OPERATION_PIN_KEY] = resolve(
+            game_id=game_id,
+            model_snapshot=payload["neural_grid_proposal"],
+            rules_version_id=topology.rules_version_id,
+            rows=topology.rows,
+            columns=topology.columns,
+        )
+
     def __init__(
         self,
         repository: JobRepository,
@@ -876,10 +935,6 @@ class JobService:
         effective_pipeline_fingerprint = pin_neural_crop_policy(
             input_payload, effective_pipeline_fingerprint
         )
-        effective_pipeline_fingerprint = pin_v3_engine_acceptance_policy(
-            input_payload, effective_pipeline_fingerprint
-        )
-        input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
         if canonical_sequence_numbers is not None:
@@ -890,6 +945,11 @@ class JobService:
             input_payload["source_manifest_sha256"] = source_manifest_sha256
         if replacement_admission is not None:
             input_payload["source_replacement"] = dict(replacement_admission)
+        self._pin_neural_operation(game_id, input_payload)
+        effective_pipeline_fingerprint = pin_v3_engine_acceptance_policy(
+            input_payload, effective_pipeline_fingerprint
+        )
+        input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         return self._persist_job(
             JobType.IMPORT,
             game_id=game_id,
@@ -1506,13 +1566,14 @@ class JobService:
         effective_pipeline_fingerprint = pin_neural_crop_policy(
             payload, effective_pipeline_fingerprint
         )
+        image_selection_run_id = source.input_payload.get("image_selection_run_id")
+        if image_selection_run_id is not None:
+            payload["image_selection_run_id"] = image_selection_run_id
+        self._pin_neural_operation(source.game_id, payload)
         effective_pipeline_fingerprint = pin_v3_engine_acceptance_policy(
             payload, effective_pipeline_fingerprint
         )
         payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
-        image_selection_run_id = source.input_payload.get("image_selection_run_id")
-        if image_selection_run_id is not None:
-            payload["image_selection_run_id"] = image_selection_run_id
         try:
             return self._persist_job(
                 JobType.IMPORT,
@@ -2070,7 +2131,7 @@ class JobService:
         if is_v12:
             preflight_policy_version = "page-geometry-preflight-v12-contrast-frame-grid"
         if neural_snapshot is not None:
-            preflight_policy_version = NEURAL_GRID_PREFLIGHT_POLICY_VERSION
+            preflight_policy_version = CAPABILITY_PREFLIGHT_POLICY
         exclusions = (
             {}
             if self._page_geometry_override_snapshot_resolver is None
@@ -2124,6 +2185,7 @@ class JobService:
                 else {}
             ),
         }
+        self._pin_neural_operation(game_id, input_payload)
         candidates = self._repository.list_jobs(
             status=None,
             job_type=JobType.VALIDATE,
@@ -2181,7 +2243,8 @@ class JobService:
                 or payload.get("validation_kind") != "page_geometry_preflight"
                 or payload.get("source_selection_id") != str(selection_id)
                 or payload.get("source_manifest_sha256") != source_manifest_sha256
-                or payload.get("preflight_policy_version") != NEURAL_GRID_PREFLIGHT_POLICY_VERSION
+                or payload.get("preflight_policy_version")
+                not in (NEURAL_GRID_PREFLIGHT_POLICY_VERSION, CAPABILITY_PREFLIGHT_POLICY)
             ):
                 continue
             descriptor = _completed_page_geometry_manifest_descriptor(
@@ -2254,7 +2317,8 @@ class JobService:
             candidate.game_id != game_id
             or payload.get("source_selection_id") != str(selection_id)
             or payload.get("source_manifest_sha256") != source_manifest_sha256
-            or payload.get("preflight_policy_version") != NEURAL_GRID_PREFLIGHT_POLICY_VERSION
+            or payload.get("preflight_policy_version")
+            not in (NEURAL_GRID_PREFLIGHT_POLICY_VERSION, CAPABILITY_PREFLIGHT_POLICY)
             or candidate.checkpoint_payload is None
             or candidate.checkpoint_payload.get("geometry_manifest_checksum_sha256")
             != descriptor.get("checksumSha256")

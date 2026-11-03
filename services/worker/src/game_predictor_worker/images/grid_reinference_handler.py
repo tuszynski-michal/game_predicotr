@@ -44,6 +44,7 @@ from game_predictor_api.domain.neural_crop_policy import (
     neural_auto_crop_blockers,
     neural_auto_crop_evidence,
 )
+from game_predictor_api.domain.neural_grid_operation_pin import OPERATION_PIN_KEY
 from game_predictor_api.domain.neural_grid_proposal import (
     NeuralGridSnapshot,
     associate_expected_slots,
@@ -51,7 +52,10 @@ from game_predictor_api.domain.neural_grid_proposal import (
     lattice_cell_quads,
     lattice_visibility,
 )
-from game_predictor_api.domain.v3_engine_acceptance import crop_policy_for_acceptance
+from game_predictor_api.domain.v3_engine_acceptance import (
+    GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+    crop_policy_for_acceptance,
+)
 from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
 from game_predictor_api.storage.grid_reinference import (
     SqlAlchemyGridReinferenceRepository,
@@ -64,6 +68,7 @@ from game_predictor_api.storage.grid_reinference_models import GridReinferenceTa
 from game_predictor_api.storage.image_review_repository import acquire_image_sequence_locks
 from game_predictor_api.storage.job_repository import apply_job_to_record, job_from_record
 from game_predictor_api.storage.models import ImageSourceGeometryRevisionModel, JobModel
+from game_predictor_api.storage.neural_grid_operation_qualification import recheck_operation_pin
 from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
 from game_predictor_api.storage.virtual_grid_geometry_repository import (
     SqlAlchemyVirtualGridGeometryRepository,
@@ -244,7 +249,20 @@ class GridReinferenceHandler:
                 checkpoint_payload, crop_policy_for_acceptance(d["acceptancePolicy"])
             )
             # Render eligible exact slots outside all domain write transactions.
-            prepared = None if source_missing else self.render(job, frozen, checkpoint_payload)
+            qualification_blockers: tuple[str, ...] = ()
+            if d["acceptancePolicy"] == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+                with self.sessions() as session, session.begin():
+                    qualification_blockers = recheck_operation_pin(
+                        session,
+                        pin=d.get(OPERATION_PIN_KEY),
+                        model_snapshot=d["modelSnapshot"],
+                        game_id=job.game_id,
+                    )
+            prepared = (
+                None
+                if source_missing or qualification_blockers
+                else self.render(job, frozen, checkpoint_payload)
+            )
             self.cancellation_boundary(context)
             with self.sessions() as session, session.begin():
                 repository = SqlAlchemyGridReinferenceRepository(session, self.root)
@@ -310,6 +328,13 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     {"categories": ["grid_issue", "deferred", "all_automatic"]},
                 )
                 current_by_position = {item["positionIndex"]: item for item in current}
+                if d["acceptancePolicy"] == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+                    qualification_blockers = recheck_operation_pin(
+                        session,
+                        pin=d.get(OPERATION_PIN_KEY),
+                        model_snapshot=d["modelSnapshot"],
+                        game_id=job.game_id,
+                    )
                 good, outcomes = [], {}
                 for target in targets:
                     position = target.position_index
@@ -329,7 +354,9 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                         outcome = checkpoint_payload["outcome"]
                     elif position not in checkpoint_payload["byPosition"]:
                         outcome = "binding_required"
-                    elif self.automatic_blockers(checkpoint_payload, position):
+                    elif qualification_blockers or self.automatic_blockers(
+                        checkpoint_payload, position
+                    ):
                         outcome = (
                             "proposal_ready"
                             if target.snapshot["kind"] == "grid_issue"
@@ -344,7 +371,10 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     else:
                         good.append(position)
                     outcomes[position] = outcome
-                acceptance = {"status": "not_evaluated", "blockers": ["NO_AUTOMATIC_WRITE"]}
+                acceptance = {
+                    "status": "not_evaluated",
+                    "blockers": list(qualification_blockers) or ["NO_AUTOMATIC_WRITE"],
+                }
                 effect_collector: dict[UUID, dict[str, Any]] = {}
                 if good:
                     if prepared is None:
@@ -370,7 +400,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                             for position in good:
                                 outcomes[position] = "conflict"
                         else:
-                            _, blockers = writer.save_automatic_reinference_source(
+                            written, blockers = writer.save_automatic_reinference_source(
                                 prepared=prepared,
                                 idempotency_key=operation_id,
                                 created_at=context.now(),
@@ -378,6 +408,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                                 binding=checkpoint_payload["binding"],
                                 model_snapshot=operation.document["modelSnapshot"],
                                 acceptance_policy=operation.document["acceptancePolicy"],
+                                operation_pin=operation.document.get(OPERATION_PIN_KEY),
                                 **(
                                     {"effect_collector": effect_collector}
                                     if operation.document.get("statsPolicy") == STATS_POLICY
@@ -389,7 +420,9 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                                 "blockers": list(blockers),
                             }
                             for position in good:
-                                outcomes[position] = "automatic_written"
+                                outcomes[position] = (
+                                    "automatic_written" if written else "needs_manual_review"
+                                )
                 d = copy.deepcopy(operation.document)
                 source_record = session.get(Source, (job.game_id, operation_id, ordinal))
                 assert source_record is not None

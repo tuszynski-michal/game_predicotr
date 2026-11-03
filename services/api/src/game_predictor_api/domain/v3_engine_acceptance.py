@@ -14,19 +14,30 @@ from .neural_crop_policy import (
     neural_auto_crop_blockers,
     neural_auto_crop_evidence,
 )
+from .neural_grid_operation_pin import OPERATION_PIN_KEY, operation_pin_blockers
 from .neural_grid_proposal import NeuralGridProposalError, validate_neural_source_binding
 
 LEGACY_V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v1"
 V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v2"
-V3_ENGINE_ACCEPTANCE_POLICIES = (LEGACY_V3_ENGINE_ACCEPTANCE_POLICY, V3_ENGINE_ACCEPTANCE_POLICY)
+GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v3"
+V3_ENGINE_ACCEPTANCE_POLICIES = (
+    LEGACY_V3_ENGINE_ACCEPTANCE_POLICY,
+    V3_ENGINE_ACCEPTANCE_POLICY,
+    GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+)
 V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY = "v3_engine_acceptance_policy_version"
 V3_ENGINE_ACCEPTANCE_ACTOR = "system:v3-engine-acceptance-v1"
+
+
+def is_game_scoped_neural_acceptance(policy: object) -> bool:
+    """Trusted job policy owns strict gates, never worker kind/source claims."""
+    return policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
 
 
 def crop_policy_for_acceptance(policy: object) -> str | None:
     if policy == LEGACY_V3_ENGINE_ACCEPTANCE_POLICY:
         return LEGACY_NEURAL_AUTO_CROP_POLICY
-    if policy == V3_ENGINE_ACCEPTANCE_POLICY:
+    if policy in (V3_ENGINE_ACCEPTANCE_POLICY, GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY):
         return NEURAL_AUTO_CROP_POLICY
     return None
 
@@ -35,9 +46,19 @@ def pin_v3_engine_acceptance_policy(payload: dict[str, object], fingerprint: str
     """Called only at new import creation; retry reads the existing pin."""
     if payload.get("neural_grid_proposal") is None:
         return fingerprint
-    payload[V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY] = V3_ENGINE_ACCEPTANCE_POLICY
+    from .grid_model_registry import descriptor_sha256
+    from .neural_grid_operation_pin import require_operation_pin
+    from .neural_grid_proposal import NeuralGridSnapshot
+
+    snapshot = NeuralGridSnapshot.from_payload(payload["neural_grid_proposal"])
+    pin = payload.get(OPERATION_PIN_KEY)
+    game_id = pin.get("gameId") if isinstance(pin, Mapping) else None
+    require_operation_pin(pin, snapshot=snapshot, game_id=cast(str, game_id))
+    payload[V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY] = GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
     return hashlib.sha256(
-        f"{fingerprint}:{V3_ENGINE_ACCEPTANCE_POLICY}".encode("ascii")
+        f"{fingerprint}:{GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY}:{descriptor_sha256(pin)}".encode(
+            "ascii"
+        )
     ).hexdigest()
 
 
@@ -68,6 +89,8 @@ def qualify_v3_engine_acceptance(
     positions: Sequence[V3EnginePosition],
     deferred: bool,
     source_current: bool,
+    operation_pin: object = None,
+    qualification_blockers: tuple[str, ...] | None = None,
 ) -> tuple[str, ...]:
     """Return stable blockers; empty means a complete, bound engine result.
 
@@ -82,7 +105,16 @@ def qualify_v3_engine_acceptance(
     except NeuralGridProposalError:
         return ("V3_ACCEPTANCE_PROVENANCE_INVALID",)
     source = cast(Mapping[str, object], proposal)
-    reasons = []
+    reasons: list[str] = []
+    if policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+        reasons.extend(
+            operation_pin_blockers(operation_pin, model_snapshot=model_snapshot, game_id=game_id)
+        )
+        reasons.extend(
+            qualification_blockers
+            if qualification_blockers is not None
+            else ("NEURAL_GRID_GAME_EVALUATION_UNCHECKED",)
+        )
     if (
         not source_current
         or source["gameId"] != game_id

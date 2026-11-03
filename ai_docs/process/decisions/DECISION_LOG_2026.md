@@ -14,6 +14,18 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-585 — Jawne możliwości i przypięta kwalifikacja gry w nowych operacjach sieci
+
+- **Date:** 2026-11-03.
+- **Status:** accepted; T2 zaakceptowanego planu pełnych plansz, wykonanie i koszt zlecone przez operatora.
+- **Context:** catalogue-v1 odwraca nazwy boardRows/boardColumns; publikowalność historycznej bazy nie dowodzi oceny nowej gry.
+- **Decision:** adapter catalogue-v1 odczytuje logiczne 3 wiersze × 5 kolumn i stronę 3×3 bez zmiany immutable descriptorów/SHA. Nowy preflight-v14 i acceptance-v3 wymagają zamkniętego top-level `neural_grid_operation_pin` z tożsamością gry/modelu, capabilities, regułami topologii, polityką kwalifikacji i SHA. Acceptance-v3 zachowuje blokady crop-v2. Automat wymaga istniejącego zweryfikowanego raportu z jawnym gameId, producentem, manifestem/base i aktualnymi dowodami D-559; zgodny układ wystarcza wyłącznie do propozycji.
+- **Evidence:** prepare przypina exact report ID/SHA i publication evidence albo unqualified. Worker i API sprawdzają pin; API ponawia odczyt przed zapisem w transakcji. Historical admission, family label i cudza ocena nie kwalifikują gry. Retry nie podnosi unqualified ani nie zmienia raportu qualified. Brak/stale dowodu zatrzymuje automat, zachowując źródło i propozycje; błędy infrastruktury nie stają się sukcesem.
+- **Compatibility:** stare preflight-v13, snapshot/proposal v1/v2, acceptance-v1/v2, checkpointy i hashe zachowują semantykę. Nowe prepare zawsze v14/v3. Nieznany/brakujący pin blokuje. `expectedLayoutCount` pozostaje limitem sekwencji; strona3×3 jest pojemnością, nie wymogiem dziewięciu wykryć. Bez migracji schematu, nowych głowic i drugiego rejestru GT/ról. Silniejsza kalibracja T4 wymaga kolejnej jawnej polityki.
+- **Idempotentna tożsamość i intencja operatora:** identyczna selekcja i wszystkie stabilne parametry oznaczają retry, również po nowym raporcie lub wydaniu kodu, jeśli wejścia modelu/źródła/preflightu pozostały takie same. Repo wykonuje exact JSONB lookup pod istniejącym admission lock przed kwalifikacją i utrzymuje blokadę do zapisu; niejednoznaczność zatrzymuje operację. Nowy raport sam nie podnosi kwalifikacji importu. Aby wykorzystać nowe dowody dla istniejących danych, operator przygotowuje nowe jawne grid reinference; nowe źródło/model/preflight także otrzymuje nowy pin. T5 ma wyjaśnić tę zasadę i wskazać akcję, zamiast sugerować odświeżenie kwalifikacji przez powtórzenie importu. T2 nie dodaje losowego nonce ani nowego UI.
+- **Granica dowodu człowieka:** strict game-scoped neural job nie otrzymuje ludzkiego geometry approval z workerowego geometryQualification. Metadane mogą opisywać dostępność pikseli; rzeczywiste ręczne zatwierdzenie nadal wymaga dotychczasowego serwerowego aktora, właściciela i rewizji. Wspólny helper zaufanej polityki chroni początkowy status źródła i importowy human stamp.
+- **Source:** `ai_docs/delivery/FULL_BOARD_DETECTION_PLAN_20261103.md`, T2 / TASK-1156; D-584 i D-559.
+
 ## D-584 — Wersjonowana bezpieczna akceptacja siatek
 
 - **Date:** 2026-11-03.

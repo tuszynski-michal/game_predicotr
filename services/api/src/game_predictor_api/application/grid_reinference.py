@@ -9,11 +9,11 @@ from typing import Any, NoReturn, Protocol, cast
 from uuid import UUID
 
 from game_predictor_api.domain.jobs import JobConflictError
-from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICY
+from game_predictor_api.domain.v3_engine_acceptance import GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
 
 CONTRACT = "grid-reinference-v1"
 RUNTIME_POLICY = "grid-reinference-runtime-v1"
-ACCEPTANCE_POLICY = V3_ENGINE_ACCEPTANCE_POLICY
+ACCEPTANCE_POLICY = GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
 SOURCE_DEADLINE_SECONDS = 30.0
 PAGE_SIZE = 100
 MAX_RECEIPTS = 128

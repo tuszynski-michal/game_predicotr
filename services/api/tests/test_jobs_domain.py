@@ -81,6 +81,40 @@ class MemoryJobRepository(JobRepository):
         self.image_geometry_rollout: ImageGeometryRolloutJobReference | None = None
         self.source_bound_additions: list[tuple[UUID, UUID]] = []
 
+    def find_neural_operation_pin(self, *, game_id, job_type, input_payload):
+        """In-memory test double of the production exact PostgreSQL lookup."""
+        from game_predictor_api.domain.neural_grid_operation_pin import (
+            CAPABILITY_PREFLIGHT_POLICY,
+            OPERATION_PIN_KEY,
+            neural_operation_request_identity,
+        )
+        from game_predictor_api.domain.v3_engine_acceptance import (
+            GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        )
+
+        identity = neural_operation_request_identity(input_payload)
+        found = [
+            item.input_payload[OPERATION_PIN_KEY]
+            for item in self.items.values()
+            if item.game_id == game_id
+            and item.job_type is job_type
+            and OPERATION_PIN_KEY in item.input_payload
+            and (
+                item.input_payload.get("v3_engine_acceptance_policy_version")
+                == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+                if job_type is JobType.IMPORT
+                else item.input_payload.get("preflight_policy_version")
+                == CAPABILITY_PREFLIGHT_POLICY
+            )
+            and neural_operation_request_identity(item.input_payload) == identity
+        ]
+        if len(found) > 1:
+            raise JobConflictError(
+                "NEURAL_GRID_OPERATION_IDENTITY_AMBIGUOUS",
+                "Several operations have the same stable input.",
+            )
+        return found[0] if found else None
+
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
 

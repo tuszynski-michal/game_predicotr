@@ -52,8 +52,10 @@ export function isNeuralGeometryPreflight(
   return (
     job?.jobType === 'validate' &&
     'preflightPolicyVersion' in job.inputPayload &&
-    job.inputPayload.preflightPolicyVersion ===
-      'page-geometry-preflight-v13-neural-mumie-pilot' &&
+    (job.inputPayload.preflightPolicyVersion ===
+      'page-geometry-preflight-v13-neural-mumie-pilot' ||
+      job.inputPayload.preflightPolicyVersion ===
+        'page-geometry-preflight-v14-neural-capabilities') &&
     neuralImportSnapshot(job) !== null
   );
 }

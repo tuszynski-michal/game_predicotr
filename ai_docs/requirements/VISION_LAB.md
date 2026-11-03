@@ -6,6 +6,29 @@ last_updated: 2026-10-16
 
 # Laboratorium wizji
 
+## Model capabilities and game qualification (TASK-1156, D-585)
+
+New operations support boards of five columns and three rows, on pages of
+three columns and three rows. Capacity does not require nine present boards;
+the attested source range remains authority. `expectedLayoutCount` limits game
+sequence numbers and does not declare page topology. Unsupported layouts stop
+before neural inference and preserve the source for manual work.
+
+A compatible new game receives proposals. Automatic geometry requires an exact
+server-owned passing evaluation naming that game. Historical admission, family
+labels and another game's report do not qualify it. Preparation freezes qualified
+evidence or an unqualified state; retries never upgrade or substitute evidence.
+Missing/stale proof blocks automatic writes while preserving proposals. This gate
+does not claim the stronger T4 calibration requirement.
+
+Identical selection and stable import parameters are an idempotent retry, even
+when a later report exists. To use new evidence on existing data, explicitly
+prepare new grid reinference; a new source, model or preflight also has a new pin.
+T5 must explain this and direct the operator to that action. T2 adds no new UI.
+Worker geometryQualification metadata never creates human approval/GT for strict
+neural jobs; true manual approvals keep their server-owned workflow.
+
+
 ## Reproducible input diagnostics (TASK-1155)
 
 Diagnostics distinguish RGB uint8 previews from the float32 values actually

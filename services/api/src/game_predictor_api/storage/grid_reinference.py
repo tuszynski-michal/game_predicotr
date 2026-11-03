@@ -44,6 +44,7 @@ from game_predictor_api.domain.jobs import (
     request_job_cancellation,
     requeue_job,
 )
+from game_predictor_api.domain.neural_grid_operation_pin import OPERATION_PIN_KEY
 from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
 from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICIES
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
@@ -245,6 +246,25 @@ class SqlAlchemyGridReinferenceRepository:
                 conflict("IDEMPOTENCY_CONFLICT", "The prepare key has different content.")
             return self.view(old, old.document["prepareReceipt"])
         snapshot, revision = self.model(game_id, command.get("modelVersionId"))
+        from .job_repository import SqlAlchemyJobRepository
+        from .neural_grid_operation_qualification import prepare_operation_pin
+
+        topology = SqlAlchemyJobRepository(self.session).get_or_pin_board_topology(game_id)
+        if topology is None:
+            conflict("TOPOLOGY_REQUIRED", "A rules topology is required before inference.")
+        if (topology.rows, topology.columns) != (3, 5):
+            conflict(
+                "TOPOLOGY_UNSUPPORTED",
+                "The model supports 5 columns by 3 rows and a 3 by 3 page only.",
+            )
+        operation_pin = prepare_operation_pin(
+            self.session,
+            snapshot=NeuralGridSnapshot.from_payload(snapshot),
+            game_id=game_id,
+            rules_version_id=topology.rules_version_id,
+            rows=topology.rows,
+            columns=topology.columns,
+        )
         acquire_job_admission(self.session, game_id)
         operation_id = uuid4()
         job = create_job(
@@ -257,6 +277,7 @@ class SqlAlchemyGridReinferenceRepository:
                 "model_snapshot": snapshot,
                 "runtime_policy": RUNTIME_POLICY,
                 "acceptance_policy": ACCEPTANCE_POLICY,
+                OPERATION_PIN_KEY: operation_pin,
                 "stats_policy": STATS_POLICY,
             },
         )
@@ -268,6 +289,7 @@ class SqlAlchemyGridReinferenceRepository:
                 "runtime": RUNTIME_POLICY,
                 "writePolicy": CONTRACT,
                 "acceptancePolicy": ACCEPTANCE_POLICY,
+                OPERATION_PIN_KEY: operation_pin,
             }
         )
         receipt = {
@@ -288,6 +310,7 @@ class SqlAlchemyGridReinferenceRepository:
             "command": command,
             "modelSnapshot": snapshot,
             "acceptancePolicy": ACCEPTANCE_POLICY,
+            OPERATION_PIN_KEY: operation_pin,
             "runtimePolicy": RUNTIME_POLICY,
             "assignmentRevision": revision,
             "executionScope": command["executionScope"],
@@ -451,12 +474,24 @@ class SqlAlchemyGridReinferenceRepository:
             operation.job_id != job.id
             or operation.document["modelSnapshot"] != job.input_payload["model_snapshot"]
             or operation.document["acceptancePolicy"] != job.input_payload["acceptance_policy"]
+            or operation.document.get(OPERATION_PIN_KEY) != job.input_payload.get(OPERATION_PIN_KEY)
             or operation.document["runtimePolicy"] != job.input_payload["runtime_policy"]
             or operation.document["runtimePolicy"] != RUNTIME_POLICY
             or operation.document["acceptancePolicy"] not in V3_ENGINE_ACCEPTANCE_POLICIES
         ):
             conflict("PAYLOAD_INVALID", "The operation and immutable job pin differ.")
         stats_enabled(operation.document, job.input_payload)
+        from game_predictor_api.domain.neural_grid_operation_pin import require_operation_pin
+        from game_predictor_api.domain.v3_engine_acceptance import (
+            GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        )
+
+        if operation.document["acceptancePolicy"] == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+            require_operation_pin(
+                operation.document.get(OPERATION_PIN_KEY),
+                snapshot=NeuralGridSnapshot.from_payload(operation.document["modelSnapshot"]),
+                game_id=str(job.game_id),
+            )
         return operation
 
     def capture(self, operation: Operation) -> None:

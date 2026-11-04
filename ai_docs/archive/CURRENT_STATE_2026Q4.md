@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1159 — Naturalna komunikacja i oszczędzanie kontekstu (done)
 
 - Plik: `ai_docs/tasks/completed/1159-normal-communication-context-economy.md`.
-- Commit: **v1.7.558** (hash dopisuje kolejny commit).
+- Commit: **v1.7.558 / `fa5156c97d1216081a82041e7398bf765baaa6a0`** (hash dopisuje kolejny commit).
 - Usunięto wymuszanie Caveman w AGENTS.md i CLAUDE.md; naturalna komunikacja oraz celowane odczyty, ograniczone wyniki narzędzi i brak zbędnych powtórzeń.
 - Zachowano obowiązkowe kontrole. Odczyt zapisanych reguł w nowym procesie i git diff --check PASS; wynik docs:check w Outcome taska. Bez pomiaru oszczędności, globalnego odinstalowania skilla, merge i push.
 

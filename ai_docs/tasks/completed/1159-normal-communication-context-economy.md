@@ -98,7 +98,7 @@ Testy aplikacji, lint kodu i typecheck nie dotyczą zmiany samych instrukcji Mar
 
 ## Outcome
 
-Commit: v1.7.558 (hash dopisuje kolejny commit).
+Commit: v1.7.558 / `fa5156c97d1216081a82041e7398bf765baaa6a0`.
 
 ### Changed
 

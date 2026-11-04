@@ -134,7 +134,7 @@ Kod T4 zawiera zaakceptowane P2; UI ich nie naprawia ani nie ukrywa.
 
 ## Outcome
 
-Commit: v1.7.564 (hash dopisuje kolejny commit).
+Commit: v1.7.564 / `bc00e2a736a6f5a51a9d2bd590d96d280a95d23a`.
 
 Piony i scoped odbiór gotowe. Wykrytą przed freeze lukę v3/v4 zamyka zaakceptowane
 wpięcie B: jawna polityka/assignments, projekcja chronionych grup zdjęć i sealed

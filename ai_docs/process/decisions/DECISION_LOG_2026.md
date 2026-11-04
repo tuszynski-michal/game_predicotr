@@ -48,7 +48,7 @@ freeze atomowy. Policy, mode i assignments są przypięte w preview/parent/child
 evaluation. History screen-v4 wymaga split-v4 i selekcji tylko A; legacyv3 pozostaje.
 Brak B oznacza brak kwalifikacji automatu, nie zakaz inaczej dozwolonego treningu.
 Nie zmieniamy minimów, buforów, budżetów ani ledgera. Pełne wpięcie i audyty wraz z T6
-w pozostałych3–5h zostały jawnie zatwierdzone04.11 około11:41.
+w pozostałych3–5h zostały jawnie zatwierdzone04.11 około10:41.
 
 Odczyt current używa oddzielnej transakcji READ ONLY z game_storage_scope i READ
 routingiem; sesja katalogu pozostaje unbound. Oczekiwany błąd danych, routingu lub

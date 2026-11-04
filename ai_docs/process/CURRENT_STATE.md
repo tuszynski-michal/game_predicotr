@@ -12,6 +12,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
+- **TASK-1160:** T0–T6 done; wdrożenie0181/rejestracja B/REG i trening osobno. Źródło: `quality/TASK-1160_VERIFICATION.md`.
 
 
 
@@ -45,7 +46,6 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/FULL_BOARD_DETECTION_PLAN_20261103.md` | accepted; T0–T5 done, Opus PASS; T6 odbiór w zatwierdzonym koszcie | TASK-1160; punkt A:197GT/134foto, pełnych0; bez treningu/aktywacji/migracji/usług; integracja osobno | `codex/full-board-detection` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -91,7 +91,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1159** — Panel i rzeczywiste wejście — v1.7.564 — tasks/completed/1159-full-board-panel-diagnostics.md
+- **TASK-1160** — Odbiór pełnego przepływu — v1.7.565 — tasks/completed/1160-full-board-acceptance.md
+- **TASK-1159** — Panel i rzeczywiste wejście — v1.7.564 / `bc00e2a7` — tasks/completed/1159-full-board-panel-diagnostics.md
 - **TASK-1158** — Kompletność i rozdzielona kalibracja — v1.7.563 / `c7ed8afe` — tasks/completed/1158-full-board-calibration.md
 - **TASK-1157** — Korekty detektora i ratunek — v1.7.562 / `f78c5b5a` — tasks/completed/1157-screen-grid-corrections-rescue.md
 - **TASK-1156** — Możliwości modelu i kwalifikacja gry — v1.7.560 / `337affe8` — tasks/completed/1156-neural-model-game-capabilities.md
@@ -100,4 +101,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1153** — Propozycje modelu w korekcie i pełny kadr — v1.7.556 / `4319f702` — tasks/completed/1153-grid-review-proposals-viewport.md
 - **TASK-1152** — Trwałe liczniki zastosowania — v1.7.553 / `5a9fcb14` — tasks/completed/1152-grid-apply-progress.md
 - **TASK-1147** — Integracja i odbiór przyrostu korekt — v1.7.551 / `95ce934e` — tasks/completed/1147-grid-growth-integration.md
-- **TASK-1151** — Wyszukiwanie bez historii wymiany — v1.7.550 / `eec2f304` — tasks/completed/1151-empty-replacement-search-fast-path.md

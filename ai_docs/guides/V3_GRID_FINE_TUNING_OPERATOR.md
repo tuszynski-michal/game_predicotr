@@ -1,7 +1,7 @@
 ---
 title: Doszkalanie geometrii V3 — instrukcja operatora
 status: active
-last_updated: 2026-10-16
+last_updated: 2026-11-04
 ---
 
 # Doszkalanie geometrii V3 — instrukcja operatora
@@ -21,9 +21,10 @@ Wynik odbioru: [V3_GRID_FINE_TUNING_ACCEPTANCE](../quality/V3_GRID_FINE_TUNING_A
 
 ## 1. Warunki wstępne
 
-- Baza na head migracji `0166_grid_model_evaluation`. Migrację wykonuje
-  operator w kolejności: stop usług → scalenie → `npm run db:migrate` → start.
-  Rola capability z D-554 musi istnieć przed `0161`.
+- Dla nowego przepływu pełnych plansz wymagany jest head
+  `0181_validation_purposes`; kolejność i osobne zgody opisuje sekcja6.
+  To wymaganie wdrożenia, nie potwierdzenie stanu bazy operatora. Rola capability
+  z D-554 musi istnieć przed `0161` i zostać poprawnie doprowadzona do v8.
 - Usługi z `D:\game_predicotr`: API (`npm run api:dev`), Admin
   (`npm run admin:dev`), Reviewer (`npm run reviewer:dev`).
 - Workery (sterowane skryptem `scripts/manage_worker_lanes.ps1`):
@@ -144,3 +145,127 @@ Panel pokazuje etykietę każdej blokady; nieznany kod ma postać
 - Nie uruchamia treningu na danych operatora bez polecenia operatora.
 - Nie zmienia historycznej gry 777 ani modeli symboli.
 - Nie przetwarza masowo zdjęć poza wybranym zakresem ponownego rozpoznania.
+
+## 6. Pełne plansze: przygotowanie wdrożenia T0–T6
+
+Ta sekcja jest instrukcją do osobnego zatwierdzenia. Odbiór kodu, testów i audytu
+nie oznacza zgody na migrację, zapis diagnostyk, usługi, trening, inferencję,
+publikację, aktywację lub integrację. Zestaw dowodów i jawne niewykonane kroki
+zawiera [TASK-1160_VERIFICATION](../quality/TASK-1160_VERIFICATION.md).
+
+### Migracje i zgodność wersji
+
+1. Zapisz planowany commit wydania oraz obecne wersje, przypisania, default i ich
+   rewizje z istniejących odczytów. Zweryfikuj rzeczywisty revision bazy; nie opieraj
+   go na historycznej informacji z czatu. Operator zatwierdza okno i zatrzymuje
+   API oraz wszystkie odpowiednie workery, aby nie powstawały nowe dowody podczas
+   zmiany schematu. Agent nie przejmuje procesów ani portów.
+2. Po osobno zatwierdzonej integracji wdrażaj ten sam release API, workerów i UI/SDK.
+   Alembic prowadzi liniowo przez `0179_empty_replacement_search`,
+   `0180_screen_grid_corrections`, następnie `0181_validation_purposes`.
+   Jeśli wcześniejszych migracji brakuje, użyj istniejącej ścieżki Alembic;
+   nie zastępuj jej ręcznym DDL i nie pomijaj migracji.
+3. Z wdrożonego `D:/game_predicotr` istniejące `npm run db:migrate` najpierw
+   przygotowuje rolę recording capability, wykonuje Alembic upgrade head, potem
+   końcowe provisioning ról. Sprawdź `npm run db:current` i `npm run db:roles:check`.
+   Oczekiwane v8 publiczne capabilities obejmują `recording_cohort_command_v5`,
+   `recording_photo_context_v3`, `recording_training_scope_v1` i
+   `recording_diagnostic_use_v1`. Funkcje wewnętrzne zachowują prywatne uprawnienia,
+   stałego właściciela i search_path. Brak praw nie jest zgodą na szerokie GRANT.
+4. Nowy kod ze schema0180 nie jest gotowy do nowych A/B/v4 lub registration.
+   Stary worker przy schema0181 nie może rozpoznawać B jako A: legacy SQL fences
+   odmawiają nowego użycia. Nie obiecujemy poprawnego mieszania wersji API i workerów.
+   Historyczne formaty v6/v7 i piny zachowują semantykę, co nie zastępuje zgodności
+   nowego release. Po sprawdzeniu schematu i uprawnień operator uruchamia usługi.
+
+Każdą skończoną komendę administracyjną ogranicz do120s. Poniższy helper działa
+w nowym procesie z zapisanej konfiguracji wdrożonego checkoutu. Zwrócony błąd lub
+timeout zatrzymuje procedurę; najpierw ustal stan własnego procesu i migracji,
+nie uruchamiaj drugiej kopii. Nie zmieniaj globalnego PATH ani środowiska .venv.
+
+```powershell
+Set-Location D:/game_predicotr
+$gridOperatorPython = (Resolve-Path .venv/Scripts/python.exe).Path
+function Invoke-GridOperatorCheck {
+    param([string[]]$Command)
+    & $gridOperatorPython -c 'import subprocess,sys; subprocess.run(sys.argv[1:],timeout=120,check=True)' @Command
+    if ($LASTEXITCODE -ne 0) { throw 'Kontrola nie powiodła się; zatrzymaj procedurę.' }
+}
+# Odczyty gotowości; nic nie migrują i nie uruchamiają usług.
+Invoke-GridOperatorCheck -Command @('npm.cmd', 'run', 'db:current')
+Invoke-GridOperatorCheck -Command @('npm.cmd', 'run', 'db:roles:check')
+# WYŁĄCZNIE po osobnej zgodzie na migrację i zatrzymaniu usług przez operatora:
+# Invoke-GridOperatorCheck -Command @('npm.cmd', 'run', 'db:migrate')
+```
+
+### Diagnostyki przed nowym B/REG
+
+Ściśle zarejestrować trzeba rzeczywiste użycie diagnostyczne T1 wraz z zamknięciem
+znanych kopii/grup, zanim przygotuje się nowe VALIDATION-B lub REGRESSION. Sam
+odczyt readiness134 zdjęć nie był takim użyciem i nie wchodzi do tej rejestracji.
+Nie wolno hardkodować źródeł w produkcie ani ręcznie zmieniać dawnych ról.
+
+Manifest przygotowany w T4 ma status **staged_not_registered**:
+`D:/game_predicotr/artifacts/full-board-detection/operator-diagnostic-registration/task1158-v1.json`.
+Oczekiwany SHA256:
+`e4a3a120404f225e478ac13aba708e048706e1a3e73f3eb7a11f7b4e4523e172`.
+Dwa record bindings odpowiadają jednemu source-use po deduplikacji. Payload jest
+prywatny, poza Git i pakietami audytu; instrukcja nie potwierdza wykonania zapisu.
+
+Po osobnej zgodzie na wdrożenie/migrację0181 i ten zapis, z tego samego checkoutu
+i helpera120s, najpierw porównaj SHA. Niezgodność blokuje wykonanie:
+
+```powershell
+# Get-FileHash uruchomiony w ograniczonym procesie, bez odczytu/drukowania payloadu.
+Invoke-GridOperatorCheck -Command @('powershell.exe', '-NoProfile', '-Command',
+    "if ((Get-FileHash -Algorithm SHA256 -LiteralPath 'D:/game_predicotr/artifacts/full-board-detection/operator-diagnostic-registration/task1158-v1.json').Hash.ToLowerInvariant() -ne 'e4a3a120404f225e478ac13aba708e048706e1a3e73f3eb7a11f7b4e4523e172') { throw 'Manifest SHA mismatch' }")
+# WYŁĄCZNIE po zgodzie operatora; nie wykonywano w odbiorze T6:
+# Invoke-GridOperatorCheck -Command @($gridOperatorPython, 'scripts/register_grid_diagnostics.py', 'execute',
+#     '--manifest', 'D:/game_predicotr/artifacts/full-board-detection/operator-diagnostic-registration/task1158-v1.json',
+#     '--actor', 'local-owner', '--approved-deployment')
+```
+
+Writer używa statement_timeout10s/lock_timeout3s. Dokładny retry odtwarza receipt,
+nie tworzy drugiego użycia. Potwierdź trwały wynik i closure z nowej sesji odczytu
+przed nowym B/REG. Sama obecność pliku manifestu nie potwierdza rejestracji.
+
+### NTFS, wznowienie i przywrócenie
+
+- Artefakty ratunku wymagają same-volume hard links z publikacją no-replace.
+  D: był potwierdzony jako NTFS. Rezerwacja jest zapisana przed obliczeniem;
+  brak wyniku po crash nadal zużywa próbę. Zmiana wariantu nie odnawia budżetu1+1.
+  Alias innych pozycji nie może przedstawiać wcześniejszej próby jako własnej.
+- Sprawdzenie crash/replay procesu nie dowodzi odporności na utratę zasilania.
+  Nie ma gwarancji directory fsync ani automatycznego GC orphan `.rescue-pending-*`.
+  Nie usuwaj tych plików lub receiptów jako kroku tej instrukcji. Inny filesystem
+  wymaga odrębnej weryfikacji; błąd dowiązania pozostaje fail-closed.
+- Downgrade0181 odmawia po historii kohort v4, niepustym validation_purpose lub
+  diagnostic_comparison use: `Purpose history prevents downgrade.` Downgrade0180
+  odmawia po chronionej historii v3. Nie kasuj historii, aby ominąć te warunki.
+  Wycofanie kodu musi zachować zgodny czytnik i schema; pełne odtworzenie bazy
+  wymaga osobnego planu backup/restore operatora.
+- Przywrócenie modelu jest osobną operacją istniejącego `rollbackGameGridModel`:
+  wybierz wcześniejszy target z historii tej samej gry, sprawdź aktualną eligibility,
+  użyj nowego klucza i bieżącej expectedRevision. Default ma osobną komendę.
+  Nie obiecuj odtworzenia modelu, którego artefakt/dowód już nie spełnia kontraktu.
+  Exact retry starej operacji zachowuje jej pin **razem z polityką**, bez ponownego
+  wyboru kwalifikacji lub budżetu. Apply/rollback dotyczy nowych operacji i nie
+  przelicza historycznych importów ani nie zmienia ręcznych geometrii i symboli.
+
+### Jak czytać gotowość i porównanie
+
+Raw-quality PASS, automatic qualification i human approval to różne fakty.
+Brak B/REG blokuje kwalifikację automatu, ale nie inaczej dopuszczalny trening,
+propozycje lub ręczne zastosowanie. Screen TRAIN/A wymaga pełnych zdjęć; grid-only
+zachowuje częściowe A, a B/REG ocenia wszystkie opisane cele bez uznawania reszty za tło.
+Rzeczywiste zatwierdzenie wszystkich9 slotów tworzy full-photo GT; dostępność obrazu
+lub otwarcie edytora nie tworzy GT. TRAIN uczy, A wybiera checkpoint/routing/menu,
+B dobiera progi, REG pozostaje końcowym zamrożonym odbiorem.
+
+Raport pokazuje wszystkie propozycje, także zatrzymane, oraz oddzielnie poprawne
+i błędne dopuszczenia, przycięcia/unknown coverage i udział zatrzymanych celów.
+Porównuje tę samą bazę z polityką T0 oraz oddzielny pre-T0 comparator; odrzucenie
+wszystkiego nie jest poprawą. Liczby B i REG wymagają per gra po30 dedup dobrych
+i30 złych źródeł bazy, z raportem nakładania i zależności. Nie oznacza to60
+niezależnych sesji ani gwarancji statystycznej. Szczegóły liczników i brakujące
+rzeczywiste pomiary są w raporcie odbioru T6; partial GT nie daje FP/whole-photo claims.

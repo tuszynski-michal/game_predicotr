@@ -9,6 +9,9 @@ from uuid import uuid4
 import pytest
 from _application_role_database import application_role_database
 from alembic import command
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from alembic.script import ScriptDirectory
 from game_predictor_api.storage.source_recording_permissions_v8 import recording_permission_errors
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -36,7 +39,7 @@ def test_legacy_json_bytes_survive_column_and_fresh_b_use_blocks_legacy_selectio
                     "INSERT INTO public.grid_model_families(id,code,descriptor_json) "
                     "VALUES(:i,:c,'{}')"
                 ),
-                {"i": family, "c": family.hex},
+                {"i": family, "c": "purpose_" + family.hex},
             )
             c.execute(
                 text(
@@ -96,6 +99,12 @@ def test_legacy_json_bytes_survive_column_and_fresh_b_use_blocks_legacy_selectio
                 for v in (1, 2)
             ]
         command.upgrade(_config(db), "0181_validation_purposes")
+        # Empty schema can be restored; protected use history must never be erased.
+        command.downgrade(_config(db), "0180_screen_grid_corrections")
+        command.upgrade(_config(db), "0181_validation_purposes")
+        migration = (
+            ScriptDirectory.from_config(_config(db)).get_revision("0181_validation_purposes").module
+        )
         with db.owner_engine.connect() as c:
             assert recording_permission_errors(c, db.role) == ()
         with Session(db.owner_engine) as s, s.begin():
@@ -110,6 +119,63 @@ def test_legacy_json_bytes_survive_column_and_fresh_b_use_blocks_legacy_selectio
                 for v in (1, 2)
             ]
             assert [v.encode() for v in new] == [v.encode() for v in old]
+            diagnostic_only = s.begin_nested()
+            assert not s.scalar(
+                text("""SELECT EXISTS(SELECT 1 FROM game_data_v2.grid_training_cohorts
+                WHERE document->>'policyVersion'='application-grid-corrections-v4')
+                OR EXISTS(SELECT 1 FROM public.recording_photo_uses
+                WHERE validation_purpose IS NOT NULL)""")
+            )
+            diagnostic_payload = json.dumps(
+                {
+                    "schemaVersion": "diagnostic-registration-v1",
+                    "gameId": str(game),
+                    "sourceId": str(ids[2]),
+                    "sourceSha256": ids[2].hex * 2,
+                    "pixelSha256": ids[2].hex * 2,
+                    "purpose": "diagnostic_comparison",
+                    "recordSha256": "a" * 64,
+                    "deduplicationKey": "b" * 64,
+                    "sequenceNumber": 1,
+                    "positionIndex": 0,
+                    "modelVersionId": str(uuid4()),
+                    "presetSha256": "c" * 64,
+                }
+            )
+            s.execute(
+                text("""INSERT INTO public.recording_evidence
+                (id,kind,group_ids,dependency_group_ids,payload,payload_sha256,actor)
+                VALUES(:id,'use','{}','{}',CAST(:p AS jsonb),
+                public.recording_digest_v1(CAST(:p AS jsonb)),'fixture:1160')"""),
+                {"id": uuid4(), "p": diagnostic_payload},
+            )
+            with (
+                pytest.raises(RuntimeError, match="Purpose history prevents downgrade"),
+                s.begin_nested(),
+                Operations.context(MigrationContext.configure(s.connection())),
+            ):
+                migration.downgrade()
+            diagnostic_only.rollback()
+            v4 = s.begin_nested()
+            s.execute(
+                text(
+                    "INSERT INTO game_data_v2.grid_training_cohorts"
+                    "(game_id,id,status,document,created_by) "
+                    "VALUES(:g,:c,'preparing',CAST(:d AS jsonb),'fixture:1160')"
+                ),
+                {
+                    "g": game,
+                    "c": uuid4(),
+                    "d": '{"policyVersion":"application-grid-corrections-v4"}',
+                },
+            )
+            with (
+                pytest.raises(RuntimeError, match="Purpose history prevents downgrade"),
+                s.begin_nested(),
+                Operations.context(MigrationContext.configure(s.connection())),
+            ):
+                migration.downgrade()
+            v4.rollback()
             insert = text("""INSERT INTO public.recording_photo_uses(game_id,cohort_id,source_id,
              family_id,import_id,source_sha256,pixel_sha256,role,group_ids,used_in_cohort,split_sha256,
              validation_purpose) VALUES(:g,:c,:s,:f,:j,:sha,:sha,'VALIDATION','{}',true,:sha,:p)""")
@@ -123,6 +189,12 @@ def test_legacy_json_bytes_survive_column_and_fresh_b_use_blocks_legacy_selectio
                 "p": "B",
             }
             s.execute(insert, params)
+            with (
+                pytest.raises(RuntimeError, match="Purpose history prevents downgrade"),
+                s.begin_nested(),
+                Operations.context(MigrationContext.configure(s.connection())),
+            ):
+                migration.downgrade()
             with (
                 pytest.raises(DBAPIError, match="GRID_VALIDATION_PURPOSE_CONFLICT"),
                 s.begin_nested(),

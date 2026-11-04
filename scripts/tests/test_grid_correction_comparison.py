@@ -3,11 +3,13 @@
 import importlib.util
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "render_grid_correction_comparison.py"
+sys.path.insert(0, str(SCRIPT.parent))
 spec = importlib.util.spec_from_file_location("comparison", SCRIPT)
 if spec is None or spec.loader is None:
     raise RuntimeError(f"Cannot load report renderer: {SCRIPT}")

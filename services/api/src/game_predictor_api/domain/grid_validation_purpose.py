@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import replace
+from pathlib import PureWindowsPath
 from typing import Any
 
 from .grid_correction_split import BUFFER_PHOTOS, CorrectionSplitSource, _prepare
@@ -13,6 +14,88 @@ PURPOSE_POLICY = "application-grid-corrections-v4"
 PURPOSE_SNAPSHOT = "application-grid-snapshot-v4"
 PURPOSE_SPLIT = "grid-correction-split-v4"
 ASSESSMENT_POLICY = "human-labeled-targets-v1"
+
+
+def require_source_purpose(source: CorrectionSplitSource, choice: str) -> None:
+    if (
+        source.frozen_role not in (None, "VALIDATION")
+        or source.frozen_buffer
+        or (choice == "BUFFER" and source.frozen_role is not None)
+        or (choice != "BUFFER" and "VALIDATION" not in source.allowed_roles)
+    ):
+        raise GridCohortError("GRID_VALIDATION_PURPOSE_CONFLICT", "An existing role is protected.")
+
+
+def require_purpose_protection(context: dict[str, Any], purpose: str) -> None:
+    """The same existing-purpose/exposure guard for refinement and presentation."""
+    prior = set(context.get("validationPurposes", []))
+    if len(prior) > 1 or (prior and prior != {purpose}):
+        raise GridCohortError("GRID_VALIDATION_PURPOSE_CONFLICT", "Prior purpose is protected.")
+    if purpose in {"B", "BUFFER"} and context.get("selectionExposed"):
+        raise GridCohortError("GRID_VALIDATION_SELECTION_EXPOSED", "Legacy selection is A-only.")
+    if purpose == "B" and context.get("diagnosticExposed"):
+        raise GridCohortError(
+            "GRID_VALIDATION_DIAGNOSTIC_EXPOSED", "Diagnostic controls are excluded."
+        )
+
+
+def validation_component_choices(
+    sources: list[CorrectionSplitSource], contexts: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Project the solver's exact closure; never infer grouping or persist choices.
+
+    Allowed means the existing role/purpose/exposure guards allow the choice, not
+    that a resulting whole split meets its unchanged minima or buffer constraints.
+    """
+    _, components, _, _, _, _ = _prepare(tuple(sources))
+    groups: dict[str, list[CorrectionSplitSource]] = defaultdict(list)
+    for source in sources:
+        groups[components.find(source.source_id)].append(source)
+    result = []
+    for members in sorted(groups.values(), key=lambda items: min(x.source_id for x in items)):
+        members = sorted(members, key=lambda item: item.source_id)
+        options = []
+        for purpose in ("A", "B", "BUFFER"):
+            try:
+                for member in members:
+                    require_source_purpose(member, purpose)
+                    require_purpose_protection(contexts[member.source_id], purpose)
+            except GridCohortError as error:
+                options.append({"purpose": purpose, "allowed": False, "reasonCodes": [error.code]})
+            else:
+                options.append({"purpose": purpose, "allowed": True, "reasonCodes": []})
+        prior = sorted(
+            {
+                value
+                for item in members
+                for value in contexts[item.source_id].get("validationPurposes", [])
+            }
+        )
+        result.append(
+            {
+                "componentKey": digest([item.source_id for item in members]),
+                "sources": [
+                    {
+                        "sourceId": item.source_id,
+                        "displayName": PureWindowsPath(item.logical_filename).name,
+                        "rangeStart": item.attested_start,
+                        "rangeEnd": item.attested_end,
+                        "qualifiedBoards": item.eligible_boards,
+                    }
+                    for item in members
+                ],
+                "priorRoles": sorted(
+                    {
+                        role
+                        for item in members
+                        for role in contexts[item.source_id].get("priorRoles", [])
+                    }
+                ),
+                "priorPurposes": prior,
+                "options": options,
+            }
+        )
+    return result
 
 
 def constrain_validation_sources(
@@ -38,15 +121,7 @@ def constrain_validation_sources(
         if choice is None:
             result.append(source)
             continue
-        if (
-            source.frozen_role not in (None, "VALIDATION")
-            or source.frozen_buffer
-            or (choice == "BUFFER" and source.frozen_role is not None)
-            or (choice != "BUFFER" and "VALIDATION" not in source.allowed_roles)
-        ):
-            raise GridCohortError(
-                "GRID_VALIDATION_PURPOSE_CONFLICT", "An existing role is protected."
-            )
+        require_source_purpose(source, choice)
         result.append(
             replace(
                 source,
@@ -94,18 +169,7 @@ def refine_validation_purposes(
             )
         purpose = next(iter(choice)) if choice else (next(iter(prior)) if len(prior) == 1 else "A")
         if role == "VALIDATION":
-            if len(prior) > 1 or (prior and prior != {purpose}):
-                raise GridCohortError(
-                    "GRID_VALIDATION_PURPOSE_CONFLICT", "Prior purpose is protected."
-                )
-            if purpose in {"B", "BUFFER"} and context.get("selectionExposed"):
-                raise GridCohortError(
-                    "GRID_VALIDATION_SELECTION_EXPOSED", "Legacy selection is A-only."
-                )
-            if purpose == "B" and context.get("diagnosticExposed"):
-                raise GridCohortError(
-                    "GRID_VALIDATION_DIAGNOSTIC_EXPOSED", "Diagnostic controls are excluded."
-                )
+            require_purpose_protection(context, purpose)
             if purpose == "BUFFER":
                 pin.update(role=None, buffer=True, validationPurpose=None, eligibleBoards=0)
                 role = None

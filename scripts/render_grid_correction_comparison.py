@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+from game_predictor_worker.images.comparison_input_diagnostics import diagnostic_inputs
 
 
 def render(root: Path) -> Path:
@@ -56,6 +57,15 @@ def render(root: Path) -> Path:
         cards.append(
             {
                 "sequence": board["sequence_number"],
+                "diagnostics": diagnostic_inputs(
+                    root,
+                    source,
+                    board,
+                    {
+                        "base": evaluation["baseVersionId"],
+                        "candidate": learning["candidateVersionId"],
+                    },
+                ),
                 "boardId": board["id"],
                 "position": position,
                 "gridRows": board["grid_rows"],
@@ -155,6 +165,14 @@ def render(root: Path) -> Path:
         )
         or "Brak powodów blokujących w raporcie oceny.",
         "__MODEL__": html.escape(learning["candidateVersionId"]),
+        "__DIAGNOSTIC_SCOPE__": html.escape(
+            ", ".join(
+                str(row["sequence"])
+                for row in cards
+                if any(value["state"] == "available" for value in row["diagnostics"].values())
+            )
+            or "brak wiarygodnych rekordów"
+        ),
     }
     for marker, value in replacements.items():
         template = template.replace(marker, value)

@@ -18,7 +18,7 @@ Podejrzany wynik uruchamia ograniczoną próbę poprawy, a nierozstrzygnięty po
 
 Pełne wsparcie innych układów, dodatkowa sieć kompletności oraz klasyfikator symboli są poza zakresem. Model deklaruje możliwości i blokuje nieobsługiwany układ; nie nazywamy blokady pełną obsługą. Kolejny układ wymaga konkretnej gry, danych i osobnej zmiany bazy, symboli, wyszukiwania oraz pozostałych odbiorców.
 
-Stan realizacji 2026-11-04: T0–T3 / TASK-1154–1157 done, niezależne audyty Opus5.5/high PASS, bez otwartych P0/P1. T3 v1.7.562: screen+grid fullTRAIN/A, partialREG, dowodowy ratunek1+1; R2 zamknął P1 trwałości, P2 udokumentowane w `../quality/TASK-1157_VERIFICATION.md`. T4–T6 pozostają do wykonania w zatwierdzonym zakresie4–6h. TASK-1153 zintegrowany z bazą448f75e7 za osobną zgodą; zależność T5 spełniona. Brak realnego treningu/aktywacji/migracji operatora/usług.
+Stan realizacji 2026-11-04: T0–T5 / TASK-1154–1159 done, niezależne audyty Opus5.5/high PASS, bez otwartych P0/P1. T5 v1.7.564: compact current/frozen status, ludzka geometria, strict input-v2/HTML i pełne wpięcie shared-v4/B; wyniki i ograniczenia w `../quality/TASK-1159_VERIFICATION.md`. T6 oczekuje na odbiór w zatwierdzonym koszcie. Zgoda na pozostałe3–5h była04.11 o10:41Warsaw (09:41UTC); oczekiwanie09:59–10:41Warsaw nie było pracą. TASK-1153 zintegrowany z bazą448f75e7 za osobną zgodą; zależność T5 spełniona. Brak realnego treningu/aktywacji/migracji operatora/usług.
 
 ## Etap A — Bezpieczeństwo i potwierdzenie przyczyny
 

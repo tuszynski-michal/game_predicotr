@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import ConfigDict, Field
 
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.grid_recognition_status import GameRecognitionStatus
 
 
 class GridModelTopology(ApiModel):
@@ -113,6 +114,7 @@ class GameGridModelAssignmentResponse(ApiModel):
     training_family_id: UUID | None = None
     training_family_label: str | None = None
     initial_transfer_allowed: bool = False
+    recognition_status: "GameRecognitionStatus | None" = None
 
 
 class GridModelPublishCommand(ApiModel):

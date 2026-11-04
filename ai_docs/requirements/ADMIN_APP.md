@@ -13,6 +13,22 @@ kontraktu `0.1` przed rozpoczęciem zadań `0.2`.
 
 ## Forma aplikacji
 
+TASK-1159: przy przypisanym modelu i wyniku pokazywany jest krótki status propozycji
+i kwalifikacji automatu tej gry, oddzielony od zatwierdzenia człowieka. Szczegóły
+kalibracji i historyczna podmiana kohort już wymaganych innych gier pozostają
+zaawansowane. Bieżący status nie aktualizuje zamrożonych operacji; dokładne retry
+zachowuje dowód, a nowe dowody wymagają jawnego nowego przygotowania reinferencji.
+Niezweryfikowane propozycje nie są nazywane poprawnymi.
+
+Brak pełnych zdjęć wskazuje działanie: w istniejącym Reviewerze wybrać „Geometria
+zdjęć”, sprawdzić wszystkie plansze tego samego zdjęcia i jawnie zapisać także
+niezmienioną dobrą siatkę. Przycisk ogranicza widok do tego zdjęcia bez wpisywania
+UUID. To ten sam edytor, bez fikcyjnego zgłoszenia złej siatki i bez próbki jakości.
+Symbole nie są etykietami geometrii. Dopiero dziewięć rzeczywiście kwalifikowanych
+human GT daje pełne zdjęcie; brak kalibracji automatu sam nie blokuje inaczej
+dozwolonego uczenia ani propozycji. Starsze availability metadata może wymagać
+ponownego ręcznego zapisu i nie zastępuje human approval.
+
 Akcje jakości rozpoznawania używają wspólnych klas `primaryButton` i
 `secondaryButton` z `packages/ui/src/buttons.css`. Start i zastosowanie są
 primary; odczyty, nawigacja i anulowanie secondary, z wyjątkiem opisanej poniżej

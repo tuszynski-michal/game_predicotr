@@ -121,3 +121,63 @@ test('grid operation history uses bounded game-scoped GET and generated statisti
   );
   assert.deepEqual(result.data, response);
 });
+
+test('public recognition GET projections retain frozen and current scopes without mutation', async () => {
+  const requests = [];
+  const current = {
+    scope: 'current_game',
+    capabilities: {
+      boardRows: 3,
+      boardColumns: 5,
+      pageRows: 3,
+      pageColumns: 3,
+    },
+    evaluation: { state: 'qualified', reasonCodes: [] },
+    automatic: {
+      state: 'unqualified',
+      reasonCodes: ['NEURAL_GRID_CALIBRATION_REQUIRED'],
+    },
+  };
+  const frozen = {
+    scope: 'frozen_operation',
+    evaluation: { state: 'unqualified', reasonCodes: [] },
+    automatic: { state: 'unqualified', reasonCodes: [] },
+    reasonCodes: [],
+    rescue: {
+      state: 'foreign_scope',
+      completedAttempts: 0,
+      consumedAttempts: 0,
+      reasonCodes: ['GRID_RESCUE_SLOT_BINDING_REQUIRED'],
+    },
+    completeness: { state: 'unavailable', measuredTargets: 0, reasonCodes: [] },
+  };
+  const api = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        recognitionStatus: request.url.includes('grid-model-assignment')
+          ? current
+          : frozen,
+      });
+    },
+  });
+  assert.deepEqual(
+    (await api.getGameGridModelAssignment('game')).data.recognitionStatus,
+    current,
+  );
+  assert.deepEqual(
+    (await api.getGridReinference('game', 'operation')).data.recognitionStatus,
+    frozen,
+  );
+  assert.ok(requests.every((request) => request.method === 'GET'));
+  current.capabilities = null;
+  current.evaluation = current.automatic = {
+    state: 'unavailable',
+    reasonCodes: ['NEURAL_GRID_STATUS_STORAGE_UNAVAILABLE'],
+  };
+  assert.deepEqual(
+    (await api.getGameGridModelAssignment('game')).data.recognitionStatus,
+    current,
+  );
+});

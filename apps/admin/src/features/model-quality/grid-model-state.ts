@@ -9,6 +9,26 @@ import type {
 
 /** TASK-1000: readable reasons; an unknown code is never hidden, only labelled. */
 export const REASON_LABELS: Readonly<Record<string, string>> = {
+  NEURAL_GRID_STATUS_STORAGE_UNAVAILABLE:
+    'Odczyt kwalifikacji jest chwilowo niedostępny. Przypisanie modelu pozostaje zachowane; odśwież stan.',
+  NEURAL_GRID_STATUS_DATA_UNAVAILABLE:
+    'Dane kwalifikacji nie mogły zostać odczytane. Przypisanie pozostaje zachowane.',
+  GRID_VALIDATION_PURPOSE_CONFLICT:
+    'Wcześniejsze użycie chroni rolę lub przeznaczenie tych zdjęć. Zachowaj przydział rejestru.',
+  GRID_VALIDATION_SELECTION_EXPOSED:
+    'Te zdjęcia już wybierały ustawienia modelu. Mogą pozostać w A; nie mogą zostać niezależnym testem B ani buforem.',
+  GRID_VALIDATION_DIAGNOSTIC_EXPOSED:
+    'Te zdjęcia były użyte do diagnostyki. Nie mogą być niezależnym testem B ani kontrolą regresji.',
+  GRID_VALIDATION_COMPONENT_CONFLICT:
+    'Powiązane zdjęcia muszą mieć jedno wspólne przeznaczenie A, B albo bufor.',
+  GRID_VALIDATION_ASSIGNMENT_INVALID:
+    'Wybrane zdjęcia lub przeznaczenie nie pasują do tego podglądu. Odczytaj komponenty ponownie.',
+  GRID_CORRECTION_PROTECTION_CONFLICT:
+    'Rejestr zawiera sprzeczną lub nierozstrzygniętą ochronę zdjęć. Wymaga ona wyjaśnienia przed podziałem.',
+  SCREEN_HISTORY_CORRECTION_POLICY_REQUIRED:
+    'Historyczna kohorta nie ma zgodnego podziału kontroli. Przygotuj i zamroź nową kohortę z istniejących etykiet geometrii.',
+  SCREEN_HISTORY_COHORT_REQUIRED:
+    'Wymagana inna gra potrzebuje zgodnej zamrożonej kohorty pełnych zdjęć. Wybierz ją w szczegółach zakresu.',
   GRID_CORRECTION_CONTROL_NOT_PENDING:
     'Chronione zdjęcie kontrolne bez etykiet nie oczekuje na korektę',
   GRID_CORRECTION_BUFFER:

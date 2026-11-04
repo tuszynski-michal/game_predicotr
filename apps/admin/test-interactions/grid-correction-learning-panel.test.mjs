@@ -125,6 +125,11 @@ function evaluation(state = 'stale', id = 'evaluation') {
     verdict: 'PASS',
     report: {
       schemaVersion: 'grid-model-evaluation-read-v3',
+      scope: {
+        currentGameId: GAME,
+        requiredGameIds: [GAME, OTHER],
+        exclusions: [],
+      },
       verdict: 'PASS',
       games: [],
     },
@@ -1822,4 +1827,269 @@ for (const status of ['completed', 'failed'])
     } finally {
       await view.close();
     }
+  });
+
+test('detector full-photo deficit explains real geometry verification separately from symbols', async () => {
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: async () => ({
+      data: {
+        ...readiness,
+        detectorReadiness: {
+          fullPhotos: 0,
+          partialPhotos: 4,
+          photos: 4,
+          partialExcludedFromDetector: 4,
+          roles: [],
+          reasonCodes: ['SCREEN_FULL_PHOTOS_REQUIRED'],
+        },
+      },
+    }),
+  });
+  const ui = await mount(api);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  assert.match(document.body.textContent, /Geometria zdjęć/);
+  assert.match(document.body.textContent, /Symbole nie są etykietą geometrii/);
+  assert.match(
+    document.body.textContent,
+    /Brak kalibracji automatu nie blokuje/,
+  );
+  const link = [...document.querySelectorAll('a')].find(
+    (x) => x.textContent === 'Otwórz narzędzie geometrii',
+  );
+  assert.equal(new URL(link.href).searchParams.get('section'), 'reviews');
+  assertOnlyReads(calls);
+  await ui.close();
+});
+
+test('screen mode requires an explicit preview and keeps resolved historical pins separate from user overrides', async () => {
+  const historical = [
+    { gameId: OTHER, cohortId: 'cohort-other', manifestSha256: 'b'.repeat(64) },
+  ];
+  const { api, calls } = fixture({
+    previewGridCorrectionLearning: async (_game, body) => ({
+      data: {
+        ...readiness,
+        trainingMode: body.trainingMode,
+        rescueVariant: null,
+        historicalCohorts: historical,
+      },
+    }),
+    startGridCorrectionLearning: async () => ({ error: { code: 'LOST' } }),
+  });
+  const ui = await mount(api);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  const select = document.querySelector('select[aria-label="Cel uczenia"]');
+  await act(async () => {
+    select.value = 'screen+grid';
+    select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  assert.equal(findButton('Ulepsz siatki z korekt').disabled, true);
+  assertOnlyReads(calls);
+  await act(async () => findButton('Sprawdź zakres/podział').click());
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  const preview = calls.find((x) => x[0] === 'previewGridCorrectionLearning');
+  assert.equal(preview[2].trainingMode, 'screen+grid');
+  assert.deepEqual(preview[2].historicalCohorts, []);
+  assert.equal(findButton('Ulepsz siatki z korekt').disabled, false);
+  await act(async () => findButton('Ulepsz siatki z korekt').click());
+  const command = calls.find((x) => x[0] === 'startGridCorrectionLearning')[2];
+  assert.equal(command.trainingMode, 'screen+grid');
+  assert.deepEqual(command.historicalCohorts, []);
+  await ui.close();
+});
+
+test('refresh excludes an explicit preview and retains the refreshed list and selected run', async () => {
+  const ready = deferred(),
+    list = deferred();
+  let reads = 0,
+    lists = 0;
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () =>
+      ++reads === 1 ? { data: readiness } : ready.promise,
+    listGridCorrectionLearning: () =>
+      ++lists === 1 ? { data: { items: [] } } : list.promise,
+    getGridCorrectionLearning: () => ({
+      data: { ...run, errorCode: 'FRESH_RUN' },
+    }),
+  });
+  const ui = await mount(api);
+  try {
+    await settle();
+    await click('Odśwież stan uczenia');
+    const preview = findButton('Sprawdź zakres/podział');
+    assert.equal(preview.disabled, true);
+    await act(async () => preview.click());
+    assert.equal(
+      calls.filter(([name]) => name === 'previewGridCorrectionLearning').length,
+      0,
+    );
+    await act(async () => {
+      list.resolve({ data: { items: [run] } });
+      ready.resolve({ data: readiness });
+    });
+    await settle();
+    assert.match(document.body.textContent, /FRESH_RUN/);
+    assert.equal(findButton('Sprawdź zakres/podział').disabled, false);
+    assertOnlyReads(calls);
+  } finally {
+    await ui.close();
+  }
+});
+
+test('legacy refresh restores the grid-only options key after returning from screen mode', async () => {
+  const { api, calls } = fixture({
+    previewGridCorrectionLearning: (_game, body) => ({
+      data: { ...readiness, trainingMode: body.trainingMode },
+    }),
+  });
+  const ui = await mount(api);
+  try {
+    await settle();
+    const mode = document.querySelector('select[aria-label="Cel uczenia"]');
+    for (const value of ['screen+grid', 'grid-only']) {
+      await act(async () => {
+        mode.value = value;
+        mode.dispatchEvent(new window.Event('change', { bubbles: true }));
+      });
+      if (value === 'screen+grid') await click('Sprawdź zakres/podział');
+    }
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, true);
+    await click('Odśwież stan uczenia');
+    await settle();
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, false);
+    assert.equal(
+      calls.filter(([name]) => name === 'previewGridCorrectionLearning').length,
+      1,
+    );
+  } finally {
+    await ui.close();
+  }
+});
+
+for (const withB of [false, true])
+  test(`explicit v4 ${withB ? 'B component' : 'without B'} stays advanced, read-only until start and pins exactly previewed purposes`, async () => {
+    const SOURCE = '44444444-4444-4444-8444-444444444444',
+      COPY = '55555555-5555-4555-8555-555555555555';
+    const { api, calls } = fixture({
+      previewGridCorrectionLearning: async (_game, body) => ({
+        data: {
+          ...readiness,
+          trainingMode: body.trainingMode,
+          policyVersion: body.policyVersion,
+          validationAssignments: body.validationAssignments,
+          validationComponents: [
+            {
+              componentKey: 'c'.repeat(64),
+              sources: [
+                {
+                  sourceId: SOURCE,
+                  displayName: '462201-462209.jpg',
+                  rangeStart: 462201,
+                  rangeEnd: 462209,
+                  qualifiedBoards: 9,
+                },
+                {
+                  sourceId: COPY,
+                  displayName: '462201-462209-copy.jpg',
+                  rangeStart: 462201,
+                  rangeEnd: 462209,
+                  qualifiedBoards: 9,
+                },
+              ],
+              priorRoles: [],
+              priorPurposes: [],
+              options: [
+                { purpose: 'A', allowed: true, reasonCodes: [] },
+                { purpose: 'B', allowed: true, reasonCodes: [] },
+                { purpose: 'BUFFER', allowed: true, reasonCodes: [] },
+              ],
+            },
+          ],
+          validationPurposeCounts: {
+            A: { photos: 5, boards: 45, fullPhotos: 5 },
+            B: {
+              photos: withB ? 1 : 0,
+              boards: withB ? 9 : 0,
+              fullPhotos: withB ? 1 : 0,
+            },
+          },
+        },
+      }),
+      startGridCorrectionLearning: async () => ({ error: { code: 'LOST' } }),
+    });
+    const ui = await mount(api);
+    await settle();
+    const advanced = [...document.querySelectorAll('details')].find(
+      (x) =>
+        x.querySelector('summary')?.textContent ===
+        'Zaawansowane: zakres oceny',
+    );
+    assert.equal(advanced.open, false);
+    await check('Osobny test automatycznej akceptacji');
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, true);
+    assert.equal(
+      calls.some((x) => x[0] === 'previewGridCorrectionLearning'),
+      false,
+    );
+    await click('Sprawdź zakres/podział');
+    await settle();
+    let expected = {};
+    if (withB) {
+      const select = document.querySelector(
+        'select[aria-label="Przeznaczenie 462201-462209.jpg"]',
+      );
+      await act(async () => {
+        select.value = 'B';
+        select.dispatchEvent(new window.Event('change', { bubbles: true }));
+      });
+      assert.equal(findButton('Ulepsz siatki z korekt').disabled, true);
+      await click('Sprawdź zakres/podział');
+      await settle();
+      expected = { [SOURCE]: 'B', [COPY]: 'B' };
+    }
+    assert.equal(
+      calls.some((x) => x[0] === 'startGridCorrectionLearning'),
+      false,
+    );
+    assert.match(document.body.textContent, /Brak B nie blokuje/);
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, false);
+    await click('Ulepsz siatki z korekt');
+    const command = calls.find(
+      (x) => x[0] === 'startGridCorrectionLearning',
+    )[2];
+    assert.equal(command.policyVersion, 'application-grid-corrections-v4');
+    assert.equal(command.trainingMode, 'grid-only');
+    assert.deepEqual(command.validationAssignments, expected);
+    assert.deepEqual(
+      calls.filter((x) => x[0] === 'previewGridCorrectionLearning').at(-1)[2]
+        .validationAssignments,
+      expected,
+    );
+    await ui.close();
+  });
+
+for (const version of ['v1', 'v2', 'v3', 'v4'])
+  test(`legacy ${version} quality report remains readable without automatic qualification`, async () => {
+    const view = evaluation('current');
+    view.report.schemaVersion = 'grid-model-evaluation-read-' + version;
+    if (version === 'v1' || version === 'v2') delete view.report.scope;
+    const { api, calls } = fixture({
+      listGridCorrectionLearning: async () => ({
+        data: { items: [evaluatedRun] },
+      }),
+      getGridCorrectionLearning: async () => ({ data: evaluatedRun }),
+      getGridCorrectionLearningEvaluation: async () => ({ data: view }),
+    });
+    const ui = await mount(api);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
+    assert.match(document.body.textContent, /PASS/);
+    assert.doesNotMatch(document.body.textContent, /Automat.*kwalifikuje się/);
+    assertOnlyReads(calls);
+    await ui.close();
   });

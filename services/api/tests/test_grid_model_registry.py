@@ -290,11 +290,19 @@ def test_explicit_cross_game_session_scope_refuses_before_read(engine, tmp_path)
 def test_http_register_get_and_replayed_command_after_artifact_loss(engine, tmp_path):
     payload = candidate(tmp_path)
     key = str(uuid4())
+    public_status = {
+        "scope": "current_game",
+        "capabilities": {"boardRows": 3, "boardColumns": 5, "pageRows": 3, "pageColumns": 3},
+        "evaluation": {"state": "qualified", "reasonCodes": []},
+        "automatic": {"state": "unqualified", "reasonCodes": ["NEURAL_GRID_CALIBRATION_REQUIRED"]},
+    }
 
     def dependency():
         with Session(engine) as session:
             try:
-                yield service(session, tmp_path)
+                current_service = service(session, tmp_path)
+                current_service.status_reader = lambda game, view: public_status
+                yield current_service
                 session.commit()
             except BaseException:
                 session.rollback()
@@ -323,6 +331,7 @@ def test_http_register_get_and_replayed_command_after_artifact_loss(engine, tmp_
             )
             session.commit()
         bound = client.get(f"/api/v1/admin/games/{assigned}/grid-model-assignment")
+        assert bound.json()["recognitionStatus"] == public_status
         assert (
             bound.status_code == 200
             and bound.json()["version"]["manifest"]["versionId"] == payload["versionId"]

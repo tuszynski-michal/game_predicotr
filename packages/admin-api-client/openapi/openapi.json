@@ -7276,6 +7276,37 @@
         "title": "CleanupResultResponse",
         "type": "object"
       },
+      "CompletenessStatus": {
+        "properties": {
+          "measuredTargets": {
+            "minimum": 0.0,
+            "title": "Measuredtargets",
+            "type": "integer"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "measured",
+              "unavailable"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "measuredTargets",
+          "reasonCodes"
+        ],
+        "title": "CompletenessStatus",
+        "type": "object"
+      },
       "CreateGridCalibrationCandidateCommand": {
         "additionalProperties": false,
         "properties": {
@@ -8373,6 +8404,44 @@
         "title": "FilenameVerificationHistoryDeletionResponse",
         "type": "object"
       },
+      "FrozenRecognitionStatus": {
+        "properties": {
+          "automatic": {
+            "$ref": "#/components/schemas/RecognitionDecision"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/CompletenessStatus"
+          },
+          "evaluation": {
+            "$ref": "#/components/schemas/RecognitionDecision"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "rescue": {
+            "$ref": "#/components/schemas/RescueExecutionStatus"
+          },
+          "scope": {
+            "const": "frozen_operation",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "evaluation",
+          "automatic",
+          "reasonCodes",
+          "rescue",
+          "completeness"
+        ],
+        "title": "FrozenRecognitionStatus",
+        "type": "object"
+      },
       "GameCreate": {
         "additionalProperties": false,
         "properties": {
@@ -8510,6 +8579,16 @@
             "title": "Initialtransferallowed",
             "type": "boolean"
           },
+          "recognitionStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GameRecognitionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "revision": {
             "anyOf": [
               {
@@ -8583,6 +8662,39 @@
           "versionId"
         ],
         "title": "GamePublishedGridModel",
+        "type": "object"
+      },
+      "GameRecognitionStatus": {
+        "properties": {
+          "automatic": {
+            "$ref": "#/components/schemas/RecognitionDecision"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecognitionCapabilities"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evaluation": {
+            "$ref": "#/components/schemas/RecognitionDecision"
+          },
+          "scope": {
+            "const": "current_game",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "capabilities",
+          "evaluation",
+          "automatic"
+        ],
+        "title": "GameRecognitionStatus",
         "type": "object"
       },
       "GameResponse": {
@@ -12984,6 +13096,18 @@
             "title": "Pendingworkerchecks",
             "type": "array"
           },
+          "policyVersion": {
+            "anyOf": [
+              {
+                "const": "application-grid-corrections-v4",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policyversion"
+          },
           "presetFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Presetfingerprint",
@@ -13065,6 +13189,62 @@
             ],
             "title": "Trainingmode",
             "type": "string"
+          },
+          "validationAssignments": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "enum": [
+                    "A",
+                    "B",
+                    "BUFFER"
+                  ],
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "format": "uuid"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validationassignments"
+          },
+          "validationComponents": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GridValidationComponentChoice"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validationcomponents"
+          },
+          "validationPurposeCounts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/GridValidationPurposeCount"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "A",
+                    "B"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validationpurposecounts"
           }
         },
         "required": [
@@ -13122,6 +13302,18 @@
             "title": "Importjobids",
             "type": "array"
           },
+          "policyVersion": {
+            "anyOf": [
+              {
+                "const": "application-grid-corrections-v4",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policyversion"
+          },
           "rescueVariant": {
             "anyOf": [
               {
@@ -13140,6 +13332,29 @@
             ],
             "title": "Trainingmode",
             "type": "string"
+          },
+          "validationAssignments": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "enum": [
+                    "A",
+                    "B",
+                    "BUFFER"
+                  ],
+                  "type": "string"
+                },
+                "maxProperties": 5000,
+                "propertyNames": {
+                  "format": "uuid"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validationassignments"
           }
         },
         "title": "GridCorrectionLearningPreviewCommand",
@@ -13267,6 +13482,18 @@
             "title": "Importjobids",
             "type": "array"
           },
+          "policyVersion": {
+            "anyOf": [
+              {
+                "const": "application-grid-corrections-v4",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policyversion"
+          },
           "previewSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Previewsha256",
@@ -13290,6 +13517,29 @@
             ],
             "title": "Trainingmode",
             "type": "string"
+          },
+          "validationAssignments": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "enum": [
+                    "A",
+                    "B",
+                    "BUFFER"
+                  ],
+                  "type": "string"
+                },
+                "maxProperties": 5000,
+                "propertyNames": {
+                  "format": "uuid"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validationassignments"
           }
         },
         "required": [
@@ -14056,6 +14306,16 @@
             },
             "title": "Reasons",
             "type": "array"
+          },
+          "recognitionStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenRecognitionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "revision": {
             "title": "Revision",
@@ -16893,6 +17153,16 @@
             ],
             "title": "Receipt"
           },
+          "recognitionStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenRecognitionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "reportSha256": {
             "anyOf": [
               {
@@ -17237,6 +17507,16 @@
           "positionIndex": {
             "title": "Positionindex",
             "type": "integer"
+          },
+          "recognitionStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenRecognitionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "result": {
             "anyOf": [
@@ -19370,6 +19650,112 @@
         "title": "GridTrainingSmokeLimits",
         "type": "object"
       },
+      "GridValidationComponentChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "componentKey": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Componentkey",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/GridValidationPurposeChoice"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "priorPurposes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Priorpurposes",
+            "type": "array"
+          },
+          "priorRoles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Priorroles",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/GridValidationSourceChoice"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "componentKey",
+          "sources",
+          "priorRoles",
+          "priorPurposes",
+          "options"
+        ],
+        "title": "GridValidationComponentChoice",
+        "type": "object"
+      },
+      "GridValidationPurposeChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "purpose": {
+            "enum": [
+              "A",
+              "B",
+              "BUFFER"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "purpose",
+          "allowed",
+          "reasonCodes"
+        ],
+        "title": "GridValidationPurposeChoice",
+        "type": "object"
+      },
+      "GridValidationPurposeCount": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "minimum": 0.0,
+            "title": "Boards",
+            "type": "integer"
+          },
+          "fullPhotos": {
+            "minimum": 0.0,
+            "title": "Fullphotos",
+            "type": "integer"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "boards",
+          "photos",
+          "fullPhotos"
+        ],
+        "title": "GridValidationPurposeCount",
+        "type": "object"
+      },
       "GridValidationPurposeCounts": {
         "additionalProperties": false,
         "properties": {
@@ -19395,6 +19781,57 @@
           "fullPhotos"
         ],
         "title": "GridValidationPurposeCounts",
+        "type": "object"
+      },
+      "GridValidationSourceChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "qualifiedBoards": {
+            "maximum": 9.0,
+            "minimum": 0.0,
+            "title": "Qualifiedboards",
+            "type": "integer"
+          },
+          "rangeEnd": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeend"
+          },
+          "rangeStart": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangestart"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "displayName",
+          "rangeStart",
+          "rangeEnd",
+          "qualifiedBoards"
+        ],
+        "title": "GridValidationSourceChoice",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -32472,6 +32909,16 @@
             "title": "Reasons",
             "type": "array"
           },
+          "recognitionStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenRecognitionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "targetResultId": {
             "format": "uuid",
             "title": "Targetresultid",
@@ -33762,6 +34209,62 @@
           "models"
         ],
         "title": "ReadabilityWorkspaceResponse",
+        "type": "object"
+      },
+      "RecognitionCapabilities": {
+        "properties": {
+          "boardColumns": {
+            "title": "Boardcolumns",
+            "type": "integer"
+          },
+          "boardRows": {
+            "title": "Boardrows",
+            "type": "integer"
+          },
+          "pageColumns": {
+            "title": "Pagecolumns",
+            "type": "integer"
+          },
+          "pageRows": {
+            "title": "Pagerows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "boardRows",
+          "boardColumns",
+          "pageRows",
+          "pageColumns"
+        ],
+        "title": "RecognitionCapabilities",
+        "type": "object"
+      },
+      "RecognitionDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "qualified",
+              "unqualified",
+              "stale",
+              "unavailable"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "reasonCodes"
+        ],
+        "title": "RecognitionDecision",
         "type": "object"
       },
       "RecordingSelection": {
@@ -35553,6 +36056,45 @@
           "sequenceNumbers"
         ],
         "title": "ReplacementRequestEntry",
+        "type": "object"
+      },
+      "RescueExecutionStatus": {
+        "properties": {
+          "completedAttempts": {
+            "minimum": 0.0,
+            "title": "Completedattempts",
+            "type": "integer"
+          },
+          "consumedAttempts": {
+            "minimum": 0.0,
+            "title": "Consumedattempts",
+            "type": "integer"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "completed",
+              "consumed_without_result",
+              "foreign_scope",
+              "unavailable"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "completedAttempts",
+          "consumedAttempts",
+          "reasonCodes"
+        ],
+        "title": "RescueExecutionStatus",
         "type": "object"
       },
       "ResolveUnreadableCellRequest": {

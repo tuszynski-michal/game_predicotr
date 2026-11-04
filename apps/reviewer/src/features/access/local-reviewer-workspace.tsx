@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { BoardGeometryCorrectionWorkspace } from '@/features/operational-reviews/board-geometry-correction-workspace';
 import { GeometryGapsWorkspace } from '@/features/operational-reviews/geometry-gaps-workspace';
 
-type LocalReviewerTab = 'correction' | 'gaps';
+type LocalReviewerTab = 'correction' | 'gaps' | 'geometry';
 
 /**
  * The local Reviewer (port 3001) is the single grid-correction screen of
@@ -29,6 +29,7 @@ export function LocalReviewerWorkspace({
   readonly importJobId?: string | undefined;
 }) {
   const [tab, setTab] = useState<LocalReviewerTab>('correction');
+  const [geometryOpened, setGeometryOpened] = useState(false);
   return (
     <>
       <div
@@ -36,6 +37,19 @@ export function LocalReviewerWorkspace({
         className="reviewerTabs"
         role="tablist"
       >
+        <button
+          className="secondaryButton"
+          type="button"
+          role="tab"
+          aria-selected={tab === 'geometry'}
+          aria-controls="reviewer-tab-geometry"
+          onClick={() => {
+            setGeometryOpened(true);
+            setTab('geometry');
+          }}
+        >
+          Geometria zdjęć
+        </button>
         <button
           aria-controls="reviewer-tab-correction"
           aria-selected={tab === 'correction'}
@@ -88,6 +102,23 @@ export function LocalReviewerWorkspace({
           keyboardEnabled={tab === 'gaps'}
         />
       </div>
+      {geometryOpened ? (
+        <div
+          id="reviewer-tab-geometry"
+          role="tabpanel"
+          hidden={tab !== 'geometry'}
+          aria-label="Geometria zwykłych zdjęć"
+        >
+          <BoardGeometryCorrectionWorkspace
+            api={api}
+            apiBaseUrl={apiBaseUrl}
+            gameId={gameId}
+            importJobId={importJobId}
+            keyboardEnabled={tab === 'geometry'}
+            reviewAll
+          />
+        </div>
+      ) : null}
     </>
   );
 }

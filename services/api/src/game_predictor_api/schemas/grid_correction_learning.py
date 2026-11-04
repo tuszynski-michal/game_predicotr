@@ -32,6 +32,10 @@ class GridCorrectionLearningExclusion(CorrectionLearningClosedModel):
 
 class GridCorrectionLearningPreviewCommand(CorrectionLearningClosedModel):
     trainingMode: Literal["grid-only", "screen+grid"] = "grid-only"
+    policyVersion: Literal["application-grid-corrections-v4"] | None = None
+    validationAssignments: dict[UUID, Literal["A", "B", "BUFFER"]] | None = Field(
+        None, max_length=5000
+    )
     rescueVariant: GridRescueVariantV1 | None = None
     historicalCohorts: list[GridModelEvaluationCohortPin] = Field(
         default_factory=list, max_length=7
@@ -41,9 +45,17 @@ class GridCorrectionLearningPreviewCommand(CorrectionLearningClosedModel):
 
     @model_validator(mode="after")
     def rescue_mode(self) -> "GridCorrectionLearningPreviewCommand":
+        if (self.policyVersion is None) != (self.validationAssignments is None):
+            raise ValueError("Explicit v4 policy and validation assignments are required together.")
+        if self.policyVersion is not None and "trainingMode" not in self.model_fields_set:
+            raise ValueError("The v4 policy requires an explicit training mode.")
         if self.rescueVariant is not None and self.trainingMode != "screen+grid":
             raise ValueError("Rescue variants require the screen correction policy.")
-        if self.historicalCohorts and self.trainingMode != "screen+grid":
+        if (
+            self.historicalCohorts
+            and self.trainingMode != "screen+grid"
+            and self.policyVersion is None
+        ):
             raise ValueError("Historical cohort overrides require the screen correction policy.")
         return self
 
@@ -139,8 +151,48 @@ class GridDetectorReadiness(CorrectionLearningClosedModel):
     reasonCodes: list[str]
 
 
+class GridValidationSourceChoice(CorrectionLearningClosedModel):
+    sourceId: UUID
+    displayName: str
+    rangeStart: int | None
+    rangeEnd: int | None
+    qualifiedBoards: int = Field(ge=0, le=9)
+
+
+class GridValidationPurposeChoice(CorrectionLearningClosedModel):
+    purpose: Literal["A", "B", "BUFFER"]
+    allowed: bool
+    reasonCodes: list[str]
+
+
+class GridValidationComponentChoice(CorrectionLearningClosedModel):
+    componentKey: Sha256
+    sources: list[GridValidationSourceChoice]
+    priorRoles: list[str]
+    priorPurposes: list[str]
+    options: list[GridValidationPurposeChoice]
+
+
+class GridValidationPurposeCount(CorrectionLearningClosedModel):
+    boards: int = Field(ge=0)
+    photos: int = Field(ge=0)
+    fullPhotos: int = Field(ge=0)
+
+
 class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
     trainingMode: Literal["grid-only", "screen+grid"] = "grid-only"
+    policyVersion: Literal["application-grid-corrections-v4"] | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
+    validationAssignments: dict[UUID, Literal["A", "B", "BUFFER"]] | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
+    validationComponents: list[GridValidationComponentChoice] | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
+    validationPurposeCounts: dict[Literal["A", "B"], GridValidationPurposeCount] | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
     detectorReadiness: GridDetectorReadiness | None = None
     rescueVariant: GridRescueVariantV1 | None = None
     rescueRecipeSha256: Sha256 | None = None

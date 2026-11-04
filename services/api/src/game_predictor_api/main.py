@@ -2478,12 +2478,19 @@ def create_app(
         )
 
     def default_grid_model_registry_dependency() -> Iterator[GridModelRegistryService]:
+        from game_predictor_api.storage.grid_recognition_status import (
+            routed_game_recognition_status,
+        )
+
         # Public catalogue has no game payload and must not enter GameStorageRouter.
         with Session(database_engine) as session:
             try:
                 yield GridModelRegistryService(
                     SqlAlchemyGridModelRegistryRepository(session),
                     GridModelArtifactInspector(resolved_settings.artifact_root),
+                    status_reader=lambda game, view: routed_game_recognition_status(
+                        session_factory, resolved_settings.artifact_root, game, view
+                    ),
                 )
                 session.commit()
             except BaseException:

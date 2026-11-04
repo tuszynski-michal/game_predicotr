@@ -69,6 +69,7 @@ export function BoardGeometryCorrectionWorkspace({
   gameId,
   importJobId,
   keyboardEnabled = true,
+  reviewAll = false,
 }: {
   readonly api: BoardGeometryCorrectionClient;
   readonly apiBaseUrl: string;
@@ -77,8 +78,11 @@ export function BoardGeometryCorrectionWorkspace({
   readonly importJobId?: string | undefined;
   /** False while a sibling tab is shown; keeps the editor mounted. */
   readonly keyboardEnabled?: boolean;
+  /** Explicit human check of ordinary boards, using the same guarded editor. */
+  readonly reviewAll?: boolean;
 }) {
   const [proposalEditing, setProposalEditing] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [page, setPage] = useState<ImageGridReviewPageResponse | null>(null);
   const [history, setHistory] = useState<
     readonly ImageGridReviewPageResponse[]
@@ -133,12 +137,13 @@ export function BoardGeometryCorrectionWorkspace({
       try {
         result = await api.listImageGridReviews({
           gameId,
+          ...(reviewAll && sourceFilter ? { sourceImageId: sourceFilter } : {}),
           ...(importJobId === undefined ? {} : { importJobId }),
           // TASK-0961: the queue needs only the correction counter, which
           // keeps the whole-game scope cheap.
-          counts: 'correction',
+          counts: reviewAll ? 'all' : 'correction',
           limit: 1,
-          view: 'correction',
+          view: reviewAll ? 'all' : 'correction',
           ...(afterCursor === undefined ? {} : { afterCursor }),
         });
       } catch {
@@ -166,7 +171,7 @@ export function BoardGeometryCorrectionWorkspace({
       setPageState('ready');
       return true;
     },
-    [api, gameId, importJobId],
+    [api, gameId, importJobId, reviewAll, sourceFilter],
   );
 
   useEffect(() => {
@@ -320,11 +325,18 @@ export function BoardGeometryCorrectionWorkspace({
       <header className="deferredGeometryHeader">
         <div>
           <span className="eyebrow">Jedna plansza naraz</span>
-          <h2>Korekta cięcia siatki</h2>
+          <h2>{reviewAll ? 'Geometria zdjęć' : 'Korekta cięcia siatki'}</h2>
           <p>
-            Plansze odrzucone przez algorytm oraz plansze zgłoszone jako „Zła
-            siatka”. Ustaw cztery narożniki, zapisz i przejdź dalej. Zapis
-            zatwierdza tylko symbole, które wskażesz na kafelkach podglądu.
+            {reviewAll ? (
+              'Sprawdź geometrię wszystkich plansz wybranych pełnych zdjęć, także dobrych propozycji. Zapisz sprawdzoną siatkę, nawet bez zmiany punktów. To ludzka weryfikacja geometrii; symbole zatwierdza się osobno.'
+            ) : (
+              <>
+                Plansze odrzucone przez algorytm oraz plansze zgłoszone jako
+                „Zła siatka”. Ustaw cztery narożniki, zapisz i przejdź dalej.
+                Zapis zatwierdza tylko symbole, które wskażesz na kafelkach
+                podglądu.
+              </>
+            )}
           </p>
         </div>
       </header>
@@ -345,10 +357,15 @@ export function BoardGeometryCorrectionWorkspace({
         />
       ) : item === null || target === null ? (
         <div className="deferredGeometryComplete">
-          <h3>Brak plansz do korekty</h3>
+          <h3>
+            {reviewAll
+              ? 'Brak plansz w tym zakresie'
+              : 'Brak plansz do korekty'}
+          </h3>
           <p>
-            W tym zakresie nie ma plansz odrzuconych przez algorytm ani
-            zgłoszonych jako „Zła siatka”.
+            {reviewAll
+              ? 'Wybierz istniejący import z opisanymi źródłami.'
+              : 'W tym zakresie nie ma plansz odrzuconych przez algorytm ani zgłoszonych jako „Zła siatka”.'}
           </p>
         </div>
       ) : (
@@ -405,6 +422,32 @@ export function BoardGeometryCorrectionWorkspace({
             symbols={symbols}
             target={target}
           />
+          {reviewAll ? (
+            <div className="deferredGeometryNavigation">
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={() =>
+                  setSourceFilter(sourceFilter ? null : item.sourceImageId)
+                }
+              >
+                {sourceFilter
+                  ? 'Wszystkie zdjęcia'
+                  : 'Sprawdź wszystkie plansze tego zdjęcia'}
+              </button>
+              <span>
+                Pozycja na zdjęciu: {item.positionIndex + 1} z 9. Zapis i
+                przyciski nawigacji przechodzą przez istniejący zakres.
+              </span>
+            </div>
+          ) : null}
+          {reviewAll ? (
+            <p role="status">
+              Zapisana geometria nie potwierdza ludzkiej weryfikacji. Sprawdź i
+              zapisz ją ręcznie. Pełne zdjęcie wymaga sprawdzenia wszystkich
+              jego plansz; symbol nie jest etykietą geometrii.
+            </p>
+          ) : null}
           <footer className="deferredGeometryNavigation">
             <button
               className="secondaryButton"
@@ -415,7 +458,12 @@ export function BoardGeometryCorrectionWorkspace({
               ← Poprzednia
             </button>
             <span>
-              Do korekty: <strong>{remaining.toLocaleString('pl-PL')}</strong>
+              {reviewAll ? 'Plansza' : 'Do korekty:'}{' '}
+              <strong>
+                {reviewAll
+                  ? item.sequenceNumber
+                  : remaining.toLocaleString('pl-PL')}
+              </strong>
             </span>
             {page?.nextCursor == null ? (
               <button

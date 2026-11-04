@@ -1305,3 +1305,36 @@ test('stale proposal identity offers a working read-only queue refresh even on i
     await act(async () => root.unmount());
   }
 });
+
+test('ordinary good geometry uses the same editor, GET-only all view and photo filter', async () => {
+  const { api, calls } = fakeApi({
+    queue: [
+      reportedBoard({
+        reportedCellIndices: [],
+        state: 'needs_validation',
+        approvedGeometryRevision: 3,
+        geometryRevision: 3,
+      }),
+    ],
+  });
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  assert.equal(calls.list[0].view, 'all');
+  assert.equal(calls.save.length, 0);
+  assert.equal(calls.rejectBoard.length, 0);
+  assert.match(document.body.textContent, /Geometria zdjęć/);
+  assert.match(
+    document.body.textContent,
+    /Zapisana geometria nie potwierdza ludzkiej weryfikacji/,
+  );
+  assert.match(document.body.textContent, /zapisz ją ręcznie/);
+  assert.doesNotMatch(document.body.textContent, /ma zapisane zatwierdzenie/);
+  assert.match(document.body.textContent, /Symbole|symbole/);
+  await act(async () =>
+    button('Sprawdź wszystkie plansze tego zdjęcia').click(),
+  );
+  await settle();
+  assert.equal(calls.list.at(-1).sourceImageId, 'src');
+  assert.equal(calls.list.at(-1).view, 'all');
+  assert.equal(calls.save.length, 0);
+  await act(async () => root.unmount());
+});

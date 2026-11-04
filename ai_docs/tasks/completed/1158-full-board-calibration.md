@@ -69,7 +69,7 @@ Brak rzeczywistych niezależnych B/REG poprawnie pozostawia automat unqualified.
 
 ## Outcome
 
-Commit: v1.7.563 (hash dopisuje kolejny commit).
+Commit: v1.7.563 / `c7ed8afe1913292d3fe5f7f23cb133f077ac84e2`.
 
 ### Changed
 

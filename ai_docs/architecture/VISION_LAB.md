@@ -6,6 +6,63 @@ last_updated: 2026-11-03
 
 # Architektura laboratorium wizji
 
+## Compact status and input replay (TASK-1159, D-588)
+
+Existing assignment GET exposes current-game `recognitionStatus`; existing
+reinference/proposal reads expose frozen-operation status. These typed projections
+reuse exact per-game publication/calibration evidence and never prepare pins or
+write qualification. No raw operation pin or private artifact path is added.
+Runtime completeness measurements are described as measurements, not human GT.
+The catalogue session stays unbound; current evidence is read in a separate game
+READ ONLY transaction with explicit READ routing. Expected projection failures
+yield unavailable/nullable capabilities without failing the existing assignment.
+
+The local Reviewer optionally browses ordinary boards through the same list API
+(`view=all`, optional source filter) and guarded editor. Explicit unchanged-node
+save produces `geometry_saved`; it is not a quality measurement or a symbol
+approval. The existing human-evidence reader decides GT, and full-photo readiness
+requires all nine qualified physical slots. Existing protected data roles remain.
+
+The shared learning path has an explicit v4 opt-in, retaining the legacy mode helper
+and historical payloads. Advanced A/B/buffer choices use server-projected exact
+copy/component closure and shared constrain/refine protection checks. No new role
+store, split solver, automatic B allocation, minima or budget is introduced. Preview
+is readonly; assignments and policy are included in the sealed parent/child split
+identity and atomic freeze. Current and historical v4 costs/checkpoint selection
+count A only; B remains an independent calibration population. Missing B does not
+prevent an otherwise admissible training run or manual proposals.
+
+`geometry_core/input_diagnostics_v2.py` separately replays exact completed rescue
+requests using their typed override, full baseline preset, source/model/OpenCV and
+canonical inputRaster/support. Missing raster, incomplete reservation and foreign
+slot scope fail visibly. A crop request is shown only for its exact physical slot.
+The v2 file index independently archives sequenceNumber; absent or mismatched
+current target sequence yields unavailable. Redetect is labelled screen input
+and has no board margin. An approval revision alone is not a human GT claim.
+V1 decoder/payloads are unchanged. The file-backed comparison renderer uses
+`images/comparison_input_diagnostics.py` to verify archived v1 stage RGB/tensor bytes
+or replay v2 against the actual raster. It never substitutes a former full original
+for a managed-crop canvas. No online image endpoint or inference is introduced.
+
+### File index contract for request diagnostics v2
+
+The comparison renderer optionally reads `diagnostics/index.json`, a list of
+entries with required `sourceId`, `positionIndex`, `sequenceNumber`,
+`modelVersionId`, `record`, and `actualRaster`. The source/physical position/model
+must select exactly one entry. Its archived integer sequenceNumber must match the
+current report board; it must not be derived anew from that current board.
+`record` is a report-relative path to the strict checksummed v2 JSON envelope.
+`actualRaster` is a report-relative NumPy `.npy` file loaded with allow_pickle=False:
+an RGB uint8 array with shape **(record.source.height, record.source.width, 3)**,
+not a model-stage tensor, encoded preview, or presumed former full original.
+For a managed crop it is the actual canonical canvas used by the completed request,
+including its recorded support/padding. Source bytes, inputRaster pixel SHA,
+validBox, exact request, preset/model/OpenCV and stage RGB/tensor SHA are verified
+by the existing consumer. Both paths must remain inside the report directory.
+Missing/ambiguous entry, absent sequence, missing raster, shape/dtype/hash or
+request mismatch yields unavailable; no producer, inference or guessed fallback
+is introduced. V1 keeps its existing record/pixel contract unchanged.
+
 ## Completeness and calibration (TASK-1158, D-587)
 
 Alembic `0181_validation_purposes` adds nullable `validation_purpose` to the existing

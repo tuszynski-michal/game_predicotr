@@ -30,10 +30,17 @@ def correction_progress_counts(split: dict[str, Any]) -> dict[str, Any]:
         qualified = (
             item["qualifiedBoards"]
             if split.get("schemaVersion") == "grid-correction-split-v3"
+            else item.get("qualifiedBoards", boards)
+            if split.get("schemaVersion") == "grid-correction-split-v4"
             else boards
         )
         add("approved", qualified)
-        if qualified and not boards and split.get("schemaVersion") == "grid-correction-split-v3":
+        if (
+            qualified
+            and not boards
+            and split.get("schemaVersion")
+            in ("grid-correction-split-v3", "grid-correction-split-v4")
+        ):
             add("excluded", qualified)
             if item["buffer"]:
                 add("buffers", qualified)

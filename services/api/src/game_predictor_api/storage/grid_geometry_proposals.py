@@ -13,6 +13,7 @@ from game_predictor_api.application.grid_geometry_proposals import ProposalComma
 from game_predictor_api.application.grid_reinference import digest
 from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeometryService
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.grid_recognition_status import frozen_recognition_status
 from game_predictor_api.domain.image_geometry_v2 import SourceLatticeNodes, SourcePoint
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import (
@@ -154,6 +155,7 @@ class SqlAlchemyGridGeometryProposalRepository:
 
     def _view(self, proposal: Proposal) -> dict[str, Any]:
         target = self._target(proposal.game_id, proposal.target_result_id)
+        operation = self.session.get(Operation, (proposal.game_id, target.operation_id))
         _, reasons = self._current(proposal.game_id, target)
         if proposal.state != "pending":
             reasons = ["PROPOSAL_" + proposal.state.upper(), *reasons]
@@ -162,6 +164,10 @@ class SqlAlchemyGridGeometryProposalRepository:
             "revision": proposal.revision,
             "state": proposal.state,
             "candidate": proposal.document,
+            "recognitionStatus": frozen_recognition_status(
+                operation.document.get("neural_grid_operation_pin") if operation else None,
+                target.result,
+            ),
             "accepted": proposal.accepted,
             "applicable": not reasons,
             "reasons": reasons,
@@ -219,6 +225,9 @@ class SqlAlchemyGridGeometryProposalRepository:
                 assert operation is not None
                 candidates.append(
                     {
+                        "recognitionStatus": frozen_recognition_status(
+                            operation.document.get("neural_grid_operation_pin"), target.result
+                        ),
                         "targetResultId": str(target.target_result_id),
                         "originalGeometry": candidate,
                         "modelSnapshot": operation.document["modelSnapshot"],

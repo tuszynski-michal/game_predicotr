@@ -6,10 +6,21 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1159 — Panel i rzeczywiste wejście (done)
+
+- Plik: `tasks/completed/1159-full-board-panel-diagnostics.md`.
+- Commit: **v1.7.564** (hash dopisuje kolejny commit).
+- Zwarty current/frozen read-model, opcjonalny shared-v4 A/B/history, zwykła ludzka geometria przez istniejący owner/CAS/editor, strict diagnosticv2 i file-backed HTML; historia v1 i exact HTTP/cold retry zachowane.
+- Opus5.5/high R1 REVISE, jedna runda poprawek, focused R2 PASS; P0/P1 brak. R2-P2-1 maintenance/fail-closed przy kluczu legacy zaakceptowane; R2-P2-2 zamknięte tylko dokumentacją indeksu v2/rastra.
+- Scoped Python42, Admin6, Reviewer1, SDK6 PASS w rundzie R2 (per invocation, bez sumowania wcześniejszych). Rzeczywisty PG main/router qualified+unavailable+legacy retry1PASS/34.39s, cleanup3DB/roles0/0. Wcześniejsze composed geometry9/9 i sealed-v4/fresh process zgodnie verification.
+- Ruff/ESLint/mypy18production, OpenAPI/SDK freshness, docs/map PASS. Pełne isolated strict/CSP WT-SDK mirror buildy Admin51.22s i Reviewer32.39s PASS; to nie standard workspace PASS.
+- Punkt A197GT/134foto/full0, HTML150plansz/101foto ma tylko2 strict T1inputy462205; brak GT/innych diagnostyk jawny. Browser visual review/Android niewykonane; bez inferencji/treningu/operator DB/migracji/usług/aktywacji/main/merge/push. T6 odbiera observation_sink i partial-A production handler.
+- Wyniki i ograniczenia: `quality/TASK-1159_VERIFICATION.md`; audyt: `quality/TASK-1159_AUDIT_claude-opus-5-5.md`.
+
 ### TASK-1158 — Kompletność i rozdzielona kalibracja (done)
 
 - Plik: `tasks/completed/1158-full-board-calibration.md`.
-- Commit: **v1.7.563** (hash dopisuje kolejny commit).
+- Commit: **v1.7.563 / `c7ed8afe1913292d3fe5f7f23cb133f077ac84e2`** (hash dopisuje kolejny commit).
 - Wynik: A/B w istniejącym ledger, SQLv8/Alembic0181 z zachowaniem historii, partial B/REG, kompletność i menu per gra. Osobne raw publication i automat/reportv5/pinv3/acceptancev4; retry IMPORT/VALIDATE i tożsamość rastra ratunku.
 - Po R1 exact source/slot/GT/count wiąże DB-bound frozen kohortę. Opus R1 i focused R2 PASS, brak P0/P1; R1 zachowany. P2-3/4/6 zaakceptowane, partial A/grid-only do celowanego odbioru T6.
 - Weryfikacja: scoped Python/PG/SDK/Admin, lint/typy/docs/map. R2:14unit+1composed+1PG PASS, mypy9 PASS. Dwa stare preview testy i jeden bazowy mypy potwierdzone na HEAD. Raport `quality/TASK-1158_VERIFICATION.md`.

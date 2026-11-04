@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from game_predictor_api.schemas.grid_recognition_status import FrozenRecognitionStatus
 from game_predictor_api.schemas.image_reviews import OperationalImageReviewGeometryPreviewCommand
 
 
@@ -61,6 +62,7 @@ class ProposalCandidateResponse(BaseModel):
 
 
 class ProposalDiscoveryResponse(BaseModel):
+    recognitionStatus: FrozenRecognitionStatus | None = None
     targetResultId: UUID
     originalGeometry: OperationalImageReviewGeometryPreviewCommand
     modelSnapshot: dict[str, Any]
@@ -70,6 +72,8 @@ class ProposalDiscoveryResponse(BaseModel):
 
 class GridGeometryProposalResponse(BaseModel):
     """Candidate evidence stays separate from human geometry and applicability."""
+
+    recognitionStatus: FrozenRecognitionStatus | None = None
 
     id: UUID
     revision: int

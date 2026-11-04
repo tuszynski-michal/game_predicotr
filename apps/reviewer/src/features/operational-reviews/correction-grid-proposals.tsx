@@ -42,7 +42,10 @@ export function CorrectionGridProposals({
   const [error, setError] = useState('');
   const [stale, setStale] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [finishedRead, setFinishedRead] = useState<string | null>(null);
   const key = `${item.gameId}:${item.importJobId}:${item.reviewItemId}:${item.sourceChecksumSha256}:${item.geometryRevision}:${item.resolutionRevision}`;
+  const readKey = `${key}:${retry}`;
+  const reading = finishedRead !== readKey;
   const supported =
     api.getOperationalImageReviewItem !== undefined &&
     api.listOperationalGridGeometryProposals !== undefined &&
@@ -94,6 +97,9 @@ export function CorrectionGridProposals({
           setStale(false);
           setError('Nie udało się pobrać propozycji. Ponów odczyt.');
         }
+      })
+      .finally(() => {
+        if (active) setFinishedRead(readKey);
       });
     return () => {
       active = false;
@@ -109,6 +115,7 @@ export function CorrectionGridProposals({
     key,
     retry,
     supported,
+    readKey,
   ]);
   if (!supported || item.reviewItemId === null) return null;
   return (
@@ -135,13 +142,15 @@ export function CorrectionGridProposals({
       <button
         className="secondaryButton"
         type="button"
+        disabled={reading}
+        aria-busy={reading}
         onClick={() => {
           setError('');
           setLoaded(null);
           setRetry((value) => value + 1);
         }}
       >
-        Odśwież propozycje
+        {reading ? 'Odświeżanie propozycji…' : 'Odśwież propozycje'}
       </button>
       {loaded?.key === key && !error ? (
         <GridGeometryProposals

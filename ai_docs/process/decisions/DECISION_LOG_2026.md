@@ -15,6 +15,50 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+## D-588 — Jawny odczyt kwalifikacji i diagnostyka rzeczywistego wejścia
+
+Status: accepted
+Data: 2026-11-04
+Źródło: zatwierdzony T5 FULL_BOARD_DETECTION_PLAN_20261103 i handoff koordynatora.
+
+Publiczne odczyty istniejących assignment/reinference/proposals projektują możliwości,
+aktualną kwalifikację gry i zamrożony stan operacji z istniejących dowodów. Nie tworzą
+pinów, nie zmieniają kwalifikacji i nie ujawniają wewnętrznych ścieżek ani całych pinów.
+Lekki panel odróżnia propozycję, automat i człowieka krótkim statusem; szczegóły
+kalibracji i historyczne przygotowanie kohort pozostają zaawansowane. Brak kalibracji
+nie blokuje inaczej dopuszczonego treningu/propozycji. Zwykła weryfikacja dobrych
+siatek korzysta z opt-in „Geometria zdjęć”, istniejącego list API `view=all` i tego
+samego edytora, bez quality holdout. Jawny zapis także niezmienionych węzłów jest
+`geometry_saved`, nie measurement approval; otwarcie niczego nie zapisuje. Filtr
+źródła pozwala przejść wszystkie plansze zdjęcia bez wpisywania UUID. Pełne zdjęcie
+wymaga dziewięciu kwalifikowanych ludzkich etykiet geometrii; symbole są oddzielne.
+
+Osobny diagnostic-v2 wiąże zakończony typed rescue request z rzeczywistym rastrem,
+frame, presetem/modelami i wersją OpenCV/preprocessing. Rezerwacja i obcy alias nie
+dowodzą wykonania. Brak wystarczających artefaktów jest unavailable, nie obrazem
+dawnego pełnego oryginału. Diagnostic-v1 pozostaje bez zmiany. HTML jest file-backed,
+bez endpointu obrazów i nowej inferencji; model margin pochodzi z presetu/requestu,
+a viewport0.7 pozostaje wyłącznie opcją oglądania. Nie tworzymy kolejki ani magazynu GT.
+
+Wpięcie B: istniejący shared correction learning dostaje jawny opt-in policy-v4 oraz
+source→A/B/BUFFER. Brak nowych pól zachowuje legacyv2/v3, hashe i dokładny retry.
+Advanced wybiera całe komponenty na podstawie tej samej constrain/refine authority
+i chronionych registry proofs, nigdy samego group.qualification. Preview jest readonly;
+freeze atomowy. Policy, mode i assignments są przypięte w preview/parent/child/export/
+evaluation. History screen-v4 wymaga split-v4 i selekcji tylko A; legacyv3 pozostaje.
+Brak B oznacza brak kwalifikacji automatu, nie zakaz inaczej dozwolonego treningu.
+Nie zmieniamy minimów, buforów, budżetów ani ledgera. Pełne wpięcie i audyty wraz z T6
+w pozostałych3–5h zostały jawnie zatwierdzone04.11 około11:41.
+
+Odczyt current używa oddzielnej transakcji READ ONLY z game_storage_scope i READ
+routingiem; sesja katalogu pozostaje unbound. Oczekiwany błąd danych, routingu lub
+dostępności DB tej dodatkowej projekcji daje unavailable i capabilities=null,
+zachowując działający odczyt przypisania. Błędy programowania nadal są błędami.
+Sam stan revision approval nie dowodzi ludzkiego GT: opt-in wymaga jawnego zapisu
+po weryfikacji. Indeks diagnostyki v2 musi zawierać archiwalny sequenceNumber,
+zgodny z aktualnym targetem; brak lub zmiana sekwencji daje unavailable. Redetect
+jest wejściem ekranu, dla którego margines planszy nie ma zastosowania.
+
 ## D-587 — Trwałe cele walidacji i odrębna kwalifikacja automatu
 
 Status: accepted

@@ -1,3 +1,9 @@
+export type {
+  GameRecognitionStatus,
+  FrozenRecognitionStatus,
+  RecognitionDecision,
+  GridModelEvaluationCohortPin,
+} from './generated/types.gen';
 import {
   planSourceReplacement as generatedReplacementPlan,
   listSourceReplacementCandidates as generatedReplacementCandidates,
@@ -179,6 +185,10 @@ export type {
   GridCorrectionLearningPreviewCommand,
   GridCorrectionLearningStartCommand,
   GridCorrectionLearningPreview,
+  GridValidationComponentChoice,
+  GridValidationSourceChoice,
+  GridValidationPurposeChoice,
+  GridValidationPurposeCount,
   GridDetectorReadiness,
   GridRescueVariantV1,
   GridCorrectionLearningCount,

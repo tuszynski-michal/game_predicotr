@@ -351,6 +351,20 @@ export function GridGeometryProposals({
           <details key={id} open>
             <summary>Model {modelLabel(pin)}</summary>
             <p>Aktualna siatka: niebieska. Proponowana siatka: pomarańczowa.</p>
+            {candidate.recognitionStatus ? (
+              <p>
+                Przy przygotowaniu: automat{' '}
+                {candidate.recognitionStatus.automatic.state === 'qualified'
+                  ? 'miał kwalifikację'
+                  : 'wymagał kwalifikacji'}
+                . Ratunek: {candidate.recognitionStatus.rescue.state}.{' '}
+                {candidate.recognitionStatus.rescue.state === 'foreign_scope'
+                  ? 'Próby dotyczą innego zakresu pozycji; nie były wejściem tej planszy.'
+                  : null}{' '}
+                To propozycja do ręcznej oceny, nie zatwierdzenie człowieka.{' '}
+                {candidate.recognitionStatus.reasonCodes.join('; ')}
+              </p>
+            ) : null}
             <svg
               role="img"
               aria-label="Porównanie obecnej siatki i propozycji"

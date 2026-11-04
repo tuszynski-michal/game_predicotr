@@ -88,6 +88,48 @@ class GridCorrectionLearningService:
     def ready(self, game: UUID) -> dict[str, Any]:
         return self.preview(game, {"importJobIds": [], "exclusions": []})
 
+    def _split(
+        self,
+        game: UUID,
+        command: Mapping[str, Any],
+        policy: str,
+        mode: str,
+        components: list[dict[str, Any]] | None = None,
+    ) -> tuple[list[str], dict[str, Any]]:
+        with game_storage_scope(game), self.session_factory() as session:
+            repository = SqlAlchemyGridTrainingCohortRepository(session, self.artifact_root)
+            repository.bind(game)
+            imports = sorted({str(value) for value in command.get("importJobIds") or []})
+            if not imports:
+                sources = table(
+                    "source_images", column("game_id", Uuid), column("import_job_id", Uuid)
+                )
+                imports = sorted(
+                    str(value)
+                    for value in session.scalars(
+                        select(sources.c.import_job_id)
+                        .where(sources.c.game_id == game)
+                        .distinct()
+                        .limit(101)
+                    )
+                )
+            if not imports or len(imports) > 100:
+                raise GridCohortError(
+                    "GRID_LEARNING_IMPORT_SCOPE_INVALID",
+                    "Choose between one and 100 complete imports.",
+                )
+            options: dict[str, Any] = {}
+            if policy == "application-grid-corrections-v4":
+                options.update(
+                    policy=policy,
+                    mode=mode,
+                    validation_assignments=command["validationAssignments"],
+                    validation_components=components,
+                )
+            elif policy == SCREEN_CORRECTION_POLICY:
+                options["policy"] = policy
+            return imports, prepare_split(repository, game, imports, CohortDeadline(), **options)
+
     def _preview(
         self, game: UUID, command: Mapping[str, Any]
     ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -100,8 +142,13 @@ class GridCorrectionLearningService:
         )
 
         mode = str(command.get("trainingMode", "grid-only"))
-        policy = correction_policy_for_mode(mode)
-        screen = policy == SCREEN_CORRECTION_POLICY
+        policy = command.get("policyVersion") or correction_policy_for_mode(mode)
+        purpose_aware = policy == "application-grid-corrections-v4"
+        if policy not in (correction_policy_for_mode(mode), "application-grid-corrections-v4"):
+            raise ValueError("Unsupported explicit correction policy.")
+        if purpose_aware and not isinstance(command.get("validationAssignments"), dict):
+            raise ValueError("The explicit v4 policy requires validation assignments.")
+        screen = mode == "screen+grid"
         preset = PRESETS[SCREEN_CORRECTION_PRESET if screen else CORRECTION_PRESET]
         blockers: list[str] = []
         pins: dict[str, Any] = {}
@@ -133,6 +180,17 @@ class GridCorrectionLearningService:
             "evidenceLevel": "photo-only",
             "limitations": list(PHOTO_ONLY_LIMITATIONS),
         }
+        if purpose_aware:
+            view.update(
+                policyVersion=policy,
+                validationAssignments=dict(sorted(command["validationAssignments"].items())),
+                validationComponents=[],
+            )
+            pins.update(
+                policyVersion=policy,
+                trainingMode=mode,
+                validationAssignments=view["validationAssignments"],
+            )
         try:
             with Session(self.engine) as session:
                 repository = SqlAlchemyGridModelRegistryRepository(session)
@@ -192,6 +250,14 @@ class GridCorrectionLearningService:
                     "exclusions": view["exclusions"],
                 }
             )
+            if purpose_aware:
+                # Retain required-game navigation even when current data lacks
+                # minima; project choices before historical-cohort admission.
+                view.update(historicalCohorts=historic, requiredGameIds=required)
+                imports, split = self._split(
+                    game, command, policy, mode, view["validationComponents"]
+                )
+                view["importJobIds"] = imports
             if set(required) - {str(game), *(pin["gameId"] for pin in historic)}:
                 raise GridCohortError(
                     "GRID_LEARNING_HISTORY_COHORT_REQUIRED",
@@ -204,7 +270,7 @@ class GridCorrectionLearningService:
             if command.get("historicalCohorts"):
                 from .grid_correction_history import select_historical_cohorts
 
-                if not screen:
+                if not (screen or purpose_aware):
                     raise ValueError(
                         "Historical cohort choices require the screen correction policy."
                     )
@@ -216,38 +282,9 @@ class GridCorrectionLearningService:
                 )
             view.update(historicalCohorts=historic, requiredGameIds=required)
             pins.update(scope=scope, historicalCohorts=historic)
-            with game_storage_scope(game), self.session_factory() as session:
-                cohort_repository = SqlAlchemyGridTrainingCohortRepository(
-                    session, self.artifact_root
-                )
-                cohort_repository.bind(game)
-                imports = sorted({str(value) for value in command.get("importJobIds") or []})
-                if not imports:
-                    sources = table(
-                        "source_images", column("game_id", Uuid), column("import_job_id", Uuid)
-                    )
-                    imports = sorted(
-                        str(value)
-                        for value in session.scalars(
-                            select(sources.c.import_job_id)
-                            .where(sources.c.game_id == game)
-                            .distinct()
-                            .limit(101)
-                        )
-                    )
-                if not imports or len(imports) > 100:
-                    raise GridCohortError(
-                        "GRID_LEARNING_IMPORT_SCOPE_INVALID",
-                        "Choose between one and 100 complete imports.",
-                    )
+            if not purpose_aware:
+                imports, split = self._split(game, command, policy, mode)
                 view["importJobIds"] = imports
-                split = prepare_split(
-                    cohort_repository,
-                    game,
-                    imports,
-                    CohortDeadline(),
-                    **({"policy": policy} if screen else {}),
-                )
             pins["splitSha256"] = split["sha256"]
             representatives = [item for item in split["sources"] if item["representative"]]
             view.update(
@@ -267,7 +304,44 @@ class GridCorrectionLearningService:
                 bufferPhotos=sum(bool(item["buffer"]) for item in representatives),
                 progressCounts=correction_progress_counts(split),
             )
-            summaries = [
+            if purpose_aware:
+                purposes = {
+                    key: split["purposeCounts"].get(
+                        "VALIDATION-" + key, {"boards": 0, "photos": 0, "fullPhotos": 0}
+                    )
+                    for key in ("A", "B")
+                }
+                view["validationPurposeCounts"] = purposes
+                view["roleCounts"] = [
+                    {**item, "photos": purposes["A"]["photos"], "boards": purposes["A"]["boards"]}
+                    if item["role"] == "VALIDATION"
+                    else item
+                    for item in view["roleCounts"]
+                ]
+                view["progressCounts"]["validation"] = {
+                    k: purposes["A"][k] for k in ("photos", "boards")
+                }
+                if view["detectorReadiness"] is not None:
+                    readiness = view["detectorReadiness"]
+                    full_a = purposes["A"]["fullPhotos"]
+                    view["detectorReadiness"] = {
+                        **readiness,
+                        "roles": [
+                            {
+                                **item,
+                                "eligibleFullPhotos": full_a,
+                                "missingFullPhotos": max(0, item["requiredFullPhotos"] - full_a),
+                            }
+                            if item["role"] == "VALIDATION"
+                            else item
+                            for item in readiness["roles"]
+                        ],
+                        "reasonCodes": sorted(
+                            set(readiness["reasonCodes"])
+                            | ({"SCREEN_FULL_VALIDATION_REQUIRED"} if full_a < 5 else set())
+                        ),
+                    }
+            summaries: list[dict[str, Any]] = [
                 {
                     "mode": mode,
                     "summary": {
@@ -283,11 +357,14 @@ class GridCorrectionLearningService:
                                 if screen
                                 else 0,
                             }
-                            for item in split["roleCounts"]
+                            for item in view["roleCounts"]
                         ]
                     },
                 }
             ]
+            if purpose_aware:
+                summaries[0]["policyVersion"] = policy
+                summaries[0]["summary"]["validationPurposes"] = purposes
             shared = SharedGridCandidateService(self.session_factory, self.artifact_root)
             selection_parts = [(str(game), split)]
             historical_currentness = []
@@ -306,7 +383,9 @@ class GridCorrectionLearningService:
                         else "GRID_LEARNING_HISTORY_UNAVAILABLE",
                         "A required historical cohort is unavailable or incompatible.",
                     )
-                if screen and str(header["baseVersionId"]) != manifest["versionId"]:
+                if (screen or purpose_aware) and str(header["baseVersionId"]) != manifest[
+                    "versionId"
+                ]:
                     from .grid_correction_history import require_historical_cohort
 
                     with Session(self.engine) as history_session:
@@ -323,10 +402,10 @@ class GridCorrectionLearningService:
                     }
                 )
                 summaries.append(header)
-                if screen:
+                if screen or purpose_aware:
                     from game_predictor_worker.images.grid_cohort_dataset import GridCohortSnapshot
 
-                    if header.get("policyVersion") != SCREEN_CORRECTION_POLICY:
+                    if header.get("policyVersion") != policy:
                         raise GridCohortError(
                             "SCREEN_HISTORY_CORRECTION_POLICY_REQUIRED",
                             "Choose a new screen correction cohort with "
@@ -336,9 +415,23 @@ class GridCorrectionLearningService:
                         self.artifact_root, header["manifestPath"], header["manifestSha256"]
                     )
                     historical_split = historical_snapshot.manifest.get("photoSplit")
-                    if (
-                        not isinstance(historical_split, dict)
-                        or historical_split.get("schemaVersion") != "grid-correction-split-v3"
+                    if purpose_aware and (
+                        historical_snapshot.manifest.get("gameId") != pin["gameId"]
+                        or historical_snapshot.manifest.get("cohortId") != pin["cohortId"]
+                        or historical_snapshot.manifest.get("familyId") != header["familyId"]
+                        or historical_snapshot.manifest.get("mode") != mode
+                        or historical_snapshot.manifest.get("policyVersion") != policy
+                        or historical_snapshot.manifest.get("base", {}).get("versionId")
+                        != str(header["baseVersionId"])
+                    ):
+                        raise GridCohortError(
+                            "SCREEN_HISTORY_CORRECTION_POLICY_REQUIRED",
+                            "Historical v4 snapshot identity differs from the pinned cohort.",
+                        )
+                    if not isinstance(historical_split, dict) or historical_split.get(
+                        "schemaVersion"
+                    ) != (
+                        "grid-correction-split-v4" if purpose_aware else "grid-correction-split-v3"
                     ):
                         raise GridCohortError(
                             "SCREEN_HISTORY_CORRECTION_POLICY_REQUIRED",
@@ -346,6 +439,8 @@ class GridCorrectionLearningService:
                             "frozen validation selection input.",
                         )
                     selection_parts.append((pin["gameId"], historical_split))
+            if purpose_aware:
+                pins["historicalCurrentness"] = historical_currentness
             if screen:
                 from game_predictor_worker.training_core.grid_rescue_training import (
                     rescue_recipe,
@@ -416,7 +511,14 @@ class GridCorrectionLearningService:
             ("trainingMode", "grid-only"),
             ("rescueVariant", None),
             ("historicalCohorts", []),
+            ("policyVersion", None),
+            ("validationAssignments", None),
         ):
+            if (
+                field == "trainingMode"
+                and original.get("policyVersion") == "application-grid-corrections-v4"
+            ):
+                continue
             if original.get(field, default_value) == default_value:
                 original.pop(field, None)
         with game_storage_scope(game), self.session_factory() as session, session.begin():
@@ -599,6 +701,21 @@ class GridCorrectionLearningService:
             )
 
             row = session.get(GridTrainingCohortModel, (game, cohort_id))
+            if (
+                row is not None
+                and pins.get("policyVersion") == "application-grid-corrections-v4"
+                and (
+                    row.document.get("policyVersion") != pins["policyVersion"]
+                    or row.document.get("mode") != pins["trainingMode"]
+                    or row.document["photoSplit"]["sha256"] != pins["splitSha256"]
+                    or row.document["photoSplit"].get("validationAssignments")
+                    != pins["validationAssignments"]
+                )
+            ):
+                raise GridCohortError(
+                    "GRID_LEARNING_PREVIEW_CHANGED",
+                    "The existing cohort differs from the pinned v4 selection.",
+                )
             if row is None:
                 command = {
                     "idempotencyKey": str(child_key(job.id, "cohort")),
@@ -611,6 +728,12 @@ class GridCorrectionLearningService:
                         preview.get("trainingMode", "grid-only")
                     ),
                 }
+                if pins.get("policyVersion") == "application-grid-corrections-v4":
+                    command.update(
+                        policyVersion=pins["policyVersion"],
+                        mode=pins["trainingMode"],
+                        validationAssignments=pins["validationAssignments"],
+                    )
                 service.prepare(game, command, actor)
                 row = service.repository.cohort(game, cohort_id)
                 if row.document["photoSplit"]["sha256"] != pins["splitSha256"]:

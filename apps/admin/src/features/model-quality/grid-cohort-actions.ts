@@ -19,6 +19,7 @@ export type GridCohortClient = Pick<
   | 'listGames'
   | 'listSourceRecordingGroups'
   | 'listJobs'
+  | 'previewGridCorrectionLearning'
 >;
 
 export function sendGridCohortCommand(

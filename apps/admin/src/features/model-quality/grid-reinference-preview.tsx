@@ -432,6 +432,11 @@ function GridReinferenceWorkspace({
         >
           Przygotuj nowy {scope === 'pilot' ? 'pilot' : 'szeroki zakres'}
         </button>
+        <p>
+          Nowy podgląd przygotowania przypina nowe dowody. Dokładne ponowienie
+          zapisanego polecenia zachowuje jego model, politykę i kwalifikację;
+          nowy raport sam ich nie zmienia.
+        </p>
       </fieldset>
       {hasRawPending ? (
         <section

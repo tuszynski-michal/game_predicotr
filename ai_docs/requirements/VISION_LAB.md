@@ -6,6 +6,22 @@ last_updated: 2026-10-16
 
 # Laboratorium wizji
 
+## Actual-input presentation (TASK-1159)
+
+The compact panel separates proposal quality, per-game automatic qualification,
+training readiness and human geometry labels. Details remain advanced. File-backed
+HTML distinguishes the original, actual network input, saved geometry, baseline
+and candidate. Viewport framing never changes the input; margin is read from the
+archived preset/request. RGB uint8 previews and float32 tensor identities differ.
+
+Only a completed exact request with matching source/model/preset/version and actual
+raster can support rescue input replay. Reserved-without-result, alias receipts and
+missing managed-crop rasters are explicitly unavailable. V1 history stays unchanged.
+The actual saved diagnostic case462205 has two T1 records and no qualified human
+GT. The150-board/101-photo gallery is historical comparison; only462205 has these
+two input records. It does not claim current labels or complete input diagnostics. Diagnostic registration and new model
+training were not performed by the presentation task.
+
 ## Model capabilities and game qualification (TASK-1156, D-585)
 
 New operations support boards of five columns and three rows, on pages of

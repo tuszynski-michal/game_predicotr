@@ -143,6 +143,9 @@ if (data.length > 12) {
 elements.lines.checked = false;
 elements.lines.handlers.change();
 assert.ok(hidden);
+const screenInput = vm.runInContext(`inputs({diagnostics:{base:{state:'available',stageLabel:'wejście ekranu',margin:null,image:'synthetic.png',tensorShape:[1,3,768,1024]}}})`, context);
+assert.match(screenInput, /wejście ekranu; Margin: nie dotyczy/);
+assert.doesNotMatch(screenInput, /Margin: 0\.15/);
 console.log(
   JSON.stringify({
     boards: data.length,

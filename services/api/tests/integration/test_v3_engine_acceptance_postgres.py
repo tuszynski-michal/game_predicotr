@@ -109,6 +109,7 @@ def execution(
     forged_manual=False,
     workflow_recheck=False,
     calibrated_report=None,
+    slot_count=2,
 ):
     game = _provision_game(database.engine, "task1017-" + uuid4().hex[:8])
     factory = _factory(database.engine)
@@ -116,7 +117,11 @@ def execution(
     # The existing source fixture derives pixels from label length; distinct
     # lengths also give distinct global file-execution identities per game.
     seed = _seed(
-        factory, game, root, label="v3-acceptance" + "x" * next(_SEED_COUNTER), slot_count=2
+        factory,
+        game,
+        root,
+        label="v3-acceptance" + "x" * next(_SEED_COUNTER),
+        slot_count=slot_count,
     )
     now, token = datetime.now(UTC), uuid4()
     snapshot = NeuralGridSnapshot.for_game(
@@ -255,9 +260,14 @@ def execution(
             job.input_payload["image_geometry_rollout"]
         )
     detections = []
-    for position in range(1 if missing else 2):
+    for position in range(1 if missing else slot_count):
         nodes = [
-            {"x": float(60 + column * 80), "y": float(25 + position * 190 + row * 50)}
+            {
+                "x": float(20 + position % 3 * 200 + column * 34),
+                "y": float(15 + position // 3 * 130 + row * 34),
+            }
+            if slot_count == 9
+            else {"x": float(60 + column * 80), "y": float(25 + position * 190 + row * 50)}
             for row in range(4)
             for column in range(6)
         ]
@@ -281,13 +291,13 @@ def execution(
         source_checksum_sha256=source_sha,
         source_width=width,
         source_height=height,
-        original_range=AttestedSequenceRange(start=100, end=101),
+        original_range=AttestedSequenceRange(start=100, end=99 + slot_count),
         snapshot=snapshot,
         detections=detections,
     )
     binding = build_neural_source_binding(
         proposal,
-        confirmed_range=AttestedSequenceRange(start=100, end=101),
+        confirmed_range=AttestedSequenceRange(start=100, end=99 + slot_count),
         assignments=[{"positionIndex": i, "detectionId": str(i)} for i in range(len(detections))],
     )
     suite_options = dict(
@@ -346,7 +356,7 @@ def execution(
             **suite_options,
         )
     context = ImageStageContext(
-        seed.import_job_id, source_key, source_sha, relative, "b" * 64, {}, (100, 101)
+        seed.import_job_id, source_key, source_sha, relative, "b" * 64, {}, (100, 99 + slot_count)
     )
     stages = {}
     from game_predictor_worker.images.neural_pending_geometry import neural_pending_payload

@@ -102,6 +102,61 @@ def test_historical_publication_does_not_qualify_any_game(operation_controls):
         assert recheck(session, c, c.game, pin, historical=True) == (GAME_EVALUATION_REQUIRED,)
 
 
+def test_public_current_game_read_model_is_separate_from_frozen_operation(operation_controls):
+    from game_predictor_api.domain.grid_recognition_status import frozen_recognition_status
+    from game_predictor_api.schemas.grid_recognition_status import GameRecognitionStatus
+    from game_predictor_api.storage.grid_recognition_status import read_game_recognition_status
+    from game_predictor_api.storage.models import GameModel
+
+    c = operation_controls
+    with Session(c.engine) as session:
+        pin = prepare(session, c, c.game)
+        publish_fixture(c, session)
+        original = session.get
+
+        def get(model, key, **kwargs):
+            if model is GameModel:
+                return SimpleNamespace(
+                    shape_geometry_configuration="neural_grid_v3", expected_layout_count=500000
+                )
+            return original(model, key, **kwargs)
+
+        with patch.object(session, "get", side_effect=get):
+            view = {"manifest": c.candidate, "available": True, "reasonCode": "AVAILABLE"}
+            status = read_game_recognition_status(session, c.root, c.game, view)
+            public = GameRecognitionStatus.model_validate(status).model_dump(mode="json")
+            assert public["evaluation"]["state"] == "qualified"
+            assert public["automatic"]["state"] == "unqualified"  # raw PASS has no calibration
+            assert public["capabilities"] == {
+                "boardRows": 3,
+                "boardColumns": 5,
+                "pageRows": 3,
+                "pageColumns": 3,
+            }
+            assert frozen_recognition_status(pin)["evaluation"]["state"] == "unqualified"
+            assert "evaluationId" not in str(public) and "path" not in str(public)
+            foreign = read_game_recognition_status(session, c.root, c.other, view)
+            assert foreign["evaluation"]["state"] == "unqualified"
+
+
+def test_public_rescue_summary_does_not_claim_foreign_alias_input():
+    from game_predictor_api.domain.grid_recognition_status import frozen_recognition_status
+    from game_predictor_api.schemas.grid_recognition_status import FrozenRecognitionStatus
+
+    result = {
+        "rescueExecution": {
+            "reasonCodes": ["GRID_RESCUE_SLOT_BINDING_REQUIRED"],
+            "attempts": [{"state": "completed", "request": {"secretPath": "internal"}}],
+        }
+    }
+    public = FrozenRecognitionStatus.model_validate(
+        frozen_recognition_status(None, result)
+    ).model_dump()
+    assert public["rescue"]["state"] == "foreign_scope"
+    assert public["rescue"]["completedAttempts"] == 0
+    assert "secretPath" not in str(public)
+
+
 def test_exact_game_pass_and_foreign_game_rejected_without_blocking_proposals(operation_controls):
     c = operation_controls
     with Session(c.engine) as session:

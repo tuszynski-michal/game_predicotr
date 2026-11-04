@@ -70,7 +70,15 @@ def create_grid_correction_learning_router(dependency: Callable[..., object]) ->
     ) -> GridCorrectionLearningPreview:
         actor(request)
         return GridCorrectionLearningPreview.model_validate(
-            service.preview(game_id, command.model_dump(mode="json"))
+            service.preview(
+                game_id,
+                command.model_dump(
+                    mode="json",
+                    exclude={"policyVersion", "validationAssignments"}
+                    if command.policyVersion is None
+                    else None,
+                ),
+            )
         )
 
     @router.post(
@@ -83,7 +91,16 @@ def create_grid_correction_learning_router(dependency: Callable[..., object]) ->
         service: Annotated[_LearningService, parameter],
     ) -> GridCorrectionLearningView:
         return GridCorrectionLearningView.model_validate(
-            service.start(game_id, command.model_dump(mode="json"), actor(request))
+            service.start(
+                game_id,
+                command.model_dump(
+                    mode="json",
+                    exclude={"policyVersion", "validationAssignments"}
+                    if command.policyVersion is None
+                    else None,
+                ),
+                actor(request),
+            )
         )
 
     @router.get(

@@ -180,6 +180,70 @@ def start_body() -> dict[str, Any]:
     return {"idempotencyKey": str(UUID(int=20)), "previewSha256": "c" * 64}
 
 
+def test_explicit_v4_pair_and_component_projection_roundtrip_without_persistence(tmp_path):
+    service = Service()
+    assignments = {str(IMPORT): "B"}
+    service.preview_result.update(
+        policyVersion="application-grid-corrections-v4",
+        validationAssignments=assignments,
+        validationComponents=[
+            {
+                "componentKey": "d" * 64,
+                "sources": [
+                    {
+                        "sourceId": str(IMPORT),
+                        "displayName": "462201-462209.jpg",
+                        "rangeStart": 462201,
+                        "rangeEnd": 462209,
+                        "qualifiedBoards": 9,
+                    }
+                ],
+                "priorRoles": ["VALIDATION"],
+                "priorPurposes": [],
+                "options": [{"purpose": "B", "allowed": True, "reasonCodes": []}],
+            }
+        ],
+        validationPurposeCounts={
+            "A": {"boards": 45, "photos": 5, "fullPhotos": 5},
+            "B": {"boards": 9, "photos": 1, "fullPhotos": 1},
+        },
+    )
+    body = {
+        "trainingMode": "grid-only",
+        "policyVersion": "application-grid-corrections-v4",
+        "validationAssignments": assignments,
+    }
+    body["historicalCohorts"] = [
+        {"gameId": str(OTHER), "cohortId": str(BASE), "manifestSha256": "e" * 64}
+    ]
+    with TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345)) as client:
+        response = client.post(f"{PATH}/preview", json=body, headers=HEADERS)
+        assert response.status_code == 200 and response.json() == service.preview_result
+        assert service.calls[-1][0] == "preview"
+        assert service.calls[-1][1][1]["validationAssignments"] == assignments
+        assert service.calls[-1][1][1]["historicalCohorts"] == body["historicalCohorts"]
+        assert (
+            client.post(
+                f"{PATH}/preview",
+                json={"trainingMode": "grid-only", "historicalCohorts": body["historicalCohorts"]},
+                headers=HEADERS,
+            ).status_code
+            == 422
+        )
+        assert not any(name == "start" for name, _ in service.calls)
+        for invalid in (
+            {"policyVersion": body["policyVersion"]},
+            {"validationAssignments": assignments},
+            {"policyVersion": body["policyVersion"], "validationAssignments": {}},
+            {**body, "validationAssignments": {str(IMPORT): "TRAIN"}},
+        ):
+            assert client.post(f"{PATH}/preview", json=invalid, headers=HEADERS).status_code == 422
+        started = client.post(PATH, json={**body, **start_body()}, headers=HEADERS)
+        assert started.status_code == 200
+        assert service.calls[-1][1][1]["policyVersion"] == body["policyVersion"]
+        assert service.calls[-1][1][1]["trainingMode"] == "grid-only"
+
+
 def test_screen_mode_variant_and_readiness_roundtrip_without_fallback(tmp_path: Path) -> None:
     service = Service()
     service.preview_result.update(
@@ -505,7 +569,16 @@ def test_openapi_has_eight_operations_and_closed_preview_view_schemas(tmp_path: 
         ("GridCorrectionLearningView", view_value()),
     ]:
         assert schemas[name]["additionalProperties"] is False
-        assert set(schemas[name]["properties"]) == set(expected)
+        assert set(schemas[name]["properties"]) == set(expected) | (
+            {
+                "policyVersion",
+                "validationAssignments",
+                "validationComponents",
+                "validationPurposeCounts",
+            }
+            if name == "GridCorrectionLearningPreview"
+            else set()
+        )
         assert set(schemas[name]["required"]) == set(expected) - {
             "progressCounts",
             "trainingMode",

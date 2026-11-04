@@ -31,6 +31,8 @@ const { GridModelVersionsPanel } =
   await import('../src/features/model-quality/grid-model-versions-panel.tsx');
 const { GridModelComparison } =
   await import('../src/features/model-quality/grid-model-comparison.tsx');
+const { GridModelAssignmentSummary } =
+  await import('../src/features/games/grid-model-assignment-summary.tsx');
 const { cohortLabel, modelCommandKey } =
   await import('../src/features/model-quality/grid-model-state.ts');
 
@@ -39,6 +41,56 @@ const GAME = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
 const COHORT = '33333333-3333-4333-8333-333333333333';
 const OTHER_COHORT = '44444444-4444-4444-8444-444444444444';
+test('unavailable qualification preserves the assigned model and tolerates unavailable capabilities', async () => {
+  let reads = 0;
+  const client = {
+    getGameGridModelAssignment: async (gameId) => {
+      reads += 1;
+      assert.equal(gameId, GAME);
+      return {
+        data: {
+          gameId,
+          version: version('base', 'Mumie', 'v1', null),
+          recognitionStatus: {
+            scope: 'current_game',
+            capabilities: null,
+            evaluation: {
+              state: 'unavailable',
+              reasonCodes: ['NEURAL_GRID_STATUS_STORAGE_UNAVAILABLE'],
+            },
+            automatic: {
+              state: 'unavailable',
+              reasonCodes: ['NEURAL_GRID_STATUS_STORAGE_UNAVAILABLE'],
+            },
+          },
+        },
+      };
+    },
+  };
+  const ui = await mount(
+    React.createElement(GridModelAssignmentSummary, {
+      apiBaseUrl,
+      gameId: GAME,
+      client,
+    }),
+  );
+  try {
+    await settle();
+    assert.equal(reads, 1);
+    assert.match(document.body.textContent, /Geometria V3: Mumie/);
+    assert.match(
+      document.body.textContent,
+      /Układ modelu nie został odczytany/,
+    );
+    assert.match(document.body.textContent, /stan chwilowo niedostępny/);
+    assert.doesNotMatch(
+      document.body.textContent,
+      /wymaga kwalifikacji; propozycje/,
+    );
+  } finally {
+    await ui.close();
+  }
+});
 const header = (gameId, id, createdAt) => ({
   id,
   gameId,
@@ -73,10 +125,11 @@ const preset = {
   mode: 'grid-only',
 };
 
-async function mount(element, saved = {}) {
+async function mount(element, saved = {}, configureWindow) {
   const dom = new JSDOM('<div id="root"></div>', {
     url: 'http://127.0.0.1:3000',
   });
+  configureWindow?.(dom.window);
   for (const [key, value] of Object.entries(saved))
     dom.window.localStorage.setItem(key, value);
   const previous = {};
@@ -117,6 +170,125 @@ const optionValue = (select, label) =>
   [...select.options].find((option) => option.textContent === label)?.value;
 const settle = () =>
   act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+
+for (const trigger of ['explicit refresh', 'active to terminal'])
+  test(`current qualification GET refreshes once after ${trigger}, without mount writes or a callback loop`, async () => {
+    const calls = [];
+    let qualified = false;
+    let status = 'processing';
+    let poll;
+    let summaryReads = 0;
+    const runId = 'learning-owned';
+    globalThis.workspaceFixture = new Proxy(
+      {},
+      {
+        get: (_target, name) =>
+          typeof name === 'string' && name !== 'then'
+            ? async (...args) => {
+                calls.push([name, ...args]);
+                if (name === 'getGameGridModelAssignment') {
+                  // Other existing workspace panels also read this endpoint on mount.
+                  if (
+                    new Error().stack.includes(
+                      'grid-model-assignment-summary.tsx',
+                    )
+                  )
+                    summaryReads += 1;
+                  return {
+                    data: {
+                      gameId: GAME,
+                      version: version('base', 'Mumie', 'v1', null),
+                      recognitionStatus: {
+                        scope: 'current_game',
+                        capabilities: {
+                          boardRows: 3,
+                          boardColumns: 5,
+                          pageRows: 3,
+                          pageColumns: 3,
+                        },
+                        evaluation: { state: 'qualified', reasonCodes: [] },
+                        automatic: {
+                          state: qualified ? 'qualified' : 'unqualified',
+                          reasonCodes: [],
+                        },
+                      },
+                    },
+                  };
+                }
+                if (name === 'listGridCorrectionLearning')
+                  return {
+                    data: {
+                      items: [{ learningId: runId, gameId: GAME, status }],
+                    },
+                  };
+                if (name === 'getGridCorrectionLearning')
+                  return {
+                    data: {
+                      learningId: runId,
+                      gameId: GAME,
+                      status,
+                      stage: status,
+                      evaluationId: null,
+                      requiredGameIds: [GAME],
+                    },
+                  };
+                if (name === 'getGridModelDefault')
+                  return { data: { version: null, revision: 0 } };
+                if (name === 'getGameGridModelHistory') return { data: [] };
+                return { error: {} };
+              }
+            : undefined,
+      },
+    );
+    const element = () =>
+      React.createElement(GridModelWorkspace, { apiBaseUrl, gameId: GAME });
+    const view = await mount(element(), {}, (win) => {
+      win.setInterval = (callback, ms) => {
+        if (ms === 15_000) poll = callback;
+        return 1;
+      };
+      win.clearInterval = () => {};
+    });
+    try {
+      await settle();
+      assert.equal(summaryReads, 1);
+      assert.match(
+        document.body.textContent,
+        /wymaga kwalifikacji; propozycje/,
+      );
+      qualified = true;
+      status = 'completed';
+      if (trigger === 'explicit refresh') await click('Odśwież stan uczenia');
+      else {
+        assert.equal(typeof poll, 'function');
+        await act(async () => poll());
+      }
+      await settle();
+      await view.render(element());
+      await settle();
+      assert.equal(summaryReads, 2);
+      assert.match(
+        document.body.textContent,
+        /ma dowód kwalifikacji; zgodność nowego importu/,
+      );
+      assert.ok(
+        calls
+          .filter(([name]) => name === 'getGridCorrectionLearning')
+          .every(([, game, run]) => game === GAME && run === runId),
+      );
+      assert.ok(
+        calls
+          .filter(([name]) => name === 'getGameGridModelAssignment')
+          .every(([, game]) => game === GAME),
+      );
+      assert.deepEqual(
+        calls.filter(([name]) => !/^(get|list|preview)/.test(name)),
+        [],
+      );
+    } finally {
+      await view.close();
+    }
+  });
 
 for (const schemaVersion of [
   'grid-model-evaluation-read-v3',

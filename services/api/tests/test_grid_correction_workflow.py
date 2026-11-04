@@ -69,7 +69,12 @@ class Session:
         return None
 
 
-def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(monkeypatch, tmp_path):
+@pytest.mark.parametrize(
+    "mode,purpose_aware", [("screen+grid", False), ("screen+grid", True), ("grid-only", True)]
+)
+def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(
+    monkeypatch, tmp_path, mode, purpose_aware
+):
     from game_predictor_worker.images import grid_cohort_dataset
 
     game, other, base, family, old, replacement, import_id = [uuid4() for _ in range(7)]
@@ -144,6 +149,30 @@ def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(monkey
             )
         ],
     }
+    if purpose_aware:
+        for item in sources:
+            item["validationPurpose"] = "A" if item["role"] == "VALIDATION" else None
+        sources.extend(
+            [
+                {
+                    **sources[10],
+                    "sourceId": str(uuid4()),
+                    "pixelSha256": f"{i + 900:064x}",
+                    "eligibleBoards": 3,
+                    "qualifiedBoards": 3,
+                    "validationPurpose": "B",
+                }
+                for i in range(5)
+            ]
+        )
+        split.update(
+            schemaVersion="grid-correction-split-v4",
+            purposeCounts={
+                "VALIDATION-A": {"photos": 5, "boards": 45, "fullPhotos": 5},
+                "VALIDATION-B": {"photos": 5, "boards": 15, "fullPhotos": 0},
+            },
+        )
+        split["roleCounts"][1].update(photos=10, boards=60)
     monkeypatch.setattr(learning, "prepare_split", lambda *args, **kwargs: split)
     eligibility = {"qualification": "eligible", "currentnessSha256": "e" * 64}
 
@@ -155,11 +184,15 @@ def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(monkey
                 if found_id == replacement
                 else old_pin["manifestSha256"],
                 "status": "frozen",
-                "mode": "screen+grid" if found_id == replacement else "grid-only",
+                "mode": mode
+                if found_id == replacement
+                else ("grid-only" if mode == "screen+grid" else "screen+grid"),
                 "baseVersionId": str(base),
                 "familyId": str(family),
                 "manifestPath": "fixture.json",
-                "policyVersion": "application-grid-corrections-v3",
+                "policyVersion": "application-grid-corrections-v4"
+                if purpose_aware
+                else "application-grid-corrections-v3",
                 "summary": {
                     "roles": [
                         {
@@ -173,7 +206,17 @@ def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(monkey
                             ("VALIDATION", 5, 45),
                             ("REGRESSION", 5, 15),
                         )
-                    ]
+                    ],
+                    **(
+                        {
+                            "validationPurposes": {
+                                "A": {"photos": 5, "boards": 45, "fullPhotos": 5},
+                                "B": {"photos": 5, "boards": 15, "fullPhotos": 0},
+                            }
+                        }
+                        if purpose_aware
+                        else {}
+                    ),
                 },
             },
             copy.deepcopy(eligibility),
@@ -186,17 +229,65 @@ def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(monkey
     monkeypatch.setattr(
         grid_cohort_dataset,
         "GridCohortSnapshot",
-        lambda *args: SimpleNamespace(manifest={"photoSplit": split}),
+        lambda *args: SimpleNamespace(
+            manifest={
+                "photoSplit": split,
+                **(
+                    {
+                        "gameId": str(other),
+                        "cohortId": str(replacement),
+                        "familyId": str(family),
+                        "mode": mode,
+                        "policyVersion": "application-grid-corrections-v4",
+                        "base": {"versionId": str(base)},
+                    }
+                    if purpose_aware
+                    else {}
+                ),
+            }
+        ),
     )
     service = learning.GridCorrectionLearningService(None, lambda: Session([None]), tmp_path)
-    command = {"trainingMode": "screen+grid", "importJobIds": [str(import_id)], "exclusions": []}
-    assert service.preview(game, command)["blockers"] == ["SCREEN_HISTORY_COHORT_REQUIRED"]
+    command = {"trainingMode": mode, "importJobIds": [str(import_id)], "exclusions": []}
+    if purpose_aware:
+        command.update(
+            policyVersion="application-grid-corrections-v4",
+            validationAssignments={
+                item["sourceId"]: "B" for item in sources if item.get("validationPurpose") == "B"
+            },
+        )
+    assert service.preview(game, command)["blockers"] == [
+        "SCREEN_HISTORY_COHORT_REQUIRED"
+        if mode == "screen+grid"
+        else "GRID_LEARNING_HISTORY_UNAVAILABLE"
+    ]
     command["historicalCohorts"] = [chosen]
     view, pins = service._preview(game, command)
     assert view["canStart"], view["blockers"]
     assert view["historicalCohorts"] == pins["historicalCohorts"] == [chosen]
     assert view["requiredGameIds"] == sorted([str(game), str(other)])
     assert pins["historicalCurrentness"][0]["eligibility"] == eligibility
+    if purpose_aware:
+        assert pins["policyVersion"] == "application-grid-corrections-v4"
+        assert pins["validationAssignments"] == command["validationAssignments"]
+        valid_reader = grid_cohort_dataset.GridCohortSnapshot
+        for field in ("gameId", "cohortId", "familyId", "mode", "policyVersion", "base"):
+            forged = dict(valid_reader().manifest)
+            forged[field] = {"versionId": str(uuid4())} if field == "base" else str(uuid4())
+            monkeypatch.setattr(
+                grid_cohort_dataset,
+                "GridCohortSnapshot",
+                lambda *args, forged=forged: SimpleNamespace(manifest=forged),
+            )
+            assert service.preview(game, command)["blockers"] == [
+                "SCREEN_HISTORY_CORRECTION_POLICY_REQUIRED"
+            ]
+        monkeypatch.setattr(grid_cohort_dataset, "GridCohortSnapshot", valid_reader)
+        if mode == "screen+grid":
+            assert pins["selectionInput"]["policy"] == "validation-purpose-a-v1"
+            assert not set(command["validationAssignments"]) & {
+                s["sourceId"] for g in pins["selectionInput"]["games"] for s in g["sources"]
+            }
     monkeypatch.setattr(
         grid_cohort_dataset, "GridCohortSnapshot", lambda *args: SimpleNamespace(manifest={})
     )
@@ -206,7 +297,23 @@ def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(monkey
     monkeypatch.setattr(
         grid_cohort_dataset,
         "GridCohortSnapshot",
-        lambda *args: SimpleNamespace(manifest={"photoSplit": split}),
+        lambda *args: SimpleNamespace(
+            manifest={
+                "photoSplit": split,
+                **(
+                    {
+                        "gameId": str(other),
+                        "cohortId": str(replacement),
+                        "familyId": str(family),
+                        "mode": mode,
+                        "policyVersion": "application-grid-corrections-v4",
+                        "base": {"versionId": str(base)},
+                    }
+                    if purpose_aware
+                    else {}
+                ),
+            }
+        ),
     )
     eligibility["currentnessSha256"] = "f" * 64
     assert service.preview(game, command)["previewSha256"] != view["previewSha256"]

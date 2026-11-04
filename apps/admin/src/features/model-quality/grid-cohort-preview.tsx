@@ -36,6 +36,10 @@ import {
 } from './grid-model-state';
 import { RecordingImportPicker } from './recording-import-picker';
 import {
+  GridValidationPurposePreview,
+  type ValidationAssignments,
+} from './grid-validation-purpose-selector';
+import {
   recordingGroupLabel,
   recordingImportLabel,
 } from './recording-groups-state';
@@ -77,6 +81,9 @@ export function GridCohortPreview({
   client,
   refreshKey = 0,
   onChanged,
+  correctionRecovery = false,
+  correctionMode = 'screen+grid',
+  correctionPolicyVersion = 'application-grid-corrections-v4',
 }: {
   apiBaseUrl: string;
   gameId: string;
@@ -84,6 +91,11 @@ export function GridCohortPreview({
   /** Changes when another step changed shared data (TASK-1000, P2-1). */
   refreshKey?: number;
   onChanged?: () => void;
+  /** Explicit advanced recovery; legacy consumers retain their recording workflow. */
+  correctionRecovery?: boolean;
+  correctionMode?: 'grid-only' | 'screen+grid';
+  correctionPolicyVersion?:
+    'application-grid-corrections-v3' | 'application-grid-corrections-v4';
 }) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
@@ -115,6 +127,8 @@ export function GridCohortPreview({
   const [baseChoice, setBaseChoice] = useState('');
   // Empty: the default family of the chosen base; otherwise a named training family.
   const [familyChoice, setFamilyChoice] = useState('');
+  const [validationAssignments, setValidationAssignments] =
+    useState<ValidationAssignments>({});
   // Assignments of the other V3 games: their training families (forks) of a base.
   const [peers, setPeers] = useState<
     { name: string; assignment: GameGridModelAssignmentResponse }[]
@@ -281,6 +295,7 @@ export function GridCohortPreview({
       setChosen({});
       setImportJobId('');
       setSelection('');
+      setValidationAssignments({});
       setCompletion('');
       readContext(currentEpoch);
       try {
@@ -440,10 +455,15 @@ export function GridCohortPreview({
         throw new Error(
           'Gra nie ma przypisanej wersji geometrii; najpierw ją przypisz albo wybierz bazę.',
         );
+      if (correctionRecovery && selectorKind !== 'import')
+        throw new Error(
+          'Nowa kohorta korekt wymaga całych importów, bez zmiany ról.',
+        );
       const roles: GridCohortRecording[] = Object.entries(chosen).map(
         ([groupId, role]) => ({ groupId, role }),
       );
-      if (!roles.length) throw new Error('Wybierz nagrania i ich role.');
+      if (!correctionRecovery && !roles.length)
+        throw new Error('Wybierz nagrania i ich role.');
       if (selectorKind === 'import' && !imports.length)
         throw new Error('Wybierz nagrania z importów albo import zdjęć.');
       const selector =
@@ -458,9 +478,18 @@ export function GridCohortPreview({
           idempotencyKey: crypto.randomUUID(),
           familyId,
           baseVersionId,
-          mode,
+          mode: correctionRecovery ? correctionMode : mode,
           selector,
-          recordings: roles,
+          recordings: correctionRecovery ? [] : roles,
+          ...(correctionRecovery
+            ? {
+                policyVersion: correctionPolicyVersion,
+                ...(correctionPolicyVersion ===
+                'application-grid-corrections-v4'
+                  ? { validationAssignments }
+                  : {}),
+              }
+            : {}),
         },
       });
     } catch (failure) {
@@ -643,7 +672,8 @@ export function GridCohortPreview({
         <label>
           Tryb{' '}
           <select
-            value={mode}
+            value={correctionRecovery ? correctionMode : mode}
+            disabled={correctionRecovery}
             onChange={(e) => setMode(e.target.value as typeof mode)}
           >
             <option value="grid-only">Tylko siatki</option>
@@ -655,51 +685,77 @@ export function GridCohortPreview({
           gameId={gameId}
           value={importJobId}
           disabled={locked || selectorKind !== 'import'}
-          onChange={setImportJobId}
+          onChange={(value) => {
+            setImportJobId(value);
+            setValidationAssignments({});
+          }}
           onLoaded={setJobs}
         />
-        <fieldset aria-label="Nagrania kohorty" disabled={locked}>
-          <legend>Nagrania i role</legend>
-          {groups.length === 0 ? (
-            <p>Gra nie ma jeszcze zarejestrowanych nagrań.</p>
-          ) : null}
-          {groups.map((group) => (
-            <div key={group.id}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={group.id in chosen}
-                  onChange={(e) =>
-                    setChosen((current) => {
-                      const next = { ...current };
-                      if (e.target.checked)
-                        next[group.id] = (group.role ?? 'TRAIN') as Role;
-                      else delete next[group.id];
-                      return next;
-                    })
-                  }
-                />{' '}
-                {recordingGroupLabel(group, jobs)}
-              </label>
-              {group.id in chosen ? (
-                <select
-                  aria-label={`Rola: ${recordingGroupLabel(group, jobs)}`}
-                  value={chosen[group.id]}
-                  onChange={(e) =>
-                    setChosen((current) => ({
-                      ...current,
-                      [group.id]: e.target.value as Role,
-                    }))
-                  }
-                >
-                  <option value="TRAIN">TRAIN</option>
-                  <option value="VALIDATION">VALIDATION</option>
-                  <option value="REGRESSION">REGRESSION</option>
-                </select>
-              ) : null}
-            </div>
-          ))}
-        </fieldset>
+        {!correctionRecovery ? (
+          <fieldset aria-label="Nagrania kohorty" disabled={locked}>
+            <legend>Nagrania i role</legend>
+            {groups.length === 0 ? (
+              <p>Gra nie ma jeszcze zarejestrowanych nagrań.</p>
+            ) : null}
+            {groups.map((group) => (
+              <div key={group.id}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={group.id in chosen}
+                    onChange={(e) =>
+                      setChosen((current) => {
+                        const next = { ...current };
+                        if (e.target.checked)
+                          next[group.id] = (group.role ?? 'TRAIN') as Role;
+                        else delete next[group.id];
+                        return next;
+                      })
+                    }
+                  />{' '}
+                  {recordingGroupLabel(group, jobs)}
+                </label>
+                {group.id in chosen ? (
+                  <select
+                    aria-label={`Rola: ${recordingGroupLabel(group, jobs)}`}
+                    value={chosen[group.id]}
+                    onChange={(e) =>
+                      setChosen((current) => ({
+                        ...current,
+                        [group.id]: e.target.value as Role,
+                      }))
+                    }
+                  >
+                    <option value="TRAIN">TRAIN</option>
+                    <option value="VALIDATION">VALIDATION</option>
+                    <option value="REGRESSION">REGRESSION</option>
+                  </select>
+                ) : null}
+              </div>
+            ))}
+          </fieldset>
+        ) : (
+          <p>
+            Polityka korekt{' '}
+            {correctionPolicyVersion.endsWith('v4') ? 'v4' : 'v3'}: cały import,
+            istniejące kwalifikowane GT i automatyczny chroniony podział ról.
+            Przygotowanie i zamrożenie nie uruchamiają treningu ani nie zapisują
+            punktów ponownie.
+          </p>
+        )}
+        {correctionRecovery &&
+        correctionPolicyVersion === 'application-grid-corrections-v4' ? (
+          <GridValidationPurposePreview
+            key={`${gameId}:${correctionMode}:${imports.join(',')}`}
+            api={api}
+            gameId={gameId}
+            mode={correctionMode}
+            importJobIds={imports}
+            value={validationAssignments}
+            onChange={setValidationAssignments}
+            disabled={busy || storageBlocked}
+          />
+        ) : null}
         <p>
           Importy w kohorcie:{' '}
           {imports.length
@@ -723,6 +779,7 @@ export function GridCohortPreview({
             <input
               type="checkbox"
               checked={selectorKind === 'sources'}
+              disabled={correctionRecovery}
               onChange={(e) =>
                 setSelectorKind(e.target.checked ? 'sources' : 'import')
               }

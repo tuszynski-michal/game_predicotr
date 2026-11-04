@@ -36,6 +36,7 @@ from game_predictor_api.application.grid_reinference_stats import (
     refresh_effect_gap,
     stats_enabled,
 )
+from game_predictor_api.domain.grid_recognition_status import frozen_recognition_status
 from game_predictor_api.domain.jobs import (
     Job,
     JobStatus,
@@ -134,6 +135,7 @@ class SqlAlchemyGridReinferenceRepository:
                 "preparationFinishedAt",
             )
         } | {
+            "recognitionStatus": frozen_recognition_status(d.get(OPERATION_PIN_KEY)),
             "receipt": receipt,
             "executionScope": d.get("executionScope", "pilot"),
             "selector": d.get("command", {}).get("selector", {}),
@@ -445,6 +447,9 @@ class SqlAlchemyGridReinferenceRepository:
                     "snapshot": row.snapshot,
                     "outcome": row.outcome,
                     "result": row.result,
+                    "recognitionStatus": frozen_recognition_status(
+                        record.document.get(OPERATION_PIN_KEY), row.result
+                    ),
                 }
                 for row in page
             ],

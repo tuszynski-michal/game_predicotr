@@ -80,8 +80,9 @@ function AssignmentRead({ apiBaseUrl, client, gameId }: Props) {
   const stale =
     version.eligibilityReasonCode === 'GRID_MODEL_EVALUATION_STALE' ||
     version.eligibilityReasonCode === 'GRID_MODEL_PUBLICATION_STALE';
+  const capabilities = result.assignment?.recognitionStatus?.capabilities;
   return (
-    <span>
+    <div>
       Geometria V3: {version.manifest.familyLabel} · {version.manifest.version}
       {' · '}
       {version.manifest.versionId}
@@ -98,6 +99,53 @@ function AssignmentRead({ apiBaseUrl, client, gameId }: Props) {
         </>
       ) : null}{' '}
       Gotowość importu sprawdza preflight.
-    </span>
+      {result.assignment?.recognitionStatus ? (
+        <>
+          <br />
+          {capabilities ? (
+            <>
+              Plansza: {capabilities.boardColumns} kolumn ×{' '}
+              {capabilities.boardRows} wiersze; strona:{' '}
+              {capabilities.pageColumns} × {capabilities.pageRows}.{' '}
+            </>
+          ) : (
+            'Układ modelu nie został odczytany. '
+          )}
+          Automat dla tej gry:{' '}
+          {result.assignment.recognitionStatus.automatic.state === 'qualified'
+            ? 'ma dowód kwalifikacji; zgodność nowego importu sprawdza preflight'
+            : result.assignment.recognitionStatus.automatic.state ===
+                'unavailable'
+              ? 'stan chwilowo niedostępny; odśwież odczyt kwalifikacji'
+              : 'wymaga kwalifikacji; propozycje pozostają do ręcznej oceny'}
+          .
+          <details>
+            <summary>Szczegóły kwalifikacji</summary>
+            <p>
+              Ocena tej gry:{' '}
+              {result.assignment.recognitionStatus.evaluation.state}. Automat:{' '}
+              {result.assignment.recognitionStatus.automatic.state}.
+            </p>
+            {[
+              ...new Set([
+                ...result.assignment.recognitionStatus.evaluation.reasonCodes,
+                ...result.assignment.recognitionStatus.automatic.reasonCodes,
+              ]),
+            ].map((code) => (
+              <p key={code}>{reasonLabel(code)}</p>
+            ))}
+            <p>
+              To stan bieżącej wersji, nie zmiana dowodów wcześniejszej
+              operacji. Automat nie jest zatwierdzeniem człowieka.
+            </p>
+          </details>
+        </>
+      ) : (
+        <p>
+          Kwalifikacja automatu dla tej gry nie została odczytana. Gotowość
+          sprawdza serwer.
+        </p>
+      )}
+    </div>
   );
 }

@@ -6,6 +6,34 @@ last_updated: 2026-11-01
 
 # Kontrakty API i danych mobilnych
 
+
+## Recognition status projections (TASK-1159)
+
+Existing `getGameGridModelAssignment` adds optional typed recognitionStatus with
+current-game logical capabilities, exact evaluation state and independent automatic
+qualification. Existing grid-reinference operation/target and grid-geometry-proposal
+responses add frozen-operation recognitionStatus with reasons, completeness
+measurement availability and bounded rescue execution summary. No new endpoint,
+raw operation pin or private path is introduced. Unknown historical state is
+unavailable, never silently upgraded. These reads do not mint pins, approve GT or
+change publication. Backend/OpenAPI/generated SDK and wrapper stay one contract.
+Current projection uses a separate routed READ ONLY game transaction. Expected
+data/routing/storage failures preserve assignment HTTP200 and project unavailable
+decisions with explicit reason codes and nullable capabilities; programming errors
+are not hidden. The catalogue transaction remains unbound and uncontaminated.
+
+Existing correction-learning preview/start additionally accept an explicit paired
+`policyVersion=application-grid-corrections-v4` and `validationAssignments` mapping
+source IDs to A/B/BUFFER, with an explicit trainingMode. Omission preserves the
+legacy v2/v3 command, preview bytes and retry identity; new null metadata is omitted
+from old responses. The v4 readonly preview projects complete server-side validation
+components, readable file names/ranges and allowed choices/reasons from the same
+role/purpose/exposure guards used by constrain/refine. It never reserves a source.
+The sealed view/pins carry policy, mode and assignments through parent/child prepare,
+frozen snapshot, training and evaluation. Historical v4 recovery uses strict split-v4
+and A-only checkpoint selection; legacy screen-v3 remains independently readable.
+
+
 ## Liczniki przyrostowego uczenia korekt — TASK-1139
 
 Istniejące `getGridCorrectionLearningReady` i `previewGridCorrectionLearning`

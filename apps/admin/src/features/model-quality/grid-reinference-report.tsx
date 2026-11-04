@@ -48,6 +48,18 @@ export function GridReinferenceReport({
   return (
     <section aria-label="Podgląd i raport operacji">
       <h4>Operacja</h4>
+      {operation.recognitionStatus ? (
+        <p>
+          Przypięta kwalifikacja automatu:{' '}
+          {operation.recognitionStatus.automatic.state === 'qualified'
+            ? 'dopuszczona przy przygotowaniu'
+            : 'wymaga kwalifikacji'}
+          . Stan jest zamrożony; nowe dowody wymagają nowego jawnego
+          przygotowania. Zapis automatyczny nie jest zatwierdzeniem człowieka.
+        </p>
+      ) : (
+        <p>Historyczna kwalifikacja operacji: brak jawnego odczytu.</p>
+      )}
       <p>
         Stan: {gridReinferenceStateLabels[operation.state] ?? operation.state};
         etap:{' '}

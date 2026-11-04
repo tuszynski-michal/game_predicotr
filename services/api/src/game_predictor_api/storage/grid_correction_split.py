@@ -222,6 +222,7 @@ def prepare_split(
     policy: str = CORRECTION_POLICY,
     mode: str | None = None,
     validation_assignments: dict[str, str] | None = None,
+    validation_components: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     rows = population(repo, game, imports)
     purpose_aware = policy == "application-grid-corrections-v4"
@@ -343,6 +344,12 @@ def prepare_split(
             }
         )
     if purpose_aware:
+        if validation_components is not None:
+            from game_predictor_api.domain.grid_validation_purpose import (
+                validation_component_choices,
+            )
+
+            validation_components.extend(validation_component_choices(sources, metadata))
         copies, _, _, _, _, _ = _prepare(tuple(sources))
         seen_labels: dict[tuple[str, int], Any] = {}
         for source in sources:

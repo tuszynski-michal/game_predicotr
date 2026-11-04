@@ -7,6 +7,7 @@ from game_predictor_api.domain.grid_training_cohorts import GridCohortError
 from game_predictor_api.domain.grid_validation_purpose import (
     constrain_validation_sources,
     refine_validation_purposes,
+    validation_component_choices,
 )
 from test_grid_correction_split import source
 
@@ -50,6 +51,41 @@ def test_existing_minima_and_partial_b_are_preserved_without_writes():
     assert result["purposeCounts"]["VALIDATION-A"]["boards"] == 15
     assert result["purposeCounts"]["VALIDATION-B"]["photos"] == 5
     assert "validationPurpose" not in split["sources"][0]
+
+
+def test_no_b_keeps_existing_training_minima_without_claiming_automatic_qualification():
+    split, sources, contexts, _ = evidence()
+    result = refine_validation_purposes(split, sources, contexts, {}, full_training=False)
+    assert result["purposeCounts"]["VALIDATION-A"]["photos"] == 10
+    assert "VALIDATION-B" not in result["purposeCounts"]
+    assert result["schemaVersion"] == "grid-correction-split-v4"
+
+
+def test_public_choices_use_exact_component_closure_and_the_refinement_guards():
+    split, sources, contexts, assignments = evidence()
+    sources = [
+        replace(item, component_ids=("paired",)) if item.source_id in ("a-0000", "b-0000") else item
+        for item in sources
+    ]
+    contexts["a-0000"]["selectionExposed"] = True
+    groups = validation_component_choices(sources, contexts)
+    paired = next(
+        item for item in groups if any(s["sourceId"] == "a-0000" for s in item["sources"])
+    )
+    assert {item["sourceId"] for item in paired["sources"]} == {"a-0000", "b-0000"}
+    options = {item["purpose"]: item for item in paired["options"]}
+    assert options["A"]["allowed"]
+    assert not options["B"]["allowed"] and options["B"]["reasonCodes"] == [
+        "GRID_VALIDATION_SELECTION_EXPOSED"
+    ]
+    with pytest.raises(GridCohortError, match="A-only"):
+        refine_validation_purposes(split, sources, contexts, {"b-0000": "B"}, full_training=False)
+    # A protected TRAIN component cannot be repurposed just because a UI group is eligible.
+    protected = replace(sources[0], frozen_role="TRAIN")
+    locked = validation_component_choices(
+        [protected], {protected.source_id: contexts[protected.source_id]}
+    )[0]
+    assert not any(option["allowed"] for option in locked["options"])
 
 
 @pytest.mark.parametrize("field", ["selectionExposed", "diagnosticExposed"])

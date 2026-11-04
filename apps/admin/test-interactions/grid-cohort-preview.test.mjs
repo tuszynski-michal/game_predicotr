@@ -150,7 +150,7 @@ function fixture(extra = {}) {
   };
   return { api, calls };
 }
-async function mount(api, saved = {}) {
+async function mount(api, saved = {}, props = {}) {
   const dom = new JSDOM('<div id="root"></div>', {
       url: 'http://127.0.0.1:3000',
     }),
@@ -173,6 +173,7 @@ async function mount(api, saved = {}) {
           apiBaseUrl,
           gameId,
           client: api,
+          ...props,
         }),
       ),
     );
@@ -746,6 +747,48 @@ test('games with different training forks of one base share a named family witho
       [...item.options].some((option) => option.value === FORK_A),
     );
     assert.equal(own.value, FORK_A);
+  } finally {
+    await view.close();
+  }
+});
+
+test('explicit recovery prepares screen v4 from whole imports without recordings or training', async () => {
+  const sent = [];
+  const f = fixture({
+    getGameGridModelAssignment: async (g) => ({
+      data: {
+        gameId: g,
+        eventCount: 1,
+        revision: 1,
+        version: { manifest: manifest(BASE_M, FAMILY_M, 'Mumie') },
+      },
+    }),
+    listJobs: async () => ({ data: [importJob(imports[0], 'Pełne zdjęcia')] }),
+    prepareGridTrainingCohort: async (g, body) => {
+      sent.push(body);
+      return { error: { code: 'LOST' } };
+    },
+  });
+  const view = await mount(f.api, {}, { correctionRecovery: true });
+  try {
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    const select = document.querySelector(
+      'select[aria-label="Import nagrania"]',
+    );
+    await act(async () => {
+      select.value = imports[0];
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    assert.equal(
+      document.querySelector('fieldset[aria-label="Nagrania kohorty"]'),
+      null,
+    );
+    await click('Przygotuj metadane kohorty');
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].mode, 'screen+grid');
+    assert.equal(sent[0].policyVersion, 'application-grid-corrections-v4');
+    assert.deepEqual(sent[0].recordings, []);
+    assert.deepEqual(sent[0].selector, { importJobId: imports[0] });
   } finally {
     await view.close();
   }

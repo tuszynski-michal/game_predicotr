@@ -107,7 +107,7 @@ def database():
         maintenance.dispose()
 
 
-def seed(database, tmp_path, *, legacy=False, processing=False):
+def seed(database, tmp_path, *, legacy=False, processing=False, slot_count=2):
     def factory(engine):
         result = _factory(engine)
 
@@ -118,7 +118,9 @@ def seed(database, tmp_path, *, legacy=False, processing=False):
         return result
 
     with patch("test_v3_engine_acceptance_postgres._factory", factory):
-        game, sessions, source, candidate, stages = execution(database, tmp_path, legacy=legacy)
+        game, sessions, source, candidate, stages = execution(
+            database, tmp_path, legacy=legacy, slot_count=slot_count
+        )
     with game_storage_scope(game):
         SqlAlchemyImagePipelineStore(sessions).project_recognition(candidate, stage_results=stages)
     with game_storage_scope(game), sessions.begin() as session:

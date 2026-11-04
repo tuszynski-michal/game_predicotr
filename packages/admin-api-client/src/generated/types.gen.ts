@@ -3917,6 +3917,24 @@ export type CleanupResultResponse = {
 };
 
 /**
+ * CompletenessStatus
+ */
+export type CompletenessStatus = {
+  /**
+   * Measuredtargets
+   */
+  measuredTargets: number;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * State
+   */
+  state: 'measured' | 'unavailable';
+};
+
+/**
  * CreateGridCalibrationCandidateCommand
  */
 export type CreateGridCalibrationCandidateCommand = {
@@ -4552,6 +4570,24 @@ export type FilenameVerificationHistoryDeletionResponse = {
 };
 
 /**
+ * FrozenRecognitionStatus
+ */
+export type FrozenRecognitionStatus = {
+  automatic: RecognitionDecision;
+  completeness: CompletenessStatus;
+  evaluation: RecognitionDecision;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  rescue: RescueExecutionStatus;
+  /**
+   * Scope
+   */
+  scope: 'frozen_operation';
+};
+
+/**
  * GameCreate
  */
 export type GameCreate = {
@@ -4640,6 +4676,7 @@ export type GameGridModelAssignmentResponse = {
    * Initialtransferallowed
    */
   initialTransferAllowed?: boolean;
+  recognitionStatus?: GameRecognitionStatus | null;
   /**
    * Revision
    */
@@ -4667,6 +4704,19 @@ export type GamePublishedGridModel = {
    * Versionid
    */
   versionId: string;
+};
+
+/**
+ * GameRecognitionStatus
+ */
+export type GameRecognitionStatus = {
+  automatic: RecognitionDecision;
+  capabilities: RecognitionCapabilities | null;
+  evaluation: RecognitionDecision;
+  /**
+   * Scope
+   */
+  scope: 'current_game';
 };
 
 /**
@@ -7115,6 +7165,10 @@ export type GridCorrectionLearningPreview = {
    */
   pendingWorkerChecks: Array<string>;
   /**
+   * Policyversion
+   */
+  policyVersion?: 'application-grid-corrections-v4' | null;
+  /**
    * Presetfingerprint
    */
   presetFingerprint: string;
@@ -7152,6 +7206,22 @@ export type GridCorrectionLearningPreview = {
    * Trainingmode
    */
   trainingMode?: 'grid-only' | 'screen+grid';
+  /**
+   * Validationassignments
+   */
+  validationAssignments?: {
+    [key: string]: 'A' | 'B' | 'BUFFER';
+  } | null;
+  /**
+   * Validationcomponents
+   */
+  validationComponents?: Array<GridValidationComponentChoice> | null;
+  /**
+   * Validationpurposecounts
+   */
+  validationPurposeCounts?: {
+    [key: string]: GridValidationPurposeCount;
+  } | null;
 };
 
 /**
@@ -7170,11 +7240,21 @@ export type GridCorrectionLearningPreviewCommand = {
    * Importjobids
    */
   importJobIds?: Array<string>;
+  /**
+   * Policyversion
+   */
+  policyVersion?: 'application-grid-corrections-v4' | null;
   rescueVariant?: GridRescueVariantV1 | null;
   /**
    * Trainingmode
    */
   trainingMode?: 'grid-only' | 'screen+grid';
+  /**
+   * Validationassignments
+   */
+  validationAssignments?: {
+    [key: string]: 'A' | 'B' | 'BUFFER';
+  } | null;
 };
 
 /**
@@ -7238,6 +7318,10 @@ export type GridCorrectionLearningStartCommand = {
    */
   importJobIds?: Array<string>;
   /**
+   * Policyversion
+   */
+  policyVersion?: 'application-grid-corrections-v4' | null;
+  /**
    * Previewsha256
    */
   previewSha256: string;
@@ -7246,6 +7330,12 @@ export type GridCorrectionLearningStartCommand = {
    * Trainingmode
    */
   trainingMode?: 'grid-only' | 'screen+grid';
+  /**
+   * Validationassignments
+   */
+  validationAssignments?: {
+    [key: string]: 'A' | 'B' | 'BUFFER';
+  } | null;
 };
 
 /**
@@ -7723,6 +7813,7 @@ export type GridGeometryProposalResponse = {
    * Reasons
    */
   reasons: Array<string>;
+  recognitionStatus?: FrozenRecognitionStatus | null;
   /**
    * Revision
    */
@@ -9297,6 +9388,7 @@ export type GridReinferenceResponse = {
   receipt?: {
     [key: string]: unknown;
   } | null;
+  recognitionStatus?: FrozenRecognitionStatus | null;
   /**
    * Reportsha256
    */
@@ -9488,6 +9580,7 @@ export type GridReinferenceTargetResponse = {
    * Positionindex
    */
   positionIndex: number;
+  recognitionStatus?: FrozenRecognitionStatus | null;
   /**
    * Result
    */
@@ -10791,6 +10884,68 @@ export type GridTrainingSmokeLimits = {
 };
 
 /**
+ * GridValidationComponentChoice
+ */
+export type GridValidationComponentChoice = {
+  /**
+   * Componentkey
+   */
+  componentKey: string;
+  /**
+   * Options
+   */
+  options: Array<GridValidationPurposeChoice>;
+  /**
+   * Priorpurposes
+   */
+  priorPurposes: Array<string>;
+  /**
+   * Priorroles
+   */
+  priorRoles: Array<string>;
+  /**
+   * Sources
+   */
+  sources: Array<GridValidationSourceChoice>;
+};
+
+/**
+ * GridValidationPurposeChoice
+ */
+export type GridValidationPurposeChoice = {
+  /**
+   * Allowed
+   */
+  allowed: boolean;
+  /**
+   * Purpose
+   */
+  purpose: 'A' | 'B' | 'BUFFER';
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+};
+
+/**
+ * GridValidationPurposeCount
+ */
+export type GridValidationPurposeCount = {
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Fullphotos
+   */
+  fullPhotos: number;
+  /**
+   * Photos
+   */
+  photos: number;
+};
+
+/**
  * GridValidationPurposeCounts
  */
 export type GridValidationPurposeCounts = {
@@ -10806,6 +10961,32 @@ export type GridValidationPurposeCounts = {
    * Photos
    */
   photos: number;
+};
+
+/**
+ * GridValidationSourceChoice
+ */
+export type GridValidationSourceChoice = {
+  /**
+   * Displayname
+   */
+  displayName: string;
+  /**
+   * Qualifiedboards
+   */
+  qualifiedBoards: number;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number | null;
+  /**
+   * Rangestart
+   */
+  rangeStart: number | null;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
 };
 
 /**
@@ -18124,6 +18305,7 @@ export type ProposalDiscoveryResponse = {
    * Reasons
    */
   reasons: Array<string>;
+  recognitionStatus?: FrozenRecognitionStatus | null;
   /**
    * Targetresultid
    */
@@ -18855,6 +19037,42 @@ export type ReadabilityWorkspaceResponse = {
    * Runs
    */
   runs: Array<ReadabilityRunResponse>;
+};
+
+/**
+ * RecognitionCapabilities
+ */
+export type RecognitionCapabilities = {
+  /**
+   * Boardcolumns
+   */
+  boardColumns: number;
+  /**
+   * Boardrows
+   */
+  boardRows: number;
+  /**
+   * Pagecolumns
+   */
+  pageColumns: number;
+  /**
+   * Pagerows
+   */
+  pageRows: number;
+};
+
+/**
+ * RecognitionDecision
+ */
+export type RecognitionDecision = {
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * State
+   */
+  state: 'qualified' | 'unqualified' | 'stale' | 'unavailable';
 };
 
 /**
@@ -19906,6 +20124,29 @@ export type ReplacementRequestEntry = {
    * Sourcesha256
    */
   sourceSha256: string;
+};
+
+/**
+ * RescueExecutionStatus
+ */
+export type RescueExecutionStatus = {
+  /**
+   * Completedattempts
+   */
+  completedAttempts: number;
+  /**
+   * Consumedattempts
+   */
+  consumedAttempts: number;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * State
+   */
+  state:
+    'completed' | 'consumed_without_result' | 'foreign_scope' | 'unavailable';
 };
 
 /**

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -55,10 +56,15 @@ class GridModelInspector(Protocol):
 
 class GridModelRegistryService:
     def __init__(
-        self, repository: GridModelRegistryRepository, inspector: GridModelInspector
+        self,
+        repository: GridModelRegistryRepository,
+        inspector: GridModelInspector,
+        *,
+        status_reader: Callable[[UUID, dict[str, Any]], dict[str, Any]] | None = None,
     ) -> None:
         self.repository, self.inspector = repository, inspector
         self.control = GridModelPublicationService(self, repository)
+        self.status_reader = status_reader
 
     def view(self, record: GridModelRecord, *, include_eligibility: bool = True) -> dict[str, Any]:
         payload = json.loads(record.manifest_json)
@@ -144,6 +150,9 @@ class GridModelRegistryService:
             "gameId": game_id,
             "revision": None if assignment is None else assignment.revision,
             "version": view,
+            "recognitionStatus": self.status_reader(game_id, view)
+            if view is not None and self.status_reader is not None
+            else None,
             "eventCount": event_count,
             "trainingFamilyId": None if assignment is None else assignment.training_family_id,
             "initialTransferAllowed": (

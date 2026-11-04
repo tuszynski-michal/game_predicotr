@@ -2,6 +2,52 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('explicit v4 purposes survive preview and exact start while legacy sends no new defaults', async () => {
+  const calls = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      const body = JSON.parse(await request.text());
+      calls.push(body);
+      return Response.json({
+        policyVersion: body.policyVersion,
+        validationAssignments: body.validationAssignments,
+        validationComponents: [],
+        validationPurposeCounts: {
+          A: { boards: 45, photos: 5, fullPhotos: 5 },
+          B: { boards: 0, photos: 0, fullPhotos: 0 },
+        },
+      });
+    },
+  });
+  const game = '11111111-1111-4111-8111-111111111111';
+  const command = {
+    trainingMode: 'screen+grid',
+    policyVersion: 'application-grid-corrections-v4',
+    validationAssignments: { [game]: 'B' },
+    historicalCohorts: [],
+  };
+  const preview = await client.previewGridCorrectionLearning(game, command);
+  assert.deepEqual(
+    preview.data.validationAssignments,
+    command.validationAssignments,
+  );
+  await client.startGridCorrectionLearning(game, {
+    ...command,
+    idempotencyKey: game,
+    previewSha256: 'a'.repeat(64),
+  });
+  await client.previewGridCorrectionLearning(game, {
+    importJobIds: [],
+    exclusions: [],
+  });
+  assert.deepEqual(calls, [
+    command,
+    { ...command, idempotencyKey: game, previewSha256: 'a'.repeat(64) },
+    { importJobIds: [], exclusions: [] },
+  ]);
+});
+
 test('screen correction mode and explicit rescue recipe remain pinned through preview/start', async () => {
   const calls = [];
   const detectorReadiness = {

@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import ConfigDict, Field, model_validator
 
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.grid_recognition_status import FrozenRecognitionStatus
 
 
 class GridReinferenceSelector(ApiModel):
@@ -105,6 +106,7 @@ class GridReinferenceQuarantine(ApiModel):
 
 
 class GridReinferenceResponse(ApiModel):
+    recognition_status: FrozenRecognitionStatus | None = None
     game_id: UUID
     operation_id: UUID
     job_id: UUID
@@ -145,6 +147,7 @@ class GridReinferenceResponse(ApiModel):
 
 
 class GridReinferenceTargetResponse(ApiModel):
+    recognition_status: FrozenRecognitionStatus | None = None
     target_result_id: UUID
     source_image_id: UUID
     position_index: int

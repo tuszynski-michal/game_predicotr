@@ -9,12 +9,21 @@ import type {
   GridModelEvaluationView,
   GridModelHistoryEvent,
   GridModelVersionResponse,
+  GridCorrectionLearningPreviewCommand,
+  GridModelEvaluationCohortPin,
 } from '@game-predictor/admin-api-client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { GridCorrectionApplyPanel } from './grid-correction-apply-panel';
+import { GridHistoryRecovery } from './grid-history-recovery';
+import {
+  GridValidationPurposeSelector,
+  VALIDATION_POLICY,
+  orderedAssignments,
+  type ValidationAssignments,
+} from './grid-validation-purpose-selector';
 import {
   archiveLearningCommand,
   clearLearningCommand,
@@ -113,8 +122,42 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const [exclusions, setExclusions] = useState<
     Record<string, { reason: string; confirmed: boolean }>
   >({});
+  const [trainingMode, setTrainingMode] = useState<'grid-only' | 'screen+grid'>(
+    'grid-only',
+  );
+  const [historicalCohorts, setHistoricalCohorts] = useState<
+    GridModelEvaluationCohortPin[]
+  >([]);
+  const [purposeAware, setPurposeAware] = useState(false);
+  const [validationAssignments, setValidationAssignments] =
+    useState<ValidationAssignments>({});
+  const requestOptions = {
+    ...(trainingMode === 'screen+grid' || purposeAware
+      ? { trainingMode, historicalCohorts }
+      : {}),
+    ...(purposeAware
+      ? {
+          policyVersion: VALIDATION_POLICY,
+          validationAssignments: orderedAssignments(validationAssignments),
+        }
+      : {}),
+  };
+  const [previewedOptions, setPreviewedOptions] = useState(
+    JSON.stringify({ trainingMode: 'grid-only', historicalCohorts: [] }),
+  );
+  const optionsKey = JSON.stringify({
+    trainingMode,
+    historicalCohorts,
+    ...(purposeAware
+      ? {
+          policyVersion: VALIDATION_POLICY,
+          validationAssignments: orderedAssignments(validationAssignments),
+        }
+      : {}),
+  });
   const generation = useRef(0);
   const readSequence = useRef(0);
+  const previewSequence = useRef(0);
   const chosen = useRef('');
   const locked = useRef(false);
   const refreshInFlight = useRef(false);
@@ -130,6 +173,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   }
 
   async function refresh() {
+    previewSequence.current += 1;
     invalidateCurrentnessCheck();
     setEvaluationReading(true);
     const token = ++readSequence.current;
@@ -141,13 +185,22 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     async function retainChosenOnListFailure(failure: unknown): Promise<never> {
       // Refresh invalidated the previous detail request, so a failed list must
       // still re-read the operator's selection instead of stranding the old one.
-      if (current() && chosen.current) await open(chosen.current);
+      if (current() && chosen.current) await open(chosen.current, false);
       throw failure;
     }
     try {
       const results = await Promise.allSettled([
-        api
-          .getGridCorrectionLearningReady(gameId)
+        (purposeAware
+          ? api.previewGridCorrectionLearning(gameId, {
+              ...requestOptions,
+              importJobIds: [],
+              exclusions: Object.entries(exclusions).map(([gameId, value]) => ({
+                gameId,
+                ...value,
+              })),
+            })
+          : api.getGridCorrectionLearningReady(gameId)
+        )
           .then((result) => {
             if (!current()) return;
             if (!result.data)
@@ -155,7 +208,15 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             if (result.data.gameId !== gameId)
               throw new Error('Odpowiedź dotyczy innej gry.');
             setReady(result.data);
-            setExclusions({});
+            setPreviewedOptions(
+              purposeAware
+                ? optionsKey
+                : JSON.stringify({
+                    trainingMode: 'grid-only',
+                    historicalCohorts: [],
+                  }),
+            );
+            if (!purposeAware) setExclusions({});
           })
           .finally(() => {
             if (current()) setLoading(false);
@@ -179,7 +240,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             result.data.items.find(
               (item) => item.learningId === chosen.current,
             ) ?? result.data.items[0];
-          if (active) await open(active.learningId);
+          if (active) await open(active.learningId, false);
           else {
             chosen.current = '';
             generation.current += 1;
@@ -220,7 +281,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     }
   }
 
-  async function open(id: string) {
+  async function open(id: string, notifyTerminal = true) {
     invalidateCurrentnessCheck();
     setEvaluationReading(true);
     setEvaluationReadError('');
@@ -239,6 +300,14 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         result.data.learningId !== id
       )
         throw new Error('Nie udało się odczytać przebiegu uczenia.');
+      if (
+        notifyTerminal &&
+        selected &&
+        selected.learningId === id &&
+        learningActive(selected.status) &&
+        !learningActive(result.data.status)
+      )
+        onChanged?.();
       setSelected(result.data);
       setEvaluation((existing) =>
         existing?.evaluationId === result.data.evaluationId ? existing : null,
@@ -380,6 +449,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       currentnessSequence.current += 1;
       generation.current += 1;
       readSequence.current += 1;
+      previewSequence.current += 1;
     };
     // The keyed panel owns exactly one game and API instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -446,23 +516,28 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   }
 
   async function previewExclusions() {
+    if (refreshInFlight.current) return;
     setBusy(true);
     setError('');
+    const token = ++previewSequence.current;
     try {
       const result = await api.previewGridCorrectionLearning(gameId, {
+        ...requestOptions,
         importJobIds: [],
         exclusions: Object.entries(exclusions).map(([id, value]) => ({
           gameId: id,
           ...value,
         })),
       });
+      if (token !== previewSequence.current) return;
       if (!result.data || result.data.gameId !== gameId)
         throw new Error(
           apiErrorMessage(result.error, 'Nie udało się sprawdzić wyłączeń.'),
         );
       setReady(result.data);
+      setPreviewedOptions(optionsKey);
     } catch (failure) {
-      setError(String(failure));
+      if (token === previewSequence.current) setError(String(failure));
     } finally {
       setBusy(false);
     }
@@ -585,6 +660,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         aria-busy={refreshing}
         onClick={() => {
           if (refreshInFlight.current) return;
+          onChanged?.();
           void refresh().catch((failure) => setError(String(failure)));
         }}
       >
@@ -600,6 +676,61 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           <section aria-label="Dostępność zapisanych korekt">
             <h4>Dane do następnego uczenia</h4>
             <LearningProgress preview={ready} />
+            {previewedOptions !== optionsKey ? (
+              <p>Wybór zmienił się. Sprawdź zakres/podział przed startem.</p>
+            ) : null}
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={disabled || refreshing}
+              onClick={() => void previewExclusions()}
+            >
+              Sprawdź zakres/podział
+            </button>
+            <label>
+              Cel uczenia{' '}
+              <select
+                aria-label="Cel uczenia"
+                disabled={disabled}
+                value={trainingMode}
+                onChange={(event) => {
+                  setTrainingMode(
+                    event.target
+                      .value as GridCorrectionLearningPreviewCommand['trainingMode'] &
+                      string,
+                  );
+                  setHistoricalCohorts([]);
+                  setValidationAssignments({});
+                }}
+              >
+                <option value="grid-only">Punkty siatki</option>
+                <option value="screen+grid">Detektor i punkty siatki</option>
+              </select>
+            </label>
+            {ready.detectorReadiness ? (
+              <p>
+                Pełne zdjęcia z zatwierdzoną geometrią:{' '}
+                {ready.detectorReadiness.fullPhotos}; częściowe:{' '}
+                {ready.detectorReadiness.partialPhotos}.{' '}
+                {ready.detectorReadiness.fullPhotos === 0 ? (
+                  <>
+                    Sprawdź i zapisz geometrię wszystkich plansz wybranych
+                    pełnych zdjęć w „Korekta cięcia siatki” → „Geometria zdjęć”,
+                    także dobrych propozycji. Symbole nie są etykietą geometrii.{' '}
+                    <a
+                      className="secondaryButton"
+                      href={`/?workspace=games&game=${encodeURIComponent(gameId)}&section=reviews`}
+                    >
+                      Otwórz narzędzie geometrii
+                    </a>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+            <p>
+              Brak kalibracji automatu nie blokuje sam w sobie uczenia ani
+              propozycji do ręcznej oceny.
+            </p>
             {ready.dataAvailability ? (
               <>
                 <p>
@@ -692,6 +823,70 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           ) : null}
           <details>
             <summary>Zaawansowane: zakres oceny</summary>
+            <label>
+              <input
+                type="checkbox"
+                checked={purposeAware}
+                disabled={disabled || refreshing}
+                onChange={(event) => {
+                  setPurposeAware(event.target.checked);
+                  setValidationAssignments({});
+                  setHistoricalCohorts([]);
+                }}
+              />{' '}
+              Osobny test automatycznej akceptacji (A/B)
+            </label>
+            <p>
+              A wybiera ustawienia; B jest oddzielnym testem automatu. Wersja
+              kontraktu: {purposeAware ? 'v4' : 'historyczna, zgodna z trybem'}.
+            </p>
+            {purposeAware ? (
+              <>
+                <GridValidationPurposeSelector
+                  components={
+                    ready.policyVersion === VALIDATION_POLICY &&
+                    ready.trainingMode === trainingMode
+                      ? (ready.validationComponents ?? [])
+                      : []
+                  }
+                  value={validationAssignments}
+                  onChange={setValidationAssignments}
+                  disabled={disabled || refreshing}
+                  loaded={
+                    ready.policyVersion === VALIDATION_POLICY &&
+                    ready.trainingMode === trainingMode &&
+                    Array.isArray(ready.validationComponents)
+                  }
+                />
+                {ready.validationPurposeCounts ? (
+                  <p>
+                    Kontrola A: {ready.validationPurposeCounts.A?.photos ?? 0}{' '}
+                    zdjęć; kalibracja B:{' '}
+                    {ready.validationPurposeCounts.B?.photos ?? 0} zdjęć. To
+                    zakres danych, nie kwalifikacja automatu.
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+            {trainingMode === 'screen+grid' || purposeAware ? (
+              <GridHistoryRecovery
+                key={`${trainingMode}:${purposeAware}`}
+                apiBaseUrl={apiBaseUrl}
+                trainingMode={trainingMode}
+                policyVersion={
+                  purposeAware
+                    ? VALIDATION_POLICY
+                    : 'application-grid-corrections-v3'
+                }
+                gameLabels={Object.fromEntries(
+                  games.map((game) => [game.id, game.name]),
+                )}
+                gameIds={ready.requiredGameIds.filter((id) => id !== gameId)}
+                selected={historicalCohorts}
+                onChange={setHistoricalCohorts}
+                disabled={disabled}
+              />
+            ) : null}
             <p>
               Wyłączenie gry zachowuje historię i dane kontrolne. Wyłączona gra
               nie otrzyma nowej wersji.
@@ -759,6 +954,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               type="button"
               disabled={
                 disabled ||
+                refreshing ||
                 Object.values(exclusions).some(
                   (value) => !value.reason.trim() || !value.confirmed,
                 )
@@ -780,6 +976,10 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             disabled={
               disabled ||
               !ready.canStart ||
+              (ready.trainingMode ?? 'grid-only') !== trainingMode ||
+              (ready.policyVersion ?? null) !==
+                (purposeAware ? VALIDATION_POLICY : null) ||
+              previewedOptions !== optionsKey ||
               !exclusionsMatch ||
               runs.some((item) => learningActive(item.status))
             }
@@ -794,6 +994,23 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                   previewSha256: ready.previewSha256,
                   importJobIds: ready.importJobIds,
                   exclusions: ready.exclusions,
+                  ...(purposeAware
+                    ? {
+                        trainingMode,
+                        policyVersion: VALIDATION_POLICY,
+                        validationAssignments: orderedAssignments(
+                          validationAssignments,
+                        ),
+                        historicalCohorts,
+                      }
+                    : {}),
+                  ...(ready.trainingMode === 'screen+grid'
+                    ? {
+                        trainingMode: ready.trainingMode,
+                        historicalCohorts,
+                        rescueVariant: ready.rescueVariant,
+                      }
+                    : {}),
                 },
               });
             }}
@@ -1102,6 +1319,34 @@ function LearningReport({
   return (
     <section aria-label="Wynik uczenia">
       <h4>Wynik: {report.verdict}</h4>
+      {'automaticCalibration' in report ? (
+        <>
+          <p>
+            Ocena jakości i kwalifikacja automatu są osobne. Propozycje nadal
+            wymagają ręcznej oceny.
+          </p>
+          {report.automaticCalibration.map((item) => (
+            <details key={item.gameId}>
+              <summary>
+                Automat — {gameName(games, item.gameId)}:{' '}
+                {item.state === 'qualified'
+                  ? 'kwalifikuje się'
+                  : 'wymaga kalibracji'}
+              </summary>
+              <p>{item.reasonCodes.map(reasonLabel).join('; ')}</p>
+              <p>
+                Kontrole B: {item.b?.baselineBadSources ?? 'brak'} błędnych /{' '}
+                {item.b?.baselineGoodSources ?? 'brak'} dobrych źródeł.
+                Regresja: {item.regression?.baselineBadSources ?? 'brak'} /{' '}
+                {item.regression?.baselineGoodSources ?? 'brak'}. Wspólne
+                zdjęcie może wystąpić w obu klasach.
+              </p>
+            </details>
+          ))}
+        </>
+      ) : (
+        <p>Historyczny raport nie potwierdza obecnej kwalifikacji automatu.</p>
+      )}
       <p>
         Częściowe zdjęcia oceniają wyłącznie oznaczone plansze. Brak miary
         fałszywych detekcji na nieoznaczonym obszarze.

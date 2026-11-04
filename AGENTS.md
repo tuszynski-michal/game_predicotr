@@ -41,13 +41,7 @@ czytaj ich w całości.
 - Z użytkownikiem rozmawiaj i przedstawiaj plany po polsku, chyba że poprosi
   inaczej. Dokumenty pisz w ich języku; nie tłumacz przy okazji
   identyfikatorów, kodu ani istniejącej dokumentacji.
-- Czat pisz w stylu `caveman lite` (skill `caveman`, poziom `lite`): zwięzłe
-  pełne zdania, bez wstępów, grzeczności, asekuracji i narracji przed
-  narzędziami. Kod, komendy, cytaty błędów, pliki (dokumenty, taski, `Outcome`)
-  i commity pisz normalnie. Wyjdź ze stylu przy ostrzeżeniach
-  bezpieczeństwa, potwierdzaniu operacji nieodwracalnych, wieloetapowych
-  instrukcjach podatnych na błędny odczyt i na prośbę („stop caveman”, „normal
-  mode”).
+- Pisz naturalnie, pełnymi zdaniami. Nie narzucaj skilli stylu rozmowy.
 - Nie rozszerzaj zakresu bez wyraźnej potrzeby. Domyślnie implementuj wyłącznie
   task wskazany przez użytkownika.
 - Wyraźne polecenie uruchomienia etapu zaakceptowanego planu obejmuje wszystkie
@@ -92,17 +86,19 @@ Zasady obowiązują wszystkich agentów, w tym subagentów, wykonawców i audyto
 
 ### Oszczędzanie kontekstu
 
-Pilot TASK-0939 (do czasu pomiaru): kodu szukaj od
-`ai_docs/architecture/CODE_MAP.md`, potem `rg` na `CODE_MAP_SYMBOLS.md`, a plik
-otwieraj z `offset`/`limit` (plik ponad 200 KB tylko tak; hook `PreToolUse`).
-Szeroką eksplorację deleguj subagentowi `repo-explorer` (tańszy model; zwraca
-ścieżkę, symbol, linie i 1–3 zdania, nie zrzuty plików). Do promptów subagentów i
-audytorów nie wklejaj całych dokumentów procesu; podaj ścieżkę i zakres. Task
-zmieniający moduły lub publiczne symbole regeneruje mapę
-(`scripts/generate_code_map.py`) w swoim commicie. Z włączonym MCP Serena
-preferuj `find_symbol` i `find_referencing_symbols`; Serena i Graphify
-(`ai_docs/guides/TOKEN_TOOLING.md`) trafiają tu na stałe dopiero po werdykcie
-„zostaje” pilota.
+Po wymaganych odczytach czytaj fragmenty (`rg`), zawężaj wyniki narzędzi,
+linkuj reguły. Nie powtarzaj odczytów i kontroli bez potrzeby. Zachowaj
+wymagane testy, audyty i raportowanie; nie deklaruj oszczędności bez pomiaru.
+
+Pilot TASK-0939 do pomiaru: szukaj od `ai_docs/architecture/CODE_MAP.md`, potem
+`rg` w `CODE_MAP_SYMBOLS.md`; czytaj fragmenty (`offset`/`limit` obowiązkowe >
+200 KB; hook `PreToolUse`). Szeroką eksplorację deleguj `repo-explorer`
+(tańszy model): ścieżka, symbol, linie, 1–3 zdania zamiast zrzutów. W promptach
+subagentów i audytorów podawaj ścieżki i zakres zamiast dokumentów procesu.
+Zmiana modułów lub publicznych symboli wymaga regeneracji mapy
+(`scripts/generate_code_map.py`) w commicie. Z MCP Serena preferuj `find_symbol`
+i `find_referencing_symbols`. Stałe użycie Serena i Graphify wymaga werdyktu
+„zostaje” pilota (`ai_docs/guides/TOKEN_TOOLING.md`).
 
 ## Kontrola lokalnych usług API i Admin
 

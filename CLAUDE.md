@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Before any task, read `AGENTS.md` in full and follow its read order.** It is binding for Claude Code: read order, plans, task lifecycle, commit versioning, merging into `main`, timeouts, consent for costly or destructive work, audits and the source-of-truth hierarchy. This file does not repeat those rules. Until you have read it:
 
-- Talk to the user in Polish; invoke the `caveman` skill with `lite` at session start (chat only).
+- Use natural Polish and complete sentences; follow `AGENTS.md` for context economy.
 - Do not run benchmarks or load tests (`m7:*`, `m35:*`, `*:benchmark`, `image-selection:10000`, …), destructive data operations or service restarts without an explicit request.
 - Cross-model audits: skill `audit-task` (`scripts/audit_task.ps1`).
 

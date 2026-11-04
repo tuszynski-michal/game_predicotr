@@ -15,7 +15,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0179_empty_replacement_search"
+EXPECTED_ALEMBIC_HEAD: Final = "0180_screen_grid_corrections"
 
 
 class AlembicHeadMismatchError(RuntimeError):

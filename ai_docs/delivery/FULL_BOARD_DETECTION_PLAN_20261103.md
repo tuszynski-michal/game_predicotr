@@ -8,6 +8,8 @@ last_updated: 2026-11-03
 
 ## Zgody, cel i dowody
 
+Po zakończeniu etapu A operator zatwierdził dodatkowe4–6 godzin: „Tak, dokończ T3–T6 z audytami”. T3 realizuje szczegółowe zaakceptowane decyzje w TASK-1157; zgoda nie obejmuje rzeczywistego treningu ani operacji wdrożeniowych.
+
 Operator zlecił cały plan T0–T6 oraz zaakceptował kilka godzin pracy, testy i audyty Opus 5.5/high. Przekazanie planu i niezbędnego kodu do Anthropic jest zatwierdzone. Rzeczywisty trening, wdrożenie, merge/push, migracje operatora i restarty pozostają osobnymi operacjami. Rewizja wymaga focused review zamknięcia uwag audytu przed implementacją. Focused review R2 Opus 5.5/high: PASS, bez P0/P1; raport `../quality/FULL_BOARD_PLAN_AUDIT_claude-opus-5-5_R2.md`. Rezerwacja po sprawdzeniu wszystkich gałęzi: T0=TASK-1154, T1=1155, T2=1156, T3=1157, T4=1158, T5=1159, T6=1160. Szczegółowy task powstaje przed każdym krokiem według TASK_TEMPLATE. P2: T0 sprawdza wszystkie porównania wersji oraz artefakt 462205; T1/T4 wykluczają przykłady diagnostyczne z VALIDATION-B i REGRESSION; T4 ustala kryterium błędu względem ludzkiej geometrii przed etykietowaniem, T4/T6 raportują bazę modelu z polityką T0 oraz poprzednią politykę oddzielnie.
 
 Najpierw uszczelniamy akceptację błędnych siatek, następnie poprawiamy wykrywanie plansz istniejącym trenerem detektora. Zamrożenie detektora dotyczy polityki korekt, nie istniejącego screen+grid. Automatyczna akceptacja pomija kody błędów dopasowania. Dla 462205 zapisano identyczny obszar detektora obu wersji, lecz dokładna przyczyna pominięcia rzędu wymaga T1. Nie obiecujemy bezbłędności każdej przyszłej gry. Filmy nie są wymagane: materiał to zdjęcia i zatwierdzona geometria.
@@ -16,7 +18,7 @@ Podejrzany wynik uruchamia ograniczoną próbę poprawy, a nierozstrzygnięty po
 
 Pełne wsparcie innych układów, dodatkowa sieć kompletności oraz klasyfikator symboli są poza zakresem. Model deklaruje możliwości i blokuje nieobsługiwany układ; nie nazywamy blokady pełną obsługą. Kolejny układ wymaga konkretnej gry, danych i osobnej zmiany bazy, symboli, wyszukiwania oraz pozostałych odbiorców.
 
-Stan realizacji 2026-11-03: T0 / TASK-1154 wykonany i zweryfikowany; audyt Opus 5.5/high PASS, bez P0/P1. Nowe operacje przypinają v2, historyczne v1 zachowują interpretację. Szczegóły: `../quality/TASK-1154_VERIFICATION.md`. TASK-1153 scalony do bazy `448f75e7` przez roota za osobną zgodą operatora; warunek integracyjny T5 spełniony. T1–T6 pozostają do wykonania.
+Stan realizacji 2026-11-04: T0–T3 / TASK-1154–1157 done, niezależne audyty Opus5.5/high PASS, bez otwartych P0/P1. T3 v1.7.562: screen+grid fullTRAIN/A, partialREG, dowodowy ratunek1+1; R2 zamknął P1 trwałości, P2 udokumentowane w `../quality/TASK-1157_VERIFICATION.md`. T4–T6 pozostają do wykonania w zatwierdzonym zakresie4–6h. TASK-1153 zintegrowany z bazą448f75e7 za osobną zgodą; zależność T5 spełniona. Brak realnego treningu/aktywacji/migracji operatora/usług.
 
 ## Etap A — Bezpieczeństwo i potwierdzenie przyczyny
 

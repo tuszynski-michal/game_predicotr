@@ -69,6 +69,206 @@ class Session:
         return None
 
 
+def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(monkeypatch, tmp_path):
+    from game_predictor_worker.images import grid_cohort_dataset
+
+    game, other, base, family, old, replacement, import_id = [uuid4() for _ in range(7)]
+    old_pin = {"gameId": str(other), "cohortId": str(old), "manifestSha256": "b" * 64}
+    chosen = {**old_pin, "cohortId": str(replacement), "manifestSha256": "c" * 64}
+    catalogue = SimpleNamespace(
+        default=lambda: SimpleNamespace(version_id=base, revision=3),
+        version=lambda value: object(),
+        lock=lambda: None,
+    )
+    manifest = {
+        "versionId": str(base),
+        "familyId": str(family),
+        "trainingArtifacts": [
+            {"name": name, "sha256": "a" * 64}
+            for name in ("weights.pt", "checkpoint.pt", "bundle.json", "preset.json")
+        ],
+    }
+    monkeypatch.setattr(learning, "Session", lambda *args: Session([None]))
+    monkeypatch.setattr(
+        learning, "SqlAlchemyGridModelRegistryRepository", lambda session: catalogue
+    )
+    monkeypatch.setattr(
+        learning,
+        "GridModelRegistryService",
+        lambda *args: SimpleNamespace(
+            view=lambda *args, **kwargs: {
+                "available": True,
+                "manifest": manifest,
+                "manifestSha256": "a" * 64,
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        learning,
+        "verified_history",
+        lambda *args: {
+            "documented": True,
+            "gameIds": sorted([str(game), str(other)]),
+            "cohorts": [old_pin],
+        },
+    )
+    monkeypatch.setattr(
+        learning,
+        "SqlAlchemyGridTrainingCohortRepository",
+        lambda *args: SimpleNamespace(bind=lambda _: None),
+    )
+    sources = [
+        {
+            "sourceId": str(uuid4()),
+            "sourceSha256": f"{i:064x}",
+            "pixelSha256": f"{i:064x}",
+            "qualifiedLabelsSha256": f"{i + 100:064x}",
+            "representative": True,
+            "buffer": False,
+            "eligibleBoards": 9 if i < 15 else 3,
+            "qualifiedBoards": 9 if i < 15 else 3,
+            "role": "TRAIN" if i < 10 else "VALIDATION" if i < 15 else "REGRESSION",
+        }
+        for i in range(20)
+    ]
+    split = {
+        "schemaVersion": "grid-correction-split-v3",
+        "sha256": "d" * 64,
+        "sources": sources,
+        "roleCounts": [
+            {"role": role, "photos": photos, "boards": boards}
+            for role, photos, boards in (
+                ("TRAIN", 10, 90),
+                ("VALIDATION", 5, 45),
+                ("REGRESSION", 5, 15),
+            )
+        ],
+    }
+    monkeypatch.setattr(learning, "prepare_split", lambda *args, **kwargs: split)
+    eligibility = {"qualification": "eligible", "currentnessSha256": "e" * 64}
+
+    def cohort(found_game, found_id):
+        assert found_game == other
+        return (
+            {
+                "manifestSha256": chosen["manifestSha256"]
+                if found_id == replacement
+                else old_pin["manifestSha256"],
+                "status": "frozen",
+                "mode": "screen+grid" if found_id == replacement else "grid-only",
+                "baseVersionId": str(base),
+                "familyId": str(family),
+                "manifestPath": "fixture.json",
+                "policyVersion": "application-grid-corrections-v3",
+                "summary": {
+                    "roles": [
+                        {
+                            "role": role,
+                            "eligiblePhotos": photos,
+                            "eligibleBoards": boards,
+                            "eligibleFullPhotos": photos if role != "REGRESSION" else 0,
+                        }
+                        for role, photos, boards in (
+                            ("TRAIN", 10, 90),
+                            ("VALIDATION", 5, 45),
+                            ("REGRESSION", 5, 15),
+                        )
+                    ]
+                },
+            },
+            copy.deepcopy(eligibility),
+            None,
+        )
+
+    monkeypatch.setattr(
+        learning, "SharedGridCandidateService", lambda *args: SimpleNamespace(_cohort=cohort)
+    )
+    monkeypatch.setattr(
+        grid_cohort_dataset,
+        "GridCohortSnapshot",
+        lambda *args: SimpleNamespace(manifest={"photoSplit": split}),
+    )
+    service = learning.GridCorrectionLearningService(None, lambda: Session([None]), tmp_path)
+    command = {"trainingMode": "screen+grid", "importJobIds": [str(import_id)], "exclusions": []}
+    assert service.preview(game, command)["blockers"] == ["SCREEN_HISTORY_COHORT_REQUIRED"]
+    command["historicalCohorts"] = [chosen]
+    view, pins = service._preview(game, command)
+    assert view["canStart"], view["blockers"]
+    assert view["historicalCohorts"] == pins["historicalCohorts"] == [chosen]
+    assert view["requiredGameIds"] == sorted([str(game), str(other)])
+    assert pins["historicalCurrentness"][0]["eligibility"] == eligibility
+    monkeypatch.setattr(
+        grid_cohort_dataset, "GridCohortSnapshot", lambda *args: SimpleNamespace(manifest={})
+    )
+    assert service.preview(game, command)["blockers"] == [
+        "SCREEN_HISTORY_CORRECTION_POLICY_REQUIRED"
+    ]
+    monkeypatch.setattr(
+        grid_cohort_dataset,
+        "GridCohortSnapshot",
+        lambda *args: SimpleNamespace(manifest={"photoSplit": split}),
+    )
+    eligibility["currentnessSha256"] = "f" * 64
+    assert service.preview(game, command)["previewSha256"] != view["previewSha256"]
+    with pytest.raises(learning.GridCohortError, match="required"):
+        service.preview(
+            game, {**command, "historicalCohorts": [{**chosen, "gameId": str(uuid4())}]}
+        )
+    command.update(idempotencyKey=str(uuid4()), previewSha256=view["previewSha256"])
+    saved = create_job(
+        learning.JobType.GRID_CORRECTION_LEARNING,
+        game_id=game,
+        input_payload={
+            "schema_version": 1,
+            "command": copy.deepcopy(command),
+            "preview": view,
+            "pins": pins,
+        },
+    )
+    monkeypatch.setattr(service, "_by_key", lambda *args: saved)
+    monkeypatch.setattr(service, "view", lambda job: job.input_payload)
+    monkeypatch.setattr(
+        service, "_preview", lambda *args: pytest.fail("Retry must not re-resolve a cohort.")
+    )
+    assert service.start(game, command, "test")["pins"] == pins
+
+
+def test_old_start_command_replays_with_additive_screen_defaults(monkeypatch, tmp_path):
+    game = uuid4()
+    command = {
+        "idempotencyKey": str(uuid4()),
+        "previewSha256": "a" * 64,
+        "exclusions": [],
+        "importJobIds": [],
+    }
+    saved = create_job(
+        learning.JobType.GRID_CORRECTION_LEARNING,
+        game_id=game,
+        input_payload={"schema_version": 1, "command": command},
+    )
+    service = learning.GridCorrectionLearningService(None, lambda: Session([None]), tmp_path)
+    monkeypatch.setattr(service, "_by_key", lambda *args: saved)
+    monkeypatch.setattr(service, "view", lambda job: job.input_payload)
+    monkeypatch.setattr(
+        service,
+        "_preview",
+        lambda *args: pytest.fail("Legacy replay must retain its original pins."),
+    )
+    assert (
+        service.start(
+            game,
+            {
+                **command,
+                "trainingMode": "grid-only",
+                "rescueVariant": None,
+                "historicalCohorts": [],
+            },
+            "test",
+        )
+        == saved.input_payload
+    )
+
+
 def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_population(
     monkeypatch, tmp_path
 ):

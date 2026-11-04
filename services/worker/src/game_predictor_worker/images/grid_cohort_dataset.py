@@ -80,6 +80,7 @@ class GridCohortSnapshot:
     def __init__(
         self, artifact_root: Path, manifest_relative_path: str, expected_manifest_sha256: str
     ) -> None:
+        self.manifest_sha256 = expected_manifest_sha256
         original_root = Path(artifact_root).absolute()
         if any(
             path.is_symlink() or path.is_junction()
@@ -158,6 +159,7 @@ class GridCohortSnapshot:
             ("application-grid-snapshot-v1", "application-grid-cohort-v1"),
             ("application-grid-snapshot-v2", "application-grid-corrections-v1"),
             ("application-grid-snapshot-v2", "application-grid-corrections-v2"),
+            ("application-grid-snapshot-v3", "application-grid-corrections-v3"),
         }
         if (
             (value.get("schemaVersion"), value.get("policyVersion")) not in policies
@@ -167,6 +169,10 @@ class GridCohortSnapshot:
                 and value.get("mode") != "grid-only"
             )
             or value.get("weightPolicy") != "correction-weight-4-to-1-v1"
+            or (
+                value.get("policyVersion") == "application-grid-corrections-v3"
+                and value.get("mode") != "screen+grid"
+            )
             or value.get("mode") not in ("grid-only", "screen+grid")
             or any(not _uuid(value.get(key)) for key in ("gameId", "cohortId", "familyId"))
         ):
@@ -431,6 +437,9 @@ class GridBoardDataset:
             _fail("ROLE_INVALID", "Choose TRAIN, VALIDATION or REGRESSION explicitly.")
         self.snapshot, self.role = snapshot, role
 
+    def _partial_assessment(self) -> bool:
+        return False
+
     def _sources(self) -> Iterator[dict[str, Any]]:
         for source in self.snapshot.sources():
             if source["used"] and source["role"] == self.role:
@@ -446,16 +455,20 @@ class GridBoardDataset:
                     _fail("TARGETS_INVALID", "Targets require distinct physical positions.")
                 full = has_full_geometry(source)
                 if (
-                    self.snapshot._manifest["mode"] == "screen+grid"
-                    or (
-                        self.role != "TRAIN"
-                        and self.snapshot._manifest["policyVersion"]
-                        not in (
-                            "application-grid-corrections-v1",
-                            "application-grid-corrections-v2",
+                    (
+                        self.snapshot._manifest["mode"] == "screen+grid"
+                        or (
+                            self.role != "TRAIN"
+                            and self.snapshot._manifest["policyVersion"]
+                            not in (
+                                "application-grid-corrections-v1",
+                                "application-grid-corrections-v2",
+                            )
                         )
                     )
-                ) and not full:
+                    and not full
+                    and not self._partial_assessment()
+                ):
                     _fail(
                         "FULL_PHOTO_REQUIRED",
                         "Control and screen cohorts require nine full targets.",
@@ -507,6 +520,22 @@ class GridBoardDataset:
                 "renderConfiguration": copy.deepcopy(configuration),
             }
         raise IndexError(index)
+
+
+class GridAssessmentDataset(GridBoardDataset):
+    """Versioned REG target assessment; never an optimizer or checkpoint dataset."""
+
+    def __init__(self, snapshot: GridCohortSnapshot, role: str) -> None:
+        super().__init__(snapshot, role)
+        if (
+            role != "REGRESSION"
+            or snapshot.manifest["policyVersion"] != "application-grid-corrections-v3"
+            or snapshot.manifest["schemaVersion"] != "application-grid-snapshot-v3"
+        ):
+            _fail("ASSESSMENT_POLICY_INVALID", "Labelled-target assessment requires v3 REGRESSION.")
+
+    def _partial_assessment(self) -> bool:
+        return True
 
 
 class GridScreenDataset(GridBoardDataset):

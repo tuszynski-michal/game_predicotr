@@ -8,7 +8,7 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 from uuid import UUID
 
 import numpy as np
@@ -530,10 +530,33 @@ class NeuralPageGeometryPreflightHandler:
         source_reason = NEURAL_GRID_REVIEW_REASON
         if old_proposal is None and isinstance(prior, Mapping):
             old_proposal = prior.get("neuralProposal")
+        rescue_execution: dict[str, Any] = {}
+        if (
+            old_proposal is not None
+            and isinstance(prior, Mapping)
+            and isinstance(prior.get("rescueExecution"), dict)
+        ):
+            rescue_execution.update(prior["rescueExecution"])
         if old_proposal is None:
             try:
-                found = runner.run(
-                    bundle, bundle_sha, rgb, heartbeat=context.heartbeat, max_seconds=30.0
+                from .grid_rescue_runtime import run_with_rescue
+
+                operation_pin = payload.get(OPERATION_PIN_KEY)
+                rescue_pin = (
+                    operation_pin.get("rescue") if isinstance(operation_pin, Mapping) else None
+                )
+                found = run_with_rescue(
+                    runner=runner,
+                    bundle=bundle,
+                    bundle_sha=bundle_sha,
+                    rgb=rgb,
+                    heartbeat=context.heartbeat,
+                    max_seconds=30.0,
+                    directory=self._root / "page-geometry" / str(job.id) / "rescue",
+                    source_sha=original.checksum_sha256,
+                    pin=rescue_pin,
+                    expected_positions=set(range(sequence.board_count)),
+                    summary_sink=rescue_execution,
                 )
             except GeometryRuntimeError as error:
                 if error.code != "NEURAL_GRID_SOURCE_TIME_LIMIT":
@@ -627,4 +650,5 @@ class NeuralPageGeometryPreflightHandler:
             else "NEURAL_GRID_SLOT_BINDING_REQUIRED",
             "neuralProposal": proposal,
             "neuralProposalBinding": binding,
+            **({"rescueExecution": rescue_execution} if rescue_execution else {}),
         }

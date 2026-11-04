@@ -14,6 +14,75 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+
+## D-586 — Korekty detektora i dowodowy ratunek z trwałym budżetem
+
+Status: accepted
+Data: 2026-11-03
+
+Operator zatwierdził cały plan pełnych plansz oraz dodatkowe4–6h T3–T6 z audytami.
+Nowy jawny trainingMode=screen+grid w istniejącym preview/start wybiera osobną politykę
+application-grid-corrections-v3 i preset screen-grid-corrections-v1. Domyślny grid-only,
+stare polityki, fingerprinty, snapshoty i SQL zachowują interpretację. Pełne zdjęcia
+są konieczne w TRAIN i checkpoint VALIDATION-A; partial nie są negatywnym tłem.
+Nowe REG assessment wymaga5zdjęć/15opisanych GT, bez minimum pełnych; stare polityki
+zachowują poprzednie minima. Podział zachowuje pełną populację, role, bufory i kopie.
+Jawne counts/used/reasons muszą być zgodne między preview, freeze i workerem.
+Brak pełnych danych lub zgodnych kohort requiredScope blokuje screen run, bez fallbacku.
+
+Jawny `historicalCohorts` może podmienić wyłącznie kohortę już wymaganej innej gry;
+bez dodawania/usuwania gry, wyboru najnowszej ani osłabienia base/currentness.
+Brak wyboru zachowuje verified_history. Selector/SHA/currentness są pinami preview,
+parenta, childa i oceny. Legacy grid-only blokuje niezgodność trybu; legacy screen
+bez photoSplit-v3 blokuje brak selection reference, nie jakość jego GT. Odzyskanie:
+istniejące prepare/capture/materialize/freeze z policyVersion=v3 na istniejących
+kwalifikowanych etykietach, zachowując role i stary snapshot; niezależne od shared
+startu każdej gry. T5 pokaże tę akcję w advanced. Nie migrujemy starych snapshotów.
+
+Checkpoint ocenia oryginały na A: photoCorrectRate, boardCorrectRate, mniejszy
+photo-macro normalized point error, wcześniejszy krok. Zdjęcia i gry mają równe wagi.
+Metryki dotyczą wybranego pełnego potoku rozpoznania od oryginału: baseline albo
+dopuszczony na A ratunek. Wybrany checkpoint jest związany z własnym bestStep,
+exposure i path proof w eksporcie; B/REG nie dobierają ani checkpointu, ani routingu.
+REG nie wybiera checkpointu. Nowe wersjonowane metric-state i selectionInput pinują
+cały stan i źródła; all-validation-v1 jest selection-exposed, nigdy niezależnym B.
+T4 human-labeled-targets-v1 assessment wiąże exact targets/revisions i role-purpose
+z tym samym ledgerem/readerem, zachowuje partial B/REG; whole-photo/FP tylko full.
+
+Co najwyżej jeden jawny variant/run (longSide/trainCanvas i/lub margin), bez sweepu
+i bez domyślnych amplitud przypisywanych pomiarowi bez GT. Typed override nie zmienia
+historycznego ScreenPreset Literal768. Istniejący trener i preprocessing są wspólne.
+Potwierdzone optimizer exposure do bestStep, A od oryginałów oraz rzeczywista ONNX
+parity dowodzą osobno screen_only/base-margin, board_only/base-screen i combined.
+Faktoryzacja TRAIN jest jawna dla niezależnych subnetów, nie fikcyjnym joint batchem.
+Aktywny path wymaga braku pogorszenia każdej wymaganej gry i poprawy przynajmniej jednej;
+remis pozostawia baseline. Wybrany path jest przypięty przed wywołaniem CPU.
+Inspector sprawdza faktyczne receipts/hashes/weights/exposure/A/parity, nie flagę klienta.
+
+Runtime rezerwuje próbę przed CPU: maksymalnie jeden redetect na operation+source
+i jeden recrop na stabilną pozycję. Variant/model SHA są pinami, nie kluczem nowego
+budżetu. Crash bez wyniku zużywa próbę; integralność/replay nie resetują licznika.
+Brak dowodu, niejednoznaczny slot lub wyczerpanie pozostawiają ręczną korektę.
+Receipt powstaje przez tempfile+fsync i atomowy hard-link no-replace w tym samym
+katalogu; CPU dopiero po publikacji rezerwacji. Awaria przed publikacją nie tworzy
+receiptu, po rezerwacji bez wyniku zużywa próbę. Osierocony plik tymczasowy nie jest
+autoryzacją. Alias identycznych bajtów różniący wyłącznie pozycjami zachowuje baseline,
+blokadę ręcznej korekty i oryginalny budżet; obcy pin/model/źródło nadal fail-closed.
+
+Zaakceptowane ograniczenie P2: inspekcja proof/ONNX/frozen sources jest synchroniczna
+w sesji tworzenia pinu i może wydłużyć admisję; brak pomiaru nie uzasadnia cache ani
+przebudowy transakcji. Powód nieprzypięcia rescue nie jest archiwizowany w pinie.
+T5 pokazuje „niedostępne/nieznane”, nie wymyśla historycznego powodu.
+
+Projekcja `rescueExecution` zachowuje rzeczywiste requesty, result/reservation SHA,
+typed geometry, quad, source/model/preset oraz wersje preprocessora i OpenCV;
+reserved bez result nie dowodzi wykonania. T5 odtworzy tensor bez kolejnej inferencji.
+Routing fit-or-pixels-v1 nie przyjmuje innego triggera. T4 wymaga nowej wersji/proof
+TRAIN/A dla kompletności, bez dobierania routingu na B. D581 budżet pozostaje wspólny;
+koszt/VRAM wariantu uwzględnione przed startem. Operator nie uruchamiał treningu.
+Dotychczasowe D581 pułapy8000/7200s i wszystkie zgody wdrożeniowe pozostają osobne.
+Źródło: TASK-1157, zaakceptowane drafty i uzgodnienia T3/T4 z koordynatorem.
+
 ## D-585 — Jawne możliwości i przypięta kwalifikacja gry w nowych operacjach sieci
 
 - **Date:** 2026-11-03.

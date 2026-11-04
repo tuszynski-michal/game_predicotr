@@ -3,7 +3,8 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
+from game_predictor_worker.geometry_core.rescue import GridRescueVariantV1
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.schemas.grid_model_evaluations import GridModelEvaluationCohortPin
@@ -30,8 +31,32 @@ class GridCorrectionLearningExclusion(CorrectionLearningClosedModel):
 
 
 class GridCorrectionLearningPreviewCommand(CorrectionLearningClosedModel):
+    trainingMode: Literal["grid-only", "screen+grid"] = "grid-only"
+    rescueVariant: GridRescueVariantV1 | None = None
+    historicalCohorts: list[GridModelEvaluationCohortPin] = Field(
+        default_factory=list, max_length=7
+    )
     importJobIds: list[UUID] = Field(default_factory=list, max_length=100)
     exclusions: list[GridCorrectionLearningExclusion] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def rescue_mode(self) -> "GridCorrectionLearningPreviewCommand":
+        if self.rescueVariant is not None and self.trainingMode != "screen+grid":
+            raise ValueError("Rescue variants require the screen correction policy.")
+        if self.historicalCohorts and self.trainingMode != "screen+grid":
+            raise ValueError("Historical cohort overrides require the screen correction policy.")
+        return self
+
+    @field_validator("historicalCohorts")
+    @classmethod
+    def unique_historical(
+        cls, value: list[GridModelEvaluationCohortPin]
+    ) -> list[GridModelEvaluationCohortPin]:
+        if len({item.gameId for item in value}) != len(value) or len(
+            {item.cohortId for item in value}
+        ) != len(value):
+            raise ValueError("Select one distinct cohort for each required historical game.")
+        return sorted(value, key=lambda item: str(item.gameId))
 
     @field_validator("importJobIds")
     @classmethod
@@ -98,7 +123,27 @@ class GridCorrectionLearningProgressCounts(CorrectionLearningClosedModel):
     exclusionReasons: list[GridCorrectionLearningExclusionCount]
 
 
+class DetectorRoleReadiness(CorrectionLearningClosedModel):
+    role: Literal["TRAIN", "VALIDATION", "REGRESSION"]
+    requiredFullPhotos: int = Field(ge=0)
+    eligibleFullPhotos: int | None = Field(default=None, ge=0)
+    missingFullPhotos: int | None = Field(default=None, ge=0)
+
+
+class GridDetectorReadiness(CorrectionLearningClosedModel):
+    photos: int = Field(ge=0)
+    fullPhotos: int = Field(ge=0)
+    partialPhotos: int = Field(ge=0)
+    partialExcludedFromDetector: int = Field(ge=0)
+    roles: list[DetectorRoleReadiness]
+    reasonCodes: list[str]
+
+
 class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
+    trainingMode: Literal["grid-only", "screen+grid"] = "grid-only"
+    detectorReadiness: GridDetectorReadiness | None = None
+    rescueVariant: GridRescueVariantV1 | None = None
+    rescueRecipeSha256: Sha256 | None = None
     gameId: UUID
     baseVersionId: UUID | None
     baseManifestSha256: Sha256 | None

@@ -133,7 +133,11 @@ def role_summary(
         counters[role]["full"] += full
         if boards:
             identity = recording.get("groupId")
-            if policy in ("application-grid-corrections-v1", "application-grid-corrections-v2"):
+            if policy in (
+                "application-grid-corrections-v1",
+                "application-grid-corrections-v2",
+                "application-grid-corrections-v3",
+            ):
                 identity = identity or recording.get("photoIdentity")
             if isinstance(identity, str) and identity:
                 recordings[role].add(identity)
@@ -147,8 +151,11 @@ def role_summary(
                 15,
                 5,
                 0
-                if policy in ("application-grid-corrections-v1", "application-grid-corrections-v2")
-                and mode == "grid-only"
+                if (
+                    policy in ("application-grid-corrections-v1", "application-grid-corrections-v2")
+                    and mode == "grid-only"
+                )
+                or (policy == "application-grid-corrections-v3" and role == "REGRESSION")
                 else 5,
             )
         )

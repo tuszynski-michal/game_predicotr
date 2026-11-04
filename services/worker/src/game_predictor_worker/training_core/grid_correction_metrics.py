@@ -15,6 +15,7 @@ from .grid_evaluation import ControlPhoto, Engine, input_sha256, predictions
 
 METRICS_VERSION = "grid-correction-metrics-v1"
 CHECKPOINT_RULE = "validation-board-correct-photo-macro-error-earliest-v1"
+PHOTO_CHECKPOINT_RULE = "validation-photo-board-correct-photo-macro-error-earliest-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,26 +104,55 @@ def measure(photos: Sequence[CorrectionPhotoEvaluation]) -> dict[str, Any]:
     }
 
 
-def checkpoint_metrics(photos: Sequence[CorrectionPhotoEvaluation]) -> dict[str, float]:
+def checkpoint_metrics(
+    photos: Sequence[CorrectionPhotoEvaluation], *, photo_first: bool = False
+) -> dict[str, float]:
     measured = measure(photos)
     if not photos:
         raise ValueError("Checkpoint selection requires VALIDATION photos.")
+    if photo_first and any(not photo.full_geometry for photo in photos):
+        raise ValueError("Screen checkpoint selection requires every photo to be full.")
     return {
+        **(
+            {"photoCorrectRate": float(measured["photo_complete_correct_rate"])}
+            if photo_first
+            else {}
+        ),
         "boardCorrectRate": float(measured["board_correct_rate"]),
         "normalizedError": float(measured["normalized_error"]),
     }
 
 
-def aggregate_checkpoint_metrics(per_game: Sequence[Mapping[str, float]]) -> dict[str, float]:
+def aggregate_checkpoint_metrics(
+    per_game: Sequence[Mapping[str, float]], *, photo_first: bool = False
+) -> dict[str, float]:
     """Equal game weights after equal-photo aggregation within each game."""
     if not per_game:
         raise ValueError("Checkpoint selection requires at least one game.")
     for metrics in per_game:
-        selection_key(metrics, 0)
+        photo_selection_key(metrics, 0) if photo_first else selection_key(metrics, 0)
     return {
         key: float(np.mean([game[key] for game in per_game]))
-        for key in ("boardCorrectRate", "normalizedError")
+        for key in (
+            ("photoCorrectRate", "boardCorrectRate", "normalizedError")
+            if photo_first
+            else ("boardCorrectRate", "normalizedError")
+        )
     }
+
+
+def photo_selection_key(metrics: Mapping[str, float], step: int) -> tuple[float, float, float, int]:
+    if set(metrics) != {"photoCorrectRate", "boardCorrectRate", "normalizedError"}:
+        raise ValueError("Screen checkpoint requires exact photo/board/error metrics.")
+    photo = metrics["photoCorrectRate"]
+    if isinstance(photo, bool) or not np.isfinite(photo) or not 0 <= photo <= 1:
+        raise ValueError("Photo correctness must be a finite unit rate.")
+    return (
+        photo,
+        *selection_key(
+            {key: value for key, value in metrics.items() if key != "photoCorrectRate"}, step
+        ),
+    )
 
 
 def selection_key(metrics: Mapping[str, float], step: int) -> tuple[float, float, int]:

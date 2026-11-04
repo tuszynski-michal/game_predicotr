@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 from .bounded_runtime import Analyser, GeometryRuntimeError
 from .inference import BoardDetection, onnx_engine
@@ -35,7 +35,52 @@ def _serve(
             rgb = connection.recv()
             if rgb is None:
                 return
-            connection.send(("ok", engine.analyse(cast(ByteImage, rgb))))
+            if isinstance(rgb, dict):
+                from .inference import NeuralGridEngine
+                from .rescue import BoardCropGeometryV1, ScreenInputGeometryV1
+
+                if not isinstance(engine, NeuralGridEngine) or set(rgb) != {"rgb", "stage"}:
+                    raise ValueError("GRID_RESCUE_STAGE_INVALID")
+                request = rgb["stage"]
+                import cv2
+
+                if (
+                    request.get("opencvVersion") != cv2.__version__
+                    or request.get("preprocessingContract") != "neural-grid-rescue-preprocessing-v1"
+                ):
+                    raise ValueError("GRID_RESCUE_PREPROCESSING_CHANGED")
+                environment_keys = {"opencvVersion", "preprocessingContract"}
+                if (
+                    request.get("kind") == "screen"
+                    and set(request) == {"kind", "geometry"} | environment_keys
+                ):
+                    value = engine.detect(
+                        rgb["rgb"],
+                        geometry=ScreenInputGeometryV1.model_validate(request["geometry"]),
+                    )
+                elif (
+                    request.get("kind") == "board"
+                    and set(request) == {"kind", "geometry", "detection"} | environment_keys
+                ):
+                    from .rescue_serialization import detection_from_document
+
+                    geometry = (
+                        None
+                        if request["geometry"] is None
+                        else BoardCropGeometryV1.model_validate(request["geometry"])
+                    )
+                    value = [
+                        engine.recrop(
+                            rgb["rgb"],
+                            detection_from_document(request["detection"]),
+                            geometry=geometry,
+                        )
+                    ]
+                else:
+                    raise ValueError("GRID_RESCUE_STAGE_INVALID")
+                connection.send(("ok", value))
+            else:
+                connection.send(("ok", engine.analyse(cast(ByteImage, rgb))))
     except EOFError:
         pass
     except Exception as error:
@@ -65,6 +110,7 @@ class CPUGridProposalRunner:
         *,
         heartbeat: Callable[[], None],
         max_seconds: float,
+        _stage: dict[str, Any] | None = None,
     ) -> list[BoardDetection]:
         if not 0 < max_seconds <= 120:
             raise ValueError("A source inference requires a bounded deadline.")
@@ -109,7 +155,7 @@ class CPUGridProposalRunner:
                         receipt.append(("error", message))
                         return
                     ready.set()
-                connection.send(rgb)
+                connection.send(rgb if _stage is None else {"rgb": rgb, "stage": _stage})
                 receipt.append(cast(tuple[str, object], connection.recv()))
             except BaseException as error:
                 receipt.append(("error", f"{type(error).__name__}: {error}"))
@@ -147,6 +193,20 @@ class CPUGridProposalRunner:
         except BaseException:
             self.close()
             raise
+
+    def run_stage(
+        self,
+        bundle: Path,
+        bundle_sha256: str,
+        rgb: ByteImage,
+        *,
+        request: dict[str, Any],
+        heartbeat: Callable[[], None],
+        max_seconds: float,
+    ) -> list[BoardDetection]:
+        return self.run(
+            bundle, bundle_sha256, rgb, heartbeat=heartbeat, max_seconds=max_seconds, _stage=request
+        )
 
     def close(self) -> None:
         process, connection = self._process, self._connection

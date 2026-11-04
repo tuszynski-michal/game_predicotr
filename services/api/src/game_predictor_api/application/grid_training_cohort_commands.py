@@ -12,7 +12,10 @@ from PIL import __version__ as pillow_version
 from sqlalchemy import Uuid, column, func, select, table, text
 
 from game_predictor_api.domain.canonical_source import CANONICAL_SOURCE_LOADER_VERSION
-from game_predictor_api.domain.grid_correction_policy import CORRECTION_POLICIES
+from game_predictor_api.domain.grid_correction_policy import (
+    CORRECTION_POLICIES,
+    correction_mode_for_policy,
+)
 from game_predictor_api.domain.grid_training_cohorts import (
     MATERIALIZATION_PAGE_SIZE,
     POLICY,
@@ -20,6 +23,7 @@ from game_predictor_api.domain.grid_training_cohorts import (
     WEIGHT_POLICY,
     GridCohortError,
     canonical,
+    digest,
     require_minima,
 )
 from game_predictor_api.domain.new_game_geometry import verified_json
@@ -113,7 +117,11 @@ def prepare(
     policy = body.get("policyVersion", POLICY)
     photo_split = None
     if policy in CORRECTION_POLICIES:
-        if body["mode"] != "grid-only" or body["recordings"] or selection.get("sourceIds"):
+        if (
+            body["mode"] != correction_mode_for_policy(policy)
+            or body["recordings"]
+            or selection.get("sourceIds")
+        ):
             raise GridCohortError(
                 "GRID_CORRECTION_SELECTION_INVALID",
                 "Correction splitting requires whole imports and automatic roles.",
@@ -278,6 +286,20 @@ def _capture(
             game, member.source_id, member.ordinal, proof, row.document["mode"]
         )
         if (
+            "expectedLabelsSha256" in proof
+            and digest(
+                [
+                    position["label"]
+                    for position in captured["positions"]
+                    if position["label"] is not None
+                ]
+            )
+            != proof["expectedLabelsSha256"]
+        ):
+            raise GridCohortError(
+                "GRID_CORRECTION_LABELS_CHANGED", "Exact human targets changed after preview."
+            )
+        if (
             proof.get("qualification") == "eligible"
             and "expectedBoardCount" in proof
             and (captured["boardEligibleCount"] != proof["expectedBoardCount"])
@@ -423,7 +445,9 @@ def _materialize(
             game,
             row.id,
             {
-                "schemaVersion": "application-grid-snapshot-v2"
+                "schemaVersion": "application-grid-snapshot-v3"
+                if row.document["policyVersion"] == "application-grid-corrections-v3"
+                else "application-grid-snapshot-v2"
                 if row.document["policyVersion"] in CORRECTION_POLICIES
                 else SNAPSHOT_FORMAT,
                 "policyVersion": row.document["policyVersion"],

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0179_empty_replacement_search"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0180_screen_grid_corrections"
     assert script.get_revision(schema_readiness.EXPECTED_ALEMBIC_HEAD).down_revision == (
         "0178_grid_correction_growth"
     )

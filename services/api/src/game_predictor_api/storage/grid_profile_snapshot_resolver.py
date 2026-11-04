@@ -65,6 +65,7 @@ class SqlAlchemyGridProfileSnapshotResolver(GridProfileSnapshotResolver):
                 rules_version_id=rules_version_id,
                 rows=rows,
                 columns=columns,
+                artifact_root=self._artifact_root,
             )
         except GridModelRegistryError as error:
             raise JobConflictError(error.code, error.message) from error

@@ -21,6 +21,10 @@ HEADERS = {"Origin": "http://127.0.0.1:3000", "X-Admin-Intent": "local-owner"}
 
 def preview_value() -> dict[str, Any]:
     return {
+        "trainingMode": "grid-only",
+        "detectorReadiness": None,
+        "rescueVariant": None,
+        "rescueRecipeSha256": None,
         "gameId": str(GAME),
         "baseVersionId": str(BASE),
         "baseManifestSha256": "a" * 64,
@@ -176,6 +180,49 @@ def start_body() -> dict[str, Any]:
     return {"idempotencyKey": str(UUID(int=20)), "previewSha256": "c" * 64}
 
 
+def test_screen_mode_variant_and_readiness_roundtrip_without_fallback(tmp_path: Path) -> None:
+    service = Service()
+    service.preview_result.update(
+        trainingMode="screen+grid",
+        canStart=False,
+        blockers=["SCREEN_FULL_PHOTOS_REQUIRED"],
+        detectorReadiness={
+            "photos": 134,
+            "fullPhotos": 0,
+            "partialPhotos": 134,
+            "partialExcludedFromDetector": 134,
+            "roles": [],
+            "reasonCodes": ["SCREEN_FULL_PHOTOS_REQUIRED"],
+        },
+    )
+    selected = [
+        {"gameId": str(UUID(int=101)), "cohortId": str(UUID(int=102)), "manifestSha256": "c" * 64}
+    ]
+    body = {
+        "trainingMode": "screen+grid",
+        "historicalCohorts": selected,
+        "rescueVariant": {"board": {"margin": 0.2}},
+    }
+    with TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345)) as client:
+        response = client.post(PATH + "/preview", json=body, headers=HEADERS)
+        assert response.status_code == 200
+        assert response.json()["trainingMode"] == "screen+grid"
+        assert response.json()["canStart"] is False
+        assert response.json()["detectorReadiness"]["fullPhotos"] == 0
+        command = service.calls[-1][1][1]
+        assert command["historicalCohorts"] == selected
+        assert (
+            command["trainingMode"] == "screen+grid"
+            and command["rescueVariant"]["board"]["margin"] == 0.2
+        )
+        assert (
+            client.post(
+                PATH + "/preview", json={**body, "trainingMode": "grid-only"}, headers=HEADERS
+            ).status_code
+            == 422
+        )
+
+
 def test_assigned_comparison_route_resolves_baseline_only_on_server(tmp_path: Path) -> None:
     from game_predictor_api.api.grid_model_evaluations import create_grid_model_evaluations_router
 
@@ -276,12 +323,34 @@ def test_full_request_contract_actor_and_read_routes(tmp_path: Path) -> None:
     with TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345)) as client:
         response = client.post(f"{PATH}/preview", json=command, headers=HEADERS)
         assert response.status_code == 200 and response.json() == preview_value()
-        assert service.calls[-1] == ("preview", (GAME, command))
+        assert service.calls[-1] == (
+            "preview",
+            (
+                GAME,
+                {
+                    **command,
+                    "trainingMode": "grid-only",
+                    "rescueVariant": None,
+                    "historicalCohorts": [],
+                },
+            ),
+        )
         response = client.post(PATH, json=start_body(), headers=HEADERS)
         assert response.status_code == 200 and response.json() == view_value()
         assert service.calls[-1] == (
             "start",
-            (GAME, {**start_body(), "importJobIds": [], "exclusions": []}, "local-owner"),
+            (
+                GAME,
+                {
+                    **start_body(),
+                    "importJobIds": [],
+                    "exclusions": [],
+                    "trainingMode": "grid-only",
+                    "rescueVariant": None,
+                    "historicalCohorts": [],
+                },
+                "local-owner",
+            ),
         )
         assert client.get(PATH).json() == {"items": [view_value()]}
         assert client.get(f"{PATH}/{LEARNING}").json() == view_value()
@@ -437,7 +506,13 @@ def test_openapi_has_eight_operations_and_closed_preview_view_schemas(tmp_path: 
     ]:
         assert schemas[name]["additionalProperties"] is False
         assert set(schemas[name]["properties"]) == set(expected)
-        assert set(schemas[name]["required"]) == set(expected) - {"progressCounts"}
+        assert set(schemas[name]["required"]) == set(expected) - {
+            "progressCounts",
+            "trainingMode",
+            "rescueVariant",
+            "rescueRecipeSha256",
+            "detectorReadiness",
+        }
     assert (
         schemas["GridCorrectionLearningPreviewCommand"]["properties"]["importJobIds"]["maxItems"]
         == 100

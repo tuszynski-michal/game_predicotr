@@ -2,6 +2,58 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('screen correction mode and explicit rescue recipe remain pinned through preview/start', async () => {
+  const calls = [];
+  const detectorReadiness = {
+    photos: 134,
+    fullPhotos: 0,
+    partialPhotos: 134,
+    partialExcludedFromDetector: 134,
+    roles: [],
+    reasonCodes: ['SCREEN_FULL_PHOTOS_REQUIRED'],
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      calls.push(JSON.parse(await request.text()));
+      return new Response(
+        JSON.stringify({
+          trainingMode: 'screen+grid',
+          detectorReadiness,
+          canStart: false,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    },
+  });
+  const game = '11111111-1111-4111-8111-111111111111';
+  const command = {
+    trainingMode: 'screen+grid',
+    historicalCohorts: [
+      {
+        gameId: '22222222-2222-4222-8222-222222222222',
+        cohortId: game,
+        manifestSha256: 'c'.repeat(64),
+      },
+    ],
+    rescueVariant: {
+      contractVersion: 'grid-rescue-variant-v1',
+      preprocessingContract: 'neural-grid-rescue-preprocessing-v1',
+      board: { margin: 0.2 },
+    },
+  };
+  const preview = await client.previewGridCorrectionLearning(game, command);
+  assert.deepEqual(preview.data.detectorReadiness, detectorReadiness);
+  assert.equal(preview.data.canStart, false);
+  const start = {
+    ...command,
+    idempotencyKey: game,
+    previewSha256: 'a'.repeat(64),
+  };
+  await client.startGridCorrectionLearning(game, start);
+  assert.deepEqual(calls, [command, start]);
+});
+
 test('ready and preview preserve deduplicated progress, overlapping photos and exclusions', async () => {
   const progressCounts = {
     approved: { photos: 2, boards: 4 },

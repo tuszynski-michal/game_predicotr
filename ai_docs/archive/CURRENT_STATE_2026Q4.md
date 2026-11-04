@@ -6,6 +6,23 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1157 — Korekty detektora i trwały ratunek (done)
+
+- Plik: `tasks/completed/1157-screen-grid-corrections-rescue.md`.
+- Commit: **v1.7.562** (hash dopisuje kolejny commit).
+- Wynik: nowa polityka screen+grid, full TRAIN/A i partial REG, photo-first checkpoint,
+  exact selection/exposure, jawne kohorty requiredScope, ONNX proof i runtime1+1.
+  Restart/lost response nie odnawia prób; rezerwacje publikowane atomowo no-replace.
+- Kontrole: scoped67 PASS; HTTP3, wrapper4, ONNX2, proof3; disposablePG1+2+1;
+  poprawki21+1 PASS (zestawy częściowo nakładają się). Ruff, scoped typy, kontrakt,
+  docs/map PASS; zero nowych mypy errors, jeden baseline shadowHEAD; Admin strict
+  izoluje SDK WT. Opus R1 i focusedR2 PASS; koordynatoraP1 zamknięte.
+- P2: synchroniczna inspekcja/brak archiwalnego powodu; aliasowe receipts są obcym
+  zakresem dla T5; NTFS/hardlinks, bez power-loss i GC temp. Szczegóły i handoff:
+  `quality/TASK-1157_VERIFICATION.md`.
+- Bez operatorDB/migracji/usług, rzeczywistego treningu/inferencji/GPU, aktywacji,
+  merge/push. T1 ostatnio full0; T4–T6 nadal autoryzowane. Następny TASK-1158.
+
 ### TASK-1156 — Możliwości modelu i kwalifikacja gry (done)
 
 - Plik: `tasks/completed/1156-neural-model-game-capabilities.md`.

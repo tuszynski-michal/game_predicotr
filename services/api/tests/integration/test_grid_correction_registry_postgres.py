@@ -32,8 +32,19 @@ def context(session, game, ids):
 
 
 def command(session, game, cohort, kind, revision):
+    screen = (
+        session.scalar(
+            text(
+                "SELECT document->>'policyVersion' FROM grid_training_cohorts "
+                "WHERE game_id=:g AND id=:c"
+            ),
+            {"g": game, "c": cohort},
+        )
+        == "application-grid-corrections-v3"
+    )
+    function = "recording_cohort_command_v4" if screen else "recording_cohort_command_v3"
     return session.scalar(
-        text("SELECT public.recording_cohort_command_v3(:g,CAST(:q AS jsonb),'fixture:1120')"),
+        text(f"SELECT public.{function}(:g,CAST(:q AS jsonb),'fixture:1120')"),
         {
             "g": game,
             "q": json.dumps(
@@ -49,10 +60,17 @@ def command(session, game, cohort, kind, revision):
     )
 
 
+@pytest.mark.parametrize(
+    "screen_corrections,invalid_full",
+    [(False, False), (True, False), (True, True)],
+    ids=["legacy", "screen", "screen-invalid"],
+)
 def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, screen_corrections, invalid_full
 ):
-    with application_role_database("t1120", ("correction-a", "correction-b")) as db:
+    with application_role_database(
+        "t1157registry" if screen_corrections else "t1120", ("correction-a", "correction-b")
+    ) as db:
         game, other = db.games.values()
         family, cohort, job = uuid4(), uuid4(), uuid4()
         source_ids = [uuid4() for _ in range(41)]
@@ -111,8 +129,10 @@ def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions
                 for i, identifier in enumerate(source_ids)
             ]
             doc = {
-                "policyVersion": "application-grid-corrections-v1",
-                "mode": "grid-only",
+                "policyVersion": "application-grid-corrections-v3"
+                if screen_corrections
+                else "application-grid-corrections-v1",
+                "mode": "screen+grid" if screen_corrections else "grid-only",
                 "familyId": str(family),
                 "photoSplit": {"sources": pins, "sha256": "b" * 64},
             }
@@ -131,6 +151,14 @@ def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions
                     "recording": {"qualification": "eligible", "evidenceLevel": "photo-only"},
                     "positions": [{"label": {} if i < 20 and j < 3 else None} for j in range(9)],
                 }
+                if screen_corrections:
+                    if i < 15 and not (invalid_full and i == 0):
+                        frozen.update(
+                            boardEligibleCount=9,
+                            screenEligible=True,
+                            positions=[{"label": {}} for _ in range(9)],
+                        )
+                    frozen["recording"]["assessmentPolicy"] = "human-labeled-targets-v1"
                 s.execute(
                     text("""INSERT INTO grid_training_cohort_members(game_id,cohort_id,source_id,
                   live_source_image_id,ordinal,role,frozen)
@@ -158,6 +186,24 @@ def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions
         with db.owner_engine.connect() as c:
             assert recording_permission_errors(c, db.role) == ()
             assert c.scalar(text("SELECT count(*) FROM public.recording_photo_uses")) == 0
+        if screen_corrections:
+            from game_predictor_api.storage.source_recording_permissions_v7 import (
+                recording_permission_errors as screen_permissions,
+            )
+
+            with db.owner_engine.begin() as c:
+                assert screen_permissions(c, db.role) == ()
+            if invalid_full:
+                with Session(db.app_engine) as s, s.begin():
+                    scope(s, game)
+                    with (
+                        pytest.raises(DBAPIError, match="GRID_COHORT_FULL_PHOTO_REQUIRED"),
+                        s.begin_nested(),
+                    ):
+                        command(s, game, cohort, "register_cohort_use", 4)
+                with db.owner_engine.connect() as c:
+                    assert c.scalar(text("SELECT count(*) FROM public.recording_photo_uses")) == 0
+                return
         # A concurrent same-role reservation changes the proof without changing
         # eligibility. Registration must reject drift before inserting any rows.
         with Session(db.owner_engine) as s, s.begin():
@@ -282,8 +328,11 @@ def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions
                 with pytest.raises(DBAPIError, match="RECORDING_ROLE_CONFLICT"), s.begin_nested():
                     command(s, game, legacy, "register_cohort_use", 1)
 
-        _assert_command_lifecycle(db, tmp_path, game, job, pins, monkeypatch)
-        _assert_incremental_release(db, game, cohort, source_ids)
+        if screen_corrections:
+            _assert_command_lifecycle(db, tmp_path, game, job, pins, monkeypatch, screen=True)
+        else:
+            _assert_command_lifecycle(db, tmp_path, game, job, pins, monkeypatch)
+            _assert_incremental_release(db, game, cohort, source_ids)
 
 
 def _assert_incremental_release(db, game, old_cohort, source_ids):
@@ -467,7 +516,7 @@ print('fresh process: old and new cohort validated')
     assert "old and new cohort validated" in restarted.stdout
 
 
-def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
+def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch, *, screen=False):
     """Actual service/SQL/files/CAS with explicit substitutes only at proof/image boundaries.
 
     These metadata fixtures do not prove human approvals; the separate genuine-label
@@ -492,11 +541,15 @@ def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
     version, family = _install_base(db, game)
     pins = deepcopy(original_pins)
     for index, pin in enumerate(pins):
-        pin.update(eligibleBoards=3 if index < 20 else 0, representative=True)
+        pin.update(
+            eligibleBoards=9 if screen and index < 15 else 3 if index < 20 else 0,
+            representative=True,
+        )
 
     def split(repo, game, imports, deadline, **kwargs):
-        facts = adapter.contexts(repo, game, [p["sourceId"] for p in pins], incremental=False)
+        facts = adapter.contexts(repo, game, [p["sourceId"] for p in pins], incremental=screen)
         return {
+            **({"schemaVersion": "grid-correction-split-v3"} if screen else {}),
             "sha256": "b" * 64,
             "sources": [
                 {**p, "registryProofSha256": facts[p["sourceId"]]["proofSha256"]} for p in pins
@@ -516,7 +569,7 @@ def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
             "role": pin["role"],
             "used": count > 0,
             "boardEligibleCount": count,
-            "screenEligible": False,
+            "screenEligible": count == 9,
             "recording": proof,
             "reasons": [],
             "metadataMissing": False,
@@ -555,12 +608,14 @@ def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
 
     request = {
         "idempotencyKey": str(uuid4()),
-        "mode": "grid-only",
+        "mode": "screen+grid" if screen else "grid-only",
         "familyId": str(family),
         "baseVersionId": str(version),
         "selector": {"importJobId": str(job)},
         "recordings": [],
-        "policyVersion": "application-grid-corrections-v1",
+        "policyVersion": "application-grid-corrections-v3"
+        if screen
+        else "application-grid-corrections-v1",
     }
     with Session(db.app_engine) as session:
         prepared = service(session).prepare(game, request, "fixture:1120-workflow")
@@ -618,7 +673,18 @@ def _assert_command_lifecycle(db, root, game, job, original_pins, monkeypatch):
             == frozen
         )
     assert frozen["cohort"]["status"] == "frozen"
-    _assert_scoped_report_binding(db, game, cohort, version, family, frozen["cohort"])
+    if not screen:
+        _assert_scoped_report_binding(db, game, cohort, version, family, frozen["cohort"])
+    else:
+        # A new cohort reuses the original fixture labels and immutable role ledger;
+        # preparing it does not depend on starting shared training for either game.
+        with Session(db.app_engine) as session, session.begin():
+            scope(session, game)
+            facts = {
+                row["sourceId"]: row
+                for row in context(session, game, [UUID(p["sourceId"]) for p in pins])
+            }
+            assert all(facts[p["sourceId"]]["priorRoles"] == [p["role"] or "BUFFER"] for p in pins)
     with db.owner_engine.connect() as connection:
         assert (
             connection.scalar(

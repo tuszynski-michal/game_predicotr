@@ -23,12 +23,14 @@ import torch
 from torch import nn
 
 from .checkpoint import load_checkpoint, make_checkpoint, restore_checkpoint, write_checkpoint
+from .grid_rescue_training import TrainingExposure
 from .grid_training_admission import GridTrainingPreset, digest
 from .neural_grid_network import NeuralGridNetwork
 from .runtime import TrainingInterrupted
 
 CHECKPOINT_POLICY = "grid-training-checkpoint-v1"
 CORRECTION_CHECKPOINT_RULE = "validation-board-correct-photo-macro-error-earliest-v1"
+PHOTO_CHECKPOINT_RULE = "validation-photo-board-correct-photo-macro-error-earliest-v1"
 NONFINITE_LIMIT = 20
 BOARD_CORRECT_MAX_NME = 0.02
 BOARD_CORRECT_MAX_NODE_ERROR = 0.05
@@ -238,8 +240,15 @@ class EarlyStopping:
     evaluations: int = 0
     selection_rule: str | None = None
     best_error: float | None = None
+    best_board: float | None = None
 
-    def update(self, metric: float, step: int, normalized_error: float | None = None) -> bool:
+    def update(
+        self,
+        metric: float,
+        step: int,
+        normalized_error: float | None = None,
+        board_correct_rate: float | None = None,
+    ) -> bool:
         """Record one evaluation; True when it is the new best."""
         if not math.isfinite(metric):
             raise ValueError("GRID_TRAINING_METRIC_NONFINITE")
@@ -248,7 +257,7 @@ class EarlyStopping:
         improved = self.best is None or sign * (metric - self.best) > self.min_delta
         if self.selection_rule is not None:
             if (
-                self.selection_rule != CORRECTION_CHECKPOINT_RULE
+                self.selection_rule not in (CORRECTION_CHECKPOINT_RULE, PHOTO_CHECKPOINT_RULE)
                 or normalized_error is None
                 or not math.isfinite(normalized_error)
                 or not 0 <= normalized_error <= 1
@@ -262,7 +271,27 @@ class EarlyStopping:
                 -(self.best_error or 0.0),
                 -(self.best_step or 0),
             )
+            if self.selection_rule == PHOTO_CHECKPOINT_RULE:
+                if (
+                    board_correct_rate is None
+                    or not math.isfinite(board_correct_rate)
+                    or not 0 <= board_correct_rate <= 1
+                    or (self.best is not None and self.best_board is None)
+                ):
+                    raise ValueError("GRID_TRAINING_SELECTION_INVALID")
+                improved = self.best is None or (
+                    metric,
+                    board_correct_rate,
+                    -normalized_error,
+                    -step,
+                ) > (
+                    self.best,
+                    self.best_board or 0.0,
+                    -(self.best_error or 0.0),
+                    -(self.best_step or 0),
+                )
         if improved:
+            self.best_board = board_correct_rate
             self.best_error = normalized_error
             self.best, self.best_step, self.stale = metric, step, 0
         else:
@@ -284,6 +313,14 @@ class EarlyStopping:
                 if self.selection_rule
                 else {}
             ),
+            **(
+                {
+                    "metricStateVersion": "photo-board-checkpoint-state-v1",
+                    "bestBoard": self.best_board,
+                }
+                if self.selection_rule == PHOTO_CHECKPOINT_RULE
+                else {}
+            ),
         }
 
     def restore(self, value: Mapping[str, Any]) -> None:
@@ -292,6 +329,27 @@ class EarlyStopping:
         self.best_error = value.get("bestError")
         self.best, self.best_step = value["best"], value["bestStep"]
         self.stale, self.evaluations = int(value["stale"]), int(value["evaluations"])
+        if self.selection_rule == PHOTO_CHECKPOINT_RULE:
+            if (
+                value.get("metricStateVersion") != "photo-board-checkpoint-state-v1"
+                or "bestBoard" not in value
+            ):
+                raise ValueError("GRID_TRAINING_SELECTION_POLICY_MISMATCH")
+            self.best_board = value["bestBoard"]
+            if self.best is not None:
+                from .grid_correction_metrics import photo_selection_key
+
+                if self.best_board is None or self.best_error is None:
+                    raise ValueError("GRID_TRAINING_SELECTION_POLICY_MISMATCH")
+
+                photo_selection_key(
+                    {
+                        "photoCorrectRate": self.best,
+                        "boardCorrectRate": self.best_board,
+                        "normalizedError": self.best_error,
+                    },
+                    self.best_step,
+                )
 
 
 class TrainingControl(Protocol):
@@ -332,7 +390,9 @@ class TrainingPlan:
             evaluation_steps=evaluation_steps,
             frozen_modules=tuple(preset.frozen_modules),
             binding={
-                "policy": "grid-training-checkpoint-v2"
+                "policy": "grid-training-checkpoint-v3"
+                if preset.preset_id == "screen-grid-corrections-v1"
+                else "grid-training-checkpoint-v2"
                 if preset.preset_id == "grid-corrections-v1"
                 else CHECKPOINT_POLICY,
                 "runId": run_id,
@@ -353,6 +413,7 @@ class TrainingResult:
     checkpoint_sha256: str
     history: list[dict[str, Any]]
     checkpoint_selection: dict[str, Any] | None = None
+    exposure: dict[str, Any] | None = None
 
 
 class _ScalerSlot:
@@ -385,6 +446,8 @@ def train(
     checkpoint_directory: Path,
     resume: tuple[Path, str] | None = None,
     device: str = "cpu",
+    exposure: TrainingExposure | None = None,
+    exposure_members: Callable[[int], Sequence[Mapping[str, str]]] | None = None,
 ) -> TrainingResult:
     """Step-deterministic loop with an evaluation and a checkpoint every ``evaluation_steps``."""
     from torch.amp.grad_scaler import GradScaler
@@ -401,7 +464,9 @@ def train(
         preset.early_stopping.patience,
         preset.early_stopping.min_delta,
         preset.early_stopping.min_evaluations,
-        selection_rule=CORRECTION_CHECKPOINT_RULE
+        selection_rule=PHOTO_CHECKPOINT_RULE
+        if preset.preset_id == "screen-grid-corrections-v1"
+        else CORRECTION_CHECKPOINT_RULE
         if preset.preset_id == "grid-corrections-v1"
         else None,
     )
@@ -417,6 +482,8 @@ def train(
         if not isinstance(stored, dict) or "early" not in stored:
             raise ValueError("CHECKPOINT_INVALID")
         stopping.restore(stored["early"])
+        if exposure is not None:
+            exposure.restore(stored["exposureCurrent"], step)
         # An interruption before the first evaluation stores no best model yet.
         best_state = stored if stored.get("model") is not None else None
         last = resume
@@ -436,7 +503,11 @@ def train(
             epoch=stopping.evaluations,
             global_step=step,
             history=history,
-            best_state={**state, "early": stopping.state()},
+            best_state={
+                **state,
+                "early": stopping.state(),
+                **({"exposureCurrent": exposure.state()} if exposure is not None else {}),
+            },
         )
         path, sha = write_checkpoint(checkpoint_directory, checkpoint)
         load_checkpoint(path, sha, expected_binding=plan.binding)  # published bytes re-read
@@ -469,8 +540,13 @@ def train(
             scaler.scaler.scale(values["total"]).backward()
             scaler.scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(trainable_parameters(network), preset.gradient_clip)
+            scale_before = scaler.scaler.get_scale()
             scaler.scaler.step(optimizer)
             scaler.scaler.update()
+            if exposure is not None and scaler.scaler.get_scale() >= scale_before:
+                if exposure_members is None:
+                    raise ValueError("GRID_RESCUE_EXPOSURE_MEMBERS_REQUIRED")
+                exposure.confirm(step + 1, exposure_members(step))
         step += 1
         control.progress(step, plan.total_steps, {k: float(v.detach()) for k, v in values.items()})
         if step % plan.evaluation_steps and step < plan.total_steps:
@@ -478,19 +554,31 @@ def train(
         network.eval()
         with torch.no_grad():
             measured = evaluate(network)
+        board_rate = None
         if stopping.selection_rule:
-            if not isinstance(measured, dict) or set(measured) != {
+            expected = {
                 "boardCorrectRate",
                 "normalizedError",
-            }:
+            } | (
+                {"photoCorrectRate"} if stopping.selection_rule == PHOTO_CHECKPOINT_RULE else set()
+            )
+            if not isinstance(measured, dict) or set(measured) != expected:
                 raise ValueError("GRID_TRAINING_SELECTION_INVALID")
-            metric = float(measured["boardCorrectRate"])
+            metric = float(
+                measured[
+                    "photoCorrectRate"
+                    if stopping.selection_rule == PHOTO_CHECKPOINT_RULE
+                    else "boardCorrectRate"
+                ]
+            )
+            if stopping.selection_rule == PHOTO_CHECKPOINT_RULE:
+                board_rate = float(measured["boardCorrectRate"])
             error = float(measured["normalizedError"])
         else:
             if isinstance(measured, dict):
                 raise ValueError("GRID_TRAINING_SELECTION_INVALID")
             metric, error = float(measured), None
-        improved = stopping.update(metric, step, error)
+        improved = stopping.update(metric, step, error, board_rate)
         history.append(
             {
                 "step": step,
@@ -504,6 +592,7 @@ def train(
                 "model": {k: v.detach().cpu().clone() for k, v in network.state_dict().items()},
                 "step": step,
                 "metric": metric,
+                **({"exposureAtBest": exposure.state()} if exposure is not None else {}),
             }
         last = publish()
         last_step = step
@@ -529,11 +618,22 @@ def _result(
         checkpoint_path=last[0],
         checkpoint_sha256=last[1],
         history=list(history),
+        exposure=best_state.get("exposureAtBest"),
         checkpoint_selection={
             "rule": stopping.selection_rule,
             "role": "VALIDATION",
             "step": stopping.best_step,
-            "metrics": {"boardCorrectRate": stopping.best, "normalizedError": stopping.best_error},
+            "metrics": {
+                "boardCorrectRate": stopping.best_board
+                if stopping.selection_rule == PHOTO_CHECKPOINT_RULE
+                else stopping.best,
+                "normalizedError": stopping.best_error,
+                **(
+                    {"photoCorrectRate": stopping.best}
+                    if stopping.selection_rule == PHOTO_CHECKPOINT_RULE
+                    else {}
+                ),
+            },
             "earlyStopping": {
                 "patience": stopping.patience,
                 "evaluationsWithoutImprovement": stopping.stale,

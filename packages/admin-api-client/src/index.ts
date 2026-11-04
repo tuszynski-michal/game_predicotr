@@ -179,6 +179,8 @@ export type {
   GridCorrectionLearningPreviewCommand,
   GridCorrectionLearningStartCommand,
   GridCorrectionLearningPreview,
+  GridDetectorReadiness,
+  GridRescueVariantV1,
   GridCorrectionLearningCount,
   GridCorrectionLearningProgressCounts,
   GridCorrectionDataAvailability,

@@ -280,7 +280,11 @@ class GridTrainingJobHandler:
         if state.export is None and (result is None or result.get("status") != "exported"):
             result = self._verified_export_without_result(job, run_dir) or result
         if state.export is None and result is not None and result.get("status") == "exported":
-            self._verify_export(run_dir, result["export"])
+            self._verify_export(
+                run_dir,
+                result["export"],
+                required_screen=job.input_payload.get("preset_id") == "screen-grid-corrections-v1",
+            )
             self._adopt_pointer(state, run_dir, result.get("checkpoint"))
             state.export = {
                 **result["export"],
@@ -380,7 +384,8 @@ class GridTrainingJobHandler:
                 or header["manifestSha256"] != pin["manifest_sha256"]
                 or header["mode"] != payload["mode"]
                 or (
-                    payload["preset_id"] != "grid-corrections-v1"
+                    payload["preset_id"]
+                    not in ("grid-corrections-v1", "screen-grid-corrections-v1")
                     and str(header["baseVersionId"]) != str(payload["base_version_id"])
                 )
                 or str(header["familyId"]) != str(payload["family_id"])
@@ -409,7 +414,8 @@ class GridTrainingJobHandler:
                 self.artifact_root,
                 str(job.game_id),
                 pinned,
-                historical=payload["preset_id"] == "grid-corrections-v1",
+                historical=payload["preset_id"]
+                in ("grid-corrections-v1", "screen-grid-corrections-v1"),
             )
         except SharedCandidateError as error:
             raise JobHandlerError(error.code, error.message) from error
@@ -468,6 +474,7 @@ class GridTrainingJobHandler:
             lease_state=lease.state,
             counts=counts,
             stored_budget=state.budget,
+            rescue_variant=(payload.get("rescue_recipe") or {}).get("variant"),
         )
         if not decision.admitted or decision.budget is None:
             raise JobHandlerError(decision.reasons[0], "Run admission refused.")
@@ -512,6 +519,7 @@ class GridTrainingJobHandler:
             },
             "supervisor": {"pid": pid, "created": created},
             "resume": state.checkpoint,
+            **({"rescueRecipe": payload["rescue_recipe"]} if "rescue_recipe" in payload else {}),
             **({} if joint is None else {"joint": joint}),
         }
 
@@ -537,7 +545,16 @@ class GridTrainingJobHandler:
                     or expected.get("weights.pt") != provenance["weightsSha256"]
                     or any(sha256_file(directory / name) != sha for name, sha in expected.items())
                 ):
+                    if job.input_payload.get("preset_id") == "screen-grid-corrections-v1":
+                        raise JobHandlerError(
+                            "GRID_TRAINING_EXPORT_CORRUPT", "Screen export integrity differs."
+                        )
                     continue
+                self._verify_screen_export(
+                    run_dir,
+                    bundle,
+                    required=job.input_payload.get("preset_id") == "screen-grid-corrections-v1",
+                )
                 names = (
                     "screen.onnx",
                     "board.onnx",
@@ -553,7 +570,11 @@ class GridTrainingJobHandler:
                     }
                     for name in names
                 }
-            except (OSError, ValueError, KeyError, TypeError):
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                if job.input_payload.get("preset_id") == "screen-grid-corrections-v1":
+                    raise JobHandlerError(
+                        "GRID_TRAINING_EXPORT_CORRUPT", "Screen export cannot be verified."
+                    ) from error
                 continue
             candidates.append((directory.stat().st_mtime, directory, bundle, provenance, files))
         if not candidates:
@@ -644,7 +665,11 @@ class GridTrainingJobHandler:
         )
         if result["status"] == "exported":
             export = result["export"]
-            self._verify_export(run_dir, export)
+            self._verify_export(
+                run_dir,
+                export,
+                required_screen=job.input_payload.get("preset_id") == "screen-grid-corrections-v1",
+            )
             state.export = {
                 **export,
                 "checkpoint": result["checkpoint"],
@@ -794,7 +819,9 @@ class GridTrainingJobHandler:
 
     # --- install and register ------------------------------------------------------------------
 
-    def _verify_export(self, run_dir: Path, export: Mapping[str, Any]) -> None:
+    def _verify_export(
+        self, run_dir: Path, export: Mapping[str, Any], *, required_screen: bool = False
+    ) -> None:
         directory = run_dir / export["directory"]
         for name, item in export["files"].items():
             path = directory / name
@@ -804,6 +831,57 @@ class GridTrainingJobHandler:
                 or sha256_file(path) != item["sha256"]
             ):
                 raise JobHandlerError("GRID_TRAINING_EXPORT_CORRUPT", "Exported files differ.")
+        bundle = json.loads((directory / "bundle.json").read_text(encoding="utf-8"))
+        self._verify_screen_export(run_dir, bundle, required=required_screen)
+
+    @staticmethod
+    def _verify_screen_export(
+        run_dir: Path, bundle: Mapping[str, Any], *, required: bool = False
+    ) -> None:
+        required = (
+            required
+            or bundle.get("provenance", {}).get("trainingPresetId") == "screen-grid-corrections-v1"
+        )
+        spec_path = run_dir / "spec.json"
+        if not spec_path.exists():
+            if required:
+                raise JobHandlerError(
+                    "GRID_TRAINING_EXPORT_CORRUPT", "Screen export requires its run specification."
+                )
+            return
+        envelope = json.loads(spec_path.read_text(encoding="utf-8"))
+        spec = envelope.get("payload")
+        if not isinstance(spec, dict) or envelope.get("sha256") != sha256_bytes(canonical(spec)):
+            raise JobHandlerError(
+                "GRID_TRAINING_EXPORT_CORRUPT", "Training specification checksum differs."
+            )
+        if not required and spec.get("preset", {}).get("id") != "screen-grid-corrections-v1":
+            return
+        try:
+            from game_predictor_api.domain.grid_correction_evaluation import (
+                require_checkpoint_selection,
+            )
+            from game_predictor_api.domain.grid_rescue_policy import require_rescue_evidence
+
+            proof = require_rescue_evidence(bundle)
+            selection = require_checkpoint_selection(
+                bundle["provenance"]["checkpointSelection"], screen=True
+            )
+            if (
+                spec["preset"]["id"] != "screen-grid-corrections-v1"
+                or proof["runId"] != spec["jobId"]
+                or proof["trainingPresetFingerprint"] != spec["preset"]["fingerprint"]
+                or selection["selectionInputSha256"] != proof["selectionInput"]["sha256"]
+                or (
+                    spec.get("rescueRecipe") is not None and spec["rescueRecipe"] != proof["recipe"]
+                )
+                or (spec.get("rescueRecipe") is None and proof["recipe"]["variant"] is not None)
+            ):
+                raise ValueError("Screen export pins differ.")
+        except (KeyError, TypeError, ValueError) as error:
+            raise JobHandlerError(
+                "GRID_TRAINING_EXPORT_CORRUPT", "Screen export proof differs."
+            ) from error
 
     def _descriptor(
         self, job: Job, state: RunState, base: Mapping[str, Any]
@@ -949,7 +1027,11 @@ class GridTrainingJobHandler:
         self, context: JobExecutionContext, job: Job, state: RunState, run_dir: Path
     ) -> None:
         assert state.export is not None
-        self._verify_export(run_dir, state.export)
+        self._verify_export(
+            run_dir,
+            state.export,
+            required_screen=job.input_payload.get("preset_id") == "screen-grid-corrections-v1",
+        )
         base = self.store.base_version(UUID(str(_payload(job)["base_version_id"])))
         stored = state.export.get("descriptor")
         if stored is None:

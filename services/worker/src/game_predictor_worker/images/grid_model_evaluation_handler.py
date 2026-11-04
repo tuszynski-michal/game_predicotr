@@ -16,7 +16,7 @@ import os
 import uuid
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import UUID
 
 from game_predictor_api.application.grid_model_evaluation import (
@@ -46,6 +46,7 @@ from ..training_core.grid_correction_metrics import CorrectionControlPhoto
 from ..training_core.grid_correction_metrics import measure_role as measure_corrections
 from ..training_core.grid_evaluation import ControlPhoto, Engine, measure_role
 from .grid_cohort_dataset import (
+    GridAssessmentDataset,
     GridBoardDataset,
     GridCohortDatasetError,
     GridCohortSnapshot,
@@ -148,9 +149,13 @@ class GridModelEvaluationJobHandler:
         threads: int = 4,
         engine_factory: Any = None,
     ) -> None:
+        from .grid_rescue_assessment import assessment_engine
+
         self.store, self.artifact_root, self.threads = store, artifact_root.resolve(), threads
         self.engine_factory = engine_factory or (
-            lambda directory, sha: onnx_engine(directory, self.threads, expected_bundle_sha256=sha)
+            lambda directory, sha: assessment_engine(
+                onnx_engine(directory, self.threads, expected_bundle_sha256=sha), directory, sha
+            )
         )
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
@@ -203,12 +208,12 @@ class GridModelEvaluationJobHandler:
     def _engines(
         self, manifest: Mapping[str, Any], base: Mapping[str, Any]
     ) -> tuple[Engine, Engine]:
-        return (
-            self.engine_factory(self.artifact_root / base["managedDirectory"], bundle_sha256(base)),
-            self.engine_factory(
-                self.artifact_root / manifest["managedDirectory"], bundle_sha256(manifest)
-            ),
-        )
+        def load(item: Mapping[str, Any]) -> Engine:
+            directory = self.artifact_root / item["managedDirectory"]
+            checksum = bundle_sha256(item)
+            return cast(Engine, self.engine_factory(directory, checksum))
+
+        return load(base), load(manifest)
 
     def _snapshot(
         self,
@@ -255,7 +260,14 @@ class GridModelEvaluationJobHandler:
         correction: bool = False,
     ) -> list[ControlPhoto]:
         photos = []
-        for source, targets in GridBoardDataset(snapshot, role).indexed():
+        dataset = (
+            GridAssessmentDataset(snapshot, role)
+            if correction
+            and role == "REGRESSION"
+            and snapshot.manifest["policyVersion"] == "application-grid-corrections-v3"
+            else GridBoardDataset(snapshot, role)
+        )
+        for source, targets in dataset.indexed():
             source_id = str(source["sourceId"])
             group = groups.get(source_id)
             if group is None:

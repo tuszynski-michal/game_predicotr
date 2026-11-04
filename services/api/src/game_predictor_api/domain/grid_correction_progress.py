@@ -27,7 +27,27 @@ def correction_progress_counts(split: dict[str, Any]) -> dict[str, Any]:
         if not item["representative"]:
             continue
         boards, role = item["eligibleBoards"], item["role"]
-        add("approved", boards)
+        qualified = (
+            item["qualifiedBoards"]
+            if split.get("schemaVersion") == "grid-correction-split-v3"
+            else boards
+        )
+        add("approved", qualified)
+        if qualified and not boards and split.get("schemaVersion") == "grid-correction-split-v3":
+            add("excluded", qualified)
+            if item["buffer"]:
+                add("buffers", qualified)
+            reason = (
+                "SCREEN_PARTIAL_PHOTO_EXCLUDED"
+                if item.get("detectorExcluded")
+                else "GRID_CORRECTION_BUFFER"
+                if item["buffer"]
+                else "GRID_CORRECTION_PROTECTED_NEIGHBORHOOD"
+            )
+            entry = reasons.setdefault(reason, {"reason": reason, "photos": 0, "boards": 0})
+            entry["photos"] += 1
+            entry["boards"] += qualified
+            continue
         if item["buffer"]:
             add("buffers", boards, unlabelled=True)
         if role == "TRAIN":

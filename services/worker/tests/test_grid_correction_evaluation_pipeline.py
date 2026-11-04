@@ -135,3 +135,74 @@ def test_actual_assigned_baseline_does_not_replace_candidate_parent(scenario):
     )
     assert report["verdict"] == "PASS" and seen == [UUID(baseline["versionId"])]
     assert s.candidate["baseVersionId"] == s.base["versionId"] != baseline["versionId"]
+
+
+def test_screen_report_v4_keeps_every_partial_regression_target_and_replays(scenario):
+    from game_predictor_api.domain.grid_correction_evaluation import SCREEN_CHECKPOINT_RULE
+    from game_predictor_api.schemas.grid_model_evaluations import (
+        GridScreenCorrectionEvaluationReport,
+    )
+
+    s = scenario
+    originals = {game: copy.deepcopy(fixture.sources) for game, fixture in s.store.games.items()}
+    job = correction(s)
+    for game, fixture in s.store.games.items():
+        for index, source in enumerate(fixture.sources):
+            if source["role"] != "REGRESSION":
+                source.update(copy.deepcopy(originals[game][index]))
+                source["screenEligible"] = True
+        fixture.publish(
+            mode="screen+grid",
+            change=lambda root: root.update(
+                schemaVersion="application-grid-snapshot-v3",
+                policyVersion="application-grid-corrections-v3",
+            ),
+        )
+    payload = copy.deepcopy(job.input_payload)
+    selection = payload["checkpoint_selection"]
+    selection.update(
+        rule=SCREEN_CHECKPOINT_RULE,
+        selectionInputSha256="c" * 64,
+        metricStateVersion="photo-board-checkpoint-state-v1",
+    )
+    selection["metrics"]["photoCorrectRate"] = 1.0
+    bundle = json.dumps(
+        {"parity": {"passed": True}, "provenance": {"checkpointSelection": selection}}
+    ).encode()
+    (s.root / s.candidate["managedDirectory"] / "bundle.json").write_bytes(bundle)
+    for entry in s.candidate["files"]:
+        if entry["name"] == "bundle.json":
+            entry.update(sha256=hashlib.sha256(bundle).hexdigest(), sizeBytes=len(bundle))
+    payload["manifest_sha256"] = descriptor_sha256(s.candidate)
+    for pin in payload["cohorts"]:
+        pin["manifest_sha256"] = s.store.games[pin["game_id"]].manifest_pin["sha256"]
+    job = dataclasses.replace(job, input_payload=payload)
+    validation = {key for roles in s.keys.values() for key in roles["VALIDATION"]}
+    missing = s.keys[s.training]["REGRESSION"][0]
+
+    def factory(directory, sha):
+        def analyse(rgb):
+            count = 9 if colour(rgb) in validation else 3
+            if directory.name != "candidate" and colour(rgb) == missing:
+                count = 0
+            return [SimpleNamespace(nodes=s.labels.copy()) for _ in range(count)]
+
+        return SimpleNamespace(analyse=analyse)
+
+    worker = GridModelEvaluationJobHandler(s.store, s.root, engine_factory=factory)
+    context = Context(job)
+    worker(context, job)
+    report_json, sha = next(iter(s.store.reports.values()))
+    report = require_report(
+        report_json, manifest=s.candidate, base_sha256=descriptor_sha256(s.base)
+    )
+    GridScreenCorrectionEvaluationReport.model_validate(report)
+    assert report["schemaVersion"] == "grid-model-evaluation-read-v4"
+    assert report["verdict"] == "PASS"
+    for game in report["games"]:
+        reg = game["roles"]["REGRESSION"]["candidate"]
+        assert reg["photos"] == 5 and reg["boards_expected"] == 15 and reg["full_photos"] == 0
+        assert reg["false_boards"] is None
+    restarted = dataclasses.replace(job, checkpoint_payload=context.states[-1])
+    worker(Context(restarted), restarted)
+    assert next(iter(s.store.reports.values())) == (report_json, sha)

@@ -264,6 +264,7 @@ class SqlAlchemyGridReinferenceRepository:
             rules_version_id=topology.rules_version_id,
             rows=topology.rows,
             columns=topology.columns,
+            artifact_root=self.artifact_root,
         )
         acquire_job_admission(self.session, game_id)
         operation_id = uuid4()

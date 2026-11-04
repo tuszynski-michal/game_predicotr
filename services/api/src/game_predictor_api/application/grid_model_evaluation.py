@@ -260,8 +260,9 @@ class GridModelEvaluationService:
                 run = session.get(JobModel, UUID(str(manifest["provenance"]["runId"])))
             except (ValueError, KeyError, TypeError):
                 run = None
-            correction = (
-                run is not None and run.input_payload.get("preset_id") == "grid-corrections-v1"
+            correction = run is not None and run.input_payload.get("preset_id") in (
+                "grid-corrections-v1",
+                "screen-grid-corrections-v1",
             )
             history = None
             if correction:
@@ -344,7 +345,9 @@ class GridModelEvaluationService:
                 (self.artifact_root / manifest["managedDirectory"] / "bundle.json").read_bytes()
             )
             selection = require_checkpoint_selection(
-                bundle.get("provenance", {}).get("checkpointSelection")
+                bundle.get("provenance", {}).get("checkpointSelection"),
+                screen=run is not None
+                and run.input_payload.get("preset_id") == "screen-grid-corrections-v1",
             )
             payload.update(
                 evaluation_kind=CORRECTION_EVALUATION, scope=scope, checkpoint_selection=selection
@@ -581,7 +584,10 @@ class GridModelEvaluationService:
                     expected_cohort=cohort_pins(pin)[0],
                 )
             reader = require_report
-            if json.loads(row.report_json).get("schemaVersion") == "grid-model-evaluation-read-v3":
+            if json.loads(row.report_json).get("schemaVersion") in (
+                "grid-model-evaluation-read-v3",
+                "grid-model-evaluation-read-v4",
+            ):
                 from game_predictor_api.domain.grid_correction_evaluation import (
                     require_report as correction_report,
                 )

@@ -18,12 +18,16 @@ from .grid_correction_split import (
     _prepare,
     _validate,
     _Work,
+    role_boards,
     solve_correction_split,
 )
 
 
 def solve_incremental_split(
-    sources: Iterable[CorrectionSplitSource], *, max_work: int = 3_000_000
+    sources: Iterable[CorrectionSplitSource],
+    *,
+    max_work: int = 3_000_000,
+    full_training: bool = False,
 ) -> CorrectionSplitResult:
     values = tuple(sorted(sources, key=lambda item: item.source_id))
     if not isinstance(max_work, int) or isinstance(max_work, bool) or max_work < 1:
@@ -45,18 +49,29 @@ def solve_incremental_split(
         return tuple(
             CorrectionRoleCount(
                 name,
-                sum(n > 0 and roles.get(components.find(p)) == i for p, n in boards.items()),
-                sum(n for p, n in boards.items() if roles.get(components.find(p)) == i),
+                sum(
+                    role_boards(n, i, full_training=full_training) > 0
+                    and roles.get(components.find(p)) == i
+                    for p, n in boards.items()
+                ),
+                sum(
+                    role_boards(n, i, full_training=full_training)
+                    for p, n in boards.items()
+                    if roles.get(components.find(p)) == i
+                ),
             )
             for i, name in enumerate(ROLES)
         )
 
     if any(c.photos < 5 or c.boards < 15 for c in counts()[1:]):
-        initial = solve_correction_split(values, max_work=max_work)
+        initial = solve_correction_split(values, max_work=max_work, full_training=full_training)
         # Keep complete labelled components, not unlabelled tails of a role.
         for source_id, initial_role in initial.assignments:
             group = components.find(source_id)
-            if initial_role is not None and any(boards[p] for p in members[group]):
+            if initial_role is not None and any(
+                role_boards(boards[p], ROLES.index(initial_role), full_training=full_training)
+                for p in members[group]
+            ):
                 roles[group] = ROLES.index(initial_role)
         for source_id in initial.buffers:
             roles[components.find(source_id)] = 3
@@ -80,7 +95,11 @@ def solve_incremental_split(
         return True
 
     for group in sorted(members):
-        if group not in roles and any(boards[p] for p in members[group]) and safe(group, 0):
+        if (
+            group not in roles
+            and any(role_boards(boards[p], 0, full_training=full_training) for p in members[group])
+            and safe(group, 0)
+        ):
             roles[group] = 0
 
     missing_reserves: list[str] = []
@@ -186,6 +205,8 @@ def solve_incremental_split(
         objective_numerator=0,
         objective_denominator=1,
         representative_sources=tuple(sorted(s.source_id for s in representatives.values())),
-        schema_version="grid-correction-split-v2",
-        solver_version="protected-islands-v2",
+        schema_version="grid-correction-split-v3" if full_training else "grid-correction-split-v2",
+        solver_version="full-train-selection-islands-v1"
+        if full_training
+        else "protected-islands-v2",
     )

@@ -10,13 +10,20 @@ from uuid import UUID
 from sqlalchemy import text
 
 from game_predictor_api.domain.grid_correction_incremental_split import solve_incremental_split
-from game_predictor_api.domain.grid_correction_policy import CORRECTION_POLICY
+from game_predictor_api.domain.grid_correction_policy import (
+    CORRECTION_POLICY,
+    SCREEN_CORRECTION_POLICY,
+)
 from game_predictor_api.domain.grid_correction_split import (
+    ROLES,
     CorrectionSplitError,
     CorrectionSplitSource,
+    _prepare,
     correction_data_availability,
+    role_boards,
     solve_correction_split,
 )
+from game_predictor_api.domain.grid_detector_readiness import detector_readiness
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError, digest
 from game_predictor_api.storage.grid_training_cohort_evidence import GridCohortEvidenceReader
 
@@ -69,6 +76,7 @@ class GridCorrectionSplitPreparationError(GridCohortError):
             error.code, f"{error} Available photos: {error.photos}; boards: {error.boards}."
         )
         self.data_availability: dict[str, int | str] | None = None
+        self.detector_readiness: dict[str, Any] | None = None
         if error.code in {"GRID_CORRECTION_SPLIT_MINIMA", "GRID_CORRECTION_SPLIT_INFEASIBLE"}:
             self.data_availability = correction_data_availability(
                 error.photos,
@@ -208,7 +216,8 @@ def prepare_split(
     repo: Any, game: UUID, imports: list[str], deadline: Any, *, policy: str = CORRECTION_POLICY
 ) -> dict[str, Any]:
     rows = population(repo, game, imports)
-    incremental = policy == CORRECTION_POLICY
+    screen = policy == SCREEN_CORRECTION_POLICY
+    incremental = policy in (CORRECTION_POLICY, SCREEN_CORRECTION_POLICY)
     metadata = contexts(repo, game, [r["source"]["id"] for r in rows], incremental=incremental)
     reader = GridCohortEvidenceReader(repo.session, repo.artifact_root)
     sources, pins = [], []
@@ -297,6 +306,7 @@ def prepare_split(
                 "registryProofSha256": context["proofSha256"],
                 "componentIds": context["componentIds"],
                 "eligibleBoards": count,
+                **({"qualifiedLabelsSha256": digest(labels)} if screen else {}),
                 **(
                     {"pendingCorrection": row.get("pendingCorrection", False)}
                     if incremental
@@ -316,11 +326,32 @@ def prepare_split(
             }
         )
     try:
+        readiness = None
+        if screen:
+            _, _, _, _, deduplicated, _ = _prepare(tuple(sources))
+            readiness = detector_readiness(list(deduplicated.values()))
+            if readiness["fullPhotos"] < 15:
+                raise CorrectionSplitError(
+                    "SCREEN_FULL_PHOTOS_REQUIRED",
+                    "Screen TRAIN and selection require 15 full photos.",
+                    photos=sum(n > 0 for n in deduplicated.values()),
+                    boards=sum(deduplicated.values()),
+                )
         solved = (
-            solve_incremental_split(sources) if incremental else solve_correction_split(sources)
+            solve_incremental_split(sources, full_training=screen)
+            if incremental
+            else solve_correction_split(sources)
         )
     except CorrectionSplitError as error:
-        raise GridCorrectionSplitPreparationError(error) from error
+        wrapped = GridCorrectionSplitPreparationError(error)
+        if screen:
+            wrapped.detector_readiness = readiness
+            wrapped.data_availability = correction_data_availability(
+                error.photos,
+                error.boards,
+                "minima" if error.code == "SCREEN_FULL_PHOTOS_REQUIRED" else "infeasible",
+            )
+        raise wrapped from error
     assignments = dict(solved.assignments)
     buffers = set(solved.buffers)
     representatives = set(solved.representative_sources)
@@ -330,6 +361,16 @@ def prepare_split(
             buffer=pin["sourceId"] in buffers,
             representative=pin["sourceId"] in representatives,
         )
+        if screen:
+            count = pin["eligibleBoards"]
+            role = pin["role"]
+            pin.update(
+                qualifiedBoards=count,
+                eligibleBoards=role_boards(count, ROLES.index(role), full_training=True)
+                if role
+                else 0,
+                detectorExcluded=0 < count < 9 and role != "REGRESSION",
+            )
     result = {
         "schemaVersion": solved.schema_version,
         "solverVersion": solved.solver_version,
@@ -341,6 +382,11 @@ def prepare_split(
         "evidenceLevel": "photo-only",
         "limitations": list(solved.limitations),
         "objective": [solved.objective_numerator, solved.objective_denominator],
+        **(
+            {"detectorReadiness": detector_readiness(list(deduplicated.values()), pins)}
+            if screen
+            else {}
+        ),
     }
     return {**result, "sha256": digest(result)}
 
@@ -354,7 +400,10 @@ def validate_population(
             "GRID_CORRECTION_POPULATION_CHANGED",
             "Source population or attested order changed; create a new preview.",
         )
-    if for_freeze and split.get("schemaVersion") == "grid-correction-split-v2":
+    if for_freeze and split.get("schemaVersion") in (
+        "grid-correction-split-v2",
+        "grid-correction-split-v3",
+    ):
         pending = {row["source"]["id"] for row in rows if row.get("pendingCorrection")}
         if any(
             item.get("pendingCorrection")
@@ -378,7 +427,9 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "photoIdentity": item["sourceSha256"],
             "evidenceLevel": "photo-only",
             "qualification": "eligible"
-            if item["role"] is not None and item["representative"]
+            if item["role"] is not None
+            and item["representative"]
+            and not item.get("detectorExcluded")
             else "blocked",
             "reasonCodes": ["GRID_CORRECTION_BUFFER"]
             if item["buffer"]
@@ -386,9 +437,22 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             if not item["representative"]
             else ["GRID_CORRECTION_PROTECTED_NEIGHBORHOOD"]
             if item["role"] is None
+            else ["SCREEN_PARTIAL_PHOTO_EXCLUDED"]
+            if item.get("detectorExcluded")
             else [],
             "splitSha256": split["sha256"],
             "expectedBoardCount": item["eligibleBoards"],
+            **(
+                {"expectedLabelsSha256": item["qualifiedLabelsSha256"]}
+                if "qualifiedLabelsSha256" in item
+                else {}
+            ),
+            **(
+                {"assessmentPolicy": "human-labeled-targets-v1"}
+                if split["schemaVersion"] == "grid-correction-split-v3"
+                and item["role"] == "REGRESSION"
+                else {}
+            ),
         }
         for item in split["sources"]
     }

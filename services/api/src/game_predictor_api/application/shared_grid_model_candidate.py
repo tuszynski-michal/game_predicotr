@@ -50,6 +50,7 @@ class SharedGridCandidateService:
                 if member.frozen.get("used") is True and row.document.get("policyVersion") in (
                     "application-grid-corrections-v1",
                     "application-grid-corrections-v2",
+                    "application-grid-corrections-v3",
                 ):
                     groups.setdefault(str(member.source_id), str(member.source_id))
             return {**header, "manifestPath": row.manifest_path}, eligibility, groups
@@ -87,6 +88,7 @@ class SharedGridCandidateService:
             correction = pinned[0][0].get("policyVersion") in (
                 "application-grid-corrections-v1",
                 "application-grid-corrections-v2",
+                "application-grid-corrections-v3",
             )
             if correction:
                 from game_predictor_api.storage.grid_model_registry import (

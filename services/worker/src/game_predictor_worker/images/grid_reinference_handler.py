@@ -6,6 +6,7 @@ import copy
 import hashlib
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
@@ -229,6 +230,7 @@ class GridReinferenceHandler:
                         execution_policy=cast(
                             str, crop_policy_for_acceptance(d["acceptancePolicy"])
                         ),
+                        operation_pin=d.get(OPERATION_PIN_KEY),
                     )
                 )
                 with self.sessions() as session, session.begin():
@@ -483,6 +485,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
         context: JobExecutionContext,
         *,
         execution_policy: str = LEGACY_NEURAL_AUTO_CROP_POLICY,
+        operation_pin: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         source = source_document["source"]
         if not frozen:
@@ -528,7 +531,27 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             )
         rgb = frame.rgb
         snapshot = NeuralGridSnapshot.from_payload(pin)
-        raw_result = self.raw_inference(source, rgb, pin, snapshot, operation_id, runner, context)
+        geometry = source_document["geometryContext"]
+        rescue = None if operation_pin is None else operation_pin.get("rescue")
+        expected_positions = (
+            set(range(geometry["sequence_range_end"] - geometry["sequence_range_start"] + 1))
+            if geometry is not None
+            else set()
+        )
+        raw_result = self.raw_inference(
+            source,
+            rgb,
+            pin,
+            snapshot,
+            operation_id,
+            runner,
+            context,
+            **(
+                {"rescue_pin": rescue, "expected_positions": expected_positions}
+                if rescue is not None
+                else {}
+            ),
+        )
         if raw_result.get("outcome"):
             return self.save_checkpoint(operation_id, ordinal, {**raw_result, "byPosition": {}})
         geometry = source_document["geometryContext"]
@@ -589,6 +612,11 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 "byPosition": by_position,
                 "sourceGeometryRevisionId": geometry["id"],
                 **(
+                    {"rescueExecution": raw_result["rescueExecution"]}
+                    if "rescueExecution" in raw_result
+                    else {}
+                ),
+                **(
                     {"executionPolicy": execution_policy}
                     if execution_policy == NEURAL_AUTO_CROP_POLICY
                     else {}
@@ -630,6 +658,9 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
         operation_id: UUID,
         runner: Any,
         context: JobExecutionContext,
+        *,
+        rescue_pin: Mapping[str, Any] | None = None,
+        expected_positions: set[int] | None = None,
     ) -> dict[str, Any]:
         """Deduplicate pixels/model only; each occurrence retains its own binding."""
         identity = digest(
@@ -647,6 +678,14 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 },
                 "model": pin,
                 "runtime": "grid-reinference-runtime-v1",
+                **(
+                    {
+                        "rescuePin": dict(rescue_pin),
+                        "positions": sorted(expected_positions or set()),
+                    }
+                    if rescue_pin is not None
+                    else {}
+                ),
             }
         )
         cache = self.root / "grid-reinference" / str(operation_id) / "raw" / f"{identity}.json"
@@ -663,13 +702,22 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
         bundle_sha = next(
             item.sha256 for item in snapshot.version.files if item.name == "bundle.json"
         )
+        rescue_execution: dict[str, Any] = {}
         try:
-            found = runner.run(
-                bundle,
-                bundle_sha,
-                rgb,
+            from .grid_rescue_runtime import run_with_rescue
+
+            found = run_with_rescue(
+                runner=runner,
+                bundle=bundle,
+                bundle_sha=bundle_sha,
+                rgb=rgb,
                 heartbeat=lambda: self.cancellation_boundary(context),
                 max_seconds=SOURCE_DEADLINE_SECONDS,
+                directory=self.root / "grid-reinference" / str(operation_id) / "rescue",
+                source_sha=source["checksum_sha256"],
+                pin=rescue_pin,
+                expected_positions=expected_positions or set(),
+                summary_sink=rescue_execution,
             )
         except GeometryRuntimeError as error:
             if error.code not in {
@@ -677,7 +725,12 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 "NEURAL_GRID_STARTUP_TIME_LIMIT",
             }:
                 raise
-            result = {"outcome": "inference_timeout", "reason": error.code, "detections": []}
+            result = {
+                "outcome": "inference_timeout",
+                "reason": error.code,
+                "detections": [],
+                **({"rescueExecution": rescue_execution} if rescue_execution else {}),
+            }
             return self.publish_raw(cache, identity, result)
         height, width = rgb.shape[:2]
         detections = []
@@ -713,7 +766,14 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     ),
                 }
             )
-        return self.publish_raw(cache, identity, {"detections": detections})
+        return self.publish_raw(
+            cache,
+            identity,
+            {
+                "detections": detections,
+                **({"rescueExecution": rescue_execution} if rescue_execution else {}),
+            },
+        )
 
     @staticmethod
     def publish_raw(path: Path, identity: str, result: dict[str, Any]) -> dict[str, Any]:

@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from ..training_core.gpu_lease import GpuLease, GpuLeaseError, lease_path
-from ..training_core.grid_training_admission import PRESETS, probe_runtime
+from ..training_core.grid_training_admission import PRESETS, digest, probe_runtime
 from ..training_core.process_identity import process_created
 from ..training_core.runtime import TrainingInterrupted
 
@@ -411,15 +411,21 @@ def _train(
     workers = int(spec.get("dataWorkers", preset.data_workers))
     screen_mode = preset.mode == "screen+grid"
     train_photos: Any = CohortPhotos(snapshot, "TRAIN", full_only=screen_mode)
-    corrections = preset.preset_id == "grid-corrections-v1"
+    screen_corrections = preset.preset_id == "screen-grid-corrections-v1"
+    corrections = preset.preset_id in ("grid-corrections-v1", "screen-grid-corrections-v1")
     if corrections != (
         snapshot.manifest["policyVersion"]
-        in ("application-grid-corrections-v1", "application-grid-corrections-v2")
+        in (
+            "application-grid-corrections-v1",
+            "application-grid-corrections-v2",
+            "application-grid-corrections-v3",
+        )
     ):
         raise ChildError("GRID_RUN_COHORT_POLICY_MISMATCH")
-    validation = CohortPhotos(snapshot, "VALIDATION", full_only=not corrections)
+    validation = CohortPhotos(snapshot, "VALIDATION", full_only=screen_mode or not corrections)
     crops, labels = validation_crops(validation, recipe)
     joint = spec.get("joint")
+    snapshots = [snapshot]
     strata = None
     validations = [validation]
     if joint is not None:
@@ -443,11 +449,37 @@ def _train(
         )
         strata = train_photos.strata
         validations = [validation] + [
-            CohortPhotos(item, "VALIDATION", full_only=not corrections) for item in snapshots[1:]
+            CohortPhotos(item, "VALIDATION", full_only=screen_mode or not corrections)
+            for item in snapshots[1:]
         ]
+    selection_binding = {}
+    variant = exposure = None
+    if screen_corrections:
+        from ..training_core.grid_rescue_training import (
+            TrainingExposure,
+            require_recipe,
+            rescue_recipe,
+            selection_input,
+        )
+
+        selection = selection_input(
+            [(str(item.manifest["gameId"]), item.manifest["photoSplit"]) for item in snapshots]
+        )
+        sealed_recipe = spec.get("rescueRecipe") or rescue_recipe(
+            spec["base"]["presetSha256"], None, selection
+        )
+        variant = require_recipe(sealed_recipe, spec["base"]["presetSha256"], selection)
+        exposure = TrainingExposure(sealed_recipe)
+        selection_binding = {"selectionInput": selection, "rescueRecipe": sealed_recipe}
     if screen_mode:
         batches: Any = ScreenGridBatches(
-            train_photos, recipe, preset.batch_items, int(spec["seed"]), workers, strata
+            train_photos,
+            recipe,
+            preset.batch_items,
+            int(spec["seed"]),
+            workers,
+            strata,
+            **({"variant": variant} if screen_corrections else {}),
         )
         evaluate = macro_evaluator([photo_evaluator(item, recipe, device) for item in validations])
         losses = screen_grid_losses
@@ -463,7 +495,17 @@ def _train(
     if corrections:
         from .grid_training_data import correction_evaluator
 
-        evaluate = correction_evaluator(validations, recipe, device)
+        evaluate = correction_evaluator(validations, recipe, device, photo_first=screen_corrections)
+    if screen_corrections:
+        evaluate = photo_evaluator(
+            validation,
+            recipe,
+            device,
+            selection=selection,
+            exposure=exposure,
+            variant=variant,
+            parts=validations,
+        )
     plan = TrainingPlan.of(
         spec["jobId"],
         int(spec["seed"]),
@@ -474,6 +516,7 @@ def _train(
             "baseWeightsSha256": spec["base"]["weightsSha256"],
             "basePresetSha256": spec["base"]["presetSha256"],
             "mode": preset.mode,
+            **selection_binding,
             **({} if joint is None else {"jointSha256": joint["sha256"]}),
         },
     )
@@ -493,9 +536,21 @@ def _train(
             if resume is None
             else (run_dir / "checkpoints" / resume["path"], resume["sha256"]),
             device=device,
+            **(
+                {"exposure": exposure, "exposure_members": batches.exposure_members}
+                if screen_corrections
+                else {}
+            ),
         )
     finally:
         batches.close()
+    if screen_corrections:
+        if result.checkpoint_selection is None:
+            raise ChildError("GRID_TRAINING_SELECTION_REQUIRED")
+        result.checkpoint_selection.update(
+            selectionInputSha256=selection_binding["selectionInput"]["sha256"],
+            metricStateVersion="photo-board-checkpoint-state-v1",
+        )
     network.load_state_dict(
         best_weights(result.checkpoint_path, result.checkpoint_sha256, plan.binding)
     )
@@ -508,6 +563,11 @@ def _train(
         preset_bytes,
         result,
         (crops, None if not screen_mode else validation),
+        **(
+            {"screen_evaluator": evaluate, "selection_binding": selection_binding}
+            if screen_corrections
+            else {}
+        ),
     )
     return {
         "status": "exported",
@@ -536,8 +596,13 @@ def _export(
     preset_bytes: bytes,
     result: Any,
     parity_source: tuple[Any, Any],
+    *,
+    screen_evaluator: Any = None,
+    selection_binding: Any = None,
 ) -> dict[str, Any]:
     """Immutable export directory named by the final checkpoint; re-use an identical one."""
+    import torch
+
     from ..training_core.grid_training import (
         bundle_document,
         export_graphs,
@@ -553,6 +618,17 @@ def _export(
         if existing["provenance"]["checkpointSha256"] != result.checkpoint_sha256:
             raise ChildError("GRID_TRAINING_EXPORT_CONFLICT")
         _verify_recovered(destination, existing, preset_bytes, result.checkpoint_path)
+        if screen_evaluator is not None:
+            from game_predictor_api.domain.grid_rescue_policy import require_rescue_evidence
+
+            proof = require_rescue_evidence(existing)
+            if (
+                proof["recipe"] != selection_binding["rescueRecipe"]
+                or proof["selectionInput"] != selection_binding["selectionInput"]
+                or proof["trainingExposure"] != result.exposure
+                or existing["provenance"].get("checkpointSelection") != result.checkpoint_selection
+            ):
+                raise ChildError("GRID_TRAINING_EXPORT_CORRUPT")
         return _export_view(destination, existing)
     staging = Path(tempfile.mkdtemp(prefix=".export-", dir=run_dir))
     try:
@@ -601,6 +677,31 @@ def _export(
             provenance=provenance,
             parity=parity,
         )
+        if screen_evaluator is not None:
+            from .grid_rescue_export import RescueParity
+
+            if result.exposure is None:
+                raise ChildError("GRID_RESCUE_EXPOSURE_REQUIRED")
+            parity_runner = RescueParity(network, recipe, staging)
+            with torch.no_grad():
+                selected = screen_evaluator.measure(
+                    parity_runner.engine, result.exposure, parity=parity_runner
+                )
+            rescue = {
+                "contractVersion": "grid-rescue-evidence-v1",
+                "recipe": selection_binding["rescueRecipe"],
+                "selectionInput": selection_binding["selectionInput"],
+                "trainingExposure": result.exposure,
+                "selection": selected,
+                "parity": parity_runner.document(),
+                "runId": spec["jobId"],
+                "bestStep": result.best_step,
+                "weightsSha256": provenance["weightsSha256"],
+                "checkpointSha256": result.checkpoint_sha256,
+                "trainingPresetFingerprint": spec["preset"]["fingerprint"],
+                "snapshotId": provenance["snapshotId"],
+            }
+            bundle["rescue"] = {**rescue, "sha256": digest(rescue)}
         write_json_atomic(staging / "bundle.json", bundle)
         for path in staging.iterdir():
             with path.open("r+b") as stream:  # Windows fsync needs a writable handle

@@ -82,10 +82,13 @@ def make_operation_pin(
     rows: int,
     columns: int,
     qualification: dict[str, object],
+    rescue: dict[str, object] | None = None,
 ) -> dict[str, object]:
     descriptor = snapshot_descriptor(snapshot)
     pin: dict[str, object] = {
-        "contractVersion": OPERATION_PIN_VERSION,
+        "contractVersion": OPERATION_PIN_VERSION
+        if rescue is None
+        else "neural-grid-operation-pin-v2",
         "gameId": game_id,
         "modelVersionId": descriptor["versionId"],
         "catalogueManifestSha256": descriptor_sha256(descriptor),
@@ -95,6 +98,7 @@ def make_operation_pin(
         "boardColumns": columns,
         "qualificationPolicyVersion": GAME_QUALIFICATION_POLICY,
         "qualification": qualification,
+        **({"rescue": rescue} if rescue is not None else {}),
     }
     pin["pinSha256"] = descriptor_sha256(pin)
     return require_operation_pin(pin, snapshot=snapshot, game_id=game_id)
@@ -107,6 +111,10 @@ def require_operation_pin(
     game_id: str,
 ) -> dict[str, Any]:
     try:
+        is_rescue = (
+            isinstance(value, Mapping)
+            and value.get("contractVersion") == "neural-grid-operation-pin-v2"
+        )
         if not isinstance(value, Mapping) or value.keys() != {
             "contractVersion",
             "gameId",
@@ -119,13 +127,14 @@ def require_operation_pin(
             "qualificationPolicyVersion",
             "qualification",
             "pinSha256",
-        }:
+        } | ({"rescue"} if is_rescue else set()):
             raise ValueError("Operation pin fields differ.")
         pin = dict(value)
         snapshot.require_game(game_id)
         descriptor = snapshot_descriptor(snapshot)
         if (
-            pin["contractVersion"] != OPERATION_PIN_VERSION
+            pin["contractVersion"]
+            != ("neural-grid-operation-pin-v2" if is_rescue else OPERATION_PIN_VERSION)
             or pin["gameId"] != game_id
             or str(UUID(game_id)) != game_id
             or str(UUID(pin["topologyRulesVersionId"])) != pin["topologyRulesVersionId"]
@@ -170,6 +179,18 @@ def require_operation_pin(
                     raise ValueError("Evaluation evidence requires SHA-256.")
         else:
             raise ValueError("Unknown qualification state.")
+        if is_rescue:
+            from .grid_rescue_policy import require_rescue_pin
+
+            bundle_sha = next(
+                item["sha256"] for item in descriptor["files"] if item["name"] == "bundle.json"
+            )
+            rescue = require_rescue_pin(pin["rescue"], bundle_sha=bundle_sha)
+            if (
+                qualification["state"] != "qualified"
+                or rescue["publicationEvidenceSha256"] != qualification["publicationEvidenceSha256"]
+            ):
+                raise ValueError("Rescue qualification differs from the operation evidence.")
         return pin
     except (ValueError, TypeError, KeyError, AttributeError) as error:
         raise NeuralOperationPinError(str(error)) from error

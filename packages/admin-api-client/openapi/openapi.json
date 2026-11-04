@@ -1787,6 +1787,22 @@
         "title": "BoardCellRecropJobSnapshotPayload",
         "type": "object"
       },
+      "BoardCropGeometryV1": {
+        "additionalProperties": false,
+        "properties": {
+          "margin": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 0.5,
+            "title": "Margin",
+            "type": "number"
+          }
+        },
+        "required": [
+          "margin"
+        ],
+        "title": "BoardCropGeometryV1",
+        "type": "object"
+      },
       "BoardImportCoverageCountsResponse": {
         "additionalProperties": false,
         "properties": {
@@ -7689,6 +7705,55 @@
         "title": "DatasetVersionStatus",
         "type": "string"
       },
+      "DetectorRoleReadiness": {
+        "additionalProperties": false,
+        "properties": {
+          "eligibleFullPhotos": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligiblefullphotos"
+          },
+          "missingFullPhotos": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missingfullphotos"
+          },
+          "requiredFullPhotos": {
+            "minimum": 0.0,
+            "title": "Requiredfullphotos",
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "TRAIN",
+              "VALIDATION",
+              "REGRESSION"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "requiredFullPhotos"
+        ],
+        "title": "DetectorRoleReadiness",
+        "type": "object"
+      },
       "DuplicateSignatureGroupResponse": {
         "additionalProperties": false,
         "properties": {
@@ -10586,7 +10651,8 @@
             "enum": [
               "application-grid-cohort-v1",
               "application-grid-corrections-v1",
-              "application-grid-corrections-v2"
+              "application-grid-corrections-v2",
+              "application-grid-corrections-v3"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -12320,6 +12386,16 @@
             ],
             "title": "Defaultrevision"
           },
+          "detectorReadiness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridDetectorReadiness"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "evidenceLevel": {
             "const": "photo-only",
             "title": "Evidencelevel",
@@ -12410,12 +12486,43 @@
             "title": "Requiredgameids",
             "type": "array"
           },
+          "rescueRecipeSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rescuerecipesha256"
+          },
+          "rescueVariant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridRescueVariantV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "roleCounts": {
             "items": {
               "$ref": "#/components/schemas/GridCorrectionLearningRoleCount"
             },
             "title": "Rolecounts",
             "type": "array"
+          },
+          "trainingMode": {
+            "default": "grid-only",
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Trainingmode",
+            "type": "string"
           }
         },
         "required": [
@@ -12456,6 +12563,14 @@
             "title": "Exclusions",
             "type": "array"
           },
+          "historicalCohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "maxItems": 7,
+            "title": "Historicalcohorts",
+            "type": "array"
+          },
           "importJobIds": {
             "items": {
               "format": "uuid",
@@ -12464,6 +12579,25 @@
             "maxItems": 100,
             "title": "Importjobids",
             "type": "array"
+          },
+          "rescueVariant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridRescueVariantV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trainingMode": {
+            "default": "grid-only",
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Trainingmode",
+            "type": "string"
           }
         },
         "title": "GridCorrectionLearningPreviewCommand",
@@ -12569,6 +12703,14 @@
             "title": "Exclusions",
             "type": "array"
           },
+          "historicalCohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "maxItems": 7,
+            "title": "Historicalcohorts",
+            "type": "array"
+          },
           "idempotencyKey": {
             "format": "uuid",
             "title": "Idempotencykey",
@@ -12586,6 +12728,25 @@
           "previewSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Previewsha256",
+            "type": "string"
+          },
+          "rescueVariant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridRescueVariantV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trainingMode": {
+            "default": "grid-only",
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Trainingmode",
             "type": "string"
           }
         },
@@ -12793,6 +12954,55 @@
           "cells"
         ],
         "title": "GridCorrectionSymbolsResponse",
+        "type": "object"
+      },
+      "GridDetectorReadiness": {
+        "additionalProperties": false,
+        "properties": {
+          "fullPhotos": {
+            "minimum": 0.0,
+            "title": "Fullphotos",
+            "type": "integer"
+          },
+          "partialExcludedFromDetector": {
+            "minimum": 0.0,
+            "title": "Partialexcludedfromdetector",
+            "type": "integer"
+          },
+          "partialPhotos": {
+            "minimum": 0.0,
+            "title": "Partialphotos",
+            "type": "integer"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/DetectorRoleReadiness"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "photos",
+          "fullPhotos",
+          "partialPhotos",
+          "partialExcludedFromDetector",
+          "roles",
+          "reasonCodes"
+        ],
+        "title": "GridDetectorReadiness",
         "type": "object"
       },
       "GridDiagnosticsResponse": {
@@ -14624,7 +14834,8 @@
                   "mapping": {
                     "grid-model-assigned-comparison-v1": "#/components/schemas/GridAssignedComparisonReport",
                     "grid-model-evaluation-read-v2": "#/components/schemas/GridModelEvaluationReport",
-                    "grid-model-evaluation-read-v3": "#/components/schemas/GridCorrectionEvaluationReport"
+                    "grid-model-evaluation-read-v3": "#/components/schemas/GridCorrectionEvaluationReport",
+                    "grid-model-evaluation-read-v4": "#/components/schemas/GridScreenCorrectionEvaluationReport"
                   },
                   "propertyName": "schemaVersion"
                 },
@@ -14634,6 +14845,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/GridCorrectionEvaluationReport"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GridScreenCorrectionEvaluationReport"
                   },
                   {
                     "$ref": "#/components/schemas/GridAssignedComparisonReport"
@@ -16517,6 +16731,433 @@
         "title": "GridReinferenceTargetResponse",
         "type": "object"
       },
+      "GridRescueVariantV1": {
+        "additionalProperties": false,
+        "properties": {
+          "board": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardCropGeometryV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contractVersion": {
+            "const": "grid-rescue-variant-v1",
+            "default": "grid-rescue-variant-v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "preprocessingContract": {
+            "const": "neural-grid-rescue-preprocessing-v1",
+            "default": "neural-grid-rescue-preprocessing-v1",
+            "title": "Preprocessingcontract",
+            "type": "string"
+          },
+          "screen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScreenInputGeometryV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "GridRescueVariantV1",
+        "type": "object"
+      },
+      "GridScreenCorrectionCheckpointMetrics": {
+        "additionalProperties": false,
+        "properties": {
+          "boardCorrectRate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Boardcorrectrate",
+            "type": "number"
+          },
+          "normalizedError": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Normalizederror",
+            "type": "number"
+          },
+          "photoCorrectRate": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Photocorrectrate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "boardCorrectRate",
+          "normalizedError",
+          "photoCorrectRate"
+        ],
+        "title": "GridScreenCorrectionCheckpointMetrics",
+        "type": "object"
+      },
+      "GridScreenCorrectionCheckpointSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "earlyStopping": {
+            "$ref": "#/components/schemas/GridCorrectionEarlyStopping"
+          },
+          "metricStateVersion": {
+            "const": "photo-board-checkpoint-state-v1",
+            "title": "Metricstateversion",
+            "type": "string"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/GridScreenCorrectionCheckpointMetrics"
+          },
+          "role": {
+            "const": "VALIDATION",
+            "title": "Role",
+            "type": "string"
+          },
+          "rule": {
+            "const": "validation-photo-board-correct-photo-macro-error-earliest-v1",
+            "title": "Rule",
+            "type": "string"
+          },
+          "selectionInputSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Selectioninputsha256",
+            "type": "string"
+          },
+          "step": {
+            "minimum": 0.0,
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rule",
+          "role",
+          "step",
+          "metrics",
+          "earlyStopping",
+          "selectionInputSha256",
+          "metricStateVersion"
+        ],
+        "title": "GridScreenCorrectionCheckpointSelection",
+        "type": "object"
+      },
+      "GridScreenCorrectionEvaluationGame": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "coverage": {
+            "enum": [
+              "complete",
+              "incomplete"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "mode": {
+            "const": "screen+grid",
+            "title": "Mode",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "regression": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Regression",
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationRoles"
+          },
+          "targetMetric": {
+            "const": "boards_correct_or_normalized_error",
+            "title": "Targetmetric",
+            "type": "string"
+          },
+          "validation": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Validation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validation",
+          "regression",
+          "coverage",
+          "reasons",
+          "gameId",
+          "cohortId",
+          "mode",
+          "targetMetric",
+          "roles"
+        ],
+        "title": "GridScreenCorrectionEvaluationGame",
+        "type": "object"
+      },
+      "GridScreenCorrectionEvaluationPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "checkpointRule": {
+            "const": "validation-photo-board-correct-photo-macro-error-earliest-v1",
+            "title": "Checkpointrule",
+            "type": "string"
+          },
+          "currentGameImprovementRole": {
+            "const": "REGRESSION",
+            "title": "Currentgameimprovementrole",
+            "type": "string"
+          },
+          "epsilon": {
+            "minimum": 0.0,
+            "title": "Epsilon",
+            "type": "number"
+          },
+          "fullPhotoNonRegression": {
+            "items": {
+              "enum": [
+                "false_boards",
+                "duplicate_predictions",
+                "photo_complete_correct"
+              ],
+              "type": "string"
+            },
+            "title": "Fullphotononregression",
+            "type": "array"
+          },
+          "metricsVersion": {
+            "const": "grid-correction-metrics-v1",
+            "title": "Metricsversion",
+            "type": "string"
+          },
+          "minimumAbsoluteErrorReduction": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Minimumabsoluteerrorreduction",
+            "type": "number"
+          },
+          "minimumControlBoards": {
+            "const": 15,
+            "title": "Minimumcontrolboards",
+            "type": "integer"
+          },
+          "minimumControlPhotos": {
+            "const": 5,
+            "title": "Minimumcontrolphotos",
+            "type": "integer"
+          },
+          "minimumCorrectBoardGain": {
+            "const": 1,
+            "title": "Minimumcorrectboardgain",
+            "type": "integer"
+          },
+          "minimumRelativeErrorReduction": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Minimumrelativeerrorreduction",
+            "type": "number"
+          },
+          "nonRegression": {
+            "items": {
+              "enum": [
+                "boards_matched",
+                "boards_correct",
+                "normalized_error"
+              ],
+              "type": "string"
+            },
+            "title": "Nonregression",
+            "type": "array"
+          },
+          "policyVersion": {
+            "const": "grid-model-per-game-gate-v3",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "regressionAssessment": {
+            "const": "human-labeled-targets-v1",
+            "title": "Regressionassessment",
+            "type": "string"
+          },
+          "validationAssessment": {
+            "const": "full-photos-v1",
+            "title": "Validationassessment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "metricsVersion",
+          "minimumControlPhotos",
+          "minimumControlBoards",
+          "nonRegression",
+          "fullPhotoNonRegression",
+          "currentGameImprovementRole",
+          "minimumCorrectBoardGain",
+          "minimumRelativeErrorReduction",
+          "minimumAbsoluteErrorReduction",
+          "epsilon",
+          "checkpointRule",
+          "validationAssessment",
+          "regressionAssessment"
+        ],
+        "title": "GridScreenCorrectionEvaluationPolicy",
+        "type": "object"
+      },
+      "GridScreenCorrectionEvaluationReport": {
+        "additionalProperties": false,
+        "properties": {
+          "baseManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Basemanifestsha256",
+            "type": "string"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "checkpointSelection": {
+            "$ref": "#/components/schemas/GridScreenCorrectionCheckpointSelection"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "evidenceLevel": {
+            "const": "photo-only",
+            "title": "Evidencelevel",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GridScreenCorrectionEvaluationGame"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "parity": {
+            "$ref": "#/components/schemas/GridModelEvaluationParity"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/GridScreenCorrectionEvaluationPolicy"
+          },
+          "policyVersion": {
+            "const": "grid-model-per-game-gate-v3",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "producer": {
+            "const": "server:grid-model-evaluator-v1",
+            "title": "Producer",
+            "type": "string"
+          },
+          "requiredGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Requiredgameids",
+            "type": "array"
+          },
+          "schemaVersion": {
+            "const": "grid-model-evaluation-read-v4",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationScope"
+          },
+          "trainingGameId": {
+            "format": "uuid",
+            "title": "Traininggameid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "REVISE",
+              "NOT_EVALUABLE"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "producer",
+          "policyVersion",
+          "policy",
+          "versionId",
+          "manifestSha256",
+          "baseVersionId",
+          "baseManifestSha256",
+          "familyId",
+          "trainingGameId",
+          "parity",
+          "cohorts",
+          "requiredGameIds",
+          "games",
+          "verdict",
+          "scope",
+          "evidenceLevel",
+          "limitations",
+          "checkpointSelection"
+        ],
+        "title": "GridScreenCorrectionEvaluationReport",
+        "type": "object"
+      },
       "GridShadowJobCreate": {
         "additionalProperties": false,
         "properties": {
@@ -17465,6 +18106,18 @@
             "minLength": 1,
             "title": "Presetid",
             "type": "string"
+          },
+          "rescueRecipe": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rescuerecipe"
           },
           "schemaVersion": {
             "const": 1,
@@ -36507,6 +37160,44 @@
           "changedCellCount"
         ],
         "title": "SaveUnreadableBoardResponse",
+        "type": "object"
+      },
+      "ScreenInputGeometryV1": {
+        "additionalProperties": false,
+        "properties": {
+          "longSide": {
+            "exclusiveMinimum": 768.0,
+            "maximum": 2048.0,
+            "multipleOf": 32.0,
+            "title": "Longside",
+            "type": "integer"
+          },
+          "trainCanvas": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "maximum": 2048.0,
+                "minimum": 64.0,
+                "multipleOf": 32.0,
+                "type": "integer"
+              },
+              {
+                "maximum": 2048.0,
+                "minimum": 64.0,
+                "multipleOf": 32.0,
+                "type": "integer"
+              }
+            ],
+            "title": "Traincanvas",
+            "type": "array"
+          }
+        },
+        "required": [
+          "longSide",
+          "trainCanvas"
+        ],
+        "title": "ScreenInputGeometryV1",
         "type": "object"
       },
       "SemiAutomaticImageSelectionJobPayload": {

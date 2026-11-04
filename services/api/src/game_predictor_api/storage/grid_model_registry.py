@@ -122,6 +122,141 @@ class GridModelArtifactInspector:
             return False, "GRID_MODEL_ARTIFACT_UNREADABLE"
         return True, "GRID_MODEL_ARTIFACT_AVAILABLE"
 
+    def inspect_rescue(
+        self, payload: dict[str, Any], *, game_id: str, publication_evidence: Mapping[str, Any]
+    ) -> tuple[dict[str, Any] | None, str]:
+        """Bind actual training receipts and frozen targets; no client proof flags."""
+        from game_predictor_api.domain.grid_rescue_policy import POLICY, require_rescue_evidence
+
+        available, reason = self.inspect(payload)
+        if not available:
+            return None, reason
+        assert self.root is not None
+        root = self.root
+        directory = root / payload["managedDirectory"]
+
+        def read(path: Path, limit: int = 16 * 1024 * 1024) -> Any:
+            if not path.resolve().is_relative_to(root) or path.stat().st_size > limit:
+                raise ValueError("Rescue receipt path or size is invalid.")
+            return json.loads(path.read_text(encoding="utf-8"))
+
+        try:
+            bundle = read(directory / "bundle.json")
+            if "rescue" not in bundle:
+                return None, "GRID_RESCUE_PROOF_MISSING"
+            proof = require_rescue_evidence(bundle)
+            path = proof["selection"]["selectedPath"]
+            if path is None:
+                return None, "GRID_RESCUE_NO_IMPROVING_PATH"
+            if game_id not in {item["gameId"] for item in proof["selectionInput"]["games"]}:
+                return None, "GRID_RESCUE_GAME_NOT_EVALUATED"
+            run_id = str(UUID(proof["runId"]))
+            run = self.root / "grid-training" / "runs" / run_id
+            specification = read(run / "spec.json", 1024 * 1024)
+            spec = specification["payload"]
+            if (
+                specification.get("sha256") != descriptor_sha256(spec)
+                or spec.get("format") != "grid-training-spec-v1"
+            ):
+                raise ValueError("Training specification checksum differs.")
+            receipt = read(directory / "training-base" / "receipt.json", 65536)["payload"]
+            exported = Path(receipt["sources"]["bundle.json"])
+            if (
+                not exported.resolve().is_relative_to(run)
+                or read(exported) != bundle
+                or spec["jobId"] != run_id
+                or spec["preset"]["id"] != "screen-grid-corrections-v1"
+                or spec["preset"]["fingerprint"] != proof["trainingPresetFingerprint"]
+                or spec["base"]["presetSha256"] != proof["recipe"]["baselinePresetSha256"]
+                or (
+                    spec.get("rescueRecipe") is not None and spec["rescueRecipe"] != proof["recipe"]
+                )
+                or (spec.get("rescueRecipe") is None and proof["recipe"]["variant"] is not None)
+                or proof["snapshotId"]
+                != (
+                    spec["joint"]["sha256"]
+                    if spec.get("joint")
+                    else spec["cohort"]["manifestSha256"]
+                )
+            ):
+                raise ValueError("Sealed training run differs from the export.")
+            from game_predictor_worker.images.grid_cohort_dataset import (
+                GridBoardDataset,
+                GridCohortSnapshot,
+            )
+            from game_predictor_worker.training_core.grid_rescue_training import selection_input
+
+            cohort_pins = spec["joint"]["cohorts"] if spec.get("joint") else [spec["cohort"]]
+            parts = []
+            expected_games = {
+                item["gameId"]: item["sources"] for item in proof["selectionInput"]["games"]
+            }
+            for pin in cohort_pins:
+                snapshot = GridCohortSnapshot(self.root, pin["manifestPath"], pin["manifestSha256"])
+                game = str(snapshot.manifest["gameId"])
+                parts.append((game, snapshot.manifest["photoSplit"]))
+                actual = [
+                    {
+                        "sourceId": source["sourceId"],
+                        "sourceSha256": source["sourceIdentity"]["checksum_sha256"],
+                        "pixelSha256": source["sourceIdentity"]["normalized_pixel_checksum_sha256"],
+                        "labelsSha256": descriptor_sha256(source["targets"]),
+                    }
+                    for source, _ in GridBoardDataset(snapshot, "VALIDATION").indexed()
+                ]
+                if sorted(actual, key=lambda item: item["sourceId"]) != expected_games[game]:
+                    raise ValueError(
+                        "Frozen USED selection targets differ from the evaluated sources."
+                    )
+                train_members = {
+                    descriptor_sha256(member)
+                    for source, _ in GridBoardDataset(snapshot, "TRAIN").indexed()
+                    for member in [
+                        {
+                            "gameId": game,
+                            "sourceId": source["sourceId"],
+                            "sourceSha256": source["sourceIdentity"]["checksum_sha256"],
+                            "cohortSha256": pin["manifestSha256"],
+                        }
+                    ]
+                }
+                for stage in proof["trainingExposure"]["games"].get(game, {}).values():
+                    if any(
+                        key != descriptor_sha256(member) or key not in train_members
+                        for key, member in stage["sources"].items()
+                    ):
+                        raise ValueError("Confirmed exposure names foreign TRAIN sources.")
+            if selection_input(parts) != proof["selectionInput"]:
+                raise ValueError("Frozen selection input differs.")
+            import onnx
+
+            for stage in ("screen", "board"):
+                graph = onnx.load(str(directory / f"{stage}.onnx"), load_external_data=False)
+                inputs = graph.graph.input
+                if len(inputs) != 1 or inputs[0].type.tensor_type.elem_type != 1:
+                    raise ValueError("Actual graph input differs.")
+                shape = [
+                    dim.dim_value if dim.HasField("dim_value") else dim.dim_param
+                    for dim in inputs[0].type.tensor_type.shape.dim
+                ]
+                expected = proof["parity"]["graphs"][stage]
+                if inputs[0].name != expected["inputName"] or shape != expected["shape"]:
+                    raise ValueError("Actual graph shape differs from parity proof.")
+            bundle_sha = next(
+                file["sha256"] for file in payload["files"] if file["name"] == "bundle.json"
+            )
+            return {
+                "policyVersion": POLICY,
+                "variantId": proof["recipe"]["variantId"],
+                "variant": proof["recipe"]["variant"],
+                "selectedPath": path,
+                "bundleSha256": bundle_sha,
+                "proofSha256": proof["sha256"],
+                "publicationEvidenceSha256": descriptor_sha256(publication_evidence),
+            }, "GRID_RESCUE_PATH_AVAILABLE"
+        except (OSError, UnicodeError, ValueError, KeyError, TypeError):
+            return None, "GRID_RESCUE_PROOF_INVALID"
+
     def historical_evidence(self, payload: dict[str, Any]) -> dict[str, Any]:
         if payload not in historical_catalogue():
             raise GridModelRegistryError(

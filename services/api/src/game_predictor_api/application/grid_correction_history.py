@@ -7,12 +7,39 @@ an invalid or stale explicit proof fails closed instead of becoming empty histor
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from typing import Any
 from uuid import UUID
 
 from game_predictor_api.domain.grid_model_publication import require_evaluation_evidence
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError, descriptor_sha256
 from game_predictor_api.storage.grid_model_registry import SqlAlchemyGridModelRegistryRepository
+
+
+def select_historical_cohorts(
+    historic: Sequence[Mapping[str, Any]],
+    selected: Sequence[Mapping[str, Any]],
+    *,
+    current_game: str,
+    required_games: Sequence[str],
+) -> list[dict[str, Any]]:
+    """Replace cohort pins only; never add, drop or infer a required game."""
+    choices = {str(item["gameId"]): dict(item) for item in selected}
+    required = set(required_games) - {current_game}
+    if (
+        len(choices) != len(selected)
+        or len({item["cohortId"] for item in selected}) != len(selected)
+        or set(choices) - required
+        or any(set(item) != {"gameId", "cohortId", "manifestSha256"} for item in selected)
+    ):
+        raise ValueError("Only already-required other games may select historical cohorts.")
+    result = {str(item["gameId"]): dict(item) for item in historic}
+    result.update(choices)
+    if set(result) != required or len({item["cohortId"] for item in result.values()}) != len(
+        result
+    ):
+        raise ValueError("Every required historical game needs one distinct pinned cohort.")
+    return [result[game] for game in sorted(result)]
 
 
 def verified_history(

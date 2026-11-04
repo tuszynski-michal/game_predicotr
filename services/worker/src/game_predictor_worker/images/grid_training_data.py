@@ -19,6 +19,8 @@ import torch
 
 from ..geometry_core.inference import DecodeSettings, NeuralGridEngine
 from ..geometry_core.preprocessing import board_rectifier, corners, crop_board, transform_points
+from ..geometry_core.rescue import GridRescueVariantV1
+from ..training_core.grid_rescue_training import variant_step
 from ..training_core.grid_training import (
     BalancedSampler,
     StepSampler,
@@ -50,6 +52,10 @@ class CohortPhotos:
         self.snapshot, self.role = snapshot, role
         rows = GridBoardDataset(snapshot, role).indexed()
         if full_only:
+            if snapshot.manifest["policyVersion"] == "application-grid-corrections-v3" and any(
+                row[0].get("screenEligible") is not True for row in rows
+            ):
+                raise GridTrainingDataError("GRID_TRAINING_FULL_DATA_DRIFT")
             rows = [row for row in rows if row[0].get("screenEligible") is True]
         if not rows:
             raise GridTrainingDataError("GRID_TRAINING_EMPTY_ROLE")
@@ -204,13 +210,19 @@ class ScreenGridBatches(_Prefetched):
         seed: int,
         workers: int,
         strata: Any = None,
+        *,
+        variant: GridRescueVariantV1 | None = None,
     ) -> None:
         self.photos, self.recipe, self.seed = photos, recipe, seed
+        self.variant = variant
+        if variant is not None:
+            variant.require_baseline(recipe.board.margin)
         self.sampler = _sampler(len(photos), batch_photos, seed, strata)
         super().__init__(self._build, workers)
 
     def _build(self, step: int) -> dict[str, torch.Tensor]:
         items, weights = [], []
+        active = self.variant if variant_step(step) else None
         for slot, index in enumerate(self.sampler.indices(step)):
             rng = step_rng(self.seed, step, slot)
             targets = self.photos.targets(index)
@@ -222,6 +234,8 @@ class ScreenGridBatches(_Prefetched):
                 self.recipe.board,
                 self.recipe.augmentation,
                 rng,
+                screen_geometry_override=None if active is None else active.screen,
+                board_geometry_override=None if active is None else active.board,
             )
             seen: set[int] = set()
             row = []
@@ -236,6 +250,25 @@ class ScreenGridBatches(_Prefetched):
         }
         batch["weights"] = torch.tensor(weights, dtype=torch.float32)
         return batch
+
+    def exposure_members(self, step: int) -> list[dict[str, str]]:
+        result = []
+        for index in self.sampler.indices(step):
+            photos, local = (
+                self.photos._locate(index)
+                if isinstance(self.photos, JointPhotos)
+                else (self.photos, index)
+            )
+            source = photos.rows[local][0]
+            result.append(
+                {
+                    "gameId": str(photos.snapshot.manifest["gameId"]),
+                    "sourceId": str(source["sourceId"]),
+                    "sourceSha256": str(source["sourceIdentity"]["checksum_sha256"]),
+                    "cohortSha256": str(photos.snapshot.manifest_sha256),
+                }
+            )
+        return result
 
 
 def validation_crops(photos: CohortPhotos, recipe: Any) -> tuple[np.ndarray, np.ndarray]:
@@ -269,8 +302,27 @@ def board_evaluator(crops: np.ndarray, labels: np.ndarray, device: str, chunk: i
     return evaluate
 
 
-def photo_evaluator(photos: CohortPhotos, recipe: Any, device: str) -> Any:
+def photo_evaluator(
+    photos: CohortPhotos,
+    recipe: Any,
+    device: str,
+    *,
+    correction_metrics: bool = False,
+    selection: Any = None,
+    exposure: Any = None,
+    variant: Any = None,
+    parts: Sequence[CohortPhotos] | None = None,
+) -> Any:
     """Share of VALIDATION photos decoded completely and correctly from the original frame."""
+
+    if selection is not None:
+        from .grid_rescue_evaluation import ScreenCorrectionEvaluator
+
+        return ScreenCorrectionEvaluator(
+            parts or [photos], recipe, device, variant, selection, exposure
+        )
+    if correction_metrics:
+        return correction_evaluator([photos], recipe, device, photo_first=True)
 
     def evaluate(network: NeuralGridNetwork) -> float:
         screen_graph = ScreenExport(network.screen).eval()
@@ -322,7 +374,9 @@ def frozen_manifest(snapshot: GridCohortSnapshot) -> Mapping[str, Any]:
     return snapshot.manifest
 
 
-def correction_evaluator(parts: Sequence[CohortPhotos], recipe: Any, device: str) -> Any:
+def correction_evaluator(
+    parts: Sequence[CohortPhotos], recipe: Any, device: str, *, photo_first: bool = False
+) -> Any:
     """Photo-macro VALIDATION from full frames, with equal weight for each game."""
     from ..training_core.grid_correction_metrics import (
         aggregate_checkpoint_metrics,
@@ -366,7 +420,7 @@ def correction_evaluator(parts: Sequence[CohortPhotos], recipe: Any, device: str
                         full_geometry=has_full_geometry(source),
                     )
                 )
-            scores.append(checkpoint_metrics(photos))
-        return aggregate_checkpoint_metrics(scores)
+            scores.append(checkpoint_metrics(photos, photo_first=photo_first))
+        return aggregate_checkpoint_metrics(scores, photo_first=photo_first)
 
     return evaluate

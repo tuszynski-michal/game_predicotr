@@ -57,6 +57,7 @@ def require_evaluation_evidence(
         if isinstance(report, dict) and report.get("schemaVersion") in {
             EVALUATION_SCHEMA_V2,
             "grid-model-evaluation-read-v3",
+            "grid-model-evaluation-read-v4",
         }:
             return _require_v2(
                 report_id=report_id,
@@ -153,7 +154,10 @@ def _require_v2(
         raise ValueError("Evidence identity or currentness differs.")
     try:
         reader = require_report
-        scoped = json.loads(report_json).get("schemaVersion") == "grid-model-evaluation-read-v3"
+        scoped = json.loads(report_json).get("schemaVersion") in (
+            "grid-model-evaluation-read-v3",
+            "grid-model-evaluation-read-v4",
+        )
         if scoped:
             from .grid_correction_evaluation import require_report as correction_report
 

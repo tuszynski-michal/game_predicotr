@@ -41,6 +41,19 @@ BASE = historical_catalogue()[0]
 NOW = datetime(2026, 10, 16, 12, 0, tzinfo=UTC)
 
 
+def test_screen_recovery_does_not_hide_corrupt_export(tmp_path):
+    current = job()
+    current = replace(
+        current, input_payload={**current.input_payload, "preset_id": "screen-grid-corrections-v1"}
+    )
+    directory = tmp_path / "export-corrupt"
+    directory.mkdir()
+    (directory / "bundle.json").write_text("{broken", encoding="utf-8")
+    handler = object.__new__(GridTrainingJobHandler)
+    with pytest.raises(JobHandlerError, match="Screen export cannot be verified"):
+        handler._verified_export_without_result(current, tmp_path)
+
+
 def job(checkpoint: dict[str, object] | None = None) -> Any:
     value = create_job(
         JobType.GRID_TRAINING,

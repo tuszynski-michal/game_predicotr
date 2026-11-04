@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -66,6 +67,7 @@ def prepare_operation_pin(
     rules_version_id: UUID,
     rows: int,
     columns: int,
+    artifact_root: Path | None = None,
 ) -> dict[str, object]:
     qualification: dict[str, object] = {
         "state": "unqualified",
@@ -84,6 +86,13 @@ def prepare_operation_pin(
             "evaluationSha256": evidence["evaluationSha256"],
             "publicationEvidenceSha256": descriptor_sha256(evidence),
         }
+    rescue = None
+    if qualification["state"] == "qualified" and artifact_root is not None:
+        from .grid_model_registry import GridModelArtifactInspector
+
+        rescue, _ = GridModelArtifactInspector(artifact_root).inspect_rescue(
+            snapshot_descriptor(snapshot), game_id=str(game_id), publication_evidence=evidence
+        )
     return make_operation_pin(
         snapshot=snapshot,
         game_id=str(game_id),
@@ -91,6 +100,7 @@ def prepare_operation_pin(
         rows=rows,
         columns=columns,
         qualification=qualification,
+        rescue=rescue,
     )
 
 

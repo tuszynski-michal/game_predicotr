@@ -1091,7 +1091,12 @@ function LearningReport({
         .
       </p>
     );
-  if (!report || report.schemaVersion !== 'grid-model-evaluation-read-v3')
+  if (
+    !report ||
+    !('requiredScope' in report) ||
+    (report.schemaVersion !== 'grid-model-evaluation-read-v3' &&
+      report.schemaVersion !== 'grid-model-evaluation-read-v4')
+  )
     return <p>Raport oceny: {view.verdict ?? 'W przygotowaniu'}.</p>;
   return (
     <section aria-label="Wynik uczenia">

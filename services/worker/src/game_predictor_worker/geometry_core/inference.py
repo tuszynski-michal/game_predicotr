@@ -26,6 +26,7 @@ from .preprocessing import (
     screen_input,
     transform_points,
 )
+from .rescue import BoardCropGeometryV1, ScreenInputGeometryV1
 from .settings import MODEL_VERSION, BoardPreset, FitPreset, ScreenPreset
 
 GATE_REASON: Final = "NEURAL_GRID_GATE_UNCALIBRATED"
@@ -205,21 +206,53 @@ class NeuralGridEngine:
 
     def analyse(self, rgb: ByteImage) -> list[BoardDetection]:
         started = time.perf_counter()
-        canvas, sx, sy = screen_input(rgb, self.settings.screen)
+        detections = self.detect(rgb)
+        screen_done = time.perf_counter()
+        self._decode_boards(rgb, detections)
+        self.timings = {
+            "screen_seconds": screen_done - started,
+            "total_seconds": time.perf_counter() - started,
+        }
+        return detections
+
+    def detect(
+        self, rgb: ByteImage, *, geometry: ScreenInputGeometryV1 | None = None
+    ) -> list[BoardDetection]:
+        """Screen stage only: a redetect never silently crops other boards."""
+        canvas, sx, sy = screen_input(rgb, self.settings.screen, geometry=geometry)
         pixels = canvas.transpose(2, 0, 1)[None].astype(np.float32)
         heat, offsets = self.screen_runner(pixels)
-        screen_done = time.perf_counter()
         detections = []
         for found in decode_screen(heat[0, 0], offsets[0], self.settings.screen):
             quad = (found.quad / np.array([sx, sy], np.float32)).astype(np.float32)
             detections.append(BoardDetection(found.score, quad))
-        detections = reading_order(detections)
+        return reading_order(detections)
+
+    def recrop(
+        self,
+        rgb: ByteImage,
+        detection: BoardDetection,
+        *,
+        geometry: BoardCropGeometryV1 | None = None,
+    ) -> BoardDetection:
+        """One additional crop, on an already bound screen quad."""
+        result = BoardDetection(detection.score, detection.screen_quad.copy())
+        self._decode_boards(rgb, [result], geometry=geometry)
+        return result
+
+    def _decode_boards(
+        self,
+        rgb: ByteImage,
+        detections: list[BoardDetection],
+        *,
+        geometry: BoardCropGeometryV1 | None = None,
+    ) -> None:
         crops, matrices, owners = [], [], []
         for detection in detections:
             if not quad_is_usable(detection.screen_quad):
                 detection.reasons.append("NEURAL_GRID_SCREEN_QUAD_INVALID")
                 continue
-            matrix = board_rectifier(detection.screen_quad, self.settings.board)
+            matrix = board_rectifier(detection.screen_quad, self.settings.board, geometry=geometry)
             crops.append(crop_board(rgb, matrix, self.settings.board).transpose(2, 0, 1))
             matrices.append(matrix)
             owners.append(detection)
@@ -247,11 +280,6 @@ class NeuralGridEngine:
                         fitted.nodes if finite else grid_from_quad(detection.screen_quad)
                     )
                     detection.reasons.append("NEURAL_GRID_FIT_FAILED")
-        self.timings = {
-            "screen_seconds": screen_done - started,
-            "total_seconds": time.perf_counter() - started,
-        }
-        return detections
 
 
 BUNDLE_FILE: Final = "bundle.json"

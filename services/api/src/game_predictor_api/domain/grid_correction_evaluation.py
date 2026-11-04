@@ -27,6 +27,9 @@ PRODUCER: Final = "server:grid-model-evaluator-v1"
 POLICY_VERSION: Final = "grid-model-per-game-gate-v2"
 METRICS_VERSION: Final = "grid-correction-metrics-v1"
 CHECKPOINT_RULE: Final = "validation-board-correct-photo-macro-error-earliest-v1"
+SCREEN_REPORT_SCHEMA: Final = "grid-model-evaluation-read-v4"
+SCREEN_POLICY_VERSION: Final = "grid-model-per-game-gate-v3"
+SCREEN_CHECKPOINT_RULE: Final = "validation-photo-board-correct-photo-macro-error-earliest-v1"
 EPSILON: Final = 1e-9
 PHOTO_ONLY_LIMITATIONS: Final = [
     "Session independence is not proven by photo-only evidence.",
@@ -58,6 +61,13 @@ POLICY: Final[dict[str, Any]] = {
     "minimumAbsoluteErrorReduction": 0.001,
     "epsilon": EPSILON,
     "checkpointRule": CHECKPOINT_RULE,
+}
+SCREEN_POLICY: Final[dict[str, Any]] = {
+    **POLICY,
+    "policyVersion": SCREEN_POLICY_VERSION,
+    "checkpointRule": SCREEN_CHECKPOINT_RULE,
+    "validationAssessment": "full-photos-v1",
+    "regressionAssessment": "human-labeled-targets-v1",
 }
 REPORT_KEYS: Final = {
     "schemaVersion",
@@ -151,10 +161,15 @@ def require_metrics(value: object) -> dict[str, Any]:
 
 
 def decide_game(
-    *, mode: str, training: bool, parity_passed: bool, roles: Mapping[str, Any]
+    *,
+    mode: str,
+    training: bool,
+    parity_passed: bool,
+    roles: Mapping[str, Any],
+    screen: bool = False,
 ) -> dict[str, Any]:
     """Require every role to preserve quality; current-game REGRESSION must improve."""
-    if mode != "grid-only" or set(roles) != set(ROLES):
+    if mode != ("screen+grid" if screen else "grid-only") or set(roles) != set(ROLES):
         raise GridEvaluationReportError(
             "Correction gate requires grid-only and both control roles."
         )
@@ -163,6 +178,15 @@ def decide_game(
         entry = roles[role]
         _count(entry["photos"])
         base, candidate = (require_metrics(entry[name]) for name in ("base", "candidate"))
+        if (
+            screen
+            and role == "VALIDATION"
+            and (
+                base["full_photos"] != entry["photos"]
+                or candidate["full_photos"] != entry["photos"]
+            )
+        ):
+            reasons.append("SCREEN_FULL_VALIDATION_REQUIRED")
         if entry["photos"] < 5:
             reasons.append(f"COVERAGE_PHOTOS_BELOW_MINIMUM:{role}")
         if base["boards_expected"] < 15:
@@ -266,13 +290,25 @@ def require_scope(value: object) -> tuple[dict[str, Any], list[str]]:
     return scope, required
 
 
-def require_checkpoint_selection(value: object) -> dict[str, Any]:
-    selection = _closed(value, {"rule", "role", "step", "metrics", "earlyStopping"}, "Checkpoint")
-    if selection["rule"] != CHECKPOINT_RULE or selection["role"] != "VALIDATION":
+def require_checkpoint_selection(value: object, *, screen: bool = False) -> dict[str, Any]:
+    keys = {"rule", "role", "step", "metrics", "earlyStopping"}
+    if screen:
+        keys |= {"selectionInputSha256", "metricStateVersion"}
+    selection = _closed(value, keys, "Checkpoint")
+    if screen:
+        _sha(selection["selectionInputSha256"])
+        if selection["metricStateVersion"] != "photo-board-checkpoint-state-v1":
+            raise GridEvaluationReportError("Unknown screen checkpoint metric state.")
+    if (
+        selection["rule"] != (SCREEN_CHECKPOINT_RULE if screen else CHECKPOINT_RULE)
+        or selection["role"] != "VALIDATION"
+    ):
         raise GridEvaluationReportError("Only VALIDATION selects a checkpoint.")
     _count(selection["step"])
     metrics = _closed(
-        selection["metrics"], {"boardCorrectRate", "normalizedError"}, "Checkpoint metrics"
+        selection["metrics"],
+        {"boardCorrectRate", "normalizedError"} | ({"photoCorrectRate"} if screen else set()),
+        "Checkpoint metrics",
     )
     for number in metrics.values():
         _unit(number)
@@ -354,6 +390,8 @@ def build_report(
     scope: Mapping[str, Any],
     checkpoint_selection: Mapping[str, Any],
 ) -> dict[str, Any]:
+    screen = checkpoint_selection.get("rule") == SCREEN_CHECKPOINT_RULE
+    require_checkpoint_selection(dict(checkpoint_selection), screen=screen)
     scope_value, required = require_scope(dict(scope))
     ordered = sorted(
         (
@@ -370,6 +408,7 @@ def build_report(
             training=entry["gameId"] == training_game_id,
             parity_passed=parity["passed"],
             roles=game["roles"],
+            screen=screen,
         )
         games.append(
             {
@@ -382,10 +421,10 @@ def build_report(
             }
         )
     report = {
-        "schemaVersion": REPORT_SCHEMA,
+        "schemaVersion": SCREEN_REPORT_SCHEMA if screen else REPORT_SCHEMA,
         "producer": PRODUCER,
-        "policyVersion": POLICY_VERSION,
-        "policy": POLICY,
+        "policyVersion": SCREEN_POLICY_VERSION if screen else POLICY_VERSION,
+        "policy": SCREEN_POLICY if screen else POLICY,
         "versionId": manifest["versionId"],
         "manifestSha256": descriptor_sha256(dict(manifest)),
         "baseVersionId": manifest["baseVersionId"],
@@ -415,13 +454,14 @@ def require_report(
         if len(report_json.encode("utf-8")) > MAX_REPORT_BYTES:
             raise GridEvaluationReportError("The report is too large.")
         report = _closed(json.loads(report_json), REPORT_KEYS, "Report")
+        screen = report["schemaVersion"] == SCREEN_REPORT_SCHEMA
         if canonical_json(report) != report_json:
             raise GridEvaluationReportError("The report is not canonical JSON.")
         if (
-            report["schemaVersion"] != REPORT_SCHEMA
+            report["schemaVersion"] != (SCREEN_REPORT_SCHEMA if screen else REPORT_SCHEMA)
             or report["producer"] != PRODUCER
-            or report["policyVersion"] != POLICY_VERSION
-            or report["policy"] != POLICY
+            or report["policyVersion"] != (SCREEN_POLICY_VERSION if screen else POLICY_VERSION)
+            or report["policy"] != (SCREEN_POLICY if screen else POLICY)
             or report["versionId"] != manifest["versionId"]
             or report["manifestSha256"] != descriptor_sha256(dict(manifest))
             or report["baseVersionId"] != manifest["baseVersionId"]
@@ -442,7 +482,7 @@ def require_report(
             or report["requiredGameIds"] != required
         ):
             raise GridEvaluationReportError("Report scope differs from its required games.")
-        require_checkpoint_selection(report["checkpointSelection"])
+        require_checkpoint_selection(report["checkpointSelection"], screen=screen)
         parity = _closed(report["parity"], {"passed", "bundleSha256"}, "Parity")
         if type(parity["passed"]) is not bool:
             raise GridEvaluationReportError("Parity requires a boolean result.")
@@ -470,7 +510,7 @@ def require_report(
             if (
                 game["gameId"] != entry["gameId"]
                 or game["cohortId"] != entry["cohortId"]
-                or game["mode"] != "grid-only"
+                or game["mode"] != ("screen+grid" if screen else "grid-only")
                 or game["targetMetric"] != "boards_correct_or_normalized_error"
             ):
                 raise GridEvaluationReportError("Measured game differs from its cohort.")
@@ -482,6 +522,7 @@ def require_report(
                 training=game["gameId"] == report["trainingGameId"],
                 parity_passed=parity["passed"],
                 roles=roles,
+                screen=screen,
             )
             if any(game[key] != value for key, value in decision.items()):
                 raise GridEvaluationReportError("Stored decisions differ from gate v2.")

@@ -29,7 +29,8 @@ def body():
     }
 
 
-def test_correction_request_preserves_explicit_policy_and_scoped_existing_route(tmp_path):
+@pytest.mark.parametrize("screen", [False, True], ids=["legacy", "screen-v3"])
+def test_correction_request_preserves_explicit_policy_and_scoped_existing_route(tmp_path, screen):
     calls = []
 
     def prepare(*args):
@@ -48,14 +49,18 @@ def test_correction_request_preserves_explicit_policy_and_scoped_existing_route(
         prefix="/api/v1",
     )
     game = uuid4()
+    command = body()
+    if screen:
+        command.update(mode="screen+grid", policyVersion="application-grid-corrections-v3")
     with TestClient(app, client=("127.0.0.1", 1000), raise_server_exceptions=False) as client:
         client.post(
             f"/api/v1/admin/games/{game}/grid-training-cohorts/prepare",
-            json=body(),
+            json=command,
             headers={"Origin": "http://127.0.0.1:3000", "X-Admin-Intent": "local-owner"},
         )
     assert calls[0][0] == game
-    assert calls[0][1]["policyVersion"] == CORRECTIONS_POLICY
+    assert calls[0][1]["policyVersion"] == command["policyVersion"]
+    assert calls[0][1]["mode"] == command["mode"]
     assert calls[0][2] == "local-owner"
 
 

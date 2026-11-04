@@ -670,6 +670,43 @@ operator workflow.
 
 ## Grid training presets and admission (D-557, TASK-1005)
 
+### Detector correction policy (D-586, TASK-1157)
+
+Correction preview/start accepts explicit `trainingMode=screen+grid`; the default is
+still grid-only. The new `application-grid-corrections-v3` policy needs ten fully
+labelled TRAIN photos and five fully labelled checkpoint VALIDATION photos. A partial
+photo cannot become detector background. The original population still defines ordering,
+buffers, aliases and protected roles. The new REGRESSION assessment needs five photos
+and fifteen qualified targets, with no full-photo minimum; it evaluates only labelled
+targets and never selects a checkpoint. Old policies retain their original requirements.
+Readiness exposes full/partial counts, role deficits and reasons. Zero full photos blocks
+detector training; the separate grid-only workflow remains available.
+
+The new checkpoint rule orders original-photo metrics by photo correctness, board
+correctness, lower photo-macro normalized point error, then earlier step, with equal
+photo and game weights. All used VALIDATION sources are checkpoint-exposed A. Restart
+preserves the exact input, optimizer exposure, best step and charged run budget.
+
+At most one explicit scale/margin variant accompanies a run. Each permitted runtime
+path (screen-only with base margin, board-only with base detector, or their combination)
+needs optimizer exposure before the selected checkpoint, original-photo A evidence,
+and actual exported ONNX parity. A path must worsen no required game and improve at
+least one; a tie retains baseline. Current evidence supplies no measured asymmetric
+jitter amplitude, so existing augmentations remain and no empirical amplitude is invented.
+No qualified variant means manual correction. Runtime reserves at most one redetection
+per operation/source and one crop per stable position before computation. A crash
+without a result consumes the reservation; changing a variant cannot renew the budget.
+
+An explicit `historicalCohorts` choice can replace the cohort of an already required
+other game without adding/removing games or silently narrowing scope. It must satisfy
+the same family, base ancestry, currentness, full TRAIN/A and frozen-input rules.
+Legacy screen snapshots without the new selection reference are not bad labels; they
+need a new v3 cohort. Existing prepare/capture/materialize/freeze actions can reuse
+their qualified labels and protected roles independently of any shared training start.
+The old snapshot and its hash are never rewritten. The advanced UI exposes this
+existing preparation path in T5. No actual training or operator migration is authorized
+by implementing this policy.
+
 Grid-only and screen+grid runs use separate versioned presets with a fingerprint, a
 training-time range, a step limit, early stopping on VALIDATION and a charged run limit.
 A run is refused when no GPU is available, the runtime versions differ, VRAM is too

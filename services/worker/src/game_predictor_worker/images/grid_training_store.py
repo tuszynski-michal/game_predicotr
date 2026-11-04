@@ -69,7 +69,11 @@ class SqlGridTrainingStore:
                 repository.bind(game_id)
                 correction = repository.cohort(game_id, cohort_id).document.get(
                     "policyVersion"
-                ) in ("application-grid-corrections-v1", "application-grid-corrections-v2")
+                ) in (
+                    "application-grid-corrections-v1",
+                    "application-grid-corrections-v2",
+                    "application-grid-corrections-v3",
+                )
                 groups: dict[str, str] = {}
                 for member in repository.iter_members(game_id, cohort_id):
                     frozen = member.frozen

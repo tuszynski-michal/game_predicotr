@@ -78,7 +78,15 @@ class GridTrainingRunService:
     ) -> None:
         self.cohorts, self.jobs, self.shared = cohorts, jobs, shared
 
-    def create(self, game: UUID, command: Mapping[str, Any]) -> dict[str, Any]:
+    def create(
+        self,
+        game: UUID,
+        command: Mapping[str, Any],
+        *,
+        correction_recipe: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if correction_recipe is not None and command["presetId"] != "screen-grid-corrections-v1":
+            raise _error("GRID_RUN_RESCUE_POLICY_INVALID", "Rescue requires screen corrections.")
         key = UUID(str(command["idempotencyKey"]))
         cohort = UUID(str(command["cohortId"]))
         others = [
@@ -100,6 +108,7 @@ class GridTrainingRunService:
                 or existing.input_payload.get("preset_id") != command["presetId"]
                 or existing.input_payload.get("preset_fingerprint") != command["presetFingerprint"]
                 or pinned != {(str(other), str(cohort_id)) for other, cohort_id in others}
+                or existing.input_payload.get("rescue_recipe") != correction_recipe
             ):
                 raise _error("GRID_RUN_IDEMPOTENCY_CONFLICT", "The key was used for another run.")
             return self.view(existing)
@@ -152,9 +161,29 @@ class GridTrainingRunService:
             "seed": key.int % (2**31 - 1),
             "planned_steps": planned_steps,
         }
+        if correction_recipe is not None:
+            payload["rescue_recipe"] = dict(correction_recipe)
         if shared is not None:
             payload["shared_cohorts"] = shared["pins"]
             payload["joint_sha256"] = shared["plan"]["sha256"]
+        if correction_recipe is not None:
+            from game_predictor_worker.training_core.grid_training_admission import (
+                PRESETS,
+                estimate_cohort_cost,
+                summed_counts,
+            )
+
+            cost = estimate_cohort_cost(
+                PRESETS[str(command["presetId"])],
+                shared["counts"] if shared is not None else summed_counts([header]),
+                rescue_variant=correction_recipe.get("variant"),
+            )
+            if not cost.within_budget or cost.planned_steps < 1:
+                raise _error(
+                    "GRID_RUN_COHORT_COST_EXCEEDS_BUDGET",
+                    "The explicit rescue recipe exceeds the run budget.",
+                )
+            payload["planned_steps"] = cost.planned_steps
         job = create_job(JobType.GRID_TRAINING, game_id=game, input_payload=payload)
         existing = self.jobs.get_job_by_input_key(job.input_key)
         return self.view(existing if existing is not None else self.jobs.add_job(job))

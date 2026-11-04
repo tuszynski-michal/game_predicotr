@@ -210,10 +210,21 @@ GRID_CORRECTIONS_V1 = replace(
     ),
     approval_basis="TASK-1121/D-578: grid-only budget retained; versioned correction selection",
 )
+SCREEN_GRID_CORRECTIONS_V1 = replace(
+    SCREEN_GRID_V1,
+    preset_id="screen-grid-corrections-v1",
+    version=3,
+    early_stopping=replace(
+        SCREEN_GRID_V1.early_stopping,
+        metric="validation-photo-board-correct-photo-macro-error-earliest-v1",
+    ),
+    approval_basis="TASK-1157/D-586: existing screen training; versioned photo-first selection",
+)
 PRESETS: Mapping[str, GridTrainingPreset] = {
     GRID_ONLY_V1.preset_id: GRID_ONLY_V1,
     SCREEN_GRID_V1.preset_id: SCREEN_GRID_V1,
     GRID_CORRECTIONS_V1.preset_id: GRID_CORRECTIONS_V1,
+    SCREEN_GRID_CORRECTIONS_V1.preset_id: SCREEN_GRID_CORRECTIONS_V1,
 }
 
 
@@ -238,13 +249,15 @@ def preset_for_mode(
     policy: str = "application-grid-cohort-v1",
 ) -> GridTrainingPreset | None:
     """The approved preset of a cohort mode, or None."""
+    expected = {
+        ("application-grid-cohort-v1", "grid-only"): "grid-only-v1",
+        ("application-grid-cohort-v1", "screen+grid"): "screen-grid-v1",
+        ("application-grid-corrections-v1", "grid-only"): "grid-corrections-v1",
+        ("application-grid-corrections-v2", "grid-only"): "grid-corrections-v1",
+        ("application-grid-corrections-v3", "screen+grid"): "screen-grid-corrections-v1",
+    }.get((policy, mode))
     matching = [
-        p
-        for p in presets.values()
-        if p.mode == mode
-        and p.approved
-        and (p.preset_id == "grid-corrections-v1")
-        == (policy in ("application-grid-corrections-v1", "application-grid-corrections-v2"))
+        p for p in presets.values() if p.mode == mode and p.approved and p.preset_id == expected
     ]
     return max(matching, key=lambda p: p.version) if matching else None
 
@@ -314,7 +327,28 @@ class CohortCost:
     within_budget: bool
 
 
-def estimate_cohort_cost(preset: GridTrainingPreset, counts: CohortCounts) -> CohortCost:
+def rescue_cost_factors(variant: Any = None) -> tuple[float, float, float]:
+    """Conservative area estimates, not measured throughput or a larger budget."""
+    if variant is None:
+        return 1.0, 1.0, 1.0
+    from ..geometry_core.rescue import GridRescueVariantV1
+
+    parsed = GridRescueVariantV1.model_validate(variant)
+    peak = (
+        1.0
+        if parsed.screen is None
+        else max(
+            1.0,
+            parsed.screen.trainCanvas[0] * parsed.screen.trainCanvas[1] / (576 * 768),
+            (parsed.screen.longSide / 768) ** 2,
+        )
+    )
+    return (1 + peak) / 2, 1 + len(parsed.paths) * peak, peak
+
+
+def estimate_cohort_cost(
+    preset: GridTrainingPreset, counts: CohortCounts, *, rescue_variant: Any = None
+) -> CohortCost:
     """Deterministic cost of one run: grid-only trains boards, screen+grid trains full photos."""
     items = counts.train_boards if preset.mode == "grid-only" else counts.train_full_photos
     steps_per_epoch = math.ceil(items / preset.batch_items) if items > 0 else 0
@@ -322,13 +356,22 @@ def estimate_cohort_cost(preset: GridTrainingPreset, counts: CohortCounts) -> Co
         preset.max_train_seconds,
         max(preset.min_train_seconds, preset.train_seconds_per_train_photo * counts.train_photos),
     )
-    steps = min(preset.max_steps, math.floor(planned * preset.steps_per_second_estimate))
+    if rescue_variant is not None and preset.preset_id != "screen-grid-corrections-v1":
+        raise ValueError("Rescue geometry requires the versioned screen correction preset.")
+    train_factor, evaluation_factor, _ = rescue_cost_factors(rescue_variant)
+    steps = min(
+        preset.max_steps, math.floor(planned * preset.steps_per_second_estimate / train_factor)
+    )
     evaluations = math.ceil(planned / preset.early_stopping.evaluation_interval_seconds)
     total = (
         preset.startup_estimate_seconds
         + planned
-        + evaluations * (preset.evaluation_estimate_seconds + preset.checkpoint_estimate_seconds)
-        + preset.final_reserve_seconds
+        + evaluations
+        * (
+            preset.evaluation_estimate_seconds * evaluation_factor
+            + preset.checkpoint_estimate_seconds
+        )
+        + preset.final_reserve_seconds * evaluation_factor
     )
     return CohortCost(
         train_items=items,
@@ -508,6 +551,7 @@ def evaluate_admission(
     counts: CohortCounts | None = None,
     stored_budget: RunBudget | None = None,
     presets: Mapping[str, GridTrainingPreset] = PRESETS,
+    rescue_variant: Any = None,
 ) -> AdmissionDecision:
     """Pure admission of one new or resumed run. Missing facts block; nothing is assumed."""
     found: set[str] = set()
@@ -522,7 +566,7 @@ def evaluate_admission(
         elif preset is not None:
             if counts.mode != preset.mode:
                 found.add("GRID_RUN_COHORT_MODE_MISMATCH")
-            cost = estimate_cohort_cost(preset, counts)
+            cost = estimate_cohort_cost(preset, counts, rescue_variant=rescue_variant)
             if cost.train_items == 0:
                 found.add("GRID_RUN_COHORT_EMPTY")
             if not cost.within_budget:
@@ -540,8 +584,10 @@ def evaluate_admission(
         if preset is not None and (
             runtime.total_vram_bytes is None
             or runtime.free_vram_bytes is None
-            or runtime.total_vram_bytes < preset.min_total_vram_bytes
-            or runtime.free_vram_bytes < preset.min_free_vram_bytes
+            or runtime.total_vram_bytes
+            < preset.min_total_vram_bytes * rescue_cost_factors(rescue_variant)[2]
+            or runtime.free_vram_bytes
+            < preset.min_free_vram_bytes * rescue_cost_factors(rescue_variant)[2]
         ):
             found.add("GRID_RUN_VRAM_INSUFFICIENT")
     if lease_state == "held":

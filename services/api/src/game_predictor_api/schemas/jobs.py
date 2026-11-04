@@ -810,6 +810,7 @@ class GridTrainingJobPayload(ApiModel):
     preset_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     seed: int = Field(ge=0, le=2**31 - 1)
     planned_steps: int = Field(ge=1, le=1_000_000)
+    rescue_recipe: dict[str, Any] | None = None
     shared_cohorts: list[GridSharedCohortPin] | None = Field(None, min_length=1, max_length=7)
     joint_sha256: str | None = Field(None, pattern=r"^[0-9a-f]{64}$")
 

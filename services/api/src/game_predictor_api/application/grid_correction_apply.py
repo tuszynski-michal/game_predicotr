@@ -87,7 +87,10 @@ class GridCorrectionApplyService:
         if row is None or invalidated:
             raise _error("GRID_MODEL_EVALUATION_STALE", "The original evidence is unavailable.")
         report = self.evaluations._report(session, row, job=evaluation)
-        if report.get("schemaVersion") != "grid-model-evaluation-read-v3":
+        if report.get("schemaVersion") not in (
+            "grid-model-evaluation-read-v3",
+            "grid-model-evaluation-read-v4",
+        ):
             raise _error(
                 "GRID_APPLY_EVIDENCE_REQUIRED", "Photo-only correction evidence is required."
             )

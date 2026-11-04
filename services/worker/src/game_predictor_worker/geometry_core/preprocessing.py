@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+from .rescue import BoardCropGeometryV1, ScreenInputGeometryV1
 from .settings import BoardPreset, ScreenPreset
 
 FloatArray = NDArray[np.float32]
@@ -72,13 +73,20 @@ def screen_geometry(width: int, height: int, long_side: int, pad: int) -> tuple[
     )
 
 
-def screen_input(rgb: ByteImage, screen: ScreenPreset) -> tuple[ByteImage, float, float]:
+def screen_input(
+    rgb: ByteImage, screen: ScreenPreset, *, geometry: ScreenInputGeometryV1 | None = None
+) -> tuple[ByteImage, float, float]:
     """Inference preprocessing: area resize to the long side, pad right/bottom to 32."""
 
     height, width = rgb.shape[:2]
     resized_w, resized_h, canvas_w, canvas_h = screen_geometry(
-        width, height, screen.long_side, screen.pad_multiple
+        width,
+        height,
+        screen.long_side if geometry is None else geometry.longSide,
+        screen.pad_multiple,
     )
+    if geometry is not None and not (64 <= canvas_w <= 2048 and 64 <= canvas_h <= 2048):
+        raise ValueError("GRID_RESCUE_SCREEN_SHAPE_UNSUPPORTED")
     canvas = np.full((canvas_h, canvas_w, 3), PAD_VALUE, dtype=np.uint8)
     canvas[:resized_h, :resized_w] = cv2.resize(
         rgb, (resized_w, resized_h), interpolation=cv2.INTER_AREA
@@ -86,12 +94,15 @@ def screen_input(rgb: ByteImage, screen: ScreenPreset) -> tuple[ByteImage, float
     return canvas, resized_w / width, resized_h / height
 
 
-def board_rectifier(quad: FloatArray, board: BoardPreset) -> NDArray[np.float64]:
+def board_rectifier(
+    quad: FloatArray, board: BoardPreset, *, geometry: BoardCropGeometryV1 | None = None
+) -> NDArray[np.float64]:
     """Homography source -> crop; the quad lands on the inner rectangle (margin per side)."""
 
     width, height = board.canvas
-    left = width * board.margin / (1 + 2 * board.margin)
-    top = height * board.margin / (1 + 2 * board.margin)
+    margin = board.margin if geometry is None else geometry.margin
+    left = width * margin / (1 + 2 * margin)
+    top = height * margin / (1 + 2 * margin)
     target = np.array(
         [[left, top], [width - left, top], [width - left, height - top], [left, height - top]],
         dtype=np.float32,

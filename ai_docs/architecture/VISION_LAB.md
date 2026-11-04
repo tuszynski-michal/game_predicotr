@@ -6,6 +6,83 @@ last_updated: 2026-11-03
 
 # Architektura laboratorium wizji
 
+## Detector corrections and bounded rescue (TASK-1157, D-586)
+
+`application-grid-corrections-v3` / `application-grid-snapshot-v3` use
+`screen-grid-corrections-v1` preset v3 and split `grid-correction-split-v3`.
+The existing split solver applies full qualification per role, not to the global
+population: full TRAIN/A, partial REG via `GridAssessmentDataset` and the explicit
+`human-labeled-targets-v1` purpose. `CohortPhotos` rejects missing full used targets
+instead of filtering them. Source, label, split and currentness hashes bind preview,
+parent, child, export and report. `historicalCohorts` replaces only already required
+other-game pins; new cohorts can be prepared and frozen through the existing cohort
+API before either game's shared run. Legacy cohorts without v3 photoSplit fail with
+`SCREEN_HISTORY_CORRECTION_POLICY_REQUIRED`; no legacy hash or role is changed.
+
+The existing SCREEN_GRID_V1 network, ScreenGridBatches and photo evaluator implement
+the new mode. Binding v3 and `photo-board-checkpoint-state-v1` preserve the photo/board/
+error/earliest ordering. `grid-checkpoint-input-v1` with `all-validation-v1` records the
+exact frozen USED VALIDATION source/label set. The evaluator checks actual materialized
+input equality. It is selection-exposed A, not independent calibration B. Report
+`grid-model-evaluation-read-v4` / gate v3 is separate from historical report v3/gate v2.
+
+`geometry_core/rescue.py` defines closed typed overrides without widening the historical
+ScreenPreset Literal768. `grid-rescue-recipe-v1` binds one variant and baseline preset.
+The trainer alternates baseline/variant optimizer steps, confirms exposure only after
+a non-skipped optimizer update, and snapshots exposure at bestStep. The original-photo
+evaluator measures each allowed path with shared `grid_rescue_strategy.execute_path`.
+`grid_rescue_export.py` compares real PyTorch/ONNX tensors at admitted shapes, including
+screen dynamic axes; graph metadata alone is insufficient. Stage/subnet factorization,
+input hashes, path coverage, A metrics, weights, checkpoint, spec envelope and receipt
+must agree. The artifact inspector rechecks frozen TRAIN/A membership and actual graphs.
+Cost admission includes variant canvas/scale, extra path assessment and peak VRAM;
+the existing cumulative 8000-step/7200-second ceiling remains unchanged.
+
+The selected path is fixed before inference. Checkpoint metrics rank that selected
+original-photo recognition pipeline, baseline or an admitted A rescue path. Export
+binds the checkpoint to its own bestStep/exposure/path proof; B/REG never tune it.
+`grid_rescue_runtime.py` publishes fsynced temporary files using same-directory
+no-replace hard links under operation/source, independent of variant SHA. CPU begins
+only after publishing the complete reservation. A pre-publication crash leaves only
+an ignored temporary file; reserved without result is consumed. Same-byte aliases
+whose identities differ only in expected positions read the original baseline and
+receipts, spend no rescue tokens, and carry the existing blocking slot-binding reason.
+Source/model/pin drift and corrupt committed receipts remain hard failures.
+Exact slot binding and the original trigger
+`grid-rescue-exact-slots-fit-or-pixels-v1` are mandatory. An alternate callback returns
+`GRID_RESCUE_ROUTING_PROOF_REQUIRED` without computation. T4 must version routing and
+validate it on TRAIN/A before enabling completeness-triggered paths; B only chooses
+acceptance thresholds. Missing routing proof leaves manual correction.
+
+`rescueExecution` is a projection of these receipts (`grid-rescue-execution-v1`), not
+another ledger. Its identity binds source/model/pin, baseline preset, OpenCV and
+`neural-grid-rescue-preprocessing-v1`; requests record actual typed geometry and exact
+board quad, reservation/result hashes, completed/consumed-without-result state and
+reasons. The worker child validates preprocessing/OpenCV versions before execution.
+T5 can strictly reconstruct transform/output/padding/interpolation and pixel/tensor
+hashes from a completed request, without another inference. Reserved-only entries
+cannot be labelled as actual analysed inputs; T1 diagnostic-v1 remains unchanged.
+For an alias with `GRID_RESCUE_SLOT_BINDING_REQUIRED`, completed attempts in this
+summary belong to the first scope (`identity.positions`), not to this alias occurrence.
+They were not applied to its returned baseline. T5 must mark them as another scope
+and must not render them as this occurrence's actual network input (R2 P2-6).
+
+The artifact volume must support same-volume hard links; Windows deployments require
+NTFS (root confirmed D: as NTFS by read-only DriveInfo). No directory fsync or power-loss
+guarantee is implemented. Process crashes may leave ignored `.rescue-pending-*` files;
+their GC is outside this task and must not delete active attempts. Unsupported filesystems
+fail closed. These R2 P2-7 limits are accepted, without changing the receipt contract.
+
+Alembic 0180 adds `recording_photo_cohort_v2`, `recording_correction_report_bind_v2`
+and dispatcher `recording_cohort_command_v4`, preserving historical function bodies.
+Runtime has only the public command capability; new private functions keep fixed
+owner/search_path and no PUBLIC execution. Downgrade refuses existing v3 cohort history.
+Migration is prepared/tested on disposable databases, not applied to the operator.
+The artifact inspection currently runs synchronously inside operation-pin admission;
+graph/source checks can extend its session duration. Its unavailable reason is not
+archived in the pin. This P2 is accepted pending measurement: T5 must distinguish an
+unknown historical reason from a fresh inspection, without a speculative cache.
+
 ## Operation capabilities and per-game evidence (TASK-1156, D-585)
 
 `domain/neural_grid_operation_pin.py` adapts catalogue-v1's historical axis names:

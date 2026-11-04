@@ -260,6 +260,74 @@ class GridCorrectionEvaluationReport(EvaluationClosedModel):
     checkpointSelection: GridCorrectionCheckpointSelection
 
 
+class GridScreenCorrectionEvaluationGame(GridCorrectionEvaluationDecision):
+    gameId: UUID
+    cohortId: UUID
+    mode: Literal["screen+grid"]
+    targetMetric: Literal["boards_correct_or_normalized_error"]
+    roles: GridCorrectionEvaluationRoles
+
+
+class GridScreenCorrectionEvaluationPolicy(EvaluationClosedModel):
+    policyVersion: Literal["grid-model-per-game-gate-v3"]
+    metricsVersion: Literal["grid-correction-metrics-v1"]
+    minimumControlPhotos: Literal[5]
+    minimumControlBoards: Literal[15]
+    nonRegression: list[Literal["boards_matched", "boards_correct", "normalized_error"]]
+    fullPhotoNonRegression: list[
+        Literal["false_boards", "duplicate_predictions", "photo_complete_correct"]
+    ]
+    currentGameImprovementRole: Literal["REGRESSION"]
+    minimumCorrectBoardGain: Literal[1]
+    minimumRelativeErrorReduction: float = Field(ge=0, le=1, allow_inf_nan=False)
+    minimumAbsoluteErrorReduction: float = Field(ge=0, le=1, allow_inf_nan=False)
+    epsilon: float = Field(ge=0, allow_inf_nan=False)
+    checkpointRule: Literal["validation-photo-board-correct-photo-macro-error-earliest-v1"]
+
+    validationAssessment: Literal["full-photos-v1"]
+    regressionAssessment: Literal["human-labeled-targets-v1"]
+
+
+class GridScreenCorrectionCheckpointMetrics(EvaluationClosedModel):
+    boardCorrectRate: float = Field(ge=0, le=1, allow_inf_nan=False)
+    normalizedError: float = Field(ge=0, le=1, allow_inf_nan=False)
+
+    photoCorrectRate: float = Field(ge=0, le=1, allow_inf_nan=False)
+
+
+class GridScreenCorrectionCheckpointSelection(EvaluationClosedModel):
+    rule: Literal["validation-photo-board-correct-photo-macro-error-earliest-v1"]
+    role: Literal["VALIDATION"]
+    step: int = Field(ge=0)
+    metrics: GridScreenCorrectionCheckpointMetrics
+    earlyStopping: GridCorrectionEarlyStopping
+
+    selectionInputSha256: str = Field(pattern=_SHA)
+    metricStateVersion: Literal["photo-board-checkpoint-state-v1"]
+
+
+class GridScreenCorrectionEvaluationReport(EvaluationClosedModel):
+    schemaVersion: Literal["grid-model-evaluation-read-v4"]
+    producer: Literal["server:grid-model-evaluator-v1"]
+    policyVersion: Literal["grid-model-per-game-gate-v3"]
+    policy: GridScreenCorrectionEvaluationPolicy
+    versionId: UUID
+    manifestSha256: str = Field(pattern=_SHA)
+    baseVersionId: UUID
+    baseManifestSha256: str = Field(pattern=_SHA)
+    familyId: UUID
+    trainingGameId: UUID
+    parity: GridModelEvaluationParity
+    cohorts: list[GridModelEvaluationCohortPin]
+    requiredGameIds: list[UUID]
+    games: list[GridScreenCorrectionEvaluationGame]
+    verdict: Verdict
+    scope: GridCorrectionEvaluationScope
+    evidenceLevel: Literal["photo-only"]
+    limitations: list[str]
+    checkpointSelection: GridScreenCorrectionCheckpointSelection
+
+
 class GridAssignedComparisonReport(EvaluationClosedModel):
     schemaVersion: Literal["grid-model-assigned-comparison-v1"]
     producer: Literal["server:grid-model-evaluator-v1"]
@@ -310,6 +378,7 @@ class GridModelEvaluationView(EvaluationClosedModel):
         Annotated[
             GridModelEvaluationReport
             | GridCorrectionEvaluationReport
+            | GridScreenCorrectionEvaluationReport
             | GridAssignedComparisonReport,
             Field(discriminator="schemaVersion"),
         ]

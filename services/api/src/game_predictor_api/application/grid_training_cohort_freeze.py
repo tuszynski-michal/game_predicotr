@@ -80,7 +80,8 @@ def _lock_inputs(
       WHERE m.game_id=:game AND m.cohort_id=:cohort AND (m.frozen->'used'='true'::jsonb
        OR EXISTS(SELECT 1 FROM grid_training_cohorts c WHERE c.game_id=m.game_id
         AND c.id=m.cohort_id AND c.document->>'policyVersion'
-         IN ('application-grid-corrections-v1','application-grid-corrections-v2')))
+         IN ('application-grid-corrections-v1','application-grid-corrections-v2',
+             'application-grid-corrections-v3')))
       ORDER BY s.id FOR UPDATE OF s""").execution_options(yield_per=200),
         {"game": game, "cohort": identifier},
     )

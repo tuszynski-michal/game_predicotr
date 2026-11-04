@@ -34,6 +34,11 @@ _MIN_PHOTOS = (10, 5, 5)
 _MIN_BOARDS = (30, 15, 15)
 
 
+def role_boards(count: int, role: int, *, full_training: bool = False) -> int:
+    """New screen policy excludes partial TRAIN/A, retaining labelled REG targets."""
+    return 0 if full_training and role < 2 and count != 9 else count
+
+
 def correction_data_availability(
     photos: int, boards: int, split_status: Literal["minima", "infeasible", "ready"]
 ) -> dict[str, int | str]:
@@ -328,17 +333,21 @@ def _candidates(
     owners: dict[str, int],
     shared_components: frozenset[str],
     work: _Work,
+    *,
+    full_training: bool = False,
 ) -> tuple[_Candidate, ...]:
     size = len(order.photo_keys)
-    photo_prefix, board_prefix = [0], [0]
+    photo_prefix, board_prefix = [[0] for _ in range(3)], [[0] for _ in range(3)]
     forbidden = [[0] for _ in range(4)]
     positions: dict[str, list[int]] = defaultdict(list)
     for index, photo in enumerate(order.photo_keys):
         component = components.find(photo)
         positions[component].append(index)
         count = boards[photo] if owners[photo] == import_index else 0
-        photo_prefix.append(photo_prefix[-1] + int(count > 0))
-        board_prefix.append(board_prefix[-1] + count)
+        for role in range(3):
+            eligible = role_boards(count, role, full_training=full_training)
+            photo_prefix[role].append(photo_prefix[role][-1] + int(eligible > 0))
+            board_prefix[role].append(board_prefix[role][-1] + eligible)
         permitted = allowed[component]
         for role in range(4):
             # Buffers may never consume a source with a previously frozen role.
@@ -362,9 +371,10 @@ def _candidates(
         counts = [0] * 6
         for start, end, role in segments:
             if role < 3:
-                counts[role] += photo_prefix[end] - photo_prefix[start]
+                counts[role] += photo_prefix[role][end] - photo_prefix[role][start]
                 counts[role + 3] = min(
-                    _MIN_BOARDS[role], counts[role + 3] + board_prefix[end] - board_prefix[start]
+                    _MIN_BOARDS[role],
+                    counts[role + 3] + board_prefix[role][end] - board_prefix[role][start],
                 )
         shared = tuple(sorted((key, role_at(position)) for key, position in cross.items()))
         # Stable group (import) order, role order, then boundary order defines ties.
@@ -402,7 +412,10 @@ def _candidates(
 
 
 def solve_correction_split(
-    sources: Iterable[CorrectionSplitSource], *, max_work: int = 3_000_000
+    sources: Iterable[CorrectionSplitSource],
+    *,
+    max_work: int = 3_000_000,
+    full_training: bool = False,
 ) -> CorrectionSplitResult:
     """Return a provisional immutable exact split; caller owns freeze and trust.
 
@@ -437,7 +450,17 @@ def solve_correction_split(
     StateKey = tuple[tuple[int, ...], tuple[tuple[str, int], ...]]
     states: dict[StateKey, tuple[_Candidate, ...]] = {((0,) * 6, ()): ()}
     for index, order in enumerate(orders):
-        candidates = _candidates(order, index, components, allowed, boards, owners, shared, work)
+        candidates = _candidates(
+            order,
+            index,
+            components,
+            allowed,
+            boards,
+            owners,
+            shared,
+            work,
+            full_training=full_training,
+        )
         next_states: dict[StateKey, tuple[_Candidate, ...]] = {}
         for (counts, pins), path in states.items():
             pin_map = dict(pins)
@@ -495,8 +518,16 @@ def solve_correction_split(
     role_counts = tuple(
         CorrectionRoleCount(
             role_name,
-            sum(count > 0 and photo_roles[photo] == role for photo, count in boards.items()),
-            sum(count for photo, count in boards.items() if photo_roles[photo] == role),
+            sum(
+                role_boards(count, role, full_training=full_training) > 0
+                and photo_roles[photo] == role
+                for photo, count in boards.items()
+            ),
+            sum(
+                role_boards(count, role, full_training=full_training)
+                for photo, count in boards.items()
+                if photo_roles[photo] == role
+            ),
         )
         for role, role_name in enumerate(ROLES)
     )

@@ -49,10 +49,17 @@ class GridCohortPrepareCommand(CohortClosedModel):
         "application-grid-cohort-v1",
         "application-grid-corrections-v1",
         "application-grid-corrections-v2",
+        "application-grid-corrections-v3",
     ] = Field("application-grid-cohort-v1", alias="policyVersion")
 
     @model_validator(mode="after")
     def unique_recordings(self) -> "GridCohortPrepareCommand":
+        if self.policy_version == "application-grid-corrections-v3" and (
+            self.mode != "screen+grid" or self.recordings or self.selector.source_ids
+        ):
+            raise ValueError(
+                "Screen corrections require whole imports, screen+grid and automatic roles."
+            )
         if self.policy_version in (
             "application-grid-corrections-v1",
             "application-grid-corrections-v2",

@@ -24,6 +24,7 @@ from ..geometry_core.preprocessing import (
     screen_geometry,
     transform_points,
 )
+from ..geometry_core.rescue import BoardCropGeometryV1, ScreenInputGeometryV1
 
 FloatArray = NDArray[np.float32]
 ByteImage = NDArray[np.uint8]
@@ -280,12 +281,22 @@ def build_screen_item_with_indices(
     board: BoardPreset,
     augmentation: AugmentationPreset,
     rng: np.random.Generator,
+    *,
+    screen_geometry_override: ScreenInputGeometryV1 | None = None,
+    board_geometry_override: BoardCropGeometryV1 | None = None,
 ) -> tuple[dict[str, Any], list[int]]:
     """``build_screen_item`` plus the board index of every crop (repeats included)."""
     height, width = rgb.shape[:2]
-    canvas_w, canvas_h = screen.train_canvas
+    canvas_w, canvas_h = (
+        screen.train_canvas
+        if screen_geometry_override is None
+        else screen_geometry_override.trainCanvas
+    )
     resized_w, resized_h, _, _ = screen_geometry(
-        width, height, screen.long_side, screen.pad_multiple
+        width,
+        height,
+        screen.long_side if screen_geometry_override is None else screen_geometry_override.longSide,
+        screen.pad_multiple,
     )
     resized = cv2.resize(rgb, (resized_w, resized_h), interpolation=cv2.INTER_AREA)
     scale = np.diag([resized_w / width, resized_h / height, 1.0])
@@ -307,7 +318,9 @@ def build_screen_item_with_indices(
     crops, nodes, visible = [], [], []
     for index in chosen:
         label_nodes, unavailable = boards[int(index)]
-        crop, crop_nodes = build_board_crop(rgb, label_nodes, board, augmentation, rng)
+        crop, crop_nodes = build_board_crop(
+            rgb, label_nodes, board, augmentation, rng, geometry=board_geometry_override
+        )
         crops.append(crop)
         nodes.append(crop_nodes)
         mask = np.ones(CELL_COUNT, np.float32)
@@ -336,11 +349,13 @@ def build_board_crop(
     board: BoardPreset,
     augmentation: AugmentationPreset,
     rng: np.random.Generator,
+    *,
+    geometry: BoardCropGeometryV1 | None = None,
 ) -> tuple[ByteImage, FloatArray]:
     """Jittered rectified board crop and its 24 nodes in crop pixels (same RNG draws as before)."""
     quad = perturb_quad(corners(label_nodes), board, rng)
     if not quad_is_usable(quad):
         quad = corners(label_nodes)
-    matrix = board_rectifier(quad, board)
+    matrix = board_rectifier(quad, board, geometry=geometry)
     crop = photometric(crop_board(rgb, matrix, board), augmentation, rng)
     return crop, transform_points(label_nodes, matrix)

@@ -539,6 +539,23 @@ def associate_expected_slots(proposal: object) -> dict[str, object] | None:
     ):
         return None
     quads = [_outer(item) for item in detections]
+    ordered = associate_quad_slots(quads, sequence.board_count)
+    if ordered is None:
+        return None
+    return build_neural_source_binding(
+        source,
+        confirmed_range=sequence,
+        assignments=[
+            {"detectionId": detections[index]["detectionId"], "positionIndex": position}
+            for position, index in enumerate(ordered)
+        ],
+    )
+
+
+def associate_quad_slots(quads: list[SourceQuad], board_count: int) -> list[int] | None:
+    """Shared geometric binding only; it never claims a correct board or sequence."""
+    if not 1 <= board_count <= 9 or len(quads) != board_count:
+        return None
     if any(
         _overlap(quad, other) for index, quad in enumerate(quads) for other in quads[index + 1 :]
     ):
@@ -597,7 +614,7 @@ def associate_expected_slots(proposal: object) -> dict[str, object] | None:
     )
     tolerance = max(1.0, heights[len(heights) // 2] * 0.5)
     rows: list[list[int]] = []
-    for index in sorted(range(len(detections)), key=lambda i: (centres[i][1], centres[i][0])):
+    for index in sorted(range(len(quads)), key=lambda i: (centres[i][1], centres[i][0])):
         if (
             rows
             and abs(centres[index][1] - sum(centres[i][1] for i in rows[-1]) / len(rows[-1]))
@@ -608,9 +625,7 @@ def associate_expected_slots(proposal: object) -> dict[str, object] | None:
             rows.append([index])
     if len(rows) > 3 or any(len(row) > 3 for row in rows):
         return None
-    expected_rows = [
-        min(3, sequence.board_count - start) for start in range(0, sequence.board_count, 3)
-    ]
+    expected_rows = [min(3, board_count - start) for start in range(0, board_count, 3)]
     if [len(row) for row in rows] != expected_rows:
         return None
     if any(
@@ -621,12 +636,4 @@ def associate_expected_slots(proposal: object) -> dict[str, object] | None:
         if a != b
     ):
         return None
-    ordered = [index for row in rows for index in sorted(row, key=lambda i: centres[i][0])]
-    return build_neural_source_binding(
-        source,
-        confirmed_range=sequence,
-        assignments=[
-            {"detectionId": detections[index]["detectionId"], "positionIndex": position}
-            for position, index in enumerate(ordered)
-        ],
-    )
+    return [index for row in rows for index in sorted(row, key=lambda i: centres[i][0])]

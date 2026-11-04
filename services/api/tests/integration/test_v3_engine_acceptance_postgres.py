@@ -108,6 +108,7 @@ def execution(
     forged_ready=False,
     forged_manual=False,
     workflow_recheck=False,
+    calibrated_report=None,
 ):
     game = _provision_game(database.engine, "task1017-" + uuid4().hex[:8])
     factory = _factory(database.engine)
@@ -159,7 +160,10 @@ def execution(
             now + timedelta(minutes=5),
         )
         operation_pin = None
-        if acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+        if acceptance_policy in (
+            GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+            "v3-engine-acceptance-v4",
+        ):
             from game_predictor_api.domain.neural_grid_operation_pin import (
                 GAME_EVALUATION_REQUIRED,
                 make_operation_pin,
@@ -194,7 +198,11 @@ def execution(
 
                 service = registry(session, tmp_path)
                 service.register(uuid4(), evaluated_descriptor)
-                report = seed_report(session, evaluated_descriptor, [game])
+                report = (
+                    calibrated_report(session, evaluated_descriptor, game, tmp_path)
+                    if calibrated_report
+                    else seed_report(session, evaluated_descriptor, [game])
+                )
                 execute(service, "publish", evaluated_descriptor["versionId"], evaluation=report)
                 operation_pin = prepare_operation_pin(
                     session,
@@ -203,8 +211,20 @@ def execution(
                     rules_version_id=revision.topology_rules_version_id,
                     rows=3,
                     columns=5,
+                    artifact_root=tmp_path if calibrated_report else None,
                 )
                 assert operation_pin["qualification"]["state"] == "qualified"
+                if not calibrated_report:
+                    operation_pin = make_operation_pin(
+                        snapshot=snapshot,
+                        game_id=str(game),
+                        rules_version_id=str(revision.topology_rules_version_id),
+                        rows=3,
+                        columns=5,
+                        qualification=operation_pin["qualification"],
+                    )
+                else:
+                    assert operation_pin["automaticQualification"]["state"] == "qualified"
         job.input_payload = {
             **job.input_payload,
             "neural_grid_execution_policy_version": crop_policy,
@@ -289,6 +309,24 @@ def execution(
             topology=BoardCellTopology(rows=3, columns=5, rules_version_id=str(rules)),
         ),
     )
+    if calibrated_report:
+        from game_predictor_api.domain.full_board_calibration import AXES
+        from game_predictor_api.domain.grid_model_registry import descriptor_sha256 as digest
+
+        evidence = {}
+        for item in detections:
+            body = {
+                "version": "full-board-result-evidence-v1",
+                "sourceSha256": source_sha,
+                "modelManifestSha256": operation_pin["catalogueManifestSha256"],
+                "operationPinSha256": operation_pin["pinSha256"],
+                "profileSha256": operation_pin["automaticQualification"]["profile"]["sha256"],
+                "detectionId": item["detectionId"],
+                "nodesSha256": digest(item["latticeNodes"]),
+                "features": {"values": dict.fromkeys(AXES, 0.5)},
+            }
+            evidence[item["detectionId"]] = {**body, "sha256": digest(body)}
+        suite_options["page_geometry_manifest"][source_sha]["calibrationEvidence"] = evidence
     if workflow_recheck:
         from game_predictor_worker.images.production_workflow import ProductionImageImportWorkflow
 

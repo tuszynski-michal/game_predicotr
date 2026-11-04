@@ -255,6 +255,8 @@ def preset_for_mode(
         ("application-grid-corrections-v1", "grid-only"): "grid-corrections-v1",
         ("application-grid-corrections-v2", "grid-only"): "grid-corrections-v1",
         ("application-grid-corrections-v3", "screen+grid"): "screen-grid-corrections-v1",
+        ("application-grid-corrections-v4", "screen+grid"): "screen-grid-corrections-v1",
+        ("application-grid-corrections-v4", "grid-only"): "grid-corrections-v1",
     }.get((policy, mode))
     matching = [
         p for p in presets.values() if p.mode == mode and p.approved and p.preset_id == expected
@@ -281,6 +283,19 @@ def counts_from_header(header: Mapping[str, Any]) -> CohortCounts:
     roles = {item["role"]: item for item in header["summary"]["roles"]}
 
     def value(role: str, key: str) -> int:
+        if (
+            role == "VALIDATION"
+            and header.get("policyVersion") == "application-grid-corrections-v4"
+        ):
+            return int(
+                header["summary"]["validationPurposes"]["A"][
+                    {
+                        "eligibleBoards": "boards",
+                        "eligiblePhotos": "photos",
+                        "eligibleFullPhotos": "fullPhotos",
+                    }[key]
+                ]
+            )
         return int(roles.get(role, {}).get(key, 0))
 
     return CohortCounts(

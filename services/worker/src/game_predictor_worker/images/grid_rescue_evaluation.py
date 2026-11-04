@@ -21,7 +21,7 @@ from ..training_core.grid_evaluation import predictions
 from ..training_core.grid_rescue_training import TrainingExposure
 from ..training_core.grid_training_admission import digest
 from ..training_core.neural_grid_network import BoardExport, ScreenExport
-from .grid_rescue_strategy import ROUTING_POLICY, execute_path
+from .grid_rescue_strategy import ROUTING_POLICY, completeness_routing, execute_path
 
 PATH_COMPONENTS = {
     "screen_only": ("screen:variant", "board:baseline"),
@@ -95,6 +95,11 @@ class ScreenCorrectionEvaluator:
     ) -> None:
         self.parts, self.recipe, self.device = list(parts), recipe, device
         self.variant, self.selection, self.exposure = variant, dict(selection), exposure
+        self.routing = (
+            completeness_routing(selection, DecodeSettings.of(recipe).board)
+            if selection.get("policy") == "validation-purpose-a-v1"
+            else None
+        )
         expected = {item["gameId"]: item["sources"] for item in selection["games"]}
         actual = {}
         for part in parts:
@@ -135,7 +140,10 @@ class ScreenCorrectionEvaluator:
                 "redetectCalls": 0,
                 "cropCalls": 0,
                 "invocations": [],
-                "routingPolicy": ROUTING_POLICY,
+                "routingPolicy": ROUTING_POLICY
+                if self.routing is None
+                else self.routing["version"],
+                **({"routing": self.routing} if self.routing is not None else {}),
             }
             for path in paths
         }
@@ -169,6 +177,7 @@ class ScreenCorrectionEvaluator:
                         variant=self.variant,
                         path=path,
                         expected_positions=set(range(9)),
+                        routing=self.routing,
                         detect=partial(_detect, engine, rgb),
                         recrop=partial(_recrop, engine, rgb),
                     )

@@ -45,7 +45,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/FULL_BOARD_DETECTION_PLAN_20261103.md` | accepted; T0–T3 done, Opus PASS; T4–T6 pending w zatwierdzonym zakresie4–6h z audytami | TASK-1158–1160; punkt A:197GT/134foto, pełnych0; bez treningu/aktywacji/migracji/usług; integracja osobno | `codex/full-board-detection` |
+| `delivery/FULL_BOARD_DETECTION_PLAN_20261103.md` | accepted; T0–T4 done, Opus PASS; T5–T6 pending w zatwierdzonym zakresie4–6h z audytami | TASK-1159–1160; punkt A:197GT/134foto, pełnych0; bez treningu/aktywacji/migracji/usług; integracja osobno | `codex/full-board-detection` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -91,7 +91,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1157** — Korekty detektora i ratunek — v1.7.562 — tasks/completed/1157-screen-grid-corrections-rescue.md
+- **TASK-1158** — Kompletność i rozdzielona kalibracja — v1.7.563 — tasks/completed/1158-full-board-calibration.md
+- **TASK-1157** — Korekty detektora i ratunek — v1.7.562 / `f78c5b5a` — tasks/completed/1157-screen-grid-corrections-rescue.md
 - **TASK-1156** — Możliwości modelu i kwalifikacja gry — v1.7.560 / `337affe8` — tasks/completed/1156-neural-model-game-capabilities.md
 - **TASK-1155** — Odtwarzalne wejście sieci i dowody gotowości — v1.7.559 / `887d8a3b` — tasks/completed/1155-full-board-input-diagnostics.md
 - **TASK-1154** — Bezpieczna akceptacja siatek — v1.7.558 / `0a7ef2d3` — tasks/completed/1154-safe-neural-auto-crop-policy.md
@@ -100,4 +101,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1147** — Integracja i odbiór przyrostu korekt — v1.7.551 / `95ce934e` — tasks/completed/1147-grid-growth-integration.md
 - **TASK-1151** — Wyszukiwanie bez historii wymiany — v1.7.550 / `eec2f304` — tasks/completed/1151-empty-replacement-search-fast-path.md
 - **TASK-1150** — Atomowy postęp Windows — v1.7.547 / `5efb3ea0` — tasks/completed/1150-grid-training-windows-atomic-progress.md
-- **TASK-1149** — Partie blokowanych wierszy — v1.7.546 / `4827f2a6` — tasks/completed/1149-grid-freeze-batched-lock-reads.md

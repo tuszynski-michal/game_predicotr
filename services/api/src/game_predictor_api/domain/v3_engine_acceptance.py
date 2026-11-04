@@ -20,10 +20,12 @@ from .neural_grid_proposal import NeuralGridProposalError, validate_neural_sourc
 LEGACY_V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v1"
 V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v2"
 GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v3"
+CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v4"
 V3_ENGINE_ACCEPTANCE_POLICIES = (
     LEGACY_V3_ENGINE_ACCEPTANCE_POLICY,
     V3_ENGINE_ACCEPTANCE_POLICY,
     GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+    CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY,
 )
 V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY = "v3_engine_acceptance_policy_version"
 V3_ENGINE_ACCEPTANCE_ACTOR = "system:v3-engine-acceptance-v1"
@@ -31,13 +33,25 @@ V3_ENGINE_ACCEPTANCE_ACTOR = "system:v3-engine-acceptance-v1"
 
 def is_game_scoped_neural_acceptance(policy: object) -> bool:
     """Trusted job policy owns strict gates, never worker kind/source claims."""
-    return policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+    return policy in (
+        GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+        CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY,
+    )
+
+
+def acceptance_for_operation_pin(pin: Mapping[str, object]) -> str:
+    """Retry preserves the policy paired with the immutable pin's version."""
+    return (
+        CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY
+        if pin.get("contractVersion") == "neural-grid-operation-pin-v3"
+        else GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+    )
 
 
 def crop_policy_for_acceptance(policy: object) -> str | None:
     if policy == LEGACY_V3_ENGINE_ACCEPTANCE_POLICY:
         return LEGACY_NEURAL_AUTO_CROP_POLICY
-    if policy in (V3_ENGINE_ACCEPTANCE_POLICY, GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY):
+    if policy == V3_ENGINE_ACCEPTANCE_POLICY or is_game_scoped_neural_acceptance(policy):
         return NEURAL_AUTO_CROP_POLICY
     return None
 
@@ -54,11 +68,10 @@ def pin_v3_engine_acceptance_policy(payload: dict[str, object], fingerprint: str
     pin = payload.get(OPERATION_PIN_KEY)
     game_id = pin.get("gameId") if isinstance(pin, Mapping) else None
     require_operation_pin(pin, snapshot=snapshot, game_id=cast(str, game_id))
-    payload[V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY] = GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+    policy = acceptance_for_operation_pin(cast(Mapping[str, object], pin))
+    payload[V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY] = policy
     return hashlib.sha256(
-        f"{fingerprint}:{GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY}:{descriptor_sha256(pin)}".encode(
-            "ascii"
-        )
+        f"{fingerprint}:{policy}:{descriptor_sha256(pin)}".encode("ascii")
     ).hexdigest()
 
 
@@ -106,7 +119,12 @@ def qualify_v3_engine_acceptance(
         return ("V3_ACCEPTANCE_PROVENANCE_INVALID",)
     source = cast(Mapping[str, object], proposal)
     reasons: list[str] = []
-    if policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+    if policy == CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY and (
+        not isinstance(operation_pin, Mapping)
+        or operation_pin.get("contractVersion") != "neural-grid-operation-pin-v3"
+    ):
+        reasons.append("NEURAL_GRID_OPERATION_POLICY_MISMATCH")
+    if is_game_scoped_neural_acceptance(policy):
         reasons.extend(
             operation_pin_blockers(operation_pin, model_snapshot=model_snapshot, game_id=game_id)
         )
@@ -171,6 +189,17 @@ def qualify_v3_engine_acceptance(
         ):
             reasons.append("V3_ACCEPTANCE_GEOMETRY_INVALID")
         if crop_policy == NEURAL_AUTO_CROP_POLICY and detection is not None:
+            if policy == CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY:
+                from .calibrated_neural_evidence import calibrated_result_blockers
+
+                reasons.extend(
+                    calibrated_result_blockers(
+                        geometry.get("neuralCalibrationEvidence"),
+                        pin=operation_pin,
+                        proposal=source,
+                        detection=detection,
+                    )
+                )
             if geometry.get("neuralAcceptanceEvidence") != neural_auto_crop_evidence(detection):
                 reasons.append("V3_ACCEPTANCE_EVIDENCE_INVALID")
             reasons.extend(

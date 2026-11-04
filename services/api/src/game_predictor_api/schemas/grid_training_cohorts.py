@@ -50,10 +50,23 @@ class GridCohortPrepareCommand(CohortClosedModel):
         "application-grid-corrections-v1",
         "application-grid-corrections-v2",
         "application-grid-corrections-v3",
+        "application-grid-corrections-v4",
     ] = Field("application-grid-cohort-v1", alias="policyVersion")
+    validation_assignments: dict[UUID, Literal["A", "B", "BUFFER"]] | None = Field(
+        None, alias="validationAssignments", max_length=5000
+    )
 
     @model_validator(mode="after")
     def unique_recordings(self) -> "GridCohortPrepareCommand":
+        if (
+            self.validation_assignments is not None
+            and self.policy_version != "application-grid-corrections-v4"
+        ):
+            raise ValueError("Validation purposes require the explicit v4 policy.")
+        if self.policy_version == "application-grid-corrections-v4" and (
+            self.recordings or self.selector.source_ids
+        ):
+            raise ValueError("Purpose splitting requires whole imports and existing photo roles.")
         if self.policy_version == "application-grid-corrections-v3" and (
             self.mode != "screen+grid" or self.recordings or self.selector.source_ids
         ):
@@ -119,7 +132,14 @@ class GridCohortRoleSummary(CohortClosedModel):
     recordingRequired: bool
 
 
+class GridValidationPurposeCounts(CohortClosedModel):
+    boards: int = Field(ge=0)
+    photos: int = Field(ge=0)
+    fullPhotos: int = Field(ge=0)
+
+
 class GridCohortSummary(CohortClosedModel):
+    validationPurposes: dict[Literal["A", "B"], GridValidationPurposeCounts] | None = None
     roles: list[GridCohortRoleSummary]
     reasonCounts: dict[str, int]
 

@@ -6,6 +6,54 @@ last_updated: 2026-11-03
 
 # Architektura laboratorium wizji
 
+## Completeness and calibration (TASK-1158, D-587)
+
+Alembic `0181_validation_purposes` adds nullable `validation_purpose` to the existing
+immutable `recording_photo_uses` ledger. SQL v8 projects every old v6/v7 JSON field
+explicitly, preserving old proof bytes. New context v3/photo-cohort v3/command v5 use
+purpose-aware proof inputs. Insert fences and `recording_training_scope_v1` prevent
+fresh legacy selection of B, including worker resume. Domain split refinement reuses
+the existing solver/components/buffers; explicit A/B assignments do not optimize the
+holdout. Corrections/split/snapshot v4 materializes purpose and exact labelled targets.
+The existing GridBoardDataset exposes A; GridAssessmentDataset exposes partial B/REG.
+
+`full_board_completeness` measures geometry, confidence, actual input support and
+agreement without NN execution. `CalibrationObserver` observes the existing evaluator's
+single result pair and human matching. `FullBoardCalibrationRun` persists A/menu before
+B, B/sealed configuration before REG, then a bounded sidecar with exact observations,
+source/target revisions, role proofs and checksums. The existing evaluator job/report
+store/currentness remain authoritative. Missing data produces an explicit unqualified
+automatic state without changing the raw quality gate. No new workflow or role store.
+
+Observed source UUID/pixel SHA/slot/GT SHA and counts must exactly equal the independently
+pinned frozen assessment before deduplication. API resolves the cohort through the
+report and DB header, then reuses the strict snapshot/dataset adapters. Worker checks
+the same membership during prepare, finish and resume. Self-rehashed sidecar omissions
+or substitutions cannot redefine the assessment. Unreleased T4 sidecars missing the
+required source identity/reference fields fail closed; released formats are unchanged.
+
+Report read v5 wraps raw report v3/v4 and its unchanged gate v2/v3. The strict reader
+validates both parts; the operation qualifier also verifies sidecar bytes, recomputes
+the numeric sweep and checks the exact game/profile. Pin v3 and acceptance v4 extend
+all existing strict policy guards and SQL exact IMPORT/VALIDATE lookup. Result evidence
+binds source, model, pin, profile, detection and fitted-node SHA; worker and API prewrite
+use the same checks. Historical pin v1/v2 retains acceptance v3 on retry.
+
+`grid-checkpoint-input-v2` names exact purpose-A input. The existing screen evaluator
+validates `grid-rescue-exact-slots-input-completeness-v2`: old guards plus fitted-cell
+input-support violation, with complete board preset and A-input SHA. Old proofs retain
+their routing. Other B thresholds never trigger recognition. New calibrated raster
+checksum/available box bind both raw cache and the existing RescueAttemptStore identity;
+drift rejects the same directory before reading baseline or spending new attempts.
+Evaluator and runtime use the same `calibration_routing_sha` normalization formula.
+
+`register_grid_diagnostics.py stage` strictly validates T1 record SHA, archived full
+preset and preprocessing version, producing metadata only. Explicit approved deployment
+executes `recording_diagnostic_use_v1` atomically in the existing ledger/receipt store.
+Duplicate record bindings replay; diagnostic closure blocks new B/REG. Late registered
+exposure invalidates existing dependent report bindings, without rewriting past roles.
+The private operator staging payload is not part of Git or external audit packages.
+
 ## Detector corrections and bounded rescue (TASK-1157, D-586)
 
 `application-grid-corrections-v3` / `application-grid-snapshot-v3` use

@@ -11,7 +11,11 @@ from game_predictor_api.domain.grid_model_registry import (
     canonical_json,
     descriptor_sha256,
 )
-from game_predictor_api.domain.neural_grid_operation_pin import GAME_EVALUATION_REQUIRED
+from game_predictor_api.domain.neural_grid_operation_pin import (
+    CALIBRATION_REQUIRED,
+    GAME_EVALUATION_REQUIRED,
+    make_operation_pin,
+)
 from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
 from game_predictor_api.storage.grid_model_registry_models import (
     GridModelEvaluationInvalidationModel,
@@ -49,9 +53,9 @@ def snapshot(c, game, *, historical=False):
     )
 
 
-def prepare(session, c, game, *, historical=False):
+def prepare(session, c, game, *, historical=False, legacy=False):
     rules = uuid4()
-    return prepare_operation_pin(
+    prepared = prepare_operation_pin(
         session,
         snapshot=snapshot(c, game, historical=historical),
         game_id=game,
@@ -59,6 +63,17 @@ def prepare(session, c, game, *, historical=False):
         rows=3,
         columns=5,
     )
+    if legacy:
+        # Recreate the persisted T2 contract, rather than relabel a new v3 pin.
+        return make_operation_pin(
+            snapshot=snapshot(c, game, historical=historical),
+            game_id=str(game),
+            rules_version_id=str(rules),
+            rows=3,
+            columns=5,
+            qualification=prepared["qualification"],
+        )
+    return prepared
 
 
 def recheck(session, c, game, pin, *, historical=False):
@@ -93,7 +108,10 @@ def test_exact_game_pass_and_foreign_game_rejected_without_blocking_proposals(op
         _, report = publish_fixture(c, session)
         qualified = prepare(session, c, c.game)
         assert qualified["qualification"]["evaluationId"] == str(report)
-        assert recheck(session, c, c.game, qualified) == ()
+        assert qualified["contractVersion"] == "neural-grid-operation-pin-v3"
+        assert recheck(session, c, c.game, qualified) == (CALIBRATION_REQUIRED,)
+        legacy = prepare(session, c, c.game, legacy=True)
+        assert recheck(session, c, c.game, legacy) == ()
         foreign = prepare(session, c, c.other)
         assert foreign["qualification"]["state"] == "unqualified"
         assert recheck(session, c, c.other, foreign) == (GAME_EVALUATION_REQUIRED,)
@@ -144,7 +162,7 @@ def test_exact_qualified_game_rejects_mismatched_report_or_publication_pin(
     c = operation_controls
     with Session(c.engine) as session:
         publish_fixture(c, session)
-        pin = prepare(session, c, c.game)
+        pin = prepare(session, c, c.game, legacy=True)
         assert recheck(session, c, c.game, pin) == ()  # real current report for this game
         forged = deepcopy(pin)
         forged["qualification"][field] = value
@@ -162,7 +180,7 @@ def test_second_publish_is_forbidden_and_read_model_replacement_is_stale(operati
     c = operation_controls
     with Session(c.engine) as session:
         service, _ = publish_fixture(c, session)
-        old_pin = prepare(session, c, c.game)
+        old_pin = prepare(session, c, c.game, legacy=True)
         new_report = seed_report(session, c.candidate, [c.game])
         with pytest.raises(GridModelRegistryError, match="GRID_MODEL_REVISION_CONFLICT"):
             execute(service, "publish", c.candidate["versionId"], evaluation=new_report, expected=1)

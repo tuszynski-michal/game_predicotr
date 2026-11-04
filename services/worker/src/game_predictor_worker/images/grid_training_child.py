@@ -419,6 +419,7 @@ def _train(
             "application-grid-corrections-v1",
             "application-grid-corrections-v2",
             "application-grid-corrections-v3",
+            "application-grid-corrections-v4",
         )
     ):
         raise ChildError("GRID_RUN_COHORT_POLICY_MISMATCH")

@@ -42,6 +42,13 @@ class RescueAttemptStore:
             raise ValueError("GRID_RESCUE_CHECKPOINT_INVALID")
         if value["identity"] != self.identity:
             stored = value["identity"]
+            if ("inputRaster" in stored or "inputRaster" in self.identity) and (
+                stored.get("inputRaster") != self.identity.get("inputRaster")
+            ):
+                raise GeometryRuntimeError(
+                    "GRID_RESCUE_RASTER_CHANGED",
+                    "The same operation cannot spend attempts on a changed raster.",
+                )
             same_except_positions = (
                 allow_position_alias
                 and isinstance(stored.get("positions"), list)
@@ -161,12 +168,19 @@ def run_with_rescue(
     pin: Mapping[str, Any] | None,
     expected_positions: set[int],
     summary_sink: dict[str, Any] | None = None,
+    observation_sink: dict[str, Any] | None = None,
+    input_raster: Mapping[str, Any] | None = None,
 ) -> list[BoardDetection]:
     if pin is None:
-        return cast(
+        baseline = cast(
             list[BoardDetection],
             runner.run(bundle, bundle_sha, rgb, heartbeat=heartbeat, max_seconds=max_seconds),
         )
+        if observation_sink is not None:
+            observation_sink.update(
+                baseline=baseline, cropPositions=[], selectedPath=None, routing=None
+            )
+        return baseline
     deadline = time.monotonic() + max_seconds
 
     def remaining() -> float:
@@ -204,6 +218,7 @@ def run_with_rescue(
             "positions": sorted(expected_positions),
             "width": int(rgb.shape[1]),
             "height": int(rgb.shape[0]),
+            **({"inputRaster": dict(input_raster)} if input_raster is not None else {}),
         },
     )
     found = store.baseline(
@@ -274,8 +289,19 @@ def run_with_rescue(
             detect=detect,
             recrop=recrop,
             expected_positions=expected_positions,
+            routing=proof["selection"]["pathProofs"][checked["selectedPath"]].get("routing"),
         )
         reasons = result.reasons
+        if observation_sink is not None:
+            observation_sink.update(
+                baseline=found,
+                cropPositions=sorted(result.crop_calls),
+                selectedPath=checked["selectedPath"],
+                routing=proof["selection"]["pathProofs"][checked["selectedPath"]].get("routing"),
+                boardGeometry=variant.board
+                if checked["selectedPath"] in ("board_only", "combined")
+                else None,
+            )
     finally:
         if summary_sink is not None:
             summary_sink.update(store.summary(reasons))

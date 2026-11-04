@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -11,6 +12,8 @@ from sqlalchemy.orm import Session
 from game_predictor_api.application.grid_model_registry import GridModelRegistryService
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError, descriptor_sha256
 from game_predictor_api.domain.neural_grid_operation_pin import (
+    CALIBRATED_PIN_VERSION,
+    CALIBRATION_REQUIRED,
     GAME_EVALUATION_REQUIRED,
     NeuralOperationPinError,
     make_operation_pin,
@@ -87,12 +90,14 @@ def prepare_operation_pin(
             "publicationEvidenceSha256": descriptor_sha256(evidence),
         }
     rescue = None
+    automatic: dict[str, Any] = {"state": "unqualified", "reasonCodes": [CALIBRATION_REQUIRED]}
     if qualification["state"] == "qualified" and artifact_root is not None:
         from .grid_model_registry import GridModelArtifactInspector
 
         rescue, _ = GridModelArtifactInspector(artifact_root).inspect_rescue(
             snapshot_descriptor(snapshot), game_id=str(game_id), publication_evidence=evidence
         )
+        automatic = _automatic_evidence(session, evidence, snapshot, game_id, artifact_root)
     return make_operation_pin(
         snapshot=snapshot,
         game_id=str(game_id),
@@ -101,6 +106,7 @@ def prepare_operation_pin(
         columns=columns,
         qualification=qualification,
         rescue=rescue,
+        automatic_qualification=automatic,
     )
 
 
@@ -135,4 +141,72 @@ def recheck_operation_pin(
         or descriptor_sha256(evidence) != qualification["publicationEvidenceSha256"]
     ):
         return ("NEURAL_GRID_GAME_EVALUATION_STALE",)
+    if checked["contractVersion"] == CALIBRATED_PIN_VERSION:
+        automatic = checked["automaticQualification"]
+        if automatic["state"] != "qualified":
+            return (CALIBRATION_REQUIRED,)
+        # The exact trusted report is already revalidated above. Its profile is immutable.
+        report, invalidated = SqlAlchemyGridModelRegistryRepository(session).evaluation(
+            UUID(automatic["reportId"])
+        )
+        if report is None or invalidated or report.report_sha256 != automatic["reportSha256"]:
+            return ("NEURAL_GRID_CALIBRATION_STALE",)
+        document = json.loads(report.report_json)
+        found = [
+            item
+            for item in document.get("automaticCalibration", [])
+            if item.get("gameId") == str(game_id)
+        ]
+        if (
+            len(found) != 1
+            or found[0].get("state") != "qualified"
+            or found[0].get("profile") != automatic["profile"]
+        ):
+            return ("NEURAL_GRID_CALIBRATION_STALE",)
     return ()
+
+
+def _automatic_evidence(
+    session: Session, evidence: dict[str, Any], snapshot: NeuralGridSnapshot, game: UUID, root: Path
+) -> dict[str, Any]:
+    unqualified = {"state": "unqualified", "reasonCodes": [CALIBRATION_REQUIRED]}
+    identifier = evidence.get("evaluationId")
+    if identifier is None:
+        return unqualified
+    report, invalidated = SqlAlchemyGridModelRegistryRepository(session).evaluation(
+        UUID(identifier)
+    )
+    if report is None or invalidated or report.report_sha256 != evidence["evaluationSha256"]:
+        return unqualified
+    document = json.loads(report.report_json)
+    if document.get("schemaVersion") != "grid-model-evaluation-read-v5":
+        return unqualified
+    matches = [item for item in document["automaticCalibration"] if item["gameId"] == str(game)]
+    if len(matches) != 1 or matches[0]["state"] != "qualified":
+        return unqualified
+    from .full_board_calibration_evidence import (
+        load_frozen_assessment,
+        require_calibration_evidence,
+    )
+
+    try:
+        require_calibration_evidence(
+            root,
+            matches[0],
+            frozen=load_frozen_assessment(session, root, document, game),
+            candidate_sha=descriptor_sha256(snapshot_descriptor(snapshot)),
+            baseline_sha=document["baseManifestSha256"],
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return unqualified
+    if matches[0]["profile"]["candidateManifestSha256"] != descriptor_sha256(
+        snapshot_descriptor(snapshot)
+    ):
+        return unqualified
+    return {
+        "state": "qualified",
+        "reasonCodes": [],
+        "reportId": str(report.id),
+        "reportSha256": report.report_sha256,
+        "profile": matches[0]["profile"],
+    }

@@ -109,7 +109,6 @@ class GridTrainingCohortService:
             SMOKE_STARTUP_SECONDS,
             SMOKE_TRAIN_SECONDS,
             WORKER_CHECKS,
-            CohortCounts,
             cost_view,
             estimate_cohort_cost,
             preset_for_mode,
@@ -118,21 +117,14 @@ class GridTrainingCohortService:
 
         header = self.get(game, cohort)
         eligibility = self.eligibility(game, cohort)
-        roles = {item["role"]: item for item in header["summary"]["roles"]}
-        train = roles.get("TRAIN", {})
-        validation = roles.get("VALIDATION", {})
-        regression = roles.get("REGRESSION", {})
-        counts = CohortCounts(
-            mode=header["mode"],
-            train_boards=int(train.get("eligibleBoards", 0)),
-            train_photos=int(train.get("eligiblePhotos", 0)),
-            train_full_photos=int(train.get("eligibleFullPhotos", 0)),
-            validation_boards=int(validation.get("eligibleBoards", 0)),
-            validation_photos=int(validation.get("eligiblePhotos", 0)),
-            regression_boards=int(regression.get("eligibleBoards", 0)),
-            regression_photos=int(regression.get("eligiblePhotos", 0)),
-        )
+        from game_predictor_worker.training_core.grid_training_admission import counts_from_header
+
+        counts = counts_from_header(header)
         blockers: list[str] = []
+        try:
+            self.repository.training_scope(game, cohort)
+        except GridCohortError as error:
+            blockers.append(error.code)
         if header["status"] != "frozen":
             blockers.append("GRID_RUN_COHORT_NOT_FROZEN")
         if eligibility["qualification"] != "eligible":

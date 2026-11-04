@@ -115,6 +115,26 @@ def test_metadata_reload_and_actor_before_replay_and_bounded_routes(tmp_path):
             {**body, "selector": {**body["selector"], "importJobId": None}},
             "local-owner",
         )
+        purposes = {
+            **body,
+            "policyVersion": "application-grid-corrections-v4",
+            "selector": {"importJobId": str(uuid4())},
+            "recordings": [],
+            "validationAssignments": {str(uuid4()): "A", str(uuid4()): "B"},
+        }
+        assert client.post(f"{path}/prepare", json=purposes, headers=headers).status_code == 200
+        assert calls[-1][1][1] == {
+            **purposes,
+            "selector": {**purposes["selector"], "sourceIds": None},
+        }
+        assert (
+            client.post(
+                f"{path}/prepare",
+                json={**purposes, "policyVersion": "application-grid-corrections-v2"},
+                headers=headers,
+            ).status_code
+            == 422
+        )
         count = len(calls)
         assert (
             client.post(

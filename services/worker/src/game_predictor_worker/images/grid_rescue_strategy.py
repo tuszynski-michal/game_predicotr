@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,6 +16,60 @@ from ..geometry_core.preprocessing import quad_is_usable
 from ..geometry_core.rescue import GridRescueVariantV1
 
 ROUTING_POLICY = "grid-rescue-exact-slots-fit-or-pixels-v1"
+COMPLETENESS_ROUTING_POLICY = "grid-rescue-exact-slots-input-completeness-v2"
+
+
+def completeness_routing(selection: Mapping[str, Any], board: Any) -> dict[str, Any]:
+    """Frozen before A path validation; no B acceptance thresholds enter routing."""
+    from game_predictor_api.domain.grid_training_cohorts import digest
+
+    from ..geometry_core.settings import BoardPreset
+
+    if selection.get("policy") != "validation-purpose-a-v1":
+        raise ValueError("GRID_RESCUE_ROUTING_A_REQUIRED")
+    value = {
+        "version": COMPLETENESS_ROUTING_POLICY,
+        "selectionInputSha256": selection["sha256"],
+        "boardPreset": BoardPreset.model_validate(board, from_attributes=True).model_dump(
+            mode="json"
+        ),
+        "coverageEpsilon": 1e-6,
+        "coverageUnit": "missing-cell-area-fraction-normalized-xy-v1",
+        "trigger": "legacy-or-fitted-cell-outside-real-board-input-v1",
+    }
+    return {**value, "sha256": digest(value)}
+
+
+def require_completeness_routing(value: Mapping[str, Any]) -> dict[str, Any]:
+    expected = completeness_routing(
+        {"policy": "validation-purpose-a-v1", "sha256": value.get("selectionInputSha256")},
+        value.get("boardPreset"),
+    )
+    if (
+        dict(value) != expected
+        or not isinstance(value.get("selectionInputSha256"), str)
+        or len(value["selectionInputSha256"]) != 64
+    ):
+        raise ValueError("GRID_RESCUE_ROUTING_PROOF_REQUIRED")
+    return expected
+
+
+def completeness_suspicious(
+    detection: BoardDetection, width: int, height: int, routing: Mapping[str, Any]
+) -> bool:
+    from ..geometry_core.settings import BoardPreset
+    from .full_board_completeness import input_support, missing_cell_area
+
+    if detection.nodes is None or suspicious(detection, width, height):
+        return True
+    try:
+        support = input_support(
+            detection.screen_quad, BoardPreset.model_validate(routing["boardPreset"])
+        )
+        missing = missing_cell_area(detection.nodes, support, width, height)
+    except (ValueError, np.linalg.LinAlgError):
+        return True
+    return missing is None or missing > routing["coverageEpsilon"]
 
 
 @dataclass(frozen=True)
@@ -76,11 +130,18 @@ def execute_path(
     recrop: Callable[[int, BoardDetection, Any], BoardDetection | None],
     expected_positions: set[int] | None = None,
     trigger: Callable[[BoardDetection, int, int], bool] = suspicious,
+    routing: Mapping[str, Any] | None = None,
 ) -> RescueResult:
     # This routing version was validated on A with this exact trigger. T4 must
     # introduce and validate a new routing proof before enabling another trigger.
     if trigger is not suspicious:
         return RescueResult(baseline, 0, {}, ("GRID_RESCUE_ROUTING_PROOF_REQUIRED",))
+    if routing is not None:
+        checked_routing = require_completeness_routing(routing)
+
+        def trigger(detection: BoardDetection, width: int, height: int) -> bool:
+            return completeness_suspicious(detection, width, height, checked_routing)
+
     if path not in variant.paths:
         raise ValueError("GRID_RESCUE_PATH_UNSUPPORTED")
     binding = slots(baseline)

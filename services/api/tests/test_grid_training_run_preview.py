@@ -64,6 +64,7 @@ def header(game, cohort, *, status="frozen", mode="grid-only", train=(30, 10, 0)
 def service(tmp_path: Path, head, qualification="eligible", reasons=()):
     value = GridTrainingCohortService.__new__(GridTrainingCohortService)
     value.artifact_root = tmp_path
+    value.repository = SimpleNamespace(training_scope=lambda _game, _cohort: {})
     calls = []
 
     def get(game, cohort):
@@ -191,3 +192,28 @@ def test_new_correction_policy_is_blocked_until_its_training_consumer_exists(tmp
     head = {**header(game, cohort), "policyVersion": "application-grid-corrections-v1"}
     value, _ = service(tmp_path, head)
     assert value.run_preview(game, cohort)["apiBlockers"] == ["GRID_RUN_POLICY_UNSUPPORTED"]
+
+
+def test_v4_preview_counts_only_a_and_blocks_new_legacy_use_of_b(tmp_path):
+    from game_predictor_api.domain.grid_training_cohorts import GridCohortError
+
+    game, cohort = uuid4(), uuid4()
+    head = {**header(game, cohort), "policyVersion": "application-grid-corrections-v4"}
+    head["summary"]["validationPurposes"] = {
+        "A": {"photos": 5, "boards": 15, "fullPhotos": 0},
+        "B": {"photos": 30, "boards": 60, "fullPhotos": 0},
+    }
+    value, _ = service(tmp_path, head)
+    preview = value.run_preview(game, cohort)
+    assert preview["apiBlockers"] == []
+    from game_predictor_worker.training_core.grid_training_admission import counts_from_header
+
+    assert counts_from_header(head).validation_boards == 15
+
+    def forbidden(*_):
+        raise GridCohortError("GRID_VALIDATION_B_SELECTION_FORBIDDEN", "Existing B is protected.")
+
+    value.repository.training_scope = forbidden
+    assert value.run_preview(game, cohort)["apiBlockers"] == [
+        "GRID_VALIDATION_B_SELECTION_FORBIDDEN"
+    ]

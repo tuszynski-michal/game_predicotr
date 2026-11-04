@@ -81,7 +81,7 @@ def _lock_inputs(
        OR EXISTS(SELECT 1 FROM grid_training_cohorts c WHERE c.game_id=m.game_id
         AND c.id=m.cohort_id AND c.document->>'policyVersion'
          IN ('application-grid-corrections-v1','application-grid-corrections-v2',
-             'application-grid-corrections-v3')))
+             'application-grid-corrections-v3','application-grid-corrections-v4')))
       ORDER BY s.id FOR UPDATE OF s""").execution_options(yield_per=200),
         {"game": game, "cohort": identifier},
     )

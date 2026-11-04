@@ -85,12 +85,21 @@ def require_rescue_evidence(bundle: Mapping[str, Any]) -> dict[str, Any]:
         selection_input.get("role"),
         selection_input.get("purpose"),
         selection_input.get("selectionExposed"),
-    ) != (
-        "grid-checkpoint-input-v1",
-        "all-validation-v1",
-        "VALIDATION",
-        "checkpoint-selection",
-        True,
+    ) not in (
+        (
+            "grid-checkpoint-input-v1",
+            "all-validation-v1",
+            "VALIDATION",
+            "checkpoint-selection",
+            True,
+        ),
+        (
+            "grid-checkpoint-input-v2",
+            "validation-purpose-a-v1",
+            "VALIDATION",
+            "checkpoint-selection",
+            True,
+        ),
     ):
         raise ValueError("GRID_RESCUE_SELECTION_INPUT_INVALID")
     recipe = proof["recipe"]
@@ -115,6 +124,18 @@ def require_rescue_evidence(bundle: Mapping[str, Any]) -> dict[str, Any]:
         ):
             raise ValueError("GRID_RESCUE_SELECTION_SOURCES_INVALID")
     selected = proof["selection"]
+    from game_predictor_worker.images.grid_rescue_strategy import completeness_routing
+
+    for path_proof in selected.get("pathProofs", {}).values():
+        if selection_input["policy"] == "validation-purpose-a-v1":
+            expected_routing = completeness_routing(selection_input, bundle["preset"]["board"])
+            if (
+                path_proof.get("routing") != expected_routing
+                or path_proof.get("routingPolicy") != expected_routing["version"]
+            ):
+                raise ValueError("GRID_RESCUE_ROUTING_PROOF_REQUIRED")
+        elif "routing" in path_proof:
+            raise ValueError("GRID_RESCUE_ROUTING_PROOF_REQUIRED")
     if (
         selected.get("contractVersion") != "grid-rescue-selection-v1"
         or selected.get("selectionInputSha256") != selection_input["sha256"]
@@ -285,7 +306,12 @@ def _require_selection_choice(
             or item["redetectCalls"] != sum(row["redetect"] for row in calls)
             or item["cropCalls"] != sum(len(row["cropPositions"]) for row in calls)
             or (path == "board_only" and item["redetectCalls"] != 0)
-            or item.get("routingPolicy") != "grid-rescue-exact-slots-fit-or-pixels-v1"
+            or item.get("routingPolicy")
+            != (
+                "grid-rescue-exact-slots-input-completeness-v2"
+                if selection_input.get("policy") == "validation-purpose-a-v1"
+                else "grid-rescue-exact-slots-fit-or-pixels-v1"
+            )
         ):
             raise ValueError("GRID_RESCUE_PATH_CALLS_INVALID")
         exercised = item["cropCalls"] > 0 and (path == "board_only" or item["redetectCalls"] > 0)

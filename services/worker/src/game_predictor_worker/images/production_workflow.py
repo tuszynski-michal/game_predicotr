@@ -721,16 +721,15 @@ class ProductionImageImportWorkflow:
         """Recheck the exact game evidence and pass the result to the production suite."""
         from game_predictor_api.domain.neural_grid_operation_pin import OPERATION_PIN_KEY
         from game_predictor_api.domain.v3_engine_acceptance import (
-            GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+            is_game_scoped_neural_acceptance,
         )
         from game_predictor_api.storage.neural_grid_operation_qualification import (
             recheck_operation_pin,
         )
 
         qualification_blockers = None
-        if (
+        if is_game_scoped_neural_acceptance(
             job.input_payload.get("v3_engine_acceptance_policy_version")
-            == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
         ):
             assert job.game_id is not None
             with self._session_factory() as session, session.begin():

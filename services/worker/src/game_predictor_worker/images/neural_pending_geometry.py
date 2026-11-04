@@ -22,8 +22,8 @@ from game_predictor_api.domain.neural_grid_proposal import (
     validate_neural_source_proposal,
 )
 from game_predictor_api.domain.v3_engine_acceptance import (
-    GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
     V3_ENGINE_ACCEPTANCE_POLICIES,
+    is_game_scoped_neural_acceptance,
 )
 
 from .source_ingestion import ManagedOriginal
@@ -128,7 +128,7 @@ def neural_pending_payload(
             rows=rows,
             columns=columns,
         )
-        if engine_acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+        if is_game_scoped_neural_acceptance(engine_acceptance_policy):
             blockers += operation_pin_blockers(
                 operation_pin,
                 model_snapshot=proposal["engineSnapshot"],
@@ -139,6 +139,18 @@ def neural_pending_payload(
                 if qualification_blockers is not None
                 else ("NEURAL_GRID_GAME_EVALUATION_UNCHECKED",)
             )
+        if engine_acceptance_policy == "v3-engine-acceptance-v4":
+            from game_predictor_api.domain.calibrated_neural_evidence import (
+                calibrated_result_blockers,
+            )
+
+            evidence = cast(Mapping[str, object], entry.get("calibrationEvidence") or {}).get(
+                "" if detection is None else str(detection["detectionId"])
+            )
+            blockers += calibrated_result_blockers(
+                evidence, pin=operation_pin, proposal=proposal, detection=detection
+            )
+            shared["neuralCalibrationEvidence"] = evidence
         automatic = automatic_crops and not blockers
         if automatic_crops and execution_policy == NEURAL_AUTO_CROP_POLICY:
             reasons.extend(blockers)
@@ -202,7 +214,7 @@ def neural_pending_payload(
                 "binding": dict(binding),
                 **(
                     {"operationPin": operation_pin}
-                    if engine_acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+                    if is_game_scoped_neural_acceptance(engine_acceptance_policy)
                     else {}
                 ),
             },

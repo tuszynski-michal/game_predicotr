@@ -6,6 +6,7 @@ CORRECTION_POLICIES = (
     "application-grid-corrections-v1",
     CORRECTION_POLICY,
     SCREEN_CORRECTION_POLICY,
+    "application-grid-corrections-v4",
 )
 CORRECTION_SNAPSHOT = "application-grid-snapshot-v2"
 CORRECTION_PRESET = "grid-corrections-v1"
@@ -24,7 +25,9 @@ def correction_policy_for_mode(mode: str) -> str:
     raise ValueError("Unsupported correction training mode.")
 
 
-def correction_mode_for_policy(policy: str) -> str:
+def correction_mode_for_policy(policy: str, mode: str | None = None) -> str:
+    if policy == "application-grid-corrections-v4" and mode in ("grid-only", "screen+grid"):
+        return mode
     if policy == SCREEN_CORRECTION_POLICY:
         return "screen+grid"
     if policy in CORRECTION_POLICIES:

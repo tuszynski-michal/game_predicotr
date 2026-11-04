@@ -52,9 +52,10 @@ class CohortPhotos:
         self.snapshot, self.role = snapshot, role
         rows = GridBoardDataset(snapshot, role).indexed()
         if full_only:
-            if snapshot.manifest["policyVersion"] == "application-grid-corrections-v3" and any(
-                row[0].get("screenEligible") is not True for row in rows
-            ):
+            if snapshot.manifest["policyVersion"] in (
+                "application-grid-corrections-v3",
+                "application-grid-corrections-v4",
+            ) and any(row[0].get("screenEligible") is not True for row in rows):
                 raise GridTrainingDataError("GRID_TRAINING_FULL_DATA_DRIFT")
             rows = [row for row in rows if row[0].get("screenEligible") is True]
         if not rows:

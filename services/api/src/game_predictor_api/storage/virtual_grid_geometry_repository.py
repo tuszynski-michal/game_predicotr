@@ -172,13 +172,13 @@ class SqlAlchemyVirtualGridGeometryRepository:
 
         base = prepared.entries[0].context
         from game_predictor_api.domain.v3_engine_acceptance import (
-            GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+            is_game_scoped_neural_acceptance,
         )
 
         from .neural_grid_operation_qualification import recheck_operation_pin
 
         qualification_blockers = None
-        if acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+        if is_game_scoped_neural_acceptance(acceptance_policy):
             qualification_blockers = recheck_operation_pin(
                 self._session,
                 pin=operation_pin,
@@ -187,6 +187,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             )
             if qualification_blockers:
                 return {}, qualification_blockers
+        from game_predictor_api.domain.calibrated_neural_evidence import calibrated_result_blockers
         from game_predictor_api.domain.neural_crop_policy import (
             NEURAL_AUTO_CROP_POLICY,
             full_neural_prediction_geometry,
@@ -223,6 +224,15 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     or geometry.get("latticeNodes") != detection["latticeNodes"]
                     or geometry.get("neuralAcceptanceEvidence")
                     != neural_auto_crop_evidence(detection)
+                    or (
+                        acceptance_policy == "v3-engine-acceptance-v4"
+                        and calibrated_result_blockers(
+                            geometry.get("neuralCalibrationEvidence"),
+                            pin=operation_pin,
+                            proposal=proposal,
+                            detection=detection,
+                        )
+                    )
                     or neural_auto_crop_blockers(
                         policy=crop_policy,
                         detection=detection,
@@ -317,7 +327,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                         "acceptancePolicy": acceptance_policy,
                         **(
                             {"operationPin": operation_pin}
-                            if acceptance_policy == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY
+                            if is_game_scoped_neural_acceptance(acceptance_policy)
                             else {}
                         ),
                     },
@@ -539,6 +549,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     "detectionId",
                     "neuralExecutionPolicy",
                     "neuralAcceptanceEvidence",
+                    "neuralCalibrationEvidence",
                 )
             ) and slot.get("finalQuad") == board.board_geometry.get("quad")
             positions.append(

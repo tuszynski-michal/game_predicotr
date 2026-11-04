@@ -15,6 +15,69 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+## D-587 — Trwałe cele walidacji i odrębna kwalifikacja automatu
+
+Status: accepted
+Data: 2026-11-04
+
+T4 zaakceptowanego planu utrwala validationPurpose A/B w istniejącym rejestrze.
+Historyczne role, payloady, proofy i receipts zachowują interpretację; dodanie kolumny
+nie może zmienić JSON whole-row dawnych contextów. TRAIN, znane kopie/sesje/ancestry
+oraz bufory pozostają chronione. Legacy all-validation exposure dopuszcza tylko A;
+nowe legacy freeze/start/resume nie mogą odczytywać B. Replay receiptu nie jest nowym
+uprawnieniem do treningu. Preview nie utrwala assignmentu, freeze jest atomowy.
+
+Minima automatu są osobno w B i REG: 30 różnych źródeł baseline-bad oraz 30 baseline-good
+po dedup, per opisany GT target. Mieszane zdjęcie może zasilać obie klasy innymi planszami,
+lecz pozostaje w jednej roli. Raport podaje overlap i zależności, nie udaje 60 niezależnych
+zdjęć. Baseline strata są zamrożone przed progami; każdy candidate outcome oceniamy osobno
+względem GT. Naprawienie wszystkich dawnych błędów nie usuwa minimum negatywów.
+Partial B/REG ocenia wszystkie opisane cele; whole-photo/false-positive/duplicate metrics
+są dostępne wyłącznie przy pełnym GT. Screen TRAIN/checkpoint A zachowują pełne wymagania.
+
+Coverage missingArea/GTCellArea jest bezwymiarowe, w układzie x/W,y/H; epsilon1e-6 służy
+wyłącznie błędowi numerycznemu, nie dopuszcza utraty treści. Jawne menu co najwyżej256
+progów i tie-break są przypięte przed B; profil sealed przed REG. B dobiera auto-accept,
+a ustawienia rozpoznania/ratunku i routing wraz z path proof wybiera tylko TRAIN/A.
+Brak referencji lub dowodu nie jest PASS; stare fit-only proofs nie dopuszczają nowego
+triggera. T3 attempt budget pozostaje ten sam.
+
+Menu jest osobne dla każdej gry: osiem osi, najwyżej dwa poziomy każdej, więc
+do 256 konfiguracji na grę i do 256 × liczba wymaganych gier łącznie. Minima peak,
+visibility i detectorIoU używają nearest-rank 1%/5%; maksima fitResidual,
+detectorCornerError, gameAspectDeviation, neighborDeviation i rescueDisagreement
+używają 95%/99%. Poziomy pochodzą wyłącznie z poprawnych, deduplikowanych obserwacji
+zamrożonego TRAIN/A, przed odczytem B; wersja kwantyla i nTargets/nSources są w SHA
+planu. Nie ma dodatkowego minimum próbek: aktywna oś potrzebuje niepustej referencji
+oraz dotychczasowych minimów TRAIN/A. Nieobecna referencja jest manualWhenApplicable;
+notApplicable wynika z rzeczywistego stanu/ratunku, nie zastępuje unknown.
+Rozpoznanie wykonuje się raz, następnie wyłącznie sweep liczbowy. Plan podaje liczbę
+porównań przed B. Remis: najwięcej poprawnych automatycznych, najmniej błędnych,
+stabilna kolejność konfiguracji po canonical SHA. REG nie zmienia profilu.
+
+Definicja `full-board-reference-outcome-v1`: istniejący Hungarian IoU≥0.5, 24-node
+NME≤0.02 i max-node-error≤0.05 przekątnej GT oraz pełne pokrycie komórek GT przez
+wynik i rzeczywiste wejście. Baseline-bad jest negacją baseline-good per opisany
+target; candidate-good/bad i falseAccept liczy się niezależnie względem tego GT.
+Konflikt bieżącego GT na identycznych bajtach/pikselach i slocie blokuje kwalifikację.
+Nowy routing `grid-rescue-exact-slots-input-completeness-v2` dodaje wyłącznie fitted
+cell input-support violation do starych guardów. Exact A, board preset i routing SHA
+wiążą actual path validation. Nie dowodzi wykrycia każdego pominiętego rzędu bez GT.
+Pozostałe sygnały B mogą zatrzymać automat, ale nie uruchamiają nowego ratunku.
+Managed-crop valid_box i raster checksum wiążą cache oraz treść identity tego samego
+RescueAttemptStore. Zmiana rastra w operacji zatrzymuje wykonanie bez nowego tokenu.
+
+Raw quality/publication i automatic qualification są odrębne. Brak niezależnego B lub
+minimów nie blokuje dozwolonego treningu, propozycji lub ręcznego apply przy spełnionych
+zwykłych quality gates. Nowa acceptance policy obejmuje centralne guards i SQL lookup;
+retry odzyskuje historyczne pin+policy razem, bez nonce ani nowego budżetu.
+
+Rzeczywiste T1 diagnosticUse rejestruje generic strict-record capability w tym samym
+ledger po walidacji SHA/preset/version i closure. Implementacja przygotowuje manifest
+oraz polecenie, nie wykonuje zapisów na DB operatora. Rejestracja jest bramką wdrożenia
+przed nowym B/REG. Readiness metadata134 nie jest diagnostic exposure.
+Źródło: TASK-1158, zaakceptowany plan i doprecyzowania koordynatora/operatora.
+
 ## D-586 — Korekty detektora i dowodowy ratunek z trwałym budżetem
 
 Status: accepted

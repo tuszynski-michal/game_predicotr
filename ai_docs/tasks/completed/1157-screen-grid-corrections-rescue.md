@@ -604,7 +604,7 @@ effective geometry; reserved-only state does not claim an analysed input.
 
 ## Outcome
 
-Commit: v1.7.562 (hash dopisuje kolejny commit).
+Commit: v1.7.562 / `f78c5b5a1a6dcbc1c0d280a0f4d2204417e5d9a3`.
 
 ### Changed
 

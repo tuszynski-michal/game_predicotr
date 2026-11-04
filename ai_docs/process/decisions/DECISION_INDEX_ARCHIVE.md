@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-557](DECISION_LOG_2026.md#d-557--presety-treningu-geometrii-v3-dzierżawa-gpu-i-dopuszczenie-runu) | Presety treningu geometrii V3, dzierżawa GPU i dopuszczenie runu | accepted | 2026-10-16 | Wersjonowane presety z odciskiem, koszt kohorty, jedna dzierżawa GPU aplikacji, budżet bez odnowienia przy wznowieniu i smoke 50 kroków/120 s treningu. |
 | [D-556](DECISION_LOG_2026.md#d-556--niezmienne-kohorty-geometrii-v3-i-aktualność-dowodów) | Niezmienne kohorty geometrii V3 i aktualność dowodów | accepted | 2026-10-16 | Exact human labels i24nodes, bounded snapshot/use/currentness; zachowana historia, nowe użycie usuniętego źródła zablokowane decyzją operatora. |
 | [D-555](DECISION_LOG_2026.md#d-555--pomiar-jakości-v3-i-jawne-zatwierdzenie-niezmienionej-geometrii) | Pomiar jakości V3 i jawne zatwierdzenie niezmienionej geometrii | accepted | 2026-10-16 | Frozen baseline i9 pozycji, separate canonical approval bez recropu, symbols manual-only i forward permissions. |
 | [D-554](DECISION_LOG_2026.md#d-554--nagrania-i-ochrona-danych-kontrolnych-geometrii-v3) | Nagrania i ochrona danych kontrolnych geometrii V3 | accepted | 2026-10-15 | Geometry-only aliasy i role nagrań, prywatne capability, dependent-only invalidation; bez operator runs. |

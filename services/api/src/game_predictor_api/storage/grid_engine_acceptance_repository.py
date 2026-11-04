@@ -557,6 +557,7 @@ class SqlAlchemyHistoricalAcceptanceRepository:
                         "neuralProposalChecksumSha256",
                         "neuralProposalBinding",
                         "detectionId",
+                        "neuralCalibrationEvidence",
                     )
                 )
                 and slot.get("sequenceNumber") == board.sequence_number

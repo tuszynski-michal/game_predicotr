@@ -11,6 +11,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
+from game_predictor_api.domain.full_board_calibration_report import AutomaticCalibration
+
 _SHA = r"^[0-9a-f]{64}$"
 Decision = Literal["pass", "fail", "not_evaluable"]
 Verdict = Literal["PASS", "REVISE", "NOT_EVALUABLE"]
@@ -328,6 +330,32 @@ class GridScreenCorrectionEvaluationReport(EvaluationClosedModel):
     checkpointSelection: GridScreenCorrectionCheckpointSelection
 
 
+class GridCalibratedEvaluationReport(EvaluationClosedModel):
+    schemaVersion: Literal["grid-model-evaluation-read-v5"]
+    rawQualitySchemaVersion: Literal[
+        "grid-model-evaluation-read-v3", "grid-model-evaluation-read-v4"
+    ]
+    producer: Literal["server:grid-model-evaluator-v1"]
+    policyVersion: Literal["grid-model-per-game-gate-v2", "grid-model-per-game-gate-v3"]
+    policy: GridCorrectionEvaluationPolicy | GridScreenCorrectionEvaluationPolicy
+    versionId: UUID
+    manifestSha256: str = Field(pattern=_SHA)
+    baseVersionId: UUID
+    baseManifestSha256: str = Field(pattern=_SHA)
+    familyId: UUID
+    trainingGameId: UUID
+    parity: GridModelEvaluationParity
+    cohorts: list[GridModelEvaluationCohortPin]
+    requiredGameIds: list[UUID]
+    games: list[GridCorrectionEvaluationGame | GridScreenCorrectionEvaluationGame]
+    verdict: Verdict
+    scope: GridCorrectionEvaluationScope
+    evidenceLevel: Literal["photo-only"]
+    limitations: list[str]
+    checkpointSelection: GridCorrectionCheckpointSelection | GridScreenCorrectionCheckpointSelection
+    automaticCalibration: list[AutomaticCalibration]
+
+
 class GridAssignedComparisonReport(EvaluationClosedModel):
     schemaVersion: Literal["grid-model-assigned-comparison-v1"]
     producer: Literal["server:grid-model-evaluator-v1"]
@@ -379,6 +407,7 @@ class GridModelEvaluationView(EvaluationClosedModel):
             GridModelEvaluationReport
             | GridCorrectionEvaluationReport
             | GridScreenCorrectionEvaluationReport
+            | GridCalibratedEvaluationReport
             | GridAssignedComparisonReport,
             Field(discriminator="schemaVersion"),
         ]

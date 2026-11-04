@@ -26,6 +26,8 @@ OPERATION_PIN_VERSION = "neural-grid-operation-pin-v1"
 GAME_QUALIFICATION_POLICY = "neural-game-evaluation-v1"
 CAPABILITY_PREFLIGHT_POLICY = "page-geometry-preflight-v14-neural-capabilities"
 GAME_EVALUATION_REQUIRED = "NEURAL_GRID_GAME_EVALUATION_REQUIRED"
+CALIBRATION_REQUIRED = "NEURAL_GRID_CALIBRATION_REQUIRED"
+CALIBRATED_PIN_VERSION = "neural-grid-operation-pin-v3"
 _SHA = re.compile(r"[0-9a-f]{64}")
 NEURAL_OPERATION_DERIVED_KEYS = frozenset(
     {
@@ -83,10 +85,13 @@ def make_operation_pin(
     columns: int,
     qualification: dict[str, object],
     rescue: dict[str, object] | None = None,
+    automatic_qualification: dict[str, object] | None = None,
 ) -> dict[str, object]:
     descriptor = snapshot_descriptor(snapshot)
     pin: dict[str, object] = {
-        "contractVersion": OPERATION_PIN_VERSION
+        "contractVersion": CALIBRATED_PIN_VERSION
+        if automatic_qualification is not None
+        else OPERATION_PIN_VERSION
         if rescue is None
         else "neural-grid-operation-pin-v2",
         "gameId": game_id,
@@ -100,6 +105,11 @@ def make_operation_pin(
         "qualification": qualification,
         **({"rescue": rescue} if rescue is not None else {}),
     }
+    if automatic_qualification is not None:
+        pin["contractVersion"] = CALIBRATED_PIN_VERSION
+        pin["qualificationPolicyVersion"] = "full-board-calibration-qualification-v1"
+        pin["automaticQualification"] = automatic_qualification
+        pin["rescue"] = rescue
     pin["pinSha256"] = descriptor_sha256(pin)
     return require_operation_pin(pin, snapshot=snapshot, game_id=game_id)
 
@@ -111,6 +121,9 @@ def require_operation_pin(
     game_id: str,
 ) -> dict[str, Any]:
     try:
+        is_calibrated = (
+            isinstance(value, Mapping) and value.get("contractVersion") == CALIBRATED_PIN_VERSION
+        )
         is_rescue = (
             isinstance(value, Mapping)
             and value.get("contractVersion") == "neural-grid-operation-pin-v2"
@@ -127,14 +140,26 @@ def require_operation_pin(
             "qualificationPolicyVersion",
             "qualification",
             "pinSha256",
-        } | ({"rescue"} if is_rescue else set()):
+        } | (
+            {"rescue", "automaticQualification"}
+            if is_calibrated
+            else {"rescue"}
+            if is_rescue
+            else set()
+        ):
             raise ValueError("Operation pin fields differ.")
         pin = dict(value)
         snapshot.require_game(game_id)
         descriptor = snapshot_descriptor(snapshot)
         if (
             pin["contractVersion"]
-            != ("neural-grid-operation-pin-v2" if is_rescue else OPERATION_PIN_VERSION)
+            != (
+                CALIBRATED_PIN_VERSION
+                if is_calibrated
+                else "neural-grid-operation-pin-v2"
+                if is_rescue
+                else OPERATION_PIN_VERSION
+            )
             or pin["gameId"] != game_id
             or str(UUID(game_id)) != game_id
             or str(UUID(pin["topologyRulesVersionId"])) != pin["topologyRulesVersionId"]
@@ -145,7 +170,12 @@ def require_operation_pin(
             or pin["boardRows"] != 3
             or type(pin["boardColumns"]) is not int
             or pin["boardColumns"] != 5
-            or pin["qualificationPolicyVersion"] != GAME_QUALIFICATION_POLICY
+            or pin["qualificationPolicyVersion"]
+            != (
+                "full-board-calibration-qualification-v1"
+                if is_calibrated
+                else GAME_QUALIFICATION_POLICY
+            )
             or pin["pinSha256"]
             != descriptor_sha256({k: v for k, v in pin.items() if k != "pinSha256"})
         ):
@@ -179,7 +209,13 @@ def require_operation_pin(
                     raise ValueError("Evaluation evidence requires SHA-256.")
         else:
             raise ValueError("Unknown qualification state.")
-        if is_rescue:
+        if is_calibrated:
+            require_automatic_qualification(
+                pin["automaticQualification"],
+                game_id=game_id,
+                manifest_sha=pin["catalogueManifestSha256"],
+            )
+        if is_rescue or (is_calibrated and pin["rescue"] is not None):
             from .grid_rescue_policy import require_rescue_pin
 
             bundle_sha = next(
@@ -207,4 +243,67 @@ def operation_pin_blockers(
         return (NeuralOperationPinError.code,)
     if pin["qualification"]["state"] != "qualified":
         return (GAME_EVALUATION_REQUIRED,)
+    if (
+        pin["contractVersion"] == CALIBRATED_PIN_VERSION
+        and pin["automaticQualification"]["state"] != "qualified"
+    ):
+        return (CALIBRATION_REQUIRED,)
     return ()
+
+
+def require_automatic_qualification(
+    value: object, *, game_id: str, manifest_sha: str
+) -> dict[str, Any]:
+    """A selected profile, never the 256-entry search menu, travels with an operation."""
+    from .full_board_calibration import AXES
+
+    if isinstance(value, dict) and value == {
+        "state": "unqualified",
+        "reasonCodes": [CALIBRATION_REQUIRED],
+    }:
+        return dict(value)
+    if (
+        not isinstance(value, dict)
+        or value.keys() != {"state", "reasonCodes", "reportId", "reportSha256", "profile"}
+        or value["state"] != "qualified"
+        or value["reasonCodes"] != []
+    ):
+        raise ValueError("NEURAL_GRID_CALIBRATION_PIN_INVALID")
+    if str(UUID(value["reportId"])) != value["reportId"] or not _SHA.fullmatch(
+        value["reportSha256"]
+    ):
+        raise ValueError("NEURAL_GRID_CALIBRATION_PIN_INVALID")
+    profile = value["profile"]
+    if not isinstance(profile, dict) or profile.keys() != {
+        "version",
+        "gameId",
+        "candidateManifestSha256",
+        "planSha256",
+        "sealedSha256",
+        "routingSha256",
+        "configuration",
+        "gameLogAspectReference",
+        "assessmentScope",
+        "sha256",
+    }:
+        raise ValueError("NEURAL_GRID_CALIBRATION_PROFILE_INVALID")
+    if (
+        profile["version"] != "full-board-auto-profile-v1"
+        or profile["gameId"] != game_id
+        or profile["candidateManifestSha256"] != manifest_sha
+        or profile["assessmentScope"] != "labelled_targets"
+        or profile["sha256"]
+        != descriptor_sha256({k: v for k, v in profile.items() if k != "sha256"})
+    ):
+        raise ValueError("NEURAL_GRID_CALIBRATION_PROFILE_INVALID")
+    import math
+
+    if not isinstance(profile["configuration"], dict) or set(profile["configuration"]) != set(AXES):
+        raise ValueError("NEURAL_GRID_CALIBRATION_PROFILE_INVALID")
+    for number in [*profile["configuration"].values(), profile["gameLogAspectReference"]]:
+        if number is not None and (type(number) not in (int, float) or not math.isfinite(number)):
+            raise ValueError("NEURAL_GRID_CALIBRATION_PROFILE_INVALID")
+    for key in ("planSha256", "sealedSha256", "routingSha256"):
+        if not isinstance(profile[key], str) or not _SHA.fullmatch(profile[key]):
+            raise ValueError("NEURAL_GRID_CALIBRATION_PROFILE_INVALID")
+    return value

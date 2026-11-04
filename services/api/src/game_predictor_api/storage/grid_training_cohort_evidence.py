@@ -453,7 +453,10 @@ class GridCohortEvidenceReader:
         used = ready and (
             full
             or (
-                role == "REGRESSION"
+                (
+                    role == "REGRESSION"
+                    or (role == "VALIDATION" and recording.get("validationPurpose") == "B")
+                )
                 and recording.get("assessmentPolicy") == "human-labeled-targets-v1"
             )
             or (

@@ -40,6 +40,7 @@ class SharedGridCandidateService:
             header = service.get(game, cohort)
             row = repository.cohort(game, cohort)
             eligibility = service.eligibility(game, cohort)
+            repository.training_scope(game, cohort)
             groups: dict[str, str] = {}
             for member in repository.iter_members(game, cohort):
                 recording = member.frozen.get("recording")
@@ -51,6 +52,7 @@ class SharedGridCandidateService:
                     "application-grid-corrections-v1",
                     "application-grid-corrections-v2",
                     "application-grid-corrections-v3",
+                    "application-grid-corrections-v4",
                 ):
                     groups.setdefault(str(member.source_id), str(member.source_id))
             return {**header, "manifestPath": row.manifest_path}, eligibility, groups
@@ -89,6 +91,7 @@ class SharedGridCandidateService:
                 "application-grid-corrections-v1",
                 "application-grid-corrections-v2",
                 "application-grid-corrections-v3",
+                "application-grid-corrections-v4",
             )
             if correction:
                 from game_predictor_api.storage.grid_model_registry import (

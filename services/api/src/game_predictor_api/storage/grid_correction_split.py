@@ -195,13 +195,14 @@ def population_sha(rows: list[dict[str, Any]]) -> str:
 
 
 def contexts(
-    repo: Any, game: UUID, ids: list[str], *, incremental: bool = True
+    repo: Any, game: UUID, ids: list[str], *, incremental: bool = True, purpose_aware: bool = False
 ) -> dict[str, dict[str, Any]]:
     result = {}
+    context_version = 3 if purpose_aware else 2 if incremental else 1
     for offset in range(0, len(ids), 200):
         values = repo.session.scalar(
             text(
-                f"SELECT public.recording_photo_context_v{2 if incremental else 1}"
+                f"SELECT public.recording_photo_context_v{context_version}"
                 "(:game,CAST(:ids AS uuid[]))"
             ),
             {"game": game, "ids": ids[offset : offset + 200]},
@@ -213,14 +214,29 @@ def contexts(
 
 
 def prepare_split(
-    repo: Any, game: UUID, imports: list[str], deadline: Any, *, policy: str = CORRECTION_POLICY
+    repo: Any,
+    game: UUID,
+    imports: list[str],
+    deadline: Any,
+    *,
+    policy: str = CORRECTION_POLICY,
+    mode: str | None = None,
+    validation_assignments: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     rows = population(repo, game, imports)
-    screen = policy == SCREEN_CORRECTION_POLICY
-    incremental = policy in (CORRECTION_POLICY, SCREEN_CORRECTION_POLICY)
-    metadata = contexts(repo, game, [r["source"]["id"] for r in rows], incremental=incremental)
+    purpose_aware = policy == "application-grid-corrections-v4"
+    screen = policy == SCREEN_CORRECTION_POLICY or (purpose_aware and mode == "screen+grid")
+    incremental = purpose_aware or policy in (CORRECTION_POLICY, SCREEN_CORRECTION_POLICY)
+    metadata = contexts(
+        repo,
+        game,
+        [r["source"]["id"] for r in rows],
+        incremental=incremental,
+        purpose_aware=purpose_aware,
+    )
     reader = GridCohortEvidenceReader(repo.session, repo.artifact_root)
     sources, pins = [], []
+    target_nodes: dict[str, dict[int, Any]] = {}
     for index, row in enumerate(rows):
         deadline.check(repo.session)
         source, revs = row["source"], row["revisions"]
@@ -265,6 +281,7 @@ def prepare_split(
             )
             count = measured["boardEligibleCount"]
             labels = [p["label"] for p in measured["positions"] if p["label"] is not None]
+        target_nodes[key] = {label["positionIndex"]: label["nodes"] for label in labels}
         context = metadata[key]
         roles = context["priorRoles"]
         if incremental and (
@@ -306,7 +323,7 @@ def prepare_split(
                 "registryProofSha256": context["proofSha256"],
                 "componentIds": context["componentIds"],
                 "eligibleBoards": count,
-                **({"qualifiedLabelsSha256": digest(labels)} if screen else {}),
+                **({"qualifiedLabelsSha256": digest(labels)} if screen or purpose_aware else {}),
                 **(
                     {"pendingCorrection": row.get("pendingCorrection", False)}
                     if incremental
@@ -325,6 +342,18 @@ def prepare_split(
                 "rangeEnd": first.get("sequence_range_end"),
             }
         )
+    if purpose_aware:
+        copies, _, _, _, _, _ = _prepare(tuple(sources))
+        seen_labels: dict[tuple[str, int], Any] = {}
+        for source in sources:
+            for position, nodes in target_nodes[source.source_id].items():
+                alias_key = copies.find(source.source_id), position
+                if alias_key in seen_labels and seen_labels[alias_key] != nodes:
+                    raise GridCohortError(
+                        "GRID_CALIBRATION_GT_ALIAS_CONFLICT",
+                        "Copies have different current human geometry for the same target.",
+                    )
+                seen_labels[alias_key] = nodes
     try:
         readiness = None
         if screen:
@@ -337,8 +366,15 @@ def prepare_split(
                     photos=sum(n > 0 for n in deduplicated.values()),
                     boards=sum(deduplicated.values()),
                 )
+        solver_sources = sources
+        if purpose_aware:
+            from game_predictor_api.domain.grid_validation_purpose import (
+                constrain_validation_sources,
+            )
+
+            solver_sources = constrain_validation_sources(sources, validation_assignments or {})
         solved = (
-            solve_incremental_split(sources, full_training=screen)
+            solve_incremental_split(solver_sources, full_training=screen)
             if incremental
             else solve_correction_split(sources)
         )
@@ -388,7 +424,14 @@ def prepare_split(
             else {}
         ),
     }
-    return {**result, "sha256": digest(result)}
+    result = {**result, "sha256": digest(result)}
+    if purpose_aware:
+        from game_predictor_api.domain.grid_validation_purpose import refine_validation_purposes
+
+        return refine_validation_purposes(
+            result, sources, metadata, validation_assignments or {}, full_training=screen
+        )
+    return result
 
 
 def validate_population(
@@ -403,6 +446,7 @@ def validate_population(
     if for_freeze and split.get("schemaVersion") in (
         "grid-correction-split-v2",
         "grid-correction-split-v3",
+        "grid-correction-split-v4",
     ):
         pending = {row["source"]["id"] for row in rows if row.get("pendingCorrection")}
         if any(
@@ -443,14 +487,25 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "splitSha256": split["sha256"],
             "expectedBoardCount": item["eligibleBoards"],
             **(
+                {
+                    "validationPurpose": item["validationPurpose"],
+                    "purposeProofSha256": item["purposeProofSha256"],
+                }
+                if "validationPurpose" in item
+                else {}
+            ),
+            **(
                 {"expectedLabelsSha256": item["qualifiedLabelsSha256"]}
                 if "qualifiedLabelsSha256" in item
                 else {}
             ),
             **(
                 {"assessmentPolicy": "human-labeled-targets-v1"}
-                if split["schemaVersion"] == "grid-correction-split-v3"
-                and item["role"] == "REGRESSION"
+                if (
+                    split["schemaVersion"]
+                    in ("grid-correction-split-v3", "grid-correction-split-v4")
+                    and (item["role"] == "REGRESSION" or item.get("validationPurpose") == "B")
+                )
                 else {}
             ),
         }

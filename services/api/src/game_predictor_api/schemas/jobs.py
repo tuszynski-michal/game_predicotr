@@ -723,7 +723,10 @@ class GridReinferenceJobPayload(ApiModel):
     model_snapshot: dict[str, object]
     runtime_policy: Literal["grid-reinference-runtime-v1"]
     acceptance_policy: Literal[
-        "v3-engine-acceptance-v1", "v3-engine-acceptance-v2", "v3-engine-acceptance-v3"
+        "v3-engine-acceptance-v1",
+        "v3-engine-acceptance-v2",
+        "v3-engine-acceptance-v3",
+        "v3-engine-acceptance-v4",
     ]
 
 

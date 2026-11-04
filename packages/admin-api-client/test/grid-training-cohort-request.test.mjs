@@ -119,4 +119,13 @@ test('cohort wrapper sends bounded exact bodies and scoped metadata routes', asy
     policyVersion: 'application-grid-corrections-v1',
   });
   assert.ok(calls[11].url.endsWith('/grid-training-cohorts/prepare'));
+  const purposes = {
+    ...corrections,
+    mode: 'screen+grid',
+    recordings: [],
+    policyVersion: 'application-grid-corrections-v4',
+    validationAssignments: { [game]: 'A', [cohort]: 'B', [key]: 'BUFFER' },
+  };
+  await client.prepareGridTrainingCohort(game, purposes);
+  assert.deepEqual(calls[12].body, purposes);
 });

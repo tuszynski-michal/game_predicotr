@@ -160,6 +160,7 @@ class GridCohortSnapshot:
             ("application-grid-snapshot-v2", "application-grid-corrections-v1"),
             ("application-grid-snapshot-v2", "application-grid-corrections-v2"),
             ("application-grid-snapshot-v3", "application-grid-corrections-v3"),
+            ("application-grid-snapshot-v4", "application-grid-corrections-v4"),
         }
         if (
             (value.get("schemaVersion"), value.get("policyVersion")) not in policies
@@ -213,6 +214,24 @@ class GridCohortSnapshot:
         if not _integer(value.get("pageCount")):
             _fail("INDEX_INVALID", "Snapshot page count is invalid.")
         counts = value.get("counts")
+        if value["policyVersion"] == "application-grid-corrections-v4":
+            split = value.get("photoSplit")
+            if (
+                not isinstance(split, dict)
+                or split.get("schemaVersion") != "grid-correction-split-v4"
+                or split.get("sha256")
+                != descriptor_sha256({key: item for key, item in split.items() if key != "sha256"})
+                or not isinstance(split.get("purposeCounts"), dict)
+                or not isinstance(split.get("sources"), list)
+            ):
+                _fail(
+                    "VALIDATION_PURPOSE_PROOF_INVALID",
+                    "A strict versioned purpose split is required.",
+                )
+            ids = [item.get("sourceId") for item in split["sources"]]
+            if len(set(ids)) != len(ids):
+                _fail("VALIDATION_PURPOSE_PROOF_INVALID", "Purpose sources must be unique.")
+            self._purpose_pins = {item["sourceId"]: item for item in split["sources"]}
         if (
             not isinstance(counts, dict)
             or set(counts) != _ROLES
@@ -306,6 +325,23 @@ class GridCohortSnapshot:
                             "Snapshot source identity, role or used flag is invalid.",
                         )
                     if source["used"]:
+                        if self._manifest["policyVersion"] == "application-grid-corrections-v4":
+                            expected = self._purpose_pins.get(source["sourceId"])
+                            if (
+                                expected is None
+                                or not expected.get("representative")
+                                or source.get("role") != expected["role"]
+                                or source.get("validationPurpose")
+                                != expected.get("validationPurpose")
+                                or source.get("purposeProofSha256")
+                                != expected.get("purposeProofSha256")
+                                or not _sha(source.get("purposeProofSha256"))
+                                or len(source.get("targets", [])) != expected["eligibleBoards"]
+                            ):
+                                _fail(
+                                    "VALIDATION_PURPOSE_PROOF_INVALID",
+                                    "Used source differs from its immutable purpose pin.",
+                                )
                         if source["role"] not in _ROLES or not isinstance(
                             source.get("targets"), list
                         ):
@@ -319,8 +355,19 @@ class GridCohortSnapshot:
                     _fail("PAGE_COUNTS_MISMATCH", "Page target counts differ from their index.")
                 yield from page["sources"]
 
-    def frame(self, source: dict[str, Any], role: str) -> CanonicalSourceFrame:
+    def frame(
+        self, source: dict[str, Any], role: str, *, validation_purpose: str = "A"
+    ) -> CanonicalSourceFrame:
         # Keep this guard before path resolution, existence, byte reads and decode.
+        if (
+            self._manifest["policyVersion"] == "application-grid-corrections-v4"
+            and role == "VALIDATION"
+            and (
+                validation_purpose not in ("A", "B")
+                or source.get("validationPurpose") != validation_purpose
+            )
+        ):
+            _fail("VALIDATION_PURPOSE_MISMATCH", "Legacy validation reads cannot access B pixels.")
         if role not in _ROLES or source.get("role") != role or source.get("used") is not True:
             _fail(
                 "ROLE_MISMATCH",
@@ -436,6 +483,12 @@ class GridBoardDataset:
         if role not in _ROLES:
             _fail("ROLE_INVALID", "Choose TRAIN, VALIDATION or REGRESSION explicitly.")
         self.snapshot, self.role = snapshot, role
+        self.validation_purpose = (
+            "A"
+            if snapshot.manifest["policyVersion"] == "application-grid-corrections-v4"
+            and role == "VALIDATION"
+            else None
+        )
 
     def _partial_assessment(self) -> bool:
         return False
@@ -443,6 +496,14 @@ class GridBoardDataset:
     def _sources(self) -> Iterator[dict[str, Any]]:
         for source in self.snapshot.sources():
             if source["used"] and source["role"] == self.role:
+                if self.validation_purpose is not None:
+                    if source.get("validationPurpose") not in ("A", "B"):
+                        _fail(
+                            "VALIDATION_PURPOSE_REQUIRED",
+                            "New validation sources need an exact purpose.",
+                        )
+                    if source["validationPurpose"] != self.validation_purpose:
+                        continue
                 targets = source["targets"]
                 if any(not isinstance(target, dict) for target in targets):
                     _fail("TARGETS_INVALID", "Each target must be a metadata object.")
@@ -463,6 +524,7 @@ class GridBoardDataset:
                             not in (
                                 "application-grid-corrections-v1",
                                 "application-grid-corrections-v2",
+                                "application-grid-corrections-v4",
                             )
                         )
                     )
@@ -491,7 +553,12 @@ class GridBoardDataset:
             boards += len(source["targets"])
             photos += 1
             full += int(source.get("screenEligible") is True)
-        if self.snapshot._manifest["counts"][self.role] != {
+        expected = self.snapshot._manifest["counts"][self.role]
+        if self.validation_purpose is not None:
+            expected = self.snapshot._manifest["photoSplit"]["purposeCounts"].get(
+                "VALIDATION-" + self.validation_purpose, {"boards": 0, "photos": 0, "fullPhotos": 0}
+            )
+        if expected != {
             "boards": boards,
             "photos": photos,
             "fullPhotos": full,
@@ -508,7 +575,9 @@ class GridBoardDataset:
                 continue
             target = source["targets"][index]
             nodes, weight, configuration = _target(target)
-            frame = self.snapshot.frame(source, self.role)
+            frame = self.snapshot.frame(
+                source, self.role, validation_purpose=self.validation_purpose or "A"
+            )
             return {
                 "sourceRgb": frame.rgb,
                 "nodes": nodes,
@@ -527,6 +596,13 @@ class GridAssessmentDataset(GridBoardDataset):
 
     def __init__(self, snapshot: GridCohortSnapshot, role: str) -> None:
         super().__init__(snapshot, role)
+        if (
+            snapshot.manifest["policyVersion"] == "application-grid-corrections-v4"
+            and snapshot.manifest["schemaVersion"] == "application-grid-snapshot-v4"
+            and role in ("VALIDATION", "REGRESSION")
+        ):
+            self.validation_purpose = "B" if role == "VALIDATION" else None
+            return
         if (
             role != "REGRESSION"
             or snapshot.manifest["policyVersion"] != "application-grid-corrections-v3"

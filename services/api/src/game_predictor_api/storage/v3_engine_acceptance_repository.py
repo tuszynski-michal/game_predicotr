@@ -12,12 +12,12 @@ from sqlalchemy.orm import Session
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_PAYLOAD_KEY
 from game_predictor_api.domain.v3_engine_acceptance import (
-    GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
     V3_ENGINE_ACCEPTANCE_ACTOR,
     V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
     V3_ENGINE_ACCEPTANCE_POLICIES,
     V3EnginePosition,
     crop_policy_for_acceptance,
+    is_game_scoped_neural_acceptance,
     qualify_v3_engine_acceptance,
 )
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
@@ -99,7 +99,7 @@ def finalize_v3_engine_acceptance(
         if evidence.get("policyVersion") != job.input_payload.get(V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY):
             revision.status = "needs_review"
             return ("V3_ACCEPTANCE_POLICY_DRIFT",)
-        if evidence.get("policyVersion") == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+        if is_game_scoped_neural_acceptance(evidence.get("policyVersion")):
             if evidence.get("operationPin") != operation_pin:
                 revision.status = "needs_review"
                 return ("NEURAL_GRID_OPERATION_PIN_INVALID",)
@@ -199,6 +199,7 @@ def finalize_v3_engine_acceptance(
                         "neuralProposalBinding",
                         "detectionId",
                         "neuralAcceptanceEvidence",
+                        "neuralCalibrationEvidence",
                     )
                 )
             )

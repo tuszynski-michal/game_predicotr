@@ -173,6 +173,8 @@ def measure_role(
     candidate: Engine,
     *,
     before_photo: Callable[[int], None] = lambda _index: None,
+    observation: Callable[[CorrectionControlPhoto, Any, Mapping[str, Any]], list[dict[str, Any]]]
+    | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     evaluated: dict[str, list[CorrectionPhotoEvaluation]] = {"base": [], "candidate": []}
     groups: dict[str, dict[str, list[CorrectionPhotoEvaluation]]] = defaultdict(
@@ -185,17 +187,23 @@ def measure_role(
         before_photo(index)
         rgb = photo.load()
         row: dict[str, Any] = {"sourceId": photo.source_id, "groupId": photo.group_id}
+        observed = {}
         for name, engine in (("base", base), ("candidate", candidate)):
+            found = engine.analyse(rgb)
             result = evaluate_photo(
                 photo.source_id,
                 photo.group_id,
                 list(photo.labels),
-                predictions(engine.analyse(rgb)),
+                predictions(found),
                 full_geometry=photo.full_geometry,
             )
             evaluated[name].append(result)
             groups[photo.group_id][name].append(result)
             row[name] = result.as_dict()
+            if observation is not None:
+                observed[name] = (found, result, engine)
+        if observation is not None:
+            row["calibrationTargets"] = observation(photo, rgb, observed)
         details.append(row)
     return {
         "photos": len(photos),

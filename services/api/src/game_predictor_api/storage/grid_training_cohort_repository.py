@@ -253,6 +253,13 @@ class SqlAlchemyGridTrainingCohortRepository:
                 materializedPhotos=count["photos"],
                 materializedFullPhotos=count["full"],
             )
+        if row.document.get("policyVersion") == "application-grid-corrections-v4":
+            result["validationPurposes"] = {
+                purpose: row.document["photoSplit"]["purposeCounts"].get(
+                    "VALIDATION-" + purpose, {"boards": 0, "photos": 0, "fullPhotos": 0}
+                )
+                for purpose in ("A", "B")
+            }
         return cast(dict[str, Any], result)
 
     def view(self, row: Cohort) -> dict[str, Any]:
@@ -287,6 +294,25 @@ class SqlAlchemyGridTrainingCohortRepository:
             ).scalar_one(),
         )
 
+    def training_scope(self, game: UUID, cohort: UUID) -> dict[str, Any]:
+        """Fence new training use independently from historical receipt replay."""
+        try:
+            with self.session.begin_nested():
+                return cast(
+                    dict[str, Any],
+                    self.session.execute(
+                        text("SELECT public.recording_training_scope_v1(:game,:cohort)"),
+                        {"game": game, "cohort": cohort},
+                    ).scalar_one(),
+                )
+        except DBAPIError as error:
+            code = str(error.orig).splitlines()[0]
+            if code.startswith("GRID_VALIDATION_"):
+                raise GridCohortError(
+                    code, "Calibration sources cannot enter checkpoint selection."
+                ) from error
+            raise
+
     def recording_command(self, game: UUID, command: dict[str, Any], actor: str) -> dict[str, Any]:
         try:
             with self.session.begin_nested():
@@ -294,7 +320,7 @@ class SqlAlchemyGridTrainingCohortRepository:
                     dict[str, Any],
                     self.session.execute(
                         text(
-                            "SELECT public.recording_cohort_command_v4("
+                            "SELECT public.recording_cohort_command_v5("
                             ":game,CAST(:body AS jsonb),:actor)"
                         ),
                         {"game": game, "body": json.dumps(command), "actor": actor},
@@ -309,6 +335,7 @@ class SqlAlchemyGridTrainingCohortRepository:
                     "SOURCE_REPLACEMENT_",
                     "GRID_COHORT_",
                     "GRID_CORRECTION_",
+                    "GRID_VALIDATION_",
                 )
             ):
                 raise GridCohortError(

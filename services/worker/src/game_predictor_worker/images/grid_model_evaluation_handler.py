@@ -264,7 +264,8 @@ class GridModelEvaluationJobHandler:
             GridAssessmentDataset(snapshot, role)
             if correction
             and role == "REGRESSION"
-            and snapshot.manifest["policyVersion"] == "application-grid-corrections-v3"
+            and snapshot.manifest["policyVersion"]
+            in ("application-grid-corrections-v3", "application-grid-corrections-v4")
             else GridBoardDataset(snapshot, role)
         )
         for source, targets in dataset.indexed():
@@ -303,6 +304,7 @@ class GridModelEvaluationJobHandler:
         snapshot: GridCohortSnapshot,
         groups: Mapping[str, str],
         engines: tuple[Engine, Engine],
+        calibration: Any = None,
     ) -> dict[str, Any]:
         def before_photo(_index: int) -> None:
             context.heartbeat()
@@ -317,6 +319,7 @@ class GridModelEvaluationJobHandler:
                 [photo for photo in photos if isinstance(photo, CorrectionControlPhoto)],
                 *engines,
                 before_photo=before_photo,
+                observation=None if calibration is None else calibration.observer(role),
             )
         else:
             summary, rows = measure_role(photos, *engines, before_photo=before_photo)
@@ -399,9 +402,10 @@ class GridModelEvaluationJobHandler:
                 )
         engines: tuple[Engine, Engine] | None = None
         modes: dict[str, str] = dict(state.get("modes", {}))
+        calibration_results = dict(state.get("automaticCalibration", {}))
         for entry in cohorts:
             pending = [role for role in ROLES if f"{entry['game_id']}:{role}" not in state["units"]]
-            if not pending:
+            if not pending and (not correction or entry["game_id"] in calibration_results):
                 continue
             game, cohort = UUID(entry["game_id"]), UUID(entry["cohort_id"])
             snapshot, mode = self._snapshot(
@@ -411,12 +415,69 @@ class GridModelEvaluationJobHandler:
             modes[entry["game_id"]] = mode
             state["modes"] = modes
             engines = engines or self._engines(manifest, base)
+            calibration = None
+            if (
+                correction
+                and snapshot.manifest["policyVersion"] == "application-grid-corrections-v4"
+            ):
+                from .full_board_calibration_run import FullBoardCalibrationRun
+
+                calibration = FullBoardCalibrationRun(
+                    root=self.artifact_root,
+                    job_id=job.id,
+                    snapshot=snapshot,
+                    candidate_sha=payload["manifest_sha256"],
+                    baseline_sha=base_sha,
+                    engines=engines,
+                    write=_write_atomic,
+                )
             for role in pending:
+                if calibration is not None and role == "REGRESSION":
+                    calibration.prepare_b(lambda _index: context.heartbeat())
                 state["units"][f"{entry['game_id']}:{role}"] = self._measure_unit(
-                    context, job, state, len(cohorts), entry, role, snapshot, groups, engines
+                    context,
+                    job,
+                    state,
+                    len(cohorts),
+                    entry,
+                    role,
+                    snapshot,
+                    groups,
+                    engines,
+                    calibration,
                 )
                 self._persist(context, state, len(cohorts))
+            if calibration is not None:
+                calibration.prepare_b(lambda _index: context.heartbeat())
+                calibration_results[entry["game_id"]] = calibration.finish()
+                state["automaticCalibration"] = calibration_results
+                self._persist(context, state, len(cohorts))
         self._verify_details(job, state, cohorts)
+        if calibration_results:
+            from game_predictor_api.storage.full_board_calibration_evidence import (
+                require_calibration_evidence,
+                snapshot_assessment_references,
+            )
+
+            for value in calibration_results.values():
+                pins = [entry for entry in cohorts if entry["game_id"] == value["gameId"]]
+                if len(pins) != 1:
+                    raise ValueError("CALIBRATION_FROZEN_COHORT_REQUIRED")
+                pin = pins[0]
+                frozen, _ = self._snapshot(
+                    UUID(pin["game_id"]),
+                    UUID(pin["cohort_id"]),
+                    pin["manifest_sha256"],
+                    manifest,
+                    correction=True,
+                )
+                require_calibration_evidence(
+                    self.artifact_root,
+                    value,
+                    frozen=snapshot_assessment_references(frozen),
+                    candidate_sha=payload["manifest_sha256"],
+                    baseline_sha=base_sha,
+                )
         arguments = dict(
             manifest=manifest,
             base_manifest_sha256=base_sha,
@@ -455,6 +516,20 @@ class GridModelEvaluationJobHandler:
             )
         else:
             report = build_report(**arguments)
+        if correction and calibration_results:
+            from game_predictor_api.domain.full_board_calibration_report import (
+                attach_calibration,
+                unqualified,
+            )
+
+            report = attach_calibration(
+                report,
+                [
+                    calibration_results.get(game)
+                    or unqualified(game, "CALIBRATION_PURPOSE_COHORT_REQUIRED")
+                    for game in report["requiredGameIds"]
+                ],
+            )
         report_json = canonical_json(report)
         sha = descriptor_sha256(report)
         if state["reportSha256"] not in (None, sha):

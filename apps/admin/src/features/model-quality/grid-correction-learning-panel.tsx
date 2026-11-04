@@ -1093,9 +1093,10 @@ function LearningReport({
     );
   if (
     !report ||
-    !('requiredScope' in report) ||
+    !('scope' in report) ||
     (report.schemaVersion !== 'grid-model-evaluation-read-v3' &&
-      report.schemaVersion !== 'grid-model-evaluation-read-v4')
+      report.schemaVersion !== 'grid-model-evaluation-read-v4' &&
+      report.schemaVersion !== 'grid-model-evaluation-read-v5')
   )
     return <p>Raport oceny: {view.verdict ?? 'W przygotowaniu'}.</p>;
   return (

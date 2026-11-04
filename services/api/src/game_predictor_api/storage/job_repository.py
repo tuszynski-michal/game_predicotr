@@ -77,7 +77,9 @@ class SqlAlchemyJobRepository(JobRepository):
             neural_operation_request_identity,
         )
         from game_predictor_api.domain.v3_engine_acceptance import (
+            CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY,
             GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+            acceptance_for_operation_pin,
         )
 
         from .job_admission import acquire_job_admission
@@ -93,11 +95,13 @@ class SqlAlchemyJobRepository(JobRepository):
         rows = (
             self._session.execute(
                 text("""
-SELECT input_payload -> :pin_key
+SELECT input_payload -> :pin_key pin,
+ input_payload ->> 'v3_engine_acceptance_policy_version' acceptance
 FROM public.jobs
 WHERE game_id=:game_id AND job_type=CAST(:job_type AS job_type)
   AND input_payload ? :pin_key
-  AND ((:job_type='import' AND input_payload ->> 'v3_engine_acceptance_policy_version'=:acceptance)
+  AND ((:job_type='import' AND input_payload ->> 'v3_engine_acceptance_policy_version'
+    =ANY(CAST(:acceptance AS text[])))
     OR (:job_type='validate' AND input_payload ->> 'preflight_policy_version'=:preflight))
   AND (input_payload - CAST(:derived_keys AS text[])) = CAST(:identity AS jsonb)
 ORDER BY id
@@ -107,13 +111,16 @@ LIMIT 2
                     "pin_key": OPERATION_PIN_KEY,
                     "game_id": game_id,
                     "job_type": job_type.value,
-                    "acceptance": GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+                    "acceptance": [
+                        GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+                        CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY,
+                    ],
                     "preflight": CAPABILITY_PREFLIGHT_POLICY,
                     "derived_keys": sorted(NEURAL_OPERATION_DERIVED_KEYS),
                     "identity": canonical_json(neural_operation_request_identity(input_payload)),
                 },
             )
-            .scalars()
+            .mappings()
             .all()
         )
         if len(rows) > 1:
@@ -123,11 +130,18 @@ LIMIT 2
             )
         if not rows:
             return None
-        if not isinstance(rows[0], dict):
+        if not isinstance(rows[0]["pin"], dict):
             raise JobConflictError(
                 "NEURAL_GRID_OPERATION_PIN_INVALID", "The stored operation pin is not an object."
             )
-        return dict(rows[0])
+        pin = dict(rows[0]["pin"])
+        if job_type is JobType.IMPORT and rows[0]["acceptance"] != acceptance_for_operation_pin(
+            pin
+        ):
+            raise JobConflictError(
+                "NEURAL_GRID_OPERATION_POLICY_MISMATCH", "Historical pin and policy differ."
+            )
+        return pin
 
     def game_exists(self, game_id: UUID) -> bool:
         return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None

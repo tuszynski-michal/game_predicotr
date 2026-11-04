@@ -672,6 +672,51 @@ operator workflow.
 
 ### Detector correction policy (D-586, TASK-1157)
 
+### Independent automatic qualification (D-587, TASK-1158)
+
+The explicit `application-grid-corrections-v4` cohort preparation refines existing
+VALIDATION roles with `validationAssignments` A/B/BUFFER. It uses whole imports,
+copy/session/ancestry components and existing ten-photo buffers. Legacy selection
+exposure belongs to A only. Fresh legacy freeze/start/resume cannot consume B.
+Preview has no role writes; freeze is atomic. Historical role rows, JSON proofs,
+receipts and snapshots retain their interpretation and bytes.
+
+Screen TRAIN and checkpoint A still require full photos. B and REGRESSION assess
+every qualified labelled target on partial photos; whole-photo false positives and
+duplicates need full GT. Qualification needs 30 distinct deduplicated baseline-bad
+sources and 30 baseline-good sources separately in B and REG. Different targets of
+one mixed photo can serve both strata, within one partition; overlap is reported.
+Corrected baseline errors still satisfy the bad-stratum minimum. Candidate errors
+and false acceptance are judged independently against human GT. Conflicting current
+GT on a known copy/slot is unresolved, never a favourable label choice.
+
+The outcome definition is frozen before B: existing IoU matching, normalized 24-node
+correctness and GT-cell coverage in actual source/crop support. Coverage epsilon
+1e-6 is dimensionless floating-point tolerance, not allowed content loss. Eight
+named confidence/fit/pixel/agreement/proportion signals need real references; unknown
+means manual. Perspective and neighbour proportions are signals, not GT. Runtime
+checks fitted cells against real pixels, and cannot guarantee every omitted row is
+detected. Managed-crop padding is not original image content.
+
+At most 256 deterministic configurations per game use two nearest-rank TRAIN/A
+levels per axis (minimum axes 1%/5%, maximum axes 95%/99%). The complete menu, counts,
+routing and comparison budget are sealed before B; B selects only acceptance, REG
+never tunes. Recognition/rescue routing is validated on exact A with its own preset
+and hash. No new neural calls occur per threshold configuration. Accepted crops or
+unknown coverage block automatic qualification; correct automatic results must
+increase over the T0-protected baseline. The pre-T0 comparator is also reported.
+
+`grid-model-evaluation-read-v5` separates raw quality/publication PASS from
+`automaticCalibration` per game. Missing calibration data blocks only automatic
+acceptance, not otherwise admissible training, proposals or manual model application.
+New operation pin v3/acceptance v4 carries the exact qualified profile; old operations
+replay their original pin and policy together. No early acceptance or human stamp is
+created by worker availability metadata. Strict T1 diagnostic uses must be registered
+in the existing ledger, with closure, before new B/REG use; readiness-only access is
+not diagnostic exposure. Operator registration/migration still needs deployment approval.
+
+### Detector workflow compatibility
+
 Correction preview/start accepts explicit `trainingMode=screen+grid`; the default is
 still grid-only. The new `application-grid-corrections-v3` policy needs ten fully
 labelled TRAIN photos and five fully labelled checkpoint VALIDATION photos. A partial

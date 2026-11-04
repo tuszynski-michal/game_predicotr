@@ -320,6 +320,48 @@ export type ApproximateWinSummaryResponse = {
 };
 
 /**
+ * AutomaticCalibration
+ */
+export type AutomaticCalibration = {
+  b: CalibrationCounts | null;
+  evidence: CalibrationArtifact | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Limitations
+   */
+  limitations: Array<string>;
+  /**
+   * Plannedcomparisons
+   */
+  plannedComparisons: number;
+  /**
+   * Plannedconfigurations
+   */
+  plannedConfigurations: number;
+  profile: AutomaticProfile | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  regression: CalibrationCounts | null;
+  /**
+   * Roleproofsha256
+   */
+  roleProofSha256: string | null;
+  /**
+   * State
+   */
+  state: 'qualified' | 'unqualified';
+  /**
+   * Version
+   */
+  version?: 'full-board-calibration-qualification-v1';
+};
+
+/**
  * AutomaticFrameGeometryProposalPayload
  *
  * A complete local grid retained because its decorative frame is weak.
@@ -438,6 +480,54 @@ export type AutomaticPartialGeometryProposalPayload = {
     | 'automatic-lateral-partial-proposal-v2'
     | 'automatic-lateral-partial-proposal-v3'
     | 'automatic-lateral-partial-proposal-v4';
+};
+
+/**
+ * AutomaticProfile
+ */
+export type AutomaticProfile = {
+  /**
+   * Assessmentscope
+   */
+  assessmentScope?: 'labelled_targets';
+  /**
+   * Candidatemanifestsha256
+   */
+  candidateManifestSha256: string;
+  /**
+   * Configuration
+   */
+  configuration: {
+    [key: string]: number | null;
+  };
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Gamelogaspectreference
+   */
+  gameLogAspectReference: number | null;
+  /**
+   * Plansha256
+   */
+  planSha256: string;
+  /**
+   * Routingsha256
+   */
+  routingSha256: string;
+  /**
+   * Sealedsha256
+   */
+  sealedSha256: string;
+  /**
+   * Sha256
+   */
+  sha256: string;
+  /**
+   * Version
+   */
+  version?: 'full-board-auto-profile-v1';
 };
 
 /**
@@ -3576,6 +3666,90 @@ export type BrowserReadySelectionResponse = {
 };
 
 /**
+ * CalibrationArtifact
+ */
+export type CalibrationArtifact = {
+  /**
+   * Path
+   */
+  path: string;
+  /**
+   * Sha256
+   */
+  sha256: string;
+};
+
+/**
+ * CalibrationCounts
+ */
+export type CalibrationCounts = {
+  /**
+   * Acceptedcropped
+   */
+  acceptedCropped: number;
+  /**
+   * Acceptedunknowncoverage
+   */
+  acceptedUnknownCoverage: number;
+  /**
+   * Assessmentsha256
+   */
+  assessmentSha256: string;
+  /**
+   * Baselinebadsources
+   */
+  baselineBadSources: number;
+  /**
+   * Baselinegoodsources
+   */
+  baselineGoodSources: number;
+  /**
+   * Baselinepret0Correctautomatic
+   */
+  baselinePreT0CorrectAutomatic: number;
+  /**
+   * Baselinet0Correctautomatic
+   */
+  baselineT0CorrectAutomatic: number;
+  /**
+   * Candidatebad
+   */
+  candidateBad: number;
+  /**
+   * Candidatecorrectautomatic
+   */
+  candidateCorrectAutomatic: number;
+  /**
+   * Candidateincorrectautomatic
+   */
+  candidateIncorrectAutomatic: number;
+  /**
+   * Scope
+   */
+  scope: 'labelled_targets';
+  /**
+   * Sources
+   */
+  sources: number;
+  /**
+   * Stratumoverlapsources
+   */
+  stratumOverlapSources: number;
+  /**
+   * Stratumunionsources
+   */
+  stratumUnionSources: number;
+  /**
+   * Synthetictargets
+   */
+  syntheticTargets: number;
+  /**
+   * Targets
+   */
+  targets: number;
+};
+
+/**
  * CanonicalImageReviewPageResponse
  */
 export type CanonicalImageReviewPageResponse = {
@@ -5560,6 +5734,94 @@ export type GridAuditSymbolSuggestionsResponse = {
 };
 
 /**
+ * GridCalibratedEvaluationReport
+ */
+export type GridCalibratedEvaluationReport = {
+  /**
+   * Automaticcalibration
+   */
+  automaticCalibration: Array<AutomaticCalibration>;
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Checkpointselection
+   */
+  checkpointSelection:
+    GridCorrectionCheckpointSelection | GridScreenCorrectionCheckpointSelection;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortPin>;
+  /**
+   * Evidencelevel
+   */
+  evidenceLevel: 'photo-only';
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Games
+   */
+  games: Array<
+    GridCorrectionEvaluationGame | GridScreenCorrectionEvaluationGame
+  >;
+  /**
+   * Limitations
+   */
+  limitations: Array<string>;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  parity: GridModelEvaluationParity;
+  /**
+   * Policy
+   */
+  policy: GridCorrectionEvaluationPolicy | GridScreenCorrectionEvaluationPolicy;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'grid-model-per-game-gate-v2' | 'grid-model-per-game-gate-v3';
+  /**
+   * Producer
+   */
+  producer: 'server:grid-model-evaluator-v1';
+  /**
+   * Rawqualityschemaversion
+   */
+  rawQualitySchemaVersion:
+    'grid-model-evaluation-read-v3' | 'grid-model-evaluation-read-v4';
+  /**
+   * Requiredgameids
+   */
+  requiredGameIds: Array<string>;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-evaluation-read-v5';
+  scope: GridCorrectionEvaluationScope;
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE';
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
  * GridCalibrationProfileResponse
  */
 export type GridCalibrationProfileResponse = {
@@ -5844,12 +6106,19 @@ export type GridCohortPrepareCommand = {
     | 'application-grid-cohort-v1'
     | 'application-grid-corrections-v1'
     | 'application-grid-corrections-v2'
-    | 'application-grid-corrections-v3';
+    | 'application-grid-corrections-v3'
+    | 'application-grid-corrections-v4';
   /**
    * Recordings
    */
   recordings: Array<GridCohortRecording>;
   selector: GridCohortSelector;
+  /**
+   * Validationassignments
+   */
+  validationAssignments?: {
+    [key: string]: 'A' | 'B' | 'BUFFER';
+  } | null;
 };
 
 /**
@@ -5996,6 +6265,12 @@ export type GridCohortSummary = {
    * Roles
    */
   roles: Array<GridCohortRoleSummary>;
+  /**
+   * Validationpurposes
+   */
+  validationPurposes?: {
+    [key: string]: GridValidationPurposeCounts;
+  } | null;
 };
 
 /**
@@ -8190,6 +8465,9 @@ export type GridModelEvaluationView = {
         schemaVersion: 'grid-model-evaluation-read-v4';
       } & GridScreenCorrectionEvaluationReport)
     | ({
+        schemaVersion: 'grid-model-evaluation-read-v5';
+      } & GridCalibratedEvaluationReport)
+    | ({
         schemaVersion: 'grid-model-assigned-comparison-v1';
       } & GridAssignedComparisonReport)
     | null;
@@ -8833,7 +9111,8 @@ export type GridReinferenceJobPayload = {
   acceptancePolicy:
     | 'v3-engine-acceptance-v1'
     | 'v3-engine-acceptance-v2'
-    | 'v3-engine-acceptance-v3';
+    | 'v3-engine-acceptance-v3'
+    | 'v3-engine-acceptance-v4';
   /**
    * Inferencekind
    */
@@ -10509,6 +10788,24 @@ export type GridTrainingSmokeLimits = {
    * Trainseconds
    */
   trainSeconds: number;
+};
+
+/**
+ * GridValidationPurposeCounts
+ */
+export type GridValidationPurposeCounts = {
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Fullphotos
+   */
+  fullPhotos: number;
+  /**
+   * Photos
+   */
+  photos: number;
 };
 
 /**

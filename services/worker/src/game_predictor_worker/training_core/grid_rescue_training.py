@@ -12,8 +12,13 @@ from .grid_training_admission import digest
 
 def selection_input(parts: Sequence[tuple[str, Mapping[str, Any]]]) -> dict[str, Any]:
     games = []
+    purpose_aware = bool(parts) and all(
+        split.get("schemaVersion") == "grid-correction-split-v4" for _, split in parts
+    )
     for game_id, split in sorted(parts):
-        if split.get("schemaVersion") != "grid-correction-split-v3":
+        if split.get("schemaVersion") != (
+            "grid-correction-split-v4" if purpose_aware else "grid-correction-split-v3"
+        ):
             raise ValueError("SCREEN_SELECTION_POLICY_REQUIRED")
         sources = [
             {
@@ -24,6 +29,7 @@ def selection_input(parts: Sequence[tuple[str, Mapping[str, Any]]]) -> dict[str,
             }
             for item in split["sources"]
             if item["role"] == "VALIDATION"
+            and (not purpose_aware or item.get("validationPurpose") == "A")
             and item["representative"]
             and item["eligibleBoards"] == 9
         ]
@@ -39,8 +45,10 @@ def selection_input(parts: Sequence[tuple[str, Mapping[str, Any]]]) -> dict[str,
     if not games or len({game["gameId"] for game in games}) != len(games):
         raise ValueError("SCREEN_SELECTION_SCOPE_INVALID")
     value = {
-        "contractVersion": "grid-checkpoint-input-v1",
-        "policy": "all-validation-v1",
+        "contractVersion": "grid-checkpoint-input-v2"
+        if purpose_aware
+        else "grid-checkpoint-input-v1",
+        "policy": "validation-purpose-a-v1" if purpose_aware else "all-validation-v1",
         "role": "VALIDATION",
         "purpose": "checkpoint-selection",
         "selectionExposed": True,

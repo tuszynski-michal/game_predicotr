@@ -515,6 +515,122 @@
         "title": "ApproximateWinSummaryResponse",
         "type": "object"
       },
+      "AutomaticCalibration": {
+        "additionalProperties": false,
+        "properties": {
+          "b": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalibrationCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalibrationArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "plannedComparisons": {
+            "minimum": 0.0,
+            "title": "Plannedcomparisons",
+            "type": "integer"
+          },
+          "plannedConfigurations": {
+            "maximum": 256.0,
+            "minimum": 0.0,
+            "title": "Plannedconfigurations",
+            "type": "integer"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutomaticProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "regression": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalibrationCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "roleProofSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roleproofsha256"
+          },
+          "state": {
+            "enum": [
+              "qualified",
+              "unqualified"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "const": "full-board-calibration-qualification-v1",
+            "default": "full-board-calibration-qualification-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "state",
+          "reasonCodes",
+          "b",
+          "regression",
+          "profile",
+          "evidence",
+          "plannedConfigurations",
+          "plannedComparisons",
+          "roleProofSha256",
+          "limitations"
+        ],
+        "title": "AutomaticCalibration",
+        "type": "object"
+      },
       "AutomaticFrameGeometryProposalPayload": {
         "additionalProperties": false,
         "description": "A complete local grid retained because its decorative frame is weak.",
@@ -716,6 +832,90 @@
           "geometryQualification"
         ],
         "title": "AutomaticPartialGeometryProposalPayload",
+        "type": "object"
+      },
+      "AutomaticProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "assessmentScope": {
+            "const": "labelled_targets",
+            "default": "labelled_targets",
+            "title": "Assessmentscope",
+            "type": "string"
+          },
+          "candidateManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidatemanifestsha256",
+            "type": "string"
+          },
+          "configuration": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Configuration",
+            "type": "object"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "gameLogAspectReference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gamelogaspectreference"
+          },
+          "planSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Plansha256",
+            "type": "string"
+          },
+          "routingSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Routingsha256",
+            "type": "string"
+          },
+          "sealedSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sealedsha256",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "version": {
+            "const": "full-board-auto-profile-v1",
+            "default": "full-board-auto-profile-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "candidateManifestSha256",
+          "planSha256",
+          "sealedSha256",
+          "routingSha256",
+          "configuration",
+          "gameLogAspectReference",
+          "sha256"
+        ],
+        "title": "AutomaticProfile",
         "type": "object"
       },
       "BasePageGeometryManifestPayload": {
@@ -6669,6 +6869,133 @@
         "title": "BrowserReadySelectionResponse",
         "type": "object"
       },
+      "CalibrationArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "title": "CalibrationArtifact",
+        "type": "object"
+      },
+      "CalibrationCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptedCropped": {
+            "minimum": 0.0,
+            "title": "Acceptedcropped",
+            "type": "integer"
+          },
+          "acceptedUnknownCoverage": {
+            "minimum": 0.0,
+            "title": "Acceptedunknowncoverage",
+            "type": "integer"
+          },
+          "assessmentSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Assessmentsha256",
+            "type": "string"
+          },
+          "baselineBadSources": {
+            "minimum": 0.0,
+            "title": "Baselinebadsources",
+            "type": "integer"
+          },
+          "baselineGoodSources": {
+            "minimum": 0.0,
+            "title": "Baselinegoodsources",
+            "type": "integer"
+          },
+          "baselinePreT0CorrectAutomatic": {
+            "minimum": 0.0,
+            "title": "Baselinepret0Correctautomatic",
+            "type": "integer"
+          },
+          "baselineT0CorrectAutomatic": {
+            "minimum": 0.0,
+            "title": "Baselinet0Correctautomatic",
+            "type": "integer"
+          },
+          "candidateBad": {
+            "minimum": 0.0,
+            "title": "Candidatebad",
+            "type": "integer"
+          },
+          "candidateCorrectAutomatic": {
+            "minimum": 0.0,
+            "title": "Candidatecorrectautomatic",
+            "type": "integer"
+          },
+          "candidateIncorrectAutomatic": {
+            "minimum": 0.0,
+            "title": "Candidateincorrectautomatic",
+            "type": "integer"
+          },
+          "scope": {
+            "const": "labelled_targets",
+            "title": "Scope",
+            "type": "string"
+          },
+          "sources": {
+            "minimum": 0.0,
+            "title": "Sources",
+            "type": "integer"
+          },
+          "stratumOverlapSources": {
+            "minimum": 0.0,
+            "title": "Stratumoverlapsources",
+            "type": "integer"
+          },
+          "stratumUnionSources": {
+            "minimum": 0.0,
+            "title": "Stratumunionsources",
+            "type": "integer"
+          },
+          "syntheticTargets": {
+            "minimum": 0.0,
+            "title": "Synthetictargets",
+            "type": "integer"
+          },
+          "targets": {
+            "minimum": 0.0,
+            "title": "Targets",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scope",
+          "targets",
+          "sources",
+          "baselineBadSources",
+          "baselineGoodSources",
+          "stratumOverlapSources",
+          "stratumUnionSources",
+          "syntheticTargets",
+          "candidateBad",
+          "candidateCorrectAutomatic",
+          "candidateIncorrectAutomatic",
+          "acceptedCropped",
+          "acceptedUnknownCoverage",
+          "baselinePreT0CorrectAutomatic",
+          "baselineT0CorrectAutomatic",
+          "assessmentSha256"
+        ],
+        "title": "CalibrationCounts",
+        "type": "object"
+      },
       "CanonicalImageReviewPageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -10145,6 +10472,177 @@
         "title": "GridAuditSymbolSuggestionsResponse",
         "type": "object"
       },
+      "GridCalibratedEvaluationReport": {
+        "additionalProperties": false,
+        "properties": {
+          "automaticCalibration": {
+            "items": {
+              "$ref": "#/components/schemas/AutomaticCalibration"
+            },
+            "title": "Automaticcalibration",
+            "type": "array"
+          },
+          "baseManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Basemanifestsha256",
+            "type": "string"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "checkpointSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionCheckpointSelection"
+              },
+              {
+                "$ref": "#/components/schemas/GridScreenCorrectionCheckpointSelection"
+              }
+            ],
+            "title": "Checkpointselection"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "evidenceLevel": {
+            "const": "photo-only",
+            "title": "Evidencelevel",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GridCorrectionEvaluationGame"
+                },
+                {
+                  "$ref": "#/components/schemas/GridScreenCorrectionEvaluationGame"
+                }
+              ]
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "parity": {
+            "$ref": "#/components/schemas/GridModelEvaluationParity"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridScreenCorrectionEvaluationPolicy"
+              }
+            ],
+            "title": "Policy"
+          },
+          "policyVersion": {
+            "enum": [
+              "grid-model-per-game-gate-v2",
+              "grid-model-per-game-gate-v3"
+            ],
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "producer": {
+            "const": "server:grid-model-evaluator-v1",
+            "title": "Producer",
+            "type": "string"
+          },
+          "rawQualitySchemaVersion": {
+            "enum": [
+              "grid-model-evaluation-read-v3",
+              "grid-model-evaluation-read-v4"
+            ],
+            "title": "Rawqualityschemaversion",
+            "type": "string"
+          },
+          "requiredGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Requiredgameids",
+            "type": "array"
+          },
+          "schemaVersion": {
+            "const": "grid-model-evaluation-read-v5",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationScope"
+          },
+          "trainingGameId": {
+            "format": "uuid",
+            "title": "Traininggameid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "REVISE",
+              "NOT_EVALUABLE"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "rawQualitySchemaVersion",
+          "producer",
+          "policyVersion",
+          "policy",
+          "versionId",
+          "manifestSha256",
+          "baseVersionId",
+          "baseManifestSha256",
+          "familyId",
+          "trainingGameId",
+          "parity",
+          "cohorts",
+          "requiredGameIds",
+          "games",
+          "verdict",
+          "scope",
+          "evidenceLevel",
+          "limitations",
+          "checkpointSelection",
+          "automaticCalibration"
+        ],
+        "title": "GridCalibratedEvaluationReport",
+        "type": "object"
+      },
       "GridCalibrationProfileResponse": {
         "additionalProperties": false,
         "properties": {
@@ -10652,7 +11150,8 @@
               "application-grid-cohort-v1",
               "application-grid-corrections-v1",
               "application-grid-corrections-v2",
-              "application-grid-corrections-v3"
+              "application-grid-corrections-v3",
+              "application-grid-corrections-v4"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -10667,6 +11166,29 @@
           },
           "selector": {
             "$ref": "#/components/schemas/GridCohortSelector"
+          },
+          "validationAssignments": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "enum": [
+                    "A",
+                    "B",
+                    "BUFFER"
+                  ],
+                  "type": "string"
+                },
+                "maxProperties": 5000,
+                "propertyNames": {
+                  "format": "uuid"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validationassignments"
           }
         },
         "required": [
@@ -10916,6 +11438,26 @@
             },
             "title": "Roles",
             "type": "array"
+          },
+          "validationPurposes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/GridValidationPurposeCounts"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "A",
+                    "B"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validationpurposes"
           }
         },
         "required": [
@@ -14835,7 +15377,8 @@
                     "grid-model-assigned-comparison-v1": "#/components/schemas/GridAssignedComparisonReport",
                     "grid-model-evaluation-read-v2": "#/components/schemas/GridModelEvaluationReport",
                     "grid-model-evaluation-read-v3": "#/components/schemas/GridCorrectionEvaluationReport",
-                    "grid-model-evaluation-read-v4": "#/components/schemas/GridScreenCorrectionEvaluationReport"
+                    "grid-model-evaluation-read-v4": "#/components/schemas/GridScreenCorrectionEvaluationReport",
+                    "grid-model-evaluation-read-v5": "#/components/schemas/GridCalibratedEvaluationReport"
                   },
                   "propertyName": "schemaVersion"
                 },
@@ -14848,6 +15391,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/GridScreenCorrectionEvaluationReport"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GridCalibratedEvaluationReport"
                   },
                   {
                     "$ref": "#/components/schemas/GridAssignedComparisonReport"
@@ -16013,7 +16559,8 @@
             "enum": [
               "v3-engine-acceptance-v1",
               "v3-engine-acceptance-v2",
-              "v3-engine-acceptance-v3"
+              "v3-engine-acceptance-v3",
+              "v3-engine-acceptance-v4"
             ],
             "title": "Acceptancepolicy",
             "type": "string"
@@ -18821,6 +19368,33 @@
           "maxSeconds"
         ],
         "title": "GridTrainingSmokeLimits",
+        "type": "object"
+      },
+      "GridValidationPurposeCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "minimum": 0.0,
+            "title": "Boards",
+            "type": "integer"
+          },
+          "fullPhotos": {
+            "minimum": 0.0,
+            "title": "Fullphotos",
+            "type": "integer"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "boards",
+          "photos",
+          "fullPhotos"
+        ],
+        "title": "GridValidationPurposeCounts",
         "type": "object"
       },
       "HTTPValidationError": {

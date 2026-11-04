@@ -484,10 +484,10 @@ class SqlAlchemyGridReinferenceRepository:
         stats_enabled(operation.document, job.input_payload)
         from game_predictor_api.domain.neural_grid_operation_pin import require_operation_pin
         from game_predictor_api.domain.v3_engine_acceptance import (
-            GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+            is_game_scoped_neural_acceptance,
         )
 
-        if operation.document["acceptancePolicy"] == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+        if is_game_scoped_neural_acceptance(operation.document["acceptancePolicy"]):
             require_operation_pin(
                 operation.document.get(OPERATION_PIN_KEY),
                 snapshot=NeuralGridSnapshot.from_payload(operation.document["modelSnapshot"]),

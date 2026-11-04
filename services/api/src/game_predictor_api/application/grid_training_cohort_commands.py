@@ -118,7 +118,7 @@ def prepare(
     photo_split = None
     if policy in CORRECTION_POLICIES:
         if (
-            body["mode"] != correction_mode_for_policy(policy)
+            body["mode"] != correction_mode_for_policy(policy, body["mode"])
             or body["recordings"]
             or selection.get("sourceIds")
         ):
@@ -133,6 +133,8 @@ def prepare(
             sorted(str(value) for value in imports) if imports else [selection["importJobId"]],
             deadline,
             policy=policy,
+            mode=body["mode"],
+            validation_assignments=body.get("validationAssignments"),
         )
     elif policy != POLICY:
         raise GridCohortError("GRID_COHORT_POLICY_UNSUPPORTED", "Unknown cohort policy.", 422)
@@ -404,6 +406,15 @@ def _materialize(
                 "used": frozen["used"],
                 "reasons": frozen["reasons"],
                 "sourceIdentity": frozen["source"],
+                **(
+                    {
+                        "validationPurpose": frozen["recording"].get("validationPurpose"),
+                        "purposeProofSha256": frozen["recording"].get("purposeProofSha256"),
+                        "assessmentPolicy": frozen["recording"].get("assessmentPolicy"),
+                    }
+                    if row.document["policyVersion"] == "application-grid-corrections-v4"
+                    else {}
+                ),
                 "original": original,
                 "targets": [
                     position["label"] for position in frozen["positions"] if position["label"]
@@ -445,7 +456,9 @@ def _materialize(
             game,
             row.id,
             {
-                "schemaVersion": "application-grid-snapshot-v3"
+                "schemaVersion": "application-grid-snapshot-v4"
+                if row.document["policyVersion"] == "application-grid-corrections-v4"
+                else "application-grid-snapshot-v3"
                 if row.document["policyVersion"] == "application-grid-corrections-v3"
                 else "application-grid-snapshot-v2"
                 if row.document["policyVersion"] in CORRECTION_POLICIES

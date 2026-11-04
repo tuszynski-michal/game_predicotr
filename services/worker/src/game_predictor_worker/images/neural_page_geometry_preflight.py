@@ -531,6 +531,10 @@ class NeuralPageGeometryPreflightHandler:
         if old_proposal is None and isinstance(prior, Mapping):
             old_proposal = prior.get("neuralProposal")
         rescue_execution: dict[str, Any] = {}
+        calibration_evidence = (
+            dict(prior.get("calibrationEvidence", {})) if isinstance(prior, Mapping) else {}
+        )
+        observation: dict[str, Any] = {}
         if (
             old_proposal is not None
             and isinstance(prior, Mapping)
@@ -539,6 +543,8 @@ class NeuralPageGeometryPreflightHandler:
             rescue_execution.update(prior["rescueExecution"])
         if old_proposal is None:
             try:
+                from game_predictor_api.domain.canonical_source import rgb_pixel_checksum_sha256
+
                 from .grid_rescue_runtime import run_with_rescue
 
                 operation_pin = payload.get(OPERATION_PIN_KEY)
@@ -557,9 +563,23 @@ class NeuralPageGeometryPreflightHandler:
                     pin=rescue_pin,
                     expected_positions=set(range(sequence.board_count)),
                     summary_sink=rescue_execution,
+                    observation_sink=observation,
+                    input_raster=(
+                        {
+                            "pixelSha256": rgb_pixel_checksum_sha256(rgb),
+                            "validBox": [0, 0, width, height],
+                            "coordinateSpace": "exif-normalized-rgb-pixels-v1",
+                        }
+                        if isinstance(operation_pin, Mapping)
+                        and operation_pin.get("contractVersion") == "neural-grid-operation-pin-v3"
+                        else None
+                    ),
                 )
             except GeometryRuntimeError as error:
-                if error.code != "NEURAL_GRID_SOURCE_TIME_LIMIT":
+                if error.code not in {
+                    "NEURAL_GRID_SOURCE_TIME_LIMIT",
+                    "GRID_RESCUE_RASTER_CHANGED",
+                }:
                     raise
                 # The runtime has already reaped its child and transport. A
                 # source-specific deadline remains durable review, never a
@@ -613,6 +633,20 @@ class NeuralPageGeometryPreflightHandler:
                 snapshot=snapshot,
                 detections=detections,
             )
+            from .full_board_runtime_evidence import runtime_evidence
+
+            calibration_evidence = runtime_evidence(
+                found=found,
+                detections=detections,
+                observation=observation,
+                pin=payload.get(OPERATION_PIN_KEY),
+                bundle=bundle,
+                bundle_sha=bundle_sha,
+                source_sha=original.checksum_sha256,
+                width=width,
+                height=height,
+                available_source_box=[0, 0, width, height],
+            )
         else:
             proposal = dict(validate_neural_source_proposal(old_proposal))
             if (
@@ -650,5 +684,6 @@ class NeuralPageGeometryPreflightHandler:
             else "NEURAL_GRID_SLOT_BINDING_REQUIRED",
             "neuralProposal": proposal,
             "neuralProposalBinding": binding,
+            **({"calibrationEvidence": calibration_evidence} if calibration_evidence else {}),
             **({"rescueExecution": rescue_execution} if rescue_execution else {}),
         }

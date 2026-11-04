@@ -6,10 +6,19 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1158 — Kompletność i rozdzielona kalibracja (done)
+
+- Plik: `tasks/completed/1158-full-board-calibration.md`.
+- Commit: **v1.7.563** (hash dopisuje kolejny commit).
+- Wynik: A/B w istniejącym ledger, SQLv8/Alembic0181 z zachowaniem historii, partial B/REG, kompletność i menu per gra. Osobne raw publication i automat/reportv5/pinv3/acceptancev4; retry IMPORT/VALIDATE i tożsamość rastra ratunku.
+- Po R1 exact source/slot/GT/count wiąże DB-bound frozen kohortę. Opus R1 i focused R2 PASS, brak P0/P1; R1 zachowany. P2-3/4/6 zaakceptowane, partial A/grid-only do celowanego odbioru T6.
+- Weryfikacja: scoped Python/PG/SDK/Admin, lint/typy/docs/map. R2:14unit+1composed+1PG PASS, mypy9 PASS. Dwa stare preview testy i jeden bazowy mypy potwierdzone na HEAD. Raport `quality/TASK-1158_VERIFICATION.md`.
+- Diagnostyki: metadata manifest poza worktree,2rekordy/1źródło, staged_not_registered. Bez operator DB/migracji/modelruns/usług/apply/merge/push. T5 przejmuje shared docs i następny record-hash T4.
+
 ### TASK-1157 — Korekty detektora i trwały ratunek (done)
 
 - Plik: `tasks/completed/1157-screen-grid-corrections-rescue.md`.
-- Commit: **v1.7.562** (hash dopisuje kolejny commit).
+- Commit: **v1.7.562 / `f78c5b5a1a6dcbc1c0d280a0f4d2204417e5d9a3`** (hash dopisuje kolejny commit).
 - Wynik: nowa polityka screen+grid, full TRAIN/A i partial REG, photo-first checkpoint,
   exact selection/exposure, jawne kohorty requiredScope, ONNX proof i runtime1+1.
   Restart/lost response nie odnawia prób; rezerwacje publikowane atomowo no-replace.

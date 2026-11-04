@@ -234,6 +234,37 @@ function findButton(text) {
   return button;
 }
 
+test('calibrated v5 retains raw quality display when automation is unqualified', async () => {
+  const value = evaluation('current');
+  value.report = {
+    ...value.report,
+    schemaVersion: 'grid-model-evaluation-read-v5',
+    rawQualitySchemaVersion: 'grid-model-evaluation-read-v3',
+    scope: { currentGameId: GAME },
+    automaticCalibration: [
+      {
+        gameId: GAME,
+        state: 'unqualified',
+        reasonCodes: ['CALIBRATION_MINIMUM'],
+      },
+    ],
+  };
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [evaluatedRun] } }),
+    getGridCorrectionLearning: () => ({ data: evaluatedRun }),
+    getGridCorrectionLearningEvaluation: () => ({ data: value }),
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    assert.match(document.body.textContent, /Wynik: PASS/);
+    assert.match(document.body.textContent, /Dowód oceny jest aktualny/);
+    assertOnlyReads(setup.calls);
+  } finally {
+    await view.close();
+  }
+});
+
 test('growth counts show new TRAIN separately from protected controls and unlabelled reserves', async () => {
   let counts = progressCounts;
   const setup = fixture({

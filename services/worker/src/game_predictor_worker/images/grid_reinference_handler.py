@@ -54,8 +54,8 @@ from game_predictor_api.domain.neural_grid_proposal import (
     lattice_visibility,
 )
 from game_predictor_api.domain.v3_engine_acceptance import (
-    GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
     crop_policy_for_acceptance,
+    is_game_scoped_neural_acceptance,
 )
 from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
 from game_predictor_api.storage.grid_reinference import (
@@ -252,7 +252,7 @@ class GridReinferenceHandler:
             )
             # Render eligible exact slots outside all domain write transactions.
             qualification_blockers: tuple[str, ...] = ()
-            if d["acceptancePolicy"] == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+            if is_game_scoped_neural_acceptance(d["acceptancePolicy"]):
                 with self.sessions() as session, session.begin():
                     qualification_blockers = recheck_operation_pin(
                         session,
@@ -330,7 +330,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     {"categories": ["grid_issue", "deferred", "all_automatic"]},
                 )
                 current_by_position = {item["positionIndex"]: item for item in current}
-                if d["acceptancePolicy"] == GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY:
+                if is_game_scoped_neural_acceptance(d["acceptancePolicy"]):
                     qualification_blockers = recheck_operation_pin(
                         session,
                         pin=d.get(OPERATION_PIN_KEY),
@@ -546,6 +546,13 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             operation_id,
             runner,
             context,
+            calibration_pin=operation_pin,
+            raster_sha=frame.pixel_checksum_sha256,
+            available_source_box=(
+                frame.crop.valid_box.as_list()
+                if frame.crop is not None
+                else [0, 0, actual.width, actual.height]
+            ),
             **(
                 {"rescue_pin": rescue, "expected_positions": expected_positions}
                 if rescue is not None
@@ -610,6 +617,15 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 "proposal": proposal,
                 "binding": binding,
                 "byPosition": by_position,
+                **(
+                    {
+                        "calibrationEvidence": raw_result["calibrationEvidence"],
+                        "calibrationPin": operation_pin,
+                    }
+                    if operation_pin is not None
+                    and operation_pin.get("contractVersion") == "neural-grid-operation-pin-v3"
+                    else {}
+                ),
                 "sourceGeometryRevisionId": geometry["id"],
                 **(
                     {"rescueExecution": raw_result["rescueExecution"]}
@@ -640,7 +656,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
         if policy == LEGACY_NEURAL_AUTO_CROP_POLICY:
             return ()  # Historical byPosition is already the frozen legacy eligibility.
         proposal = checkpoint["proposal"]
-        return neural_auto_crop_blockers(
+        blockers = neural_auto_crop_blockers(
             policy=policy,
             detection=checkpoint["byPosition"].get(position),
             binding=checkpoint["binding"],
@@ -648,6 +664,19 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             width=proposal["sourceWidth"],
             height=proposal["sourceHeight"],
         )
+        if "calibrationPin" in checkpoint:
+            from game_predictor_api.domain.calibrated_neural_evidence import (
+                calibrated_result_blockers,
+            )
+
+            detection = checkpoint["byPosition"].get(position)
+            evidence = checkpoint.get("calibrationEvidence", {}).get(
+                "" if detection is None else detection["detectionId"]
+            )
+            blockers += calibrated_result_blockers(
+                evidence, pin=checkpoint["calibrationPin"], proposal=proposal, detection=detection
+            )
+        return blockers
 
     def raw_inference(
         self,
@@ -661,6 +690,9 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
         *,
         rescue_pin: Mapping[str, Any] | None = None,
         expected_positions: set[int] | None = None,
+        calibration_pin: Mapping[str, Any] | None = None,
+        raster_sha: str | None = None,
+        available_source_box: list[int] | None = None,
     ) -> dict[str, Any]:
         """Deduplicate pixels/model only; each occurrence retains its own binding."""
         identity = digest(
@@ -678,6 +710,16 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 },
                 "model": pin,
                 "runtime": "grid-reinference-runtime-v1",
+                **(
+                    {
+                        "calibrationPinSha256": calibration_pin["pinSha256"],
+                        "rasterSha256": raster_sha,
+                        "availableSourceBox": available_source_box,
+                    }
+                    if calibration_pin is not None
+                    and calibration_pin.get("contractVersion") == "neural-grid-operation-pin-v3"
+                    else {}
+                ),
                 **(
                     {
                         "rescuePin": dict(rescue_pin),
@@ -703,6 +745,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             item.sha256 for item in snapshot.version.files if item.name == "bundle.json"
         )
         rescue_execution: dict[str, Any] = {}
+        observation: dict[str, Any] = {}
         try:
             from .grid_rescue_runtime import run_with_rescue
 
@@ -718,15 +761,29 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 pin=rescue_pin,
                 expected_positions=expected_positions or set(),
                 summary_sink=rescue_execution,
+                observation_sink=observation,
+                input_raster=(
+                    {
+                        "pixelSha256": raster_sha,
+                        "validBox": available_source_box,
+                        "coordinateSpace": "exif-normalized-rgb-pixels-v1",
+                    }
+                    if calibration_pin is not None
+                    and calibration_pin.get("contractVersion") == "neural-grid-operation-pin-v3"
+                    else None
+                ),
             )
         except GeometryRuntimeError as error:
             if error.code not in {
                 "NEURAL_GRID_SOURCE_TIME_LIMIT",
                 "NEURAL_GRID_STARTUP_TIME_LIMIT",
+                "GRID_RESCUE_RASTER_CHANGED",
             }:
                 raise
-            result = {
-                "outcome": "inference_timeout",
+            result: dict[str, Any] = {
+                "outcome": "conflict"
+                if error.code == "GRID_RESCUE_RASTER_CHANGED"
+                else "inference_timeout",
                 "reason": error.code,
                 "detections": [],
                 **({"rescueExecution": rescue_execution} if rescue_execution else {}),
@@ -766,11 +823,26 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     ),
                 }
             )
+        from .full_board_runtime_evidence import runtime_evidence
+
+        calibration_evidence = runtime_evidence(
+            found=found,
+            detections=detections,
+            observation=observation,
+            pin=calibration_pin,
+            bundle=bundle,
+            bundle_sha=bundle_sha,
+            source_sha=source["checksum_sha256"],
+            width=width,
+            height=height,
+            available_source_box=available_source_box,
+        )
         return self.publish_raw(
             cache,
             identity,
             {
                 "detections": detections,
+                "calibrationEvidence": calibration_evidence,
                 **({"rescueExecution": rescue_execution} if rescue_execution else {}),
             },
         )
@@ -945,6 +1017,10 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 geometries[position]["neuralAcceptanceEvidence"] = neural_auto_crop_evidence(
                     detection
                 )
+            if "calibrationPin" in checkpoint:
+                geometries[position]["neuralCalibrationEvidence"] = checkpoint.get(
+                    "calibrationEvidence", {}
+                ).get(detection["detectionId"])
         sha = digest(
             {
                 "policy": CONTRACT,

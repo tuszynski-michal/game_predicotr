@@ -137,6 +137,7 @@ def role_summary(
                 "application-grid-corrections-v1",
                 "application-grid-corrections-v2",
                 "application-grid-corrections-v3",
+                "application-grid-corrections-v4",
             ):
                 identity = identity or recording.get("photoIdentity")
             if isinstance(identity, str) and identity:
@@ -155,7 +156,11 @@ def role_summary(
                     policy in ("application-grid-corrections-v1", "application-grid-corrections-v2")
                     and mode == "grid-only"
                 )
-                or (policy == "application-grid-corrections-v3" and role == "REGRESSION")
+                or (
+                    policy in ("application-grid-corrections-v3", "application-grid-corrections-v4")
+                    and role == "REGRESSION"
+                )
+                or (policy == "application-grid-corrections-v4" and mode == "grid-only")
                 else 5,
             )
         )

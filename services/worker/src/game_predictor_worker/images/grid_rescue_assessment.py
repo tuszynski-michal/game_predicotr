@@ -8,7 +8,7 @@ from typing import Any
 from game_predictor_api.domain.grid_rescue_policy import require_rescue_evidence
 
 from ..geometry_core.rescue import GridRescueVariantV1
-from .grid_rescue_strategy import execute_path
+from .grid_rescue_strategy import RescueResult, execute_path
 
 
 class RescueAssessmentEngine:
@@ -16,21 +16,27 @@ class RescueAssessmentEngine:
         self.engine = engine
         self.path = proof["selection"]["selectedPath"]
         self.variant = GridRescueVariantV1.model_validate(proof["recipe"]["variant"])
+        self.routing = proof["selection"]["pathProofs"][self.path].get("routing")
+        self.last_baseline: list[Any] = []
+        self.last_result: RescueResult | None = None
 
     def analyse(self, rgb: Any) -> list[Any]:
         baseline = self.engine.analyse(rgb)
-        return execute_path(
+        self.last_baseline = baseline
+        self.last_result = execute_path(
             baseline,
             width=rgb.shape[1],
             height=rgb.shape[0],
             variant=self.variant,
             path=self.path,
             expected_positions=set(range(9)),
+            routing=self.routing,
             detect=lambda geometry: self.engine.detect(rgb, geometry=geometry),
             recrop=lambda position, detection, geometry: self.engine.recrop(
                 rgb, detection, geometry=geometry
             ),
-        ).detections
+        )
+        return self.last_result.detections
 
 
 def assessment_engine(engine: Any, directory: Path, expected_sha: str) -> Any:

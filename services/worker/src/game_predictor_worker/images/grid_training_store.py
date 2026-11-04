@@ -57,7 +57,10 @@ class SqlGridTrainingStore:
     def eligibility(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]:
         with game_storage_scope(game_id), self.session_factory() as session:
             try:
-                return self._service(session).eligibility(game_id, cohort_id)
+                service = self._service(session)
+                result = service.eligibility(game_id, cohort_id)
+                service.repository.training_scope(game_id, cohort_id)
+                return result
             except GridCohortError as error:
                 raise JobHandlerError(error.code, error.message) from error
 
@@ -73,6 +76,7 @@ class SqlGridTrainingStore:
                     "application-grid-corrections-v1",
                     "application-grid-corrections-v2",
                     "application-grid-corrections-v3",
+                    "application-grid-corrections-v4",
                 )
                 groups: dict[str, str] = {}
                 for member in repository.iter_members(game_id, cohort_id):

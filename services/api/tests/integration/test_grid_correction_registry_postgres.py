@@ -24,25 +24,30 @@ def scope(session, game):
     GameStorageRouter().bind(session, game, intent=GameStorageIntent.READ)
 
 
-def context(session, game, ids):
+def context(session, game, ids, *, purpose=False):
     return session.scalar(
-        text("SELECT public.recording_photo_context_v1(:g,CAST(:ids AS uuid[]))"),
+        text(
+            f"SELECT public.recording_photo_context_v{3 if purpose else 1}(:g,CAST(:ids AS uuid[]))"
+        ),
         {"g": game, "ids": ids},
     )
 
 
 def command(session, game, cohort, kind, revision):
-    screen = (
-        session.scalar(
-            text(
-                "SELECT document->>'policyVersion' FROM grid_training_cohorts "
-                "WHERE game_id=:g AND id=:c"
-            ),
-            {"g": game, "c": cohort},
-        )
-        == "application-grid-corrections-v3"
+    policy = session.scalar(
+        text(
+            "SELECT document->>'policyVersion' FROM grid_training_cohorts "
+            "WHERE game_id=:g AND id=:c"
+        ),
+        {"g": game, "c": cohort},
     )
-    function = "recording_cohort_command_v4" if screen else "recording_cohort_command_v3"
+    function = (
+        "recording_cohort_command_v5"
+        if policy == "application-grid-corrections-v4"
+        else "recording_cohort_command_v4"
+        if policy == "application-grid-corrections-v3"
+        else "recording_cohort_command_v3"
+    )
     return session.scalar(
         text(f"SELECT public.{function}(:g,CAST(:q AS jsonb),'fixture:1120')"),
         {
@@ -61,12 +66,12 @@ def command(session, game, cohort, kind, revision):
 
 
 @pytest.mark.parametrize(
-    "screen_corrections,invalid_full",
-    [(False, False), (True, False), (True, True)],
-    ids=["legacy", "screen", "screen-invalid"],
+    "screen_corrections,invalid_full,purpose",
+    [(False, False, False), (True, False, False), (True, True, False), (True, False, True)],
+    ids=["legacy", "screen", "screen-invalid", "purpose-partial-b"],
 )
 def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions(
-    monkeypatch, tmp_path, screen_corrections, invalid_full
+    monkeypatch, tmp_path, screen_corrections, invalid_full, purpose
 ):
     with application_role_database(
         "t1157registry" if screen_corrections else "t1120", ("correction-a", "correction-b")
@@ -113,7 +118,7 @@ def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions
                   'completed',100,100,100,100,'exif-normalized-rgb-pixels-v1','fixture-v1',:s)"""),
                     {"g": game, "i": identifier, "j": job, "s": sha},
                 )
-            contexts = {r["sourceId"]: r for r in context(s, game, source_ids)}
+            contexts = {r["sourceId"]: r for r in context(s, game, source_ids, purpose=purpose)}
             pins = [
                 {
                     "sourceId": str(identifier),
@@ -128,8 +133,17 @@ def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions
                 }
                 for i, identifier in enumerate(source_ids)
             ]
+            if purpose:
+                for pin in pins:
+                    pin["validationPurpose"] = (
+                        ("B" if pin["sourceId"] == str(source_ids[-1]) else "A")
+                        if pin["role"] == "VALIDATION"
+                        else None
+                    )
             doc = {
-                "policyVersion": "application-grid-corrections-v3"
+                "policyVersion": "application-grid-corrections-v4"
+                if purpose
+                else "application-grid-corrections-v3"
                 if screen_corrections
                 else "application-grid-corrections-v1",
                 "mode": "screen+grid" if screen_corrections else "grid-only",
@@ -159,6 +173,14 @@ def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions
                             positions=[{"label": {}} for _ in range(9)],
                         )
                     frozen["recording"]["assessmentPolicy"] = "human-labeled-targets-v1"
+                if purpose:
+                    frozen["recording"]["validationPurpose"] = pins[i]["validationPurpose"]
+                    if i == 40:
+                        frozen.update(
+                            used=True,
+                            boardEligibleCount=3,
+                            positions=[{"label": {} if j < 3 else None} for j in range(9)],
+                        )
                 s.execute(
                     text("""INSERT INTO grid_training_cohort_members(game_id,cohort_id,source_id,
                   live_source_image_id,ordinal,role,frozen)
@@ -266,12 +288,22 @@ def test_photo_roles_buffers_atomic_freeze_restart_alias_and_private_permissions
             assert facts[str(source_ids[-1])]["allowedRoles"] == ["VALIDATION"]
         with db.owner_engine.connect() as c:
             assert c.scalar(text("SELECT count(*) FROM public.recording_photo_uses")) == 41
-            assert (
-                c.scalar(
-                    text("SELECT count(*) FROM public.recording_photo_uses WHERE used_in_cohort")
+            assert c.scalar(
+                text("SELECT count(*) FROM public.recording_photo_uses WHERE used_in_cohort")
+            ) == (21 if purpose else 20)
+        if purpose:
+            with Session(db.app_engine) as s, s.begin():
+                scope(s, game)
+                facts = {r["sourceId"]: r for r in context(s, game, source_ids, purpose=True)}
+                assert facts[str(source_ids[10])]["validationPurposes"] == ["A"]
+                assert facts[str(source_ids[-1])]["validationPurposes"] == ["B"]
+                assert not facts[str(source_ids[-1])]["selectionExposed"]
+                # The new cohort skips B during training admission, retains A.
+                s.execute(
+                    text("SELECT public.recording_training_scope_v1(:g,:c)"),
+                    {"g": game, "c": cohort},
                 )
-                == 20
-            )
+            return
         # Identical bytes in another game's own RLS scope inherit the frozen buffer.
         alias, other_job = uuid4(), uuid4()
         with db.owner_engine.begin() as c:

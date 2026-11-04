@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1160 — Odbiór pełnego przepływu i wdrożenia (done)
 
 - Task: `tasks/completed/1160-full-board-acceptance.md`.
-- Commit: **v1.7.565** (hash dopisuje kolejny commit).
+- Commit: **v1.7.565 / `f42a31bd0c7c325b8d9bdea52731925c87ec8c39`** (hash dopisuje kolejny commit).
 - Dwa testowane styki: real handler v4/grid-only/partial A i actual run_with_rescue observation_sink; kontrolowane przerwania VALIDATION/REG, strict cold API+worker, dokładne cele i partial scope, receipt replay bez nowych calls. Produkcja/API/schema bez zmian.
 - Końcowe scoped:3 composed PASS31.77s, disposable PG0181 guard1 PASS25.57s;4 własne bazy/role/sesje0/0/0 po READ ONLY cleanup. Ruff/format/docs/map/whitespace PASS. Actual Opus R1 PASS bez P0/P1;5 testowych P2 uzupełnił wykonawca, a root odebrał minimalną deltę bez nowej rundy Opus.
 - Instrukcja operatora i `quality/TASK-1160_VERIFICATION.md` rozliczają cały plan/DoD, reuse T0–T5,0179→0180→0181, role/skew/NTFS, staged registration przed B/REG i model rollback bez przeliczania importów/ręcznych korekt. Trzy zastane record-hash T5 zawarte w tym commicie; D-588 ma poprawne10:41.

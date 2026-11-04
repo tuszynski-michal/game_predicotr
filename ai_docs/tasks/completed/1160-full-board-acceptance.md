@@ -77,7 +77,7 @@ nie omijamy serwerem, inną przeglądarką, CDP lub screenshot harness.
 - [x] Deployment/readiness/downgrade/registration/rollback i liczniki mają właścicielski
   opis oraz konkretną kolejność, granice zgody i komendy PowerShell z timeoutem.
 - [x] Plan/DoD pokryte dowodami aktualnych źródeł; reuse T0–T5 i niewykonane czynności jawne.
-- [ ] Scoped testy, lint/format/types adekwatne do delty, docs/map, root Opus PASS,
+- [x] Scoped testy, lint/format/types adekwatne do delty, docs/map, root Opus PASS,
   task-close, wersjonowany commit i oddzielny końcowy record-hash.
 
 ## Technical notes
@@ -114,7 +114,7 @@ mirror builds nie oznaczają standard-workspace ani global mypy PASS.
 
 ## Outcome
 
-Commit: v1.7.565 (hash dopisuje kolejny commit).
+Commit: v1.7.565 / `f42a31bd0c7c325b8d9bdea52731925c87ec8c39`.
 
 ### Changed
 

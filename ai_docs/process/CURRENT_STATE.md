@@ -91,7 +91,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1162** — Routing rejestracji diagnostyk — v1.7.569 — tasks/completed/1162-diagnostic-registration-routing.md
+- **TASK-1162** — Routing rejestracji diagnostyk — v1.7.569 / `08c2fd74` — tasks/completed/1162-diagnostic-registration-routing.md
 - **TASK-1160** — Odbiór pełnego przepływu — v1.7.565 / `f42a31bd` — tasks/completed/1160-full-board-acceptance.md
 - **TASK-1161** — Panel i rzeczywiste wejście — v1.7.564 / `bc00e2a7` — tasks/completed/1161-full-board-panel-diagnostics.md
 - **TASK-1159** — Naturalna komunikacja i oszczędzanie kontekstu — v1.7.558 / `fa5156c9` — tasks/completed/1159-normal-communication-context-economy.md

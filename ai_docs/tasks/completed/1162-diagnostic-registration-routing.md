@@ -70,7 +70,7 @@ Blokada WRITE pochodzi z istniejącego routera; wyjątek oznacza rollback całej
 
 ## Outcome
 
-Commit: v1.7.569 (hash dopisuje kolejny commit).
+Commit: v1.7.569 / `08c2fd7487e7927c8607c234fa434689dcd6fc54`.
 
 ### Changed
 

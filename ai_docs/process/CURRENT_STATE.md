@@ -91,6 +91,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1162** — Routing rejestracji diagnostyk — v1.7.569 — tasks/completed/1162-diagnostic-registration-routing.md
 - **TASK-1160** — Odbiór pełnego przepływu — v1.7.565 / `f42a31bd` — tasks/completed/1160-full-board-acceptance.md
 - **TASK-1161** — Panel i rzeczywiste wejście — v1.7.564 / `bc00e2a7` — tasks/completed/1161-full-board-panel-diagnostics.md
 - **TASK-1159** — Naturalna komunikacja i oszczędzanie kontekstu — v1.7.558 / `fa5156c9` — tasks/completed/1159-normal-communication-context-economy.md
@@ -100,4 +101,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1155** — Odtwarzalne wejście sieci i dowody gotowości — v1.7.559 / `887d8a3b` — tasks/completed/1155-full-board-input-diagnostics.md
 - **TASK-1154** — Bezpieczna akceptacja siatek — v1.7.558 / `0a7ef2d3` — tasks/completed/1154-safe-neural-auto-crop-policy.md
 - **TASK-1153** — Propozycje modelu w korekcie i pełny kadr — v1.7.556 / `4319f702` — tasks/completed/1153-grid-review-proposals-viewport.md
-- **TASK-1152** — Trwałe liczniki zastosowania — v1.7.553 / `5a9fcb14` — tasks/completed/1152-grid-apply-progress.md

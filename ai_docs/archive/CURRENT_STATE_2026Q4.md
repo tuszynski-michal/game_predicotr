@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1162 — Routing rejestracji diagnostyk (done)
+
+- Plik: `tasks/completed/1162-diagnostic-registration-routing.md`.
+- Commit: **v1.7.569** (hash dopisuje kolejny commit).
+- Jawny WRITE bind po SET LOCAL10s/3s i przed SQL capability; bez bypass, zmian manifestu lub schematu.
+- Realny disposable PG/applicationRole/fresh CLI PASS1/29.75s: maintenance, własny timeout fence3s, zapis i ledger replay; cleanup5journali0/0/0. Ruff/format/scoped mypy/map/docs PASS.
+- Rzeczywisty Opus5.5/high R1 statyczny PASS/noP0/P1; root przyjął P2 receipt, mid-batch rollback, brak total-budget, legacy traceback i scoped mypy, bez rozszerzenia testów/produktu.
+- Raporty: `quality/TASK-1162_VERIFICATION.md`, `quality/TASK-1162_AUDIT_claude-opus-5-5.md`. Integrację i oficjalny CLI replay operatora prowadzi root; wykonawca bez operator DB/usług/modeli/merge/push.
+
 ### TASK-1160 — Odbiór pełnego przepływu i wdrożenia (done)
 
 - Task: `tasks/completed/1160-full-board-acceptance.md`.

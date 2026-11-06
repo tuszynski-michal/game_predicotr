@@ -225,7 +225,10 @@ Invoke-GridOperatorCheck -Command @('powershell.exe', '-NoProfile', '-Command',
 #     '--actor', 'local-owner', '--approved-deployment')
 ```
 
-Writer używa statement_timeout10s/lock_timeout3s. Dokładny retry odtwarza receipt,
+Writer po ustawieniu lokalnych timeoutów, przed SQL domenowym/capability, jawnie
+wiąże transakcję z grą przez GameStorageRouter WRITE,
+respektując maintenance i blokadę zmiany magazynu. Sam kontekst game_storage_scope
+nie wiąże zwykłego Session. Writer używa statement_timeout10s/lock_timeout3s. Dokładny retry odtwarza receipt,
 nie tworzy drugiego użycia. Potwierdź trwały wynik i closure z nowej sesji odczytu
 przed nowym B/REG. Sama obecność pliku manifestu nie potwierdza rejestracji.
 

@@ -34,7 +34,11 @@ def main() -> None:
     value = require_registration(read_json(args.manifest))
     from game_predictor_api.config import get_settings
     from game_predictor_api.storage.database import create_database_engine
-    from game_predictor_api.storage.game_storage_routing import game_storage_scope
+    from game_predictor_api.storage.game_storage_routing import (
+        GameStorageIntent,
+        GameStorageRouter,
+        game_storage_scope,
+    )
     from sqlalchemy import text
     from sqlalchemy.orm import Session
 
@@ -43,6 +47,7 @@ def main() -> None:
         with game_storage_scope(UUID(value["gameId"])), Session(engine) as session, session.begin():
             session.execute(text("SET LOCAL statement_timeout='10s'"))
             session.execute(text("SET LOCAL lock_timeout='3s'"))
+            GameStorageRouter().bind(session, UUID(value["gameId"]), intent=GameStorageIntent.WRITE)
             for request in value["requests"]:
                 session.execute(
                     text(

@@ -4,7 +4,7 @@ status: done
 last_updated: 2026-11-04
 ---
 
-# TASK-1159 — Panel, propozycje i rzeczywiste wejście
+# TASK-1161 — Panel, propozycje i rzeczywiste wejście
 
 ## Status
 
@@ -16,6 +16,8 @@ Operator rozróżnia propozycje, automat i zatwierdzenie człowieka w lekkim pan
 uzupełnia geometrię zwykłych zdjęć i ogląda wiarygodne rzeczywiste wejście w HTML.
 
 ## Context
+
+Integracja: dokumentacyjny numer TASK-1159 zmieniono na TASK-1161 po kolizji z zadaniem komunikacji w main. Commit v1.7.564/bc00e2a7 i literalne audyty TASK-1159 zachowują historyczne identyfikatory; zakres i kod są bez zmian.
 
 T5 zaakceptowanego FULL_BOARD_DETECTION_PLAN_20261103. Baza T4 v1.7.563
 `c7ed8afe1913292d3fe5f7f23cb133f077ac84e2`, Opus R2 PASS. TASK-1153 już

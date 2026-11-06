@@ -15,9 +15,9 @@ last_updated: 2026-10-16
 - Instrukcja operatora i `quality/TASK-1160_VERIFICATION.md` rozliczają cały plan/DoD, reuse T0–T5,0179→0180→0181, role/skew/NTFS, staged registration przed B/REG i model rollback bez przeliczania importów/ręcznych korekt. Trzy zastane record-hash T5 zawarte w tym commicie; D-588 ma poprawne10:41.
 - Bez operator DB/migracji/rejestracji/usług, rzeczywistego treningu/inferencji/GPU, apply/default lub merge/push. Historyczne197GT/134foto/full0 nie są aktualnym skanem;150/101 HTML bez current GT i tylko2T1inputy nie dowodzą jakości nowego NN. Browser/Android visual niewykonane, bez obejścia local-file policy. Dalszy krok: osobny preflight/zgoda na integrację i operatorowe wdrożenie.
 
-### TASK-1159 — Panel i rzeczywiste wejście (done)
+### TASK-1161 — Panel i rzeczywiste wejście (done)
 
-- Plik: `tasks/completed/1159-full-board-panel-diagnostics.md`.
+- Plik: `tasks/completed/1161-full-board-panel-diagnostics.md`.
 - Commit: **v1.7.564 / `bc00e2a736a6f5a51a9d2bd590d96d280a95d23a`** (hash dopisuje kolejny commit).
 - Zwarty current/frozen read-model, opcjonalny shared-v4 A/B/history, zwykła ludzka geometria przez istniejący owner/CAS/editor, strict diagnosticv2 i file-backed HTML; historia v1 i exact HTTP/cold retry zachowane.
 - Opus5.5/high R1 REVISE, jedna runda poprawek, focused R2 PASS; P0/P1 brak. R2-P2-1 maintenance/fail-closed przy kluczu legacy zaakceptowane; R2-P2-2 zamknięte tylko dokumentacją indeksu v2/rastra.

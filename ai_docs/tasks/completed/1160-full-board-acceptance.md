@@ -44,7 +44,7 @@ Zmiana kontraktu domeny lub nowa regresja wymaga zgłoszenia rootowi przed rozsz
 - quality/TASK-1157_VERIFICATION.md, TASK-1158_VERIFICATION.md, TASK-1159_VERIFICATION.md.
 - guides/V3_GRID_FINE_TUNING_OPERATOR.md.
 - process/decisions/DECISION_LOG_2026.md — D-588 (wyłącznie korekta10:41), D-587/D-586.
-- tasks/completed/1159-full-board-panel-diagnostics.md i archive/CURRENT_STATE_2026Q4.md
+- tasks/completed/1161-full-board-panel-diagnostics.md i archive/CURRENT_STATE_2026Q4.md
   — wyłącznie zastany record-hash T5 i zamknięcie tego taska skillem.
 - ignored artifacts/task1160-preflight/TASK1160_DRAFT.md i ACCEPTANCE_NOTES.md.
 

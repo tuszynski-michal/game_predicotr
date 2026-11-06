@@ -92,7 +92,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 ## Ostatnie 10 ukończonych tasków
 
 - **TASK-1160** — Odbiór pełnego przepływu — v1.7.565 / `f42a31bd` — tasks/completed/1160-full-board-acceptance.md
-- **TASK-1159** — Panel i rzeczywiste wejście — v1.7.564 / `bc00e2a7` — tasks/completed/1159-full-board-panel-diagnostics.md
+- **TASK-1161** — Panel i rzeczywiste wejście — v1.7.564 / `bc00e2a7` — tasks/completed/1161-full-board-panel-diagnostics.md
 - **TASK-1158** — Kompletność i rozdzielona kalibracja — v1.7.563 / `c7ed8afe` — tasks/completed/1158-full-board-calibration.md
 - **TASK-1157** — Korekty detektora i ratunek — v1.7.562 / `f78c5b5a` — tasks/completed/1157-screen-grid-corrections-rescue.md
 - **TASK-1156** — Możliwości modelu i kwalifikacja gry — v1.7.560 / `337affe8` — tasks/completed/1156-neural-model-game-capabilities.md

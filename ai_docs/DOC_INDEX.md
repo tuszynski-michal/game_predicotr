@@ -199,6 +199,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Proces i jakość
 
+- [Wdrożenie pełnych plansz i dane Mumie A2](quality/FULL_BOARD_DETECTION_DEPLOYMENT_20261107.md).
+
 - [AI workflow](process/AI_DRIVEN_DEVELOPMENT.md)
 - [Definition of Done](process/DEFINITION_OF_DONE.md)
 - [Decision log](process/DECISION_LOG.md) — indeks 30 najnowszych decyzji; pełne

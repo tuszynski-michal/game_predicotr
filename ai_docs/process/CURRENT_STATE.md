@@ -12,7 +12,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
-- **TASK-1160:** T0–T6 done; wdrożenie0181/rejestracja B/REG i trening osobno. Źródło: `quality/TASK-1160_VERIFICATION.md`.
+- **TASK-1160:** wdrożono0181; trening/import czekają na91 zatwierdzeń. Źródło: `quality/FULL_BOARD_DETECTION_DEPLOYMENT_20261107.md`.
 
 
 

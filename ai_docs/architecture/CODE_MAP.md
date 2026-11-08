@@ -279,7 +279,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (181 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (183 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -307,7 +307,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `rebuild_*` (2): `rebuild_board_search_projection.py`, `rebuild_symbol_cell_reviews.py`
 - `reconcile_*` (2): `reconcile_followup_777_board_positions.py`, `reconcile_partial_board_symbol_review.py`
 - `review_*` (5): `review_m5_cell_grid.py`, `review_m5_local_grid_calibration.py`, `review_m5_symbol_grid_fallbacks.py` (+2)
-- `run_*` (37): `run_android_device_acceptance.ps1`, `run_board_cell_geometry_shadow_benchmark.py`, `run_concurrent_worker_lane_acceptance.py` (+34)
+- `run_*` (38): `run_android_device_acceptance.ps1`, `run_board_cell_geometry_shadow_benchmark.py`, `run_claude_audit.py` (+35)
 - `select_*` (2): `select_local_image_folder.ps1`, `select_m6_symbol_model_candidate.py`
 - `setup_*` (3): `setup_android_toolchain.ps1`, `setup_remote_reviewer_tunnel.ps1`, `setup_vision_lab.ps1`
 - `start_*` (8): `start_controlled_api.ps1`, `start_controlled_image_selection.ps1`, `start_controlled_image_selection_rerun.ps1` (+5)
@@ -344,7 +344,7 @@ Dokumentacja procesu; kolejność czytania w `AGENTS.md` i `ai_docs/README.md`.
 - `ai_docs/quality/` - raporty jakości i audytów
 - `ai_docs/guides/` - instrukcje operatorskie
 
-Pliki procesu: `AI_DRIVEN_DEVELOPMENT.md`, `BOARD_CORNER_PLACEMENT_STATUS.md`, `CURRENT_STATE.md`, `DECISION_LOG.md`, `DEFINITION_OF_DONE.md`, `HANDOFF_GRID_V3_20261004.md`, `MANAGEMENT_PANEL_OPERATIONS.md`, `PLAN_STANDARD.md`, `RESUMABLE_LEGACY_DELETION.md`, `TASK_TEMPLATE.md`
+Pliki procesu: `AI_DRIVEN_DEVELOPMENT.md`, `BOARD_CORNER_PLACEMENT_STATUS.md`, `CROSS_AUDIT.md`, `CURRENT_STATE.md`, `DECISION_LOG.md`, `DEFINITION_OF_DONE.md`, `HANDOFF_GRID_V3_20261004.md`, `MANAGEMENT_PANEL_OPERATIONS.md`, `PLAN_STANDARD.md`, `RESUMABLE_LEGACY_DELETION.md`, `TASK_TEMPLATE.md`
 
 ### Komendy
 

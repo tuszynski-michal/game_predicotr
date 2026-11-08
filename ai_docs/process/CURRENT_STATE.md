@@ -12,7 +12,9 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
-- **TASK-1160:** wdrożono0181; trening/import czekają na91 zatwierdzeń. Źródło: `quality/FULL_BOARD_DETECTION_DEPLOYMENT_20261107.md`.
+- **Audyt Claude (operator2026-11-08):** terminal/polecenia są wymaganym sposobem. Desktop wyłącznie na nowe, jawne polecenie dla danego audytu. Operator loguje CLI sam; nie sterujemy logowaniem ani nie kopiujemy tokenów. Limit Opus pozwala odłożyć audyty i kontynuować kod, bez PASS/commita oczekującego taska.
+
+- **Mumie A2:** trening42012366/ONNX zakończone; zastosowanie blokuje wzrost błędu A. Default3ed60010 revision2;691zdjęć w stagingu, bez importu. Źródło: `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` i root artifacts/grid-detector-training-20261107/block-analysis/analysis.html.
 
 
 
@@ -38,14 +40,15 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 - **Przycinanie zdjęć P1 / TASK-1016 (2026-10-14, odbiór 2026-10-17):** galeria 40 zdjęć powstała wyłącznie na kopiach i została zaakceptowana. Pomiar nie jest zgodą na podmianę ani usunięcie oryginałów, nie jest też prognozą dla całej biblioteki. P2–P4 wymagają zaakceptowanego planu i zgody. Źródło: `tasks/completed/1016-photo-crop-preview.md`.
 - **Przycinanie oryginałów, etap A (2026-10-17):** w `main` i na origin (`06657169`), baza operatora zmigrowana do `0167_source_image_crops` (manifest v18, 16 s); nie istnieje żaden crop i żaden oryginał nie został usunięty. Etap B (TASK-1047–1049) zaakceptowany i scalony do `main` 2026-10-17 z migracją `0168_source_crop_runs` (manifest v19); joby na danych operatora (TASK-1050) mają osobne zgody. Źródło: plan przycinania, rewizja 2, D-562.
 - **Narzędzia tokenowe:** hook blokuje `Read` pliku > 200 KB bez `offset`/`limit`; task zmieniający moduły regeneruje mapę kodu (`scripts/generate_code_map.py`, kontrola `npm run code-map:check`). Serena i Graphify nie są stałym narzędziem (pilot TASK-0939 zamknięty bez pomiaru). Źródło: `guides/TOKEN_TOOLING.md`.
-- **Plan V3 rewizja 6** (`codex/v3-grid-fine-tuning`, accepted 2026-10-14): cały zakres i koszt zlecone; od TASK-1005 wykonuje Claude Code `claude-opus-5-5`/`high` (zamiennik `claude-fable-5-1` wybrany przez wykonawcę po sugestii operatora 2026-10-16; 0997 na `xhigh`), audytuje Codex `gpt-6-astra`. GPU smoke, trening, publikacja, aktywacja, migracje i operacje danych operatora oraz scalenie do `main` mają osobne zgody; kopia `D:\game_predictor_backup` wystarcza, bez nowego backupu. Źródło: plan sekcje 1, 3 i 8; D-552.
-- **Integracja V3 (2026-10-16, zgoda operatora):** `codex/v3-grid-fine-tuning` w `main` i na origin (v1.7.396 `b263c738`); baza operatora zmigrowana `0155_board_search_panels` → `0166` przez `npm run db:migrate` (13 s), 4 lokalizacje gier na manifeście v17, przypisania Mumii, 777a2 i 777v2 zachowane, brak wersji domyślnej (wymaga jawnej publikacji). Usługi zrestartowane z `main`; lane `grid-training` używa `D:\game_predicotr\.venv-vision-lab` (torch cu130), które skrypt lane znajduje sam; środowisko na C nie jest już potrzebne. Źródło: [raport odbioru](../quality/V3_GRID_FINE_TUNING_ACCEPTANCE.md), sekcja 6.
+- **Plan V3 rewizja6:** zlecony zakres/model/koszt w `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md`, sekcje1/3/8 i D-552. Operacje GPU/trening/publikacja/aktywacja/migracje/operator/merge wymagają osobnych zgód; zaakceptowana kopia `D:\game_predictor_backup` wystarcza.
+- **Integracja V3 (2026-10-16):** main/origin v1.7.396, operator0166/manifestv17; historyczny brak defaultu nie opisuje obecnego stanu MumieA2 powyżej. Lane grid-training wykrywa `D:\game_predicotr\.venv-vision-lab` (torchcu130), bez środowiskaC. Źródło: [odbiór](../quality/V3_GRID_FINE_TUNING_ACCEPTANCE.md), sekcja6.
 - **Regresje V3:** odbiór TASK-1001 w [raporcie](../quality/V3_GRID_FINE_TUNING_ACCEPTANCE.md): Admin ma te same 10 porażek co [HEAD380](../quality/TASK-1003_BASELINE_HEAD380.md), worker 17 środowiskowych w worktree, PostgreSQL tylko znana usterka `reset_game` sprzed V3 (osobne zadanie). `scripts/run_python_tests.ps1 -Suite` dla jednej ścieżki psuje kolekcję: używać bezpośredniego `pytest`. Źródło: archiwum Q4, jak wyżej.
 
 ## Plany z niezakończonymi taskami
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
+| `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` | accepted; T0 kod/testy/OpusPASS, cały zakres/koszt zlecony; limitOpus pozwala odłożyć audyty | TASK-1164–1168 | `codex/full-symbol-crops` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -68,7 +71,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 - **TASK-1134 / P2 Opus:** domyślne repo CUDA jest pokryte naprawą CLI; niestandardowy `-GridTrainingPython` i User-only/invalid env w launcherze lane mają nadal odrębną politykę. Ujednolicenie poza zakresem; szczegóły w Outcome TASK-1134.
 
-- **Uczenie siatek z korekt / TASK-1120–1123 (2026-11-02):** w main i origin, cztery audyty Opus 5.5/high PASS. Migracje operatora do 0171 wykonane za zgodą, API/Admin i general/grid-training uruchomione; panel Mumie a2 gotowy (117 korekt), default i geometria zachowane. Bez treningu/aktywacji. Pełny mypy nadal wymaga osobnego baseline z uzgodnionym limitem; scoped checks PASS. Źródło: [raport odbioru](../quality/GRID_CORRECTIONS_LEARNING_ACCEPTANCE_20261102.md).
+- **TASK-1120–1123:** main/origin,4×OpusPASS, migracja0171 za zgodą. Historyczny odbiór bez treningu/aktywacji; pełny mypy nie ma PASS (scoped tak). Źródło: [odbiór2026-11-02](../quality/GRID_CORRECTIONS_LEARNING_ACCEPTANCE_20261102.md).
 
 - Przycinanie oryginałów: zgody na kolejne kroki pilotażu TASK-1050.
 - Decyzje czekające na operatora: status planu symboli premium Mumii (`MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`), decyzja D-463 dla odroczonego snapshotu mobilnego oraz status planu `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` (`proposed`). Pytania R1–R15 przeglądu TASK-1021 rozstrzygnięto zamknięciem tasków (TASK-1024).
@@ -85,12 +88,33 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
+### TASK-1164 — Widoczność 24/15 (in_progress)
+
+- Plik: `tasks/1164-grid-visibility-contract.md`. T1; kontrakt, nadzór i maski, historyczne wersje zachowane.
+
+### TASK-1165 — Etykiety zawartości (todo)
+
+- Plik: `tasks/1165-cell-content-reference.md`. T2; własne rewizje etykiet, ledger i pomiar powtarzalności.
+
+### TASK-1166 — Ocena wycinków (todo)
+
+- Plik: `tasks/1166-production-cell-evaluation.md`. T3; produkcyjne rastry i bramka per instancja.
+
+### TASK-1167 — Warianty treningu (todo)
+
+- Plik: `tasks/1167-bounded-content-training.md`. T4; implementacja R0–R3 i budżet, rzeczywisty GPU za osobną zgodą.
+
+### TASK-1168 — Panel i odbiór (todo)
+
+- Plik: `tasks/1168-full-symbol-panel-acceptance.md`. T5; kontrakt UI/HTML, testy i gotowość wdrożenia.
+
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1163** — Trwała procedura audytu krzyżowego — v1.7.572 — tasks/completed/1163-durable-cross-audit-runner.md
 - **TASK-1162** — Routing rejestracji diagnostyk — v1.7.569 / `08c2fd74` — tasks/completed/1162-diagnostic-registration-routing.md
 - **TASK-1160** — Odbiór pełnego przepływu — v1.7.565 / `f42a31bd` — tasks/completed/1160-full-board-acceptance.md
 - **TASK-1161** — Panel i rzeczywiste wejście — v1.7.564 / `bc00e2a7` — tasks/completed/1161-full-board-panel-diagnostics.md
@@ -100,4 +124,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1156** — Możliwości modelu i kwalifikacja gry — v1.7.560 / `337affe8` — tasks/completed/1156-neural-model-game-capabilities.md
 - **TASK-1155** — Odtwarzalne wejście sieci i dowody gotowości — v1.7.559 / `887d8a3b` — tasks/completed/1155-full-board-input-diagnostics.md
 - **TASK-1154** — Bezpieczna akceptacja siatek — v1.7.558 / `0a7ef2d3` — tasks/completed/1154-safe-neural-auto-crop-policy.md
-- **TASK-1153** — Propozycje modelu w korekcie i pełny kadr — v1.7.556 / `4319f702` — tasks/completed/1153-grid-review-proposals-viewport.md

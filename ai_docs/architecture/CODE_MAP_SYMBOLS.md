@@ -1460,6 +1460,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - review_m6_symbol_labels.py: parse_args, main
 - route_partial_boards_to_grid_correction.py: class TargetCell, target_cells, boards_of, summary, commands_for, apply, main
 - run_board_cell_geometry_shadow_benchmark.py: main
+- run_claude_audit.py: class AuditError, sha256, atomic_write, write_json, redact, class RequestLock, process_identity, class ProcessTree, stop_tree, validate_report, build_command, build_prompt, read_pipes, run_transport, publish, execute, class AuditArgumentParser, parse_args, main
 - run_concurrent_worker_lane_acceptance.py: class ProcessMetrics, class AcceptanceState, parse_arguments, write_selection_fixture, seed_jobs, job_snapshot, cancel_job, retry_job, lane_states, stop_lane, start_worker, process_sample, wait_until, main
 - run_image_selection_benchmark.py: main
 - run_image_selection_range_recovery_dry_run.py: class DryRunError, class ProjectionImageCoverage, main
@@ -1490,6 +1491,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - start_v20_ready_staging.py: run
 - symbol_rgb_v2.py: class RgbError, shard_of, index_rows_to_summary, run_index, select_scope, rgb_rows, run_preview, run_manifest, build_boards, read_manifest, manifest_policy, board_plan, run_apply, classify_target, run_verify, main
 - test_mumie_folder.py: sha, range_key, select_rows, write_new, read_bound, load_image, prepare, validate_result, render, run, evaluation_object, collect, finish, write_gallery, reference_audit, main
+- tests/test_claude_audit_runner.py: git, disposable_worktree, audit, configure, command, invoke, receipt, report_path, test_completed_replay_after_lost_publication, test_fail_closed, test_auth_rate_diagnostic_and_explicit_new_attempt, test_timeout_stops_owned_tree, test_stream_activity_not_wall_clock_idle, test_active_duplicate_and_interrupted_owner, test_desktop_import_validates_scope_and_provenance, test_tampered_completed_report_not_replayed, report_from_repository_template, test_finding_lists_cannot_hide_findings, test_round_two_can_record_closed_finding_from_template, test_audit_oauth_topic_is_not_auth_failure, test_invalid_cli_input_is_not_timeout, test_powershell_rejects_missing_import_parameters, test_real_template_bom_import_preflight_preserves_attempt
 - tests/test_grid_comparison_diagnostics.py: archived, test_archived_input_has_exact_separate_rgb_and_tensor_identity, test_missing_mismatched_or_ambiguous_archive_is_explicitly_unavailable
 - tests/test_grid_correction_comparison.py: class ComparisonTest
 - token_pilot_collect.py: class Usage, read_transcript, locate_session, session_usage, usage_row, cmd_usage, cmd_collect, to_int, row_usage, fmt, render_table, cmd_render, build_parser, main

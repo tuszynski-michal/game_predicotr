@@ -1,0 +1,17 @@
+{
+  "request_sha256": "76c0b1ba70f7967b582a1bf98eb9bdd2833e5c1c269d25c9aa09f03600694b3c",
+  "payload_sha256": "209ea3f42c80e6e02bdebdeccdbe0abe9ebd979f9e9a9d0a1db3fcdea9b6939a",
+  "task": "TASK-1163",
+  "review_round": 1,
+  "requested_model": "claude-opus-5-5",
+  "requested_effort": "high",
+  "report_sha256": "d1ab56e94c37bf411b6fbf30a13707a9d9c6c92a2e0611a03d6c12ea545c91cf",
+  "verdict": "REVISE",
+  "transport": "desktop-ui",
+  "evidence_source": "operator-ui-observation",
+  "observed_model": "claude-opus-5-5",
+  "session_ref": "https://claude.ai/epitaxy/local_9e87f116-9b5a-4d70-9c04-69f683c9176a",
+  "effort_evidence": {
+    "observed_ui": "high"
+  }
+}

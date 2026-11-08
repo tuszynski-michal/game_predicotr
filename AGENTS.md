@@ -237,7 +237,8 @@ Claude), tylko do odczytu, przed commitem; wykonawca nie audytuje własnej pracy
 Otwarte P0/P1 blokują commit; jedna runda audytu i jedna runda poprawek, bez
 pętli. Procedurę, audytora zastępczego, limity czasu i format raportu opisują
 skille `audit-task` (Claude Code) i `claude-audit` (Codex). Poświadczeń CLI
-agent nie wpisuje.
+agent nie wpisuje. Procedura transportu i importu Desktop:
+`ai_docs/process/CROSS_AUDIT.md`.
 
 ## Hierarchia źródeł prawdy
 

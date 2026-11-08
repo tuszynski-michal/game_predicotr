@@ -13,13 +13,14 @@ When the auditor CLI is on PATH (or Claude Code is discovered in its Windows
 installation directories) the audit runs read-only with
 a timeout and the validated report is stored as
 ai_docs/quality/TASK-NNNN_AUDIT_<model>.md. Without the CLI the script stops
-after writing the brief ("brief-only mode", exit code 0) so the operator can
+after writing the brief (Codex exit 0; missing Claude exits 3, no verdict) so the operator can
 paste it into the second application.
 
 Exit codes: 0 brief written or report stored; 1 validation error (bad task,
 plan, base ref, -Model, unsafe argument for a .cmd shim, empty diff for -Paths)
 and git command errors; 2 auditor timeout; 3 auditor CLI failure, unsupported
-CLI, or a git command timeout; 4 report without a verdict line; 5 unexpected
+CLI, or a git command timeout; 4 invalid/incomplete report; 6 duplicate or
+explicit transport-attempt required (Claude); 5 unexpected
 internal error.
 
 This file is intentionally ASCII-only so Windows PowerShell 5.1 parses it
@@ -45,7 +46,7 @@ Optional path to the accepted plan; sections that mention the task are quoted.
 
 .PARAMETER Model
 Optional model name passed to the CLI and used in the report file name.
-Defaults to the auditor name.
+Claude defaults to claude-opus-5-5; Codex retains the auditor label.
 
 .PARAMETER Paths
 Optional git pathspecs that limit the diffs and the untracked list, for example
@@ -59,8 +60,8 @@ script exits with code 1 instead of writing an empty brief.
 Write the brief and print what would be executed; never start the auditor.
 
 .PARAMETER Effort
-Reasoning effort passed to the auditor (low, medium, high; default medium,
-the quick audit of the audit-task skill, "Zasady").
+Reasoning effort passed to the auditor (low, medium, high). Defaults:
+Claude high, Codex medium. The accepted plan remains authoritative.
 
 .PARAMETER CodexWindowsSandbox
 Windows sandbox mode for the Codex CLI run (default unelevated; the elevated mode
@@ -89,7 +90,7 @@ param(
     [string]$Model = '',
 
     [ValidateSet('', 'low', 'medium', 'high')]
-    [string]$Effort = 'medium',
+    [string]$Effort = '',
 
     [ValidateSet('unelevated', 'elevated', 'none')]
     [string]$CodexWindowsSandbox = 'unelevated',
@@ -98,11 +99,25 @@ param(
 
     [switch]$DryRun,
 
-    [ValidateRange(10, 7200)]
+    [ValidateRange(10, 480)]
     [int]$TimeoutSec = 480,
 
     [ValidateRange(10, 4000)]
-    [int]$MaxSectionKB = 300
+    [int]$MaxSectionKB = 300,
+
+    [ValidateSet(1, 2)]
+    [int]$ReviewRound = 1,
+
+    [ValidateRange(1, 100)]
+    [int]$TransportAttempt = 1,
+
+    [string]$Python = 'python',
+
+    [string]$ImportReport = '',
+    [string]$PayloadSha = '',
+    [string]$ObservedModel = '',
+    [string]$ObservedEffort = '',
+    [string]$SessionRef = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -279,7 +294,7 @@ function Get-PlanExcerpt {
 
     # Model assignment row for this task, with the table header.
     $headerLine = $lines | Where-Object { $_ -match '^\|\s*Zadanie\s*\|' } | Select-Object -First 1
-    $rows = @($lines | Where-Object { $_ -match ('^\|\s*' + [regex]::Escape($taskId) + '\s*\|') })
+    $rows = @($lines | Where-Object { $_ -match ('^\|[^|]*\b' + [regex]::Escape($taskId) + '\s*\|') })
     if ($rows.Count -gt 0) {
         $output.Add('Model assignment (plan section "Przypisanie modeli do zadan"):')
         if ($null -ne $headerLine) {
@@ -353,6 +368,22 @@ try {
         Fail "invalid task '$Task'. Use the four-digit number, for example 0930." 1
     }
     $taskNumber = $Matches[1]
+    if ($Effort -eq '') {
+        if ($Auditor -eq 'claude') { $Effort = 'high' } else { $Effort = 'medium' }
+    }
+    if ($Auditor -eq 'claude' -and $Model -eq '') { $Model = 'claude-opus-5-5' }
+    if ($Auditor -ne 'claude' -and $ImportReport -ne '') { Fail '-ImportReport requires -Auditor claude.' 1 }
+    if ($PSBoundParameters.ContainsKey('ImportReport')) {
+        $importParameters = @{
+            ImportReport = $ImportReport; PayloadSha = $PayloadSha; ObservedModel = $ObservedModel
+            ObservedEffort = $ObservedEffort; SessionRef = $SessionRef
+        }
+        foreach ($name in $importParameters.Keys) {
+            if ([string]::IsNullOrWhiteSpace($importParameters[$name])) {
+                Fail "Desktop import requires non-empty -$name." 1
+            }
+        }
+    }
 
     # With powershell -File a comma-separated list arrives as a single string.
     $Paths = @($Paths | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
@@ -430,7 +461,7 @@ try {
     [void]$brief.Append("- Repository root: $repositoryRoot$nl")
     [void]$brief.Append("- Branch: $branch, HEAD: $headSha$nl")
     [void]$brief.Append("- Base ref: $Base (committed diff is $Base...HEAD)$nl")
-    [void]$brief.Append("- Generated: $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz'))$nl")
+    # No generation timestamp: byte-identical packages must replay after a restart.
     [void]$brief.Append("- Task file: $($taskFile.FullName.Substring($repositoryRoot.Length + 1).Replace('\', '/'))$nl")
     if ($Paths.Count -gt 0) {
         [void]$brief.Append("- Diff limited to pathspecs: $($Paths -join ', ')$nl")
@@ -515,11 +546,54 @@ Rules:
     "do not modify any file. Output only the final audit report in the format required by the brief."
 
     $cliPath = Resolve-AuditorCli -Name $Auditor
+    if ($Auditor -eq 'claude' -and ($DryRun -or $ImportReport -ne '' -or $null -ne $cliPath)) {
+        $runnerPath = Join-Path $PSScriptRoot 'run_claude_audit.py'
+        $runnerArguments = @($runnerPath, '--repo', $repositoryRoot, '--task', "TASK-$taskNumber",
+            '--brief', $briefPath, '--model', $Model, '--effort', $Effort,
+            '--review-round', [string]$ReviewRound, '--transport-attempt', [string]$TransportAttempt,
+            '--timeout', [string]$TimeoutSec)
+        if ($DryRun) {
+            Write-Host 'DryRun: frozen brief only; no auditor, auth check or CLI process started.'
+            Write-Host "Claude runner: $runnerPath; model=$Model effort=$Effort; total=$TimeoutSec s; idle=60 s."
+            $hasher = [System.Security.Cryptography.SHA256]::Create()
+            try {
+                $digest = $hasher.ComputeHash([System.IO.File]::ReadAllBytes($briefPath))
+                $payloadDigest = [System.BitConverter]::ToString($digest).Replace('-', '').ToLowerInvariant()
+            } finally { $hasher.Dispose() }
+            Write-Host "Payload SHA256: $payloadDigest"
+            exit 0
+        }
+        if ($ImportReport -ne '') {
+            $runnerArguments += @('--import-report', $ImportReport, '--payload-sha', $PayloadSha,
+                '--observed-model', $ObservedModel, '--observed-effort', $ObservedEffort, '--session-ref', $SessionRef)
+        } elseif ($null -ne $cliPath) {
+            # A shim cannot safely preserve the JSON MCP argument. Use its JS entry point.
+            if ([System.IO.Path]::GetExtension($cliPath).ToLowerInvariant() -in @('.cmd', '.bat')) {
+                $entry = Join-Path (Split-Path -Parent $cliPath) 'node_modules/@anthropic-ai/claude-code/cli.js'
+                $node = Get-Command node -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+                if (-not (Test-Path -LiteralPath $entry -PathType Leaf) -or $null -eq $node) {
+                    Fail 'Claude shim has no direct Node entry point; use Desktop import, not cmd.exe.' 3
+                }
+                $runnerArguments += @('--cli', $node.Source, '--cli-prefix', $entry)
+            } else {
+                $runnerArguments += @('--cli', $cliPath)
+            }
+        }
+        # Runner owns deadlines, stream activity, its process tree, receipts and publication.
+        # Inherit output so the caller sees bounded progress instead of a silent wrapper.
+        & $Python @runnerArguments
+        exit $LASTEXITCODE
+    }
     if ($null -eq $cliPath) {
         Write-Host "CLI '$Auditor' not found on PATH or in supported installation directories: brief-only mode, the auditor was not run."
         Write-Host "Open $briefRelative in the second application (the $Auditor side), paste it as the prompt"
-        Write-Host "and save the answer as $reportRelative."
+        if ($Auditor -eq 'claude') {
+            Write-Host 'and import the returned report with -ImportReport (see ai_docs/process/CROSS_AUDIT.md).'
+        } else {
+            Write-Host "and save the answer as $reportRelative."
+        }
         Write-Host 'Check CLI location/access first; missing discovery is not proof of a missing installation. Installation/login remain operator steps.'
+        if ($Auditor -eq 'claude') { exit 3 }
         exit 0
     }
 
@@ -530,8 +604,7 @@ Rules:
     if ([System.IO.Path]::GetExtension($cliPath).ToLowerInvariant() -in @('.cmd', '.bat')) {
         $shimDirectory = Split-Path -Parent $cliPath
         $entryCandidates = @(
-            (Join-Path $shimDirectory 'node_modules\@openai\codex\bin\codex.js'),
-            (Join-Path $shimDirectory 'node_modules\@anthropic-ai\claude-code\cli.js')
+            (Join-Path $shimDirectory 'node_modules\@openai\codex\bin\codex.js')
         )
         $entryScript = $entryCandidates |
             Where-Object { (Split-Path -Leaf $_) -like "*$Auditor*" -or ($Auditor -eq 'claude' -and $_ -like '*claude-code*') } |
@@ -560,14 +633,6 @@ Rules:
         }
         if ($Effort -ne '') {
             $cliArguments += @('-c', ('model_reasoning_effort="{0}"' -f $Effort))
-        }
-    }
-    else {
-        $requiredFlags = @('--permission-mode', '--print')
-        $cliArguments = @('-p', '--permission-mode', 'plan')
-        if ($Effort -ne '') {
-            $requiredFlags += '--effort'
-            $cliArguments += @('--effort', $Effort)
         }
     }
     if ($Model -ne '') { $cliArguments += @('--model', $Model) }

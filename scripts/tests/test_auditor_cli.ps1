@@ -27,16 +27,15 @@ $argumentBuilder = $ast.Find({ param($node)
     $node.Extent.Text.Contains('$helpArguments = @(''exec'', ''--help'')')
 }, $true)
 if ($null -eq $argumentBuilder) { throw 'Auditor argument builder not found' }
-$Auditor = 'claude'
-foreach ($Effort in @('medium', 'high', '')) {
-    $cliArguments = @()
-    $requiredFlags = @()
-    . ([scriptblock]::Create($argumentBuilder.Extent.Text))
-    $expected = '-p --permission-mode plan'
-    if ($Effort -ne '') { $expected += " --effort $Effort" }
-    Assert-Equal $expected ($cliArguments -join ' ') "Claude argument construction ($Effort)"
-    Assert-Equal ($Effort -ne '') ($requiredFlags -contains '--effort') 'Validate advertised effort support'
-}
+$Auditor = 'codex'
+$rawPath = 'fixture-report.md'
+$CodexWindowsSandbox = 'unelevated'
+$Effort = 'medium'
+. ([scriptblock]::Create($argumentBuilder.Extent.Text))
+Assert-Equal 'exec --sandbox read-only --output-last-message fixture-report.md -c windows.sandbox="unelevated" -c model_reasoning_effort="medium"' ($cliArguments -join ' ') 'Codex read-only transport unchanged'
+$scriptText = [System.IO.File]::ReadAllText((Join-Path $repositoryRoot 'scripts/audit_task.ps1'))
+Assert-Equal $true ($scriptText.Contains("'run_claude_audit.py'")) 'Claude uses shared durable runner'
+Assert-Equal $true ($scriptText.Contains("'--transport-attempt'")) 'Explicit Claude transport attempt'
 function Add-CliFixture($RelativePath) {
     $path = Join-Path $fixture $RelativePath
     New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force | Out-Null

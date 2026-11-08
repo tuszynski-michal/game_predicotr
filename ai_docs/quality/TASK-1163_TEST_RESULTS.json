@@ -1,0 +1,68 @@
+{
+  "code_sha256": {
+    "scripts/run_claude_audit.py": "b5bc5d1756a2e965780d28b83140621ae76f50c02d61e5ed32796d380c4a0fa2",
+    "scripts/audit_task.ps1": "16aad15677e6d6b8ab6a5b57560c815b1c932088f0305c70102897d98bc3facf",
+    "scripts/tests/test_claude_audit_runner.py": "2fbb0ed7ae1e0d49bc516e66d1d7b7340955f667eacd2de9dc44a8f36e77b6c2",
+    "scripts/tests/test_auditor_cli.ps1": "2e020260fd13dce4e695547f05932647553f0e7a13dc8bedb0e9fd3c005cf9f5",
+    "ai_docs/quality/AUDIT_REPORT_TEMPLATE.md": "5fd1dcfc7446a06104d2dc8494f6b2e0a9d62e5000dfc9aa9893b493e64e8b94"
+  },
+  "groups": [
+    {
+      "name": "standard",
+      "selection": "completed_replay or auth_rate or tampered_completed",
+      "exit_code": 0,
+      "elapsed_s": 6.44,
+      "stdout": ".....                                                                    [100%]\n5 passed, 29 deselected in 5.55s\n",
+      "stderr": ""
+    },
+    {
+      "name": "fail_closed",
+      "selection": "fail_closed",
+      "exit_code": 0,
+      "elapsed_s": 8.66,
+      "stdout": "..........                                                               [100%]\n10 passed, 24 deselected in 7.79s\n",
+      "stderr": ""
+    },
+    {
+      "name": "audit_regressions",
+      "selection": "finding_lists or round_two_can or audit_oauth_topic or invalid_cli_input or powershell_rejects or real_template_bom",
+      "exit_code": 0,
+      "elapsed_s": 4.83,
+      "stdout": ".............                                                            [100%]\n13 passed, 21 deselected in 3.95s\n",
+      "stderr": ""
+    },
+    {
+      "name": "desktop",
+      "selection": "desktop_import_validates",
+      "exit_code": 0,
+      "elapsed_s": 2.34,
+      "stdout": ".                                                                        [100%]\n1 passed, 33 deselected in 1.46s\n",
+      "stderr": ""
+    },
+    {
+      "name": "timeouts",
+      "selection": "timeout_stops_owned_tree",
+      "exit_code": 0,
+      "elapsed_s": 28.28,
+      "stdout": "...                                                                      [100%]\n3 passed, 31 deselected in 27.45s\n",
+      "stderr": ""
+    },
+    {
+      "name": "activity_duplicate",
+      "selection": "stream_activity or active_duplicate",
+      "exit_code": 0,
+      "elapsed_s": 14.06,
+      "stdout": "..                                                                       [100%]\n2 passed, 32 deselected in 13.25s\n",
+      "stderr": ""
+    }
+  ],
+  "started_unix": 1794143399.3447993,
+  "ended_unix": 1794143463.956754,
+  "final_code_sha256": {
+    "scripts/run_claude_audit.py": "b5bc5d1756a2e965780d28b83140621ae76f50c02d61e5ed32796d380c4a0fa2",
+    "scripts/audit_task.ps1": "16aad15677e6d6b8ab6a5b57560c815b1c932088f0305c70102897d98bc3facf",
+    "scripts/tests/test_claude_audit_runner.py": "2fbb0ed7ae1e0d49bc516e66d1d7b7340955f667eacd2de9dc44a8f36e77b6c2",
+    "scripts/tests/test_auditor_cli.ps1": "2e020260fd13dce4e695547f05932647553f0e7a13dc8bedb0e9fd3c005cf9f5",
+    "ai_docs/quality/AUDIT_REPORT_TEMPLATE.md": "5fd1dcfc7446a06104d2dc8494f6b2e0a9d62e5000dfc9aa9893b493e64e8b94"
+  }
+}

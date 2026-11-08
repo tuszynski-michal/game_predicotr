@@ -9,7 +9,7 @@ last_updated: 2026-10-08
 Raport zapisuje się jako `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md` normalną
 prozą po polsku. Audytor wypełnia poniższy szablon w całości: sekcje bez
 znalezisk zawierają zdanie „Brak.”, nie są pomijane. Wiersz `Werdykt:` jest
-czytany maszynowo przez `scripts/audit_task.ps1`, więc musi mieć dokładnie
+czytany maszynowo przez wspólny runner z `scripts/audit_task.ps1`, więc musi mieć dokładnie
 postać `Werdykt: PASS` albo `Werdykt: REVISE`.
 
 Zasady werdyktu i ważności:
@@ -26,6 +26,14 @@ Zasady werdyktu i ważności:
   i podaje proponowaną poprawkę. Nie zgłaszaj uwag stylistycznych ani
   rozszerzeń zakresu.
 
+Jawne liczniki P0/P1 muszą odpowiadać liście `Otwarte:` i werdyktowi.
+Każde znalezisko P0/P1 występuje na liście otwartej albo zamkniętej.
+W rundzie 1 lista `Zamknięte:` zawiera `Brak.`. Od rundy 2 może wskazywać
+identyfikatory wcześniejszych znalezisk usuniętych poprawką, z dowodem.
+Jeden identyfikator nie może być jednocześnie otwarty i zamknięty.
+Raport musi wskazywać SHA dokładnego pakietu zleconego audytorowi. Transport,
+receipt i import Desktop opisuje [wspólna procedura](../process/CROSS_AUDIT.md).
+
 ## Szablon do skopiowania
 
 ```markdown
@@ -36,6 +44,9 @@ Audytor: <model, reasoning>
 Wykonawca: <model, reasoning>
 Zakres: <base>...<HEAD sha> oraz zmiany niezacommitowane, data <RRRR-MM-DD>
 Runda: 1
+SHA pakietu: <SHA256 zamrożonego briefu>
+Otwarte P0: 0
+Otwarte P1: 0
 
 Przegląd statyczny. Audytor nie zmieniał żadnych plików.
 
@@ -66,10 +77,9 @@ Brak.
 
 ## Listy zamknięte i otwarte
 
-Zamknięte (tylko w rundzie 2 lub później): <identyfikatory znalezisk z
-poprzedniego raportu, które poprawka usunęła, z dowodem>.
+Zamknięte: <identyfikatory zamkniętych znalezisk albo Brak.>
 
-Otwarte: <identyfikatory wszystkich nadal otwartych znalezisk P0–P2>.
+Otwarte: <identyfikatory wszystkich nadal otwartych znalezisk P0–P2 albo Brak.>.
 
 ## Proponowane testy
 

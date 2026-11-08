@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1163 — Trwała procedura audytu krzyżowego (done)
+
+- Plik: `tasks/completed/1163-durable-cross-audit-runner.md`.
+- Commit: **v1.7.572** (hash dopisuje kolejny commit).
+- Wersjonowany runner i procedura terminalowa, receipts/model/payload/report proof, read-only i brak automatycznych retry.
+- 34 scenariusze PASS w grupach, Ruff/mypy, PS13 i docs/map PASS; Opus5.5/high terminalowy focusedR2 PASS bez otwartych P0/P1.
+- ResidualP2-1 przyjęty z pełnym odczytem raportu, P2-6 ograniczony jawnym cwd. R1 i R2 oraz receipts zachowane. Bez wdrożenia, operatortraining i merge.
+
 ### TASK-1162 — Routing rejestracji diagnostyk (done)
 
 - Plik: `tasks/completed/1162-diagnostic-registration-routing.md`.

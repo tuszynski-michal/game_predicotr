@@ -66,6 +66,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Pełne symbole w planszach 3×5](delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md) — accepted, TASK-1163–1168; kontrakt 24/15, etykiety zawartości i ocena produkcyjnych wycinków.
+
 - [Propozycje do korekty i pełny kadr](delivery/GRID_REVIEW_PROPOSALS_VIEWPORT_20261103.md) — TASK-1153; ręczna ocena modelu i kontekst zdjęcia.
 - [Poprawa wykrywania pełnych plansz](delivery/FULL_BOARD_DETECTION_PLAN_20261103.md)
 
@@ -198,6 +200,9 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 - [Version 0.6 execution plan](delivery/VERSION_0_6_EXECUTION_PLAN.md)
 
 ### Proces i jakość
+
+- [Wspólna procedura audytu krzyżowego](process/CROSS_AUDIT.md) — terminal, diagnostyka, import Desktop i trwały dowód wykonania.
+- [Zapis przeglądów planu pełnych symboli](quality/FULL_SYMBOL_CROPS_PLAN_REVIEW_20261108.md) — rzeczywiste REVISE i doprecyzowania, bez zastępczego PASS.
 
 - [Wdrożenie pełnych plansz i dane Mumie A2](quality/FULL_BOARD_DETECTION_DEPLOYMENT_20261107.md).
 

@@ -109,26 +109,63 @@ def test_changed_raster_cannot_reuse_rescue_baseline_or_replenish_attempts(tmp_p
         assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
 
 
-def test_runtime_uses_attested_available_box_not_padded_original_canvas(tmp_path, sample):  # noqa: F811
+@pytest.mark.parametrize("output_v2", [False, True])
+def test_runtime_uses_attested_available_box_not_padded_original_canvas(
+    tmp_path,
+    sample,  # noqa: F811
+    output_v2,
+):
     import hashlib
     import json
 
+    import numpy as np
     from game_predictor_api.domain.calibrated_neural_evidence import calibrated_result_blockers
     from game_predictor_api.domain.full_board_calibration import AXES, MINIMUM_AXES
     from game_predictor_worker.images.full_board_runtime_evidence import runtime_evidence
     from test_full_board_completeness import detection as measured_detection
 
     found = [measured_detection(10 + c * 80, 10 + r * 60) for r in range(3) for c in range(3)]
+    if not output_v2:
+        # Historical v1 fixture explicitly preserves the old 24-value interpretation.
+        for item in found:
+            item.visibility = np.ones(24)
     documents = [
         {"detectionId": str(i), "latticeNodes": item.nodes.tolist()} for i, item in enumerate(found)
     ]
     board = sample[1].board_preset
-    raw = json.dumps({"preset": {"board": board.model_dump(mode="json")}}).encode()
+    bundle = {"preset": {"board": board.model_dump(mode="json")}}
+    axes = AXES
+    if output_v2:
+        from game_predictor_api.domain.full_board_calibration import AXES_V2
+        from game_predictor_api.domain.grid_visibility_contract import GridOutputContract
+        from test_grid_visibility_contract import qualified
+
+        axes = AXES_V2
+        bundle.update(
+            format="neural-grid-bundle-v2",
+            model_version="neural-grid-v2",
+            provenance={
+                "bestStep": 1,
+                "visibilityExposure": {
+                    "positiveTargets": 1,
+                    "negativeTargets": 1,
+                    "optimizerSteps": 1,
+                },
+            },
+            gridOutputContract=GridOutputContract(
+                supervision=qualified(), trainedVisibility=True
+            ).model_dump(mode="json"),
+        )
+    raw = json.dumps(bundle).encode()
     (tmp_path / "bundle.json").write_bytes(raw)
     profile = {
+        "version": "full-board-auto-profile-v2" if output_v2 else "full-board-auto-profile-v1",
         "sha256": "a" * 64,
         "gameLogAspectReference": 0.0,
-        "configuration": {axis: 0.0 if axis in MINIMUM_AXES else 10.0 for axis in AXES},
+        "configuration": {
+            axis: 0.0 if axis in MINIMUM_AXES or axis == "inputEdgeClearance" else 10.0
+            for axis in axes
+        },
         "routingSha256": digest(
             {
                 "recognitionManifestSha256": "b" * 64,
@@ -167,6 +204,87 @@ def test_runtime_uses_attested_available_box_not_padded_original_canvas(tmp_path
     assert "COMPLETENESS_PIXELS_MISSING" in calibrated_result_blockers(
         cropped["0"], pin=pin, proposal={"sourceChecksumSha256": "d" * 64}, detection=documents[0]
     )
+
+    # The observer must receive the attested extent of the exact frame analysed by both
+    # engines; v1 keeps its historical feature/SHA semantics when this metadata is added.
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from uuid import UUID
+
+    from game_predictor_api.domain.grid_visibility_contract import require_output_contract
+    from game_predictor_worker.images.full_board_calibration_observations import CalibrationObserver
+    from game_predictor_worker.images.grid_cohort_dataset import frame_rgb_and_box
+    from game_predictor_worker.training_core.grid_correction_metrics import (
+        CorrectionControlPhoto,
+        measure_role,
+    )
+
+    class Engine:
+        settings = SimpleNamespace(board=board)
+        output_contract = require_output_contract(bundle) if output_v2 else None
+
+        def analyse(self, rgb):
+            return found
+
+    source_id = str(UUID(int=11))
+    observer = CalibrationObserver(
+        game_id=str(UUID(int=12)),
+        game_aspect=0.0,
+        routing=None,
+        role="VALIDATION-A",
+        routing_sha="e" * 64,
+        sources={
+            source_id: {
+                "sourceId": source_id,
+                "sourceIdentity": {"normalized_pixel_checksum_sha256": "d" * 64},
+                "targets": [{"positionIndex": index} for index in range(9)],
+            }
+        },
+    )
+    rgb = np.zeros((220, 300, 3), np.uint8)
+    photo = CorrectionControlPhoto(
+        source_id,
+        "group",
+        "f" * 64,
+        tuple(item.nodes for item in found),
+        lambda: rgb,
+        full_geometry=True,
+    )
+
+    def observed(box):
+        calls = []
+
+        def load_with_support():
+            calls.append(1)
+            left, top, right, bottom = box
+            return frame_rgb_and_box(
+                SimpleNamespace(
+                    rgb=rgb,
+                    crop=SimpleNamespace(
+                        valid_box=SimpleNamespace(
+                            left=left,
+                            top=top,
+                            right=right,
+                            bottom=bottom,
+                        )
+                    ),
+                )
+            )
+
+        control = photo if box is None else replace(photo, load_with_support=load_with_support)
+        _, rows = measure_role([control], Engine(), Engine(), observation=observer)
+        assert len(calls) == (0 if box is None else 1)
+        return rows[0]["calibrationTargets"][0]["candidateFeatures"]
+
+    missing, whole, padded = observed(None), observed((0, 0, 300, 220)), observed((0, 20, 300, 220))
+    if output_v2:
+        assert padded == cropped["0"]["features"]
+        assert padded["values"]["inputEdgeClearance"] < whole["values"]["inputEdgeClearance"]
+        assert missing["values"]["inputEdgeClearance"] is None
+        assert "COMPLETENESS_PIXEL_SUPPORT_REQUIRED" in missing["hardReasons"]
+    else:
+        assert missing == whole == padded
+        assert digest(missing) == digest(whole) == digest(padded)
 
 
 def test_v4_partial_b_survives_assessment_and_is_inaccessible_to_legacy_selection(tmp_path):
@@ -486,7 +604,12 @@ def test_existing_screen_evaluator_exercises_new_a_routing_and_excludes_b(tmp_pa
         )
 
 
-def test_calibration_phases_resume_without_reobserving_b_or_tuning_regression(tmp_path, sample):  # noqa: F811
+@pytest.mark.parametrize("output_v2", [False, True])
+def test_calibration_phases_resume_without_reobserving_b_or_tuning_regression(
+    tmp_path,
+    sample,  # noqa: F811
+    output_v2,
+):
     import json
     from types import SimpleNamespace
     from uuid import uuid4
@@ -510,6 +633,13 @@ def test_calibration_phases_resume_without_reobserving_b_or_tuning_regression(tm
         def __init__(self):
             self.calls = 0
             self.settings = SimpleNamespace(board=sample[1].board_preset)
+            if output_v2:
+                from game_predictor_api.domain.grid_visibility_contract import (
+                    GridOutputContract,
+                    visibility_supervision,
+                )
+
+                self.output_contract = GridOutputContract(supervision=visibility_supervision([]))
 
         def analyse(self, _rgb):
             self.calls += 1
@@ -520,7 +650,7 @@ def test_calibration_phases_resume_without_reobserving_b_or_tuning_regression(tm
                     nodes.copy(),
                     nodes.copy(),
                     np.ones(24),
-                    np.ones(24),
+                    np.ones(15 if output_v2 else 24),
                     0.0,
                     0.0,
                     24,

@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-11-03
+last_updated: 2026-11-08
 ---
 
 # Decision Log — wpisy 2026
@@ -14,6 +14,69 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+
+## D-589 — Jawny nadzór visibility15 i próg brzegu wejścia w kontrakcie v2
+
+Status: accepted — zakres zaakceptowanego planu FULL_SYMBOL_CROPS_PLAN_20261108, T1.
+Data: 2026-11-08
+
+BoardExport już emitował24 peak i15 visibility; stara kontrola kompletności
+oczekiwała24 obu sygnałów. Korekty nie uczyły visibility, a loss węzłów nie
+odróżniał pojedynczych celów poza realnym wejściem i zakresem softargmax.
+
+Nowy, jawnie przypięty `grid-output-peak24-visibility15-v2` przechodzi przez
+job, specyfikację procesu treningowego, binding checkpointu, bundle-v2/model-v2,
+runtime i wersjonowane features/plan/seal/result/profile/qualification/evidence-v2.
+Stare specyfikacje i laboratoryjny tor pozostają legacy; nie zmieniamy historycznych
+SHA, raportów, presetów ani znaczenia v1. Sam rozmiar15 nie dowodzi wytrenowania.
+
+Źródłowy kontrakt wejściowy to zatwierdzone przez człowieka15 komórek row-major
+z visible/occluded/out_of_frame/unknown, opcjonalną obwiednią4xy w pikselach źródła,
+gameId, normalized pixel SHA, pozycją planszy i własną rewizją. Visible wymaga
+obwiedni. Geometria nie tworzy etykiety i nie przesuwa jej rewizji. Reader jest
+opcjonalnym adapterem T2; brak referencji oznacza maskę0. TRAIN deduplikuje SHA+slot
+i wymaga per gra30 dodatnich/30 ujemnych komórek z5zdjęć każdej klasy przed
+augmentacją. Nie wolno uzupełniać minimum powtórzeniami ani sztucznymi ucięciami.
+
+Nowe loss/maski zachowują osobno wagi cropów i `node_weights[N,24]`; cele poza
+realnym wsparciem i `[stride/2,wymiar-stride/2]` nie dają gradientu. Visibility
+ma `[N,15]` target i maskę, aktualizowane po cropie oraz rzeczywistych maskach
+zasłon. Całkowity brak nadzoru board-only pomija optimizer, a liczniki są jawne.
+Checkpoint utrwala ekspozycję na obu klasach oraz jej stan przy wybranym bestStep;
+eksport nie korzysta z późniejszej ekspozycji. Bez minimum lub dowodu ekspozycji
+głowica pozostaje niewytrenowana dla nowego kontraktu i automat jest blokowany.
+
+InputEdgeClearance to podpisana minimalna odległość surowych zewnętrznych węzłów
+od przecięcia cropa i realnego wsparcia źródła po rektyfikacji; x/y normalizujemy
+nominalną szerokością/wysokością komórki z canvas/margin. To podejrzenie, nie dowód
+kompletności. Wyłącznie A wybiera jeden próg per przypięty wariant/routing:
+minimum przeoczonych ucięć, minimum zbędnych rescue, niższy próg. Potrzeba≥5
+rzeczywistych uciętych plansz z≥3zdjęć; bez danych próg nieustalony i brak automatu.
+Nie zwiększamy o dodatkowy wymiar menu B256 i nie zmieniamy istniejącego routingu
+rescue; wykonanie nowego triggera pozostaje w T4. API ponownie wylicza próg z
+utrwalonych referencji A i sprawdza ich członkostwo w zamrożonej ocenie.
+
+Geometryczne `gt_cropped` pozostaje jawnie `geometry_proxy` i nie zasila
+minimum5/3 ani wyboru progu. `verified_content` wymaga SHA oraz własnej rewizji
+referencji zawartości, zgodnych ze źródłowym targetem A w zaufanym frozen readerze
+(gra, normalized pixel SHA, pozycja i purpose). Sam claim workera nie jest dowodem;
+brak pina albo obcy hash/rewizja odrzuca taki raport. Domyślny observer T1 emituje
+wyłącznie proxy; rzeczywisty adapter T2/T3 jest niezbędny do kwalifikacji progu.
+
+Zaufany target A wiąże `contentReferenceSha256`, `contentReferenceRevision`
+i `contentReferenceInputCropped` (strict bool); API porównuje całą trójkę,
+a brak lub odmienna etykieta cięcia uniemożliwia użycie `verified_content`.
+T3 wyprowadza tę etykietę z przypiętej zawartości oraz rzeczywistego wejścia
+danego wariantu; T2 nie zgaduje jej na podstawie samej źródłowej adnotacji.
+
+Kalibracja v2 oraz runtime używają atestowanego `valid_box` tego samego
+`CanonicalSourceFrame`; nieznane wsparcie pozostawia oś nieustaloną i blokuje
+automat, natomiast v1 zachowuje dotychczasowe cechy i SHA.
+
+Nowy kontrakt jest opt-in dla T4; T1 nie uruchamia treningu, migracji, operatorowych
+odczytów zdjęć ani aktywacji. Rzeczywisty test BoardNetwork→BoardExport→ONNX→ORT
+sprawdza24/15 i ograniczenie softargmax na rastrowym uciętym wejściu, nie kwalifikuje
+jakości losowych wag. Źródło: TASK-1164 i zaakceptowany plan T0–T5.
 
 ## D-588 — Jawny odczyt kwalifikacji i diagnostyka rzeczywistego wejścia
 

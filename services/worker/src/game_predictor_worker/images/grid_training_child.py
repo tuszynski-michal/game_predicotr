@@ -398,6 +398,13 @@ def _train(
     if any(base_payload.get(key) != preset_payload.get(key) for key in RECIPE_COMPATIBLE_KEYS):
         raise ChildError("GRID_TRAINING_RECIPE_INCOMPATIBLE")
     recipe = namespace(preset_payload)
+    output_contract = None
+    if spec.get("gridOutputContract") is not None:
+        from game_predictor_api.domain.grid_visibility_contract import GridOutputContract
+
+        output_contract = GridOutputContract.model_validate(spec["gridOutputContract"])
+        if output_contract.trainedVisibility or recipe.board.visibility_loss_weight <= 0:
+            raise ChildError("GRID_VISIBILITY_TRAINING_CONTRACT_INVALID")
     cohort = spec["cohort"]
     snapshot = GridCohortSnapshot(artifact_root, cohort["manifestPath"], cohort["manifestSha256"])
     if snapshot.manifest.get("mode") != preset.mode:
@@ -481,12 +488,19 @@ def _train(
             workers,
             strata,
             **({"variant": variant} if screen_corrections else {}),
+            output_contract=output_contract,
         )
         evaluate = macro_evaluator([photo_evaluator(item, recipe, device) for item in validations])
         losses = screen_grid_losses
     else:
         batches = GridOnlyBatches(
-            train_photos, recipe, preset.batch_items, int(spec["seed"]), workers, strata
+            train_photos,
+            recipe,
+            preset.batch_items,
+            int(spec["seed"]),
+            workers,
+            strata,
+            output_contract=output_contract,
         )
         evaluate = macro_evaluator(
             [board_evaluator(*validation_crops(item, recipe), device) for item in validations[1:]]
@@ -517,6 +531,11 @@ def _train(
             "baseWeightsSha256": spec["base"]["weightsSha256"],
             "basePresetSha256": spec["base"]["presetSha256"],
             "mode": preset.mode,
+            **(
+                {"gridOutputContract": output_contract.model_dump(mode="json")}
+                if output_contract is not None
+                else {}
+            ),
             **selection_binding,
             **({} if joint is None else {"jointSha256": joint["sha256"]}),
         },
@@ -619,6 +638,14 @@ def _export(
         if existing["provenance"]["checkpointSha256"] != result.checkpoint_sha256:
             raise ChildError("GRID_TRAINING_EXPORT_CONFLICT")
         _verify_recovered(destination, existing, preset_bytes, result.checkpoint_path)
+        from game_predictor_api.domain.grid_visibility_contract import require_output_contract
+
+        require_output_contract(existing, spec.get("gridOutputContract"), require_expected=True)
+        if (
+            spec.get("gridOutputContract") is not None
+            and existing["provenance"].get("visibilityExposure") != result.visibility_exposure
+        ):
+            raise ChildError("GRID_VISIBILITY_EXPORT_EXPOSURE_CHANGED")
         if screen_evaluator is not None:
             from game_predictor_api.domain.grid_rescue_policy import require_rescue_evidence
 
@@ -670,6 +697,22 @@ def _export(
                 else {}
             ),
         }
+        output_contract = None
+        if spec.get("gridOutputContract") is not None:
+            from game_predictor_api.domain.grid_visibility_contract import GridOutputContract
+
+            exposure = result.visibility_exposure or {}
+            trained = all(
+                exposure.get(key, 0) > 0
+                for key in ("positiveTargets", "negativeTargets", "optimizerSteps")
+            )
+            output_contract = GridOutputContract.model_validate(
+                {
+                    **spec["gridOutputContract"],
+                    "trainedVisibility": trained,
+                }
+            ).model_dump(mode="json")
+            provenance["visibilityExposure"] = exposure
         bundle = bundle_document(
             preset_payload=preset_payload,
             preset_fingerprint=provenance["presetFingerprint"],
@@ -677,6 +720,8 @@ def _export(
             files=files,
             provenance=provenance,
             parity=parity,
+            output_contract=output_contract,
+            **({"model_version": "neural-grid-v2"} if output_contract is not None else {}),
         )
         if screen_evaluator is not None:
             from .grid_rescue_export import RescueParity

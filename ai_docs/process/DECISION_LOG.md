@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-11-03
+last_updated: 2026-11-08
 ---
 
 # Decision Log
@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-589](decisions/DECISION_LOG_2026.md#d-589--jawny-nadzór-visibility15-i-próg-brzegu-wejścia-w-kontrakcie-v2) | Nadzór visibility15 i próg brzegu v2 | accepted | 2026-11-08 | Opt-in24/15, maski realnych pikseli, ekspozycja checkpointu i próg tylkoA; v1 bez zmian. |
 | [D-588](decisions/DECISION_LOG_2026.md#d-588--jawny-odczyt-kwalifikacji-i-diagnostyka-rzeczywistego-wejścia) | Odczyt kwalifikacji i diagnostyka wejścia | accepted | 2026-11-04 | Compact publiczny read-model i strict diagnosticv2; historia, ręczne approval i rzeczywisty raster zachowane. |
 | [D-587](decisions/DECISION_LOG_2026.md#d-587--trwałe-cele-walidacji-i-odrębna-kwalifikacja-automatu) | Cele walidacji i kwalifikacja automatu | accepted | 2026-11-04 | A/B w istniejącym ledger, partial assessment, niezależne progi i historyczne piny. |
 | [D-586](decisions/DECISION_LOG_2026.md#d-586--korekty-detektora-i-dowodowy-ratunek-z-trwałym-budżetem) | Korekty detektora i dowodowy ratunek | accepted | 2026-11-03 | Full TRAIN/A, partial REG, photo-first checkpoint i jeden dowiedziony wariant z trwałym1+1. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-562](decisions/DECISION_LOG_2026.md#d-562--przycięty-wariant-zarządzanego-oryginału) | Przycięty wariant zarządzanego oryginału | accepted | 2026-10-17 | Bezstratny crop JPEG z atestem obok pliku zastępuje usunięty oryginał; współrzędne i zatwierdzenia bez zmian, odczyt poza kadrem kończy się błędem. |
 | [D-561](decisions/DECISION_LOG_2026.md#d-561--parity-eksportu-onnx-względna-do-wielkości-wyjścia) | Parity eksportu ONNX względna do wielkości wyjścia | accepted | 2026-10-16 | Różnica torch/ONNX dzielona przez max(1, moduł wyjścia torch): współrzędne w pikselach nie padają na szumie fp32, wyjścia jednostkowe bez zmian. |
 | [D-560](decisions/DECISION_LOG_2026.md#d-560--wspólny-kandydat-geometrii-v3-kilku-gier) | Wspólny kandydat geometrii V3 kilku gier | accepted | 2026-10-16 | Jedna baza na TRAIN kilku gier z równą wagą gier i nagrań, przypięty plan bez aliasów kontrolnych, ocena na wszystkich kohortach treningu. |
-| [D-559](decisions/DECISION_LOG_2026.md#d-559--ocena-kandydata-geometrii-v3-per-gra-i-most-aktualności-dowodów) | Ocena kandydata geometrii V3 per gra i most aktualności dowodów | accepted | 2026-10-16 | Raport v2 z miarami bazy i kandydata per gra, PASS tylko bez regresji w każdej grze, proof per gra z licznikiem notices blokuje nieaktualną publikację. |

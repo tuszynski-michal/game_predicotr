@@ -6,6 +6,52 @@ last_updated: 2026-11-03
 
 # Architektura laboratorium wizji
 
+## Versioned visibility supervision (TASK-1164)
+
+`domain/grid_visibility_contract.py` defines source-pixel content references and
+deduplicated per-game TRAIN coverage. `grid_training_data.content_references`
+optionally reads `photos.content_references(index)` aligned with the sorted geometry
+targets, and checks game, normalized pixel SHA, physical slot and TRAIN role.
+No reader means unknown labels. T2 owns durable references and their revisions.
+
+An explicitly pinned `grid_output_contract` travels from job to child specification,
+checkpoint binding and export. Legacy presets/specifications are unchanged. The
+new builders produce `node_weights[...,24]`, `visibility_targets[...,15]` and
+`visibility_mask[...,15]`, including zero-weight padding. Node weights exclude
+non-real source pixels and coordinates outside the softargmax lattice support
+`[stride/2, dimension-stride/2]`. Content targets use transformed content quads,
+crop support and the actual hand/occlusion masks. Three unusable jitter draws
+produce an explicit all-masked item, never an ideal ground-truth crop.
+
+Both correction losses apply per-node and per-cell weights; valid/masked counts
+are separate from the loss sum. An all-masked board-only step skips the optimizer.
+Successful supervised optimizer exposure is stored cumulatively and at the best
+checkpoint, restored on resume, and checked again on export/recovery. Merely
+having 15 outputs or sufficient labels cannot set `trainedVisibility`.
+`neural-grid-bundle-v2`/`neural-grid-v2` carry the output contract; the shared runtime
+validates finite 24/15 shapes. Original v1 bundles and laboratory paths retain
+their original serialization and interpretation.
+
+Features, calibration plan/seal/result, profile, qualification and result evidence
+have explicit v2 variants. V1 axes and hashes remain unchanged. V2 adds one
+inputEdgeClearance threshold selected on exact A observations, with five real
+cut boards/three source photos minimum, before B. The B menu remains at most256
+configurations. The threshold uses signed distance after rectifying and scaling
+both axes by nominal cell width/height; source and managed-crop support are
+intersected with actual crop support. Raw outer nodes are used before grid fitting.
+The API independently recomputes the v2 A threshold from the frozen selection
+references, then the existing B/REG numeric sweep. Result evidence binds the
+matching versioned profile. The existing evaluation read API exposes the additive
+qualification/profile versions through regenerated OpenAPI and client types.
+
+`InputEdgeReference.referenceKind=geometry_proxy` never counts as a verified cut.
+Only `verified_content` with a content SHA and revision may supply the threshold;
+the API requires the same `contentReferenceSha256`/`contentReferenceRevision` in
+the independently frozen A target, in the existing game/source/slot/purpose scope.
+Absent reader pins or forged evidence fail closed. T1's default observer emits
+only the geometry proxy; T2/T3 must provide the actual content adapter before
+automatic qualification is possible.
+
 ## Compact status and input replay (TASK-1159, D-588)
 
 Existing assignment GET exposes current-game `recognitionStatus`; existing

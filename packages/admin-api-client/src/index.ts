@@ -1737,6 +1737,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       createGeneratedGridAssignedComparison({ client, body }),
     listGridModelEvaluations: (versionId: string) =>
       listGeneratedGridModelEvaluations({ client, query: { versionId } }),
+    // Generated report types preserve historical v1 and the peak24/visibility15 v2 profile.
     getGridModelEvaluation: (evaluationId: string) =>
       getGeneratedGridModelEvaluation({
         client,

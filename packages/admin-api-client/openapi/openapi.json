@@ -609,8 +609,11 @@
             "type": "string"
           },
           "version": {
-            "const": "full-board-calibration-qualification-v1",
             "default": "full-board-calibration-qualification-v1",
+            "enum": [
+              "full-board-calibration-qualification-v1",
+              "full-board-calibration-qualification-v2"
+            ],
             "title": "Version",
             "type": "string"
           }
@@ -899,8 +902,11 @@
             "type": "string"
           },
           "version": {
-            "const": "full-board-auto-profile-v1",
             "default": "full-board-auto-profile-v1",
+            "enum": [
+              "full-board-auto-profile-v1",
+              "full-board-auto-profile-v2"
+            ],
             "title": "Version",
             "type": "string"
           }

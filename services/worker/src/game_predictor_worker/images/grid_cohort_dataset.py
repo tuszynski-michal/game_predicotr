@@ -13,6 +13,7 @@ import math
 import re
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
+from threading import Lock
 from typing import Any, NoReturn
 from uuid import UUID
 
@@ -92,6 +93,7 @@ class GridCohortSnapshot:
         self._page_cache: dict[str, Any] | None = None
         self._frame_key: tuple[str, str, str] | None = None
         self._frame_cache: CanonicalSourceFrame | None = None
+        self._frame_lock = Lock()
         self._manifest = self._read_json(
             {"path": manifest_relative_path, "sha256": expected_manifest_sha256}
         )
@@ -358,6 +360,14 @@ class GridCohortSnapshot:
     def frame(
         self, source: dict[str, Any], role: str, *, validation_purpose: str = "A"
     ) -> CanonicalSourceFrame:
+        # Return a local frame while holding the cache lock; prefetch workers may
+        # otherwise pair another source's frame with this source's identity.
+        with self._frame_lock:
+            return self._frame(source, role, validation_purpose=validation_purpose)
+
+    def _frame(
+        self, source: dict[str, Any], role: str, *, validation_purpose: str
+    ) -> CanonicalSourceFrame:
         # Keep this guard before path resolution, existence, byte reads and decode.
         if (
             self._manifest["policyVersion"] == "application-grid-corrections-v4"
@@ -422,6 +432,17 @@ class GridCohortSnapshot:
             self._frame_cache, self._frame_key = frame, key
         assert self._frame_cache is not None
         return self._frame_cache
+
+
+def frame_rgb_and_box(frame: CanonicalSourceFrame) -> tuple[np.ndarray, tuple[int, int, int, int]]:
+    """Pixels and attested extent from the same immutable canonical frame."""
+    rgb = np.ascontiguousarray(frame.rgb)
+    if frame.crop is None:
+        box = (0, 0, rgb.shape[1], rgb.shape[0])
+    else:
+        valid = frame.crop.valid_box
+        box = (valid.left, valid.top, valid.right, valid.bottom)
+    return rgb, box
 
 
 def _nodes(target: dict[str, Any]) -> np.ndarray:

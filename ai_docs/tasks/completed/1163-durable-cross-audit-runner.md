@@ -121,7 +121,7 @@ modelu, nie przyjmuje deklaracji wykonawcy jako niezależnego audytu.
 
 ## Outcome
 
-Commit: v1.7.572 (hash dopisuje kolejny commit).
+Commit: v1.7.572 / `32db23e3e3e0ad8a349702a7c5b309ad9c3432ab`.
 
 ### Changed
 

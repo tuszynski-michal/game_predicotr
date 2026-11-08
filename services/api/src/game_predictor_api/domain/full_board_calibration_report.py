@@ -10,10 +10,10 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from .full_board_calibration import (
-    AXES,
     ClosedCalibration,
     Finite,
     Sha,
+    axes_for,
     qualification_reasons,
 )
 from .grid_model_registry import canonical_json, descriptor_sha256
@@ -57,7 +57,9 @@ class CalibrationCounts(ClosedCalibration):
 
 
 class AutomaticProfile(ClosedCalibration):
-    version: Literal["full-board-auto-profile-v1"] = "full-board-auto-profile-v1"
+    version: Literal["full-board-auto-profile-v1", "full-board-auto-profile-v2"] = (
+        "full-board-auto-profile-v1"
+    )
     gameId: UUID
     candidateManifestSha256: Sha
     planSha256: Sha
@@ -70,9 +72,9 @@ class AutomaticProfile(ClosedCalibration):
 
     @model_validator(mode="after")
     def integrity(self) -> AutomaticProfile:
-        if set(self.configuration) != set(AXES) or self.sha256 != descriptor_sha256(
-            self.model_dump(mode="json", exclude={"sha256"})
-        ):
+        if set(self.configuration) != set(
+            axes_for(self.version)
+        ) or self.sha256 != descriptor_sha256(self.model_dump(mode="json", exclude={"sha256"})):
             raise ValueError("CALIBRATION_PROFILE_INVALID")
         return self
 
@@ -83,9 +85,9 @@ class CalibrationArtifact(ClosedCalibration):
 
 
 class AutomaticCalibration(ClosedCalibration):
-    version: Literal["full-board-calibration-qualification-v1"] = (
-        "full-board-calibration-qualification-v1"
-    )
+    version: Literal[
+        "full-board-calibration-qualification-v1", "full-board-calibration-qualification-v2"
+    ] = "full-board-calibration-qualification-v1"
     gameId: UUID
     state: Literal["qualified", "unqualified"]
     reasonCodes: list[str]
@@ -100,6 +102,11 @@ class AutomaticCalibration(ClosedCalibration):
 
     @model_validator(mode="after")
     def verdict(self) -> AutomaticCalibration:
+        if (
+            self.profile is not None
+            and self.profile.version.rsplit("-", 1)[1] != self.version.rsplit("-", 1)[1]
+        ):
+            raise ValueError("CALIBRATION_PROFILE_VERSION_MISMATCH")
         if self.state == "qualified":
             if (
                 self.reasonCodes

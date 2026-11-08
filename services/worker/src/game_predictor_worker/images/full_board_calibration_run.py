@@ -33,6 +33,7 @@ from .grid_cohort_dataset import (
     GridAssessmentDataset,
     GridBoardDataset,
     GridCohortSnapshot,
+    frame_rgb_and_box,
     has_full_geometry,
 )
 
@@ -101,6 +102,8 @@ class FullBoardCalibrationRun:
             sources={source["sourceId"]: source for source, _ in self.rows[key]},
             game_aspect=self.aspect,
             routing=self.routing,
+            role="VALIDATION-A" if key == "A" else key,
+            routing_sha=self.routing_sha,
         )
 
     def _path(self, phase: str) -> Path:
@@ -159,6 +162,7 @@ class FullBoardCalibrationRun:
                 role="VALIDATION-A",
                 humanGood=item.candidateGood,
                 features=item.candidateFeatures,
+                inputEdgeReference=item.inputEdgeReference,
             )
             for item in a
         ]
@@ -171,6 +175,10 @@ class FullBoardCalibrationRun:
             role_proof_sha=self.role_proof,
             b_assessment_sha=self.references["B"],
             regression_assessment_sha=self.references["REGRESSION"],
+            feature_version="full-board-completeness-features-v2"
+            if getattr(getattr(self.engines[1], "engine", self.engines[1]), "output_contract", None)
+            is not None
+            else None,
         )
         planned_targets = sum(len(targets) for _, targets in self.rows["B"])
         # Durable before the first B image decode or NN call; no hidden truncation.
@@ -188,6 +196,11 @@ class FullBoardCalibrationRun:
                 "cohortManifestSha256": self.frozen.manifest_sha256,
                 "gameLogAspectReference": self.aspect,
                 "referenceAssessmentSha256": self.references["A"],
+                **(
+                    {"selectionReferences": [item.model_dump(mode="json") for item in references]}
+                    if plan.version.endswith("-v2")
+                    else {}
+                ),
             },
         )
         if self._path("b").exists():
@@ -199,6 +212,11 @@ class FullBoardCalibrationRun:
             def load(source: dict[str, Any] = source) -> Any:
                 return self.snapshot.frame(source, "VALIDATION", validation_purpose="B").rgb
 
+            def load_with_support(source: dict[str, Any] = source) -> Any:
+                return frame_rgb_and_box(
+                    self.snapshot.frame(source, "VALIDATION", validation_purpose="B")
+                )
+
             photos.append(
                 CorrectionControlPhoto(
                     str(source["sourceId"]),
@@ -207,6 +225,7 @@ class FullBoardCalibrationRun:
                     tuple(nodes for nodes, _ in targets),
                     load,
                     full_geometry=has_full_geometry(source),
+                    load_with_support=load_with_support,
                 )
             )
         _, rows = measure_role(
@@ -262,7 +281,9 @@ class FullBoardCalibrationRun:
         profile = None
         if result["state"] == "qualified":
             profile = {
-                "version": "full-board-auto-profile-v1",
+                "version": "full-board-auto-profile-v2"
+                if plan.version.endswith("-v2")
+                else "full-board-auto-profile-v1",
                 "gameId": self.game,
                 "candidateManifestSha256": self.candidate_sha,
                 "planSha256": plan.sha256,
@@ -287,6 +308,9 @@ class FullBoardCalibrationRun:
         path = self._path("final")
         return AutomaticCalibration.model_validate(
             {
+                "version": "full-board-calibration-qualification-v2"
+                if plan.version.endswith("-v2")
+                else "full-board-calibration-qualification-v1",
                 "gameId": self.game,
                 "state": result["state"],
                 "reasonCodes": result["reasonCodes"],

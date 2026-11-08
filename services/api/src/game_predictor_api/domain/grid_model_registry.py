@@ -181,9 +181,9 @@ def validate_manifest(payload: dict[str, Any]) -> str:
         raise GridModelRegistryError(
             "GRID_MODEL_CONTRACT_UNSUPPORTED", "Unsupported preprocessing or decoding contract."
         )
-    if (
-        payload["modelVersion"] != "neural-grid-v1"
-        or payload["bundleFormat"] != "neural-grid-bundle-v1"
+    if (payload["modelVersion"], payload["bundleFormat"]) not in (
+        ("neural-grid-v1", "neural-grid-bundle-v1"),
+        ("neural-grid-v2", "neural-grid-bundle-v2"),
     ):
         raise GridModelRegistryError(
             "GRID_MODEL_CONTRACT_UNSUPPORTED", "Unsupported neural model contract."

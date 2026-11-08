@@ -10,14 +10,66 @@ import cv2
 import numpy as np
 from game_predictor_api.domain.full_board_calibration import AXES, COVERAGE_EPSILON, FeatureVector
 from game_predictor_api.domain.grid_model_registry import descriptor_sha256
+from game_predictor_api.domain.grid_visibility_contract import GridOutputContract
 
 from ..geometry_core.inference import BoardDetection
 from ..geometry_core.metrics import quad_iou
-from ..geometry_core.preprocessing import board_rectifier, transform_points
+from ..geometry_core.preprocessing import board_rectifier, quad_is_usable, transform_points
 from ..geometry_core.rescue import BoardCropGeometryV1
 from ..geometry_core.settings import BoardPreset
 
 CORNERS = [0, 5, 23, 18]
+OUTER_NODES = tuple(i for i in range(24) if i // 6 in (0, 3) or i % 6 in (0, 5))
+
+
+def input_edge_clearance(
+    detection: BoardDetection,
+    board: BoardPreset,
+    width: int,
+    height: int,
+    available_source_support: np.ndarray | None = None,
+    geometry: BoardCropGeometryV1 | None = None,
+) -> float | None:
+    """Signed raw-node distance in nominal-cell units to the real input boundary."""
+    raw = detection.raw_nodes
+    if (
+        raw is None
+        or np.asarray(raw).shape != (24, 2)
+        or not np.isfinite(raw).all()
+        or width <= 0
+        or height <= 0
+        or not quad_is_usable(detection.screen_quad)
+    ):
+        return None
+    matrix = board_rectifier(detection.screen_quad, board, geometry=geometry)
+    canvas_w, canvas_h = board.canvas
+    margin = board.margin if geometry is None else geometry.margin
+    nominal = np.array([canvas_w / (5 * (1 + 2 * margin)), canvas_h / (3 * (1 + 2 * margin))])
+    support = (
+        np.array([[0, 0], [canvas_w, 0], [canvas_w, canvas_h], [0, canvas_h]], np.float32) / nominal
+    )
+    source = np.array([[0, 0], [width, 0], [width, height], [0, height]], np.float32)
+    for polygon in (source, available_source_support):
+        if polygon is None:
+            continue
+        if np.asarray(polygon).shape != (4, 2) or not np.isfinite(polygon).all():
+            return None
+        transformed = transform_points(np.asarray(polygon, np.float32), matrix) / nominal
+        if not np.isfinite(transformed).all() or not cv2.isContourConvex(
+            transformed.astype(np.float32)
+        ):
+            return None
+        area, intersection = cv2.intersectConvexConvex(
+            support.astype(np.float32), transformed.astype(np.float32)
+        )
+        if area <= 0 or intersection is None:
+            return None
+        support = intersection.reshape(-1, 2)
+    nodes = transform_points(np.asarray(raw)[list(OUTER_NODES)], matrix) / nominal
+    return min(
+        float(cv2.pointPolygonTest(support.astype(np.float32), (float(x), float(y)), True))
+        for x, y in nodes
+    )
 
 
 def calibration_routing_sha(
@@ -172,8 +224,13 @@ def features(
     rescue_required: bool = False,
     rescue_completed: bool = False,
     available_source_support: np.ndarray | None = None,
+    output_contract: GridOutputContract | None = None,
+    board: BoardPreset | None = None,
+    geometry: BoardCropGeometryV1 | None = None,
 ) -> FeatureVector:
     values: dict[str, float | None] = dict.fromkeys(AXES)
+    if output_contract is not None:
+        values["inputEdgeClearance"] = None
     reasons = set(detection.reasons) & {
         "NEURAL_GRID_FIT_FAILED",
         "NEURAL_GRID_FIT_OUTLIERS",
@@ -189,8 +246,24 @@ def features(
     elif not rescue_completed or primary is None or primary.nodes is None:
         reasons.add("COMPLETENESS_RESCUE_REQUIRED")
     for axis, raw in (("peak", detection.node_peak), ("visibility", detection.visibility)):
-        if raw is not None and np.asarray(raw).size == 24 and np.isfinite(raw).all():
+        size = 15 if axis == "visibility" and output_contract is not None else 24
+        if (
+            raw is not None
+            and np.asarray(raw).shape == (size,)
+            and np.isfinite(raw).all()
+            and (output_contract is None or (np.all(raw >= 0) and np.all(raw <= 1)))
+        ):
             values[axis] = float(np.min(raw))
+    if output_contract is not None:
+        if not output_contract.trainedVisibility:
+            values["visibility"] = None
+            reasons.add("COMPLETENESS_VISIBILITY_SUPERVISION_REQUIRED")
+        if available_source_support is None:
+            reasons.add("COMPLETENESS_PIXEL_SUPPORT_REQUIRED")
+        elif board is not None:
+            values["inputEdgeClearance"] = input_edge_clearance(
+                detection, board, width, height, available_source_support, geometry
+            )
     nodes = detection.nodes
     if nodes is None or np.asarray(nodes).shape != (24, 2) or not np.isfinite(nodes).all():
         reasons.add("COMPLETENESS_NODES_REQUIRED")
@@ -240,5 +313,10 @@ def features(
             elif missing > COVERAGE_EPSILON:
                 reasons.add("COMPLETENESS_PIXELS_MISSING")
     return FeatureVector(
-        values=values, notApplicable=tuple(not_applicable), hardReasons=tuple(sorted(reasons))
+        version="full-board-completeness-features-v2"
+        if output_contract is not None
+        else "full-board-completeness-features-v1",
+        values=values,
+        notApplicable=tuple(not_applicable),
+        hardReasons=tuple(sorted(reasons)),
     )

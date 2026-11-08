@@ -89,7 +89,10 @@ def _glare(image: FloatArray, augmentation: AugmentationPreset, rng: np.random.G
 
 
 def _occlusion(
-    image: FloatArray, augmentation: AugmentationPreset, rng: np.random.Generator
+    image: FloatArray,
+    augmentation: AugmentationPreset,
+    rng: np.random.Generator,
+    content_support: FloatArray | None = None,
 ) -> None:
     height, width = image.shape[:2]
     short = min(height, width)
@@ -98,6 +101,8 @@ def _occlusion(
         h = rng.uniform(*augmentation.occlusion_size_range) * short * rng.uniform(0.6, 1.6)
         cx, cy = rng.uniform(0, width), rng.uniform(0, height)
         box = cv2.boxPoints(((cx, cy), (w, h), rng.uniform(0, 180))).astype(np.int32)
+        if content_support is not None:
+            cv2.fillConvexPoly(content_support, box, 0)
         if rng.random() < 0.5:
             color = rng.uniform(0, 255, 3)
             cv2.fillConvexPoly(image, box, color.tolist())
@@ -113,7 +118,12 @@ def _pt(point: NDArray[np.float64]) -> tuple[int, int]:
     return int(round(float(point[0]))), int(round(float(point[1])))
 
 
-def _hand(image: FloatArray, augmentation: AugmentationPreset, rng: np.random.Generator) -> None:
+def _hand(
+    image: FloatArray,
+    augmentation: AugmentationPreset,
+    rng: np.random.Generator,
+    content_support: FloatArray | None = None,
+) -> None:
     """Palm ellipse plus four fingers and a thumb in a skin tone, with soft shading."""
 
     height, width = image.shape[:2]
@@ -149,10 +159,16 @@ def _hand(image: FloatArray, augmentation: AugmentationPreset, rng: np.random.Ge
     shade = cv2.GaussianBlur(mask.astype(np.float32), (0, 0), max(1.0, size * 0.08))
     layer = skin * (0.75 + 0.25 * shade[..., None])
     image[mask > 0] = layer[mask > 0]
+    if content_support is not None:
+        content_support[mask > 0] = 0
 
 
 def photometric(
-    image: ByteImage, augmentation: AugmentationPreset, rng: np.random.Generator
+    image: ByteImage,
+    augmentation: AugmentationPreset,
+    rng: np.random.Generator,
+    *,
+    content_support: FloatArray | None = None,
 ) -> ByteImage:
     work = image.astype(np.float32)
     if rng.random() < augmentation.color_probability:
@@ -160,9 +176,9 @@ def photometric(
     if augmentation.glare_max_count and rng.random() < augmentation.glare_probability:
         _glare(work, augmentation, rng)
     if augmentation.occlusion_max_count and rng.random() < augmentation.occlusion_probability:
-        _occlusion(work, augmentation, rng)
+        _occlusion(work, augmentation, rng, content_support)
     if rng.random() < augmentation.hand_probability:
-        _hand(work, augmentation, rng)
+        _hand(work, augmentation, rng, content_support)
     if rng.random() < augmentation.blur_probability:
         work = np.asarray(
             cv2.GaussianBlur(
@@ -284,6 +300,9 @@ def build_screen_item_with_indices(
     *,
     screen_geometry_override: ScreenInputGeometryV1 | None = None,
     board_geometry_override: BoardCropGeometryV1 | None = None,
+    content_references: Any = None,
+    visibility_supervision: Any = None,
+    source_support: FloatArray | None = None,
 ) -> tuple[dict[str, Any], list[int]]:
     """``build_screen_item`` plus the board index of every crop (repeats included)."""
     height, width = rgb.shape[:2]
@@ -316,11 +335,31 @@ def build_screen_item_with_indices(
 
     chosen = rng.choice(len(boards), size=min(board.boards_per_image, len(boards)), replace=False)
     crops, nodes, visible = [], [], []
+    supervised = []
     for index in chosen:
         label_nodes, unavailable = boards[int(index)]
-        crop, crop_nodes = build_board_crop(
-            rgb, label_nodes, board, augmentation, rng, geometry=board_geometry_override
-        )
+        if visibility_supervision is None:
+            crop, crop_nodes = build_board_crop(
+                rgb, label_nodes, board, augmentation, rng, geometry=board_geometry_override
+            )
+        else:
+            from .grid_visibility_targets import supervised_board_crop
+
+            if source_support is None:
+                raise ValueError("GRID_SOURCE_SUPPORT_REQUIRED")
+            item = supervised_board_crop(
+                rgb,
+                label_nodes,
+                board,
+                augmentation,
+                rng,
+                reference=None if content_references is None else content_references[int(index)],
+                supervision=visibility_supervision,
+                source_support=source_support,
+                geometry=board_geometry_override,
+            )
+            crop, crop_nodes = item["crop"], item["nodes"]
+            supervised.append(item)
         crops.append(crop)
         nodes.append(crop_nodes)
         mask = np.ones(CELL_COUNT, np.float32)
@@ -332,7 +371,9 @@ def build_screen_item_with_indices(
         nodes.append(nodes[0])
         visible.append(visible[0])
         indices.append(indices[0])
-    return {
+        if supervised:
+            supervised.append(supervised[0])
+    result = {
         "image": np.ascontiguousarray(canvas.transpose(2, 0, 1)),
         "heat": heat,
         "offsets": offsets,
@@ -340,7 +381,15 @@ def build_screen_item_with_indices(
         "crops": np.ascontiguousarray(np.stack(crops).transpose(0, 3, 1, 2)),
         "nodes": np.stack(nodes).astype(np.float32),
         "visible": np.stack(visible),
-    }, indices
+    }
+    if supervised:
+        result.update(
+            {
+                key: np.stack([item[key] for item in supervised])
+                for key in ("node_weights", "visibility_targets", "visibility_mask")
+            }
+        )
+    return result, indices
 
 
 def build_board_crop(

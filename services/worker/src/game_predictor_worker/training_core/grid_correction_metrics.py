@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import numpy as np
@@ -21,6 +21,8 @@ PHOTO_CHECKPOINT_RULE = "validation-photo-board-correct-photo-macro-error-earlie
 @dataclass(frozen=True, slots=True)
 class CorrectionControlPhoto(ControlPhoto):
     full_geometry: bool
+    load_with_support: Callable[[], tuple[np.ndarray, tuple[int, int, int, int]]] | None = None
+    available_source_box: tuple[int, int, int, int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,7 +187,11 @@ def measure_role(
         raise ValueError("A control photo can only be measured once per role.")
     for index, photo in enumerate(photos):
         before_photo(index)
-        rgb = photo.load()
+        if photo.load_with_support is None:
+            rgb = photo.load()
+        else:
+            rgb, box = photo.load_with_support()
+            photo = replace(photo, available_source_box=box)
         row: dict[str, Any] = {"sourceId": photo.source_id, "groupId": photo.group_id}
         observed = {}
         for name, engine in (("base", base), ("candidate", candidate)):

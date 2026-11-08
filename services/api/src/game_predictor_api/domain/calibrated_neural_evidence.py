@@ -37,7 +37,12 @@ def calibrated_result_blockers(
     }
     if (
         evidence.keys() != expected
-        or evidence["version"] != "full-board-result-evidence-v1"
+        or evidence["version"]
+        != (
+            "full-board-result-evidence-v2"
+            if profile["version"] == "full-board-auto-profile-v2"
+            else "full-board-result-evidence-v1"
+        )
         or evidence["sourceSha256"] != proposal["sourceChecksumSha256"]
         or evidence["modelManifestSha256"] != pin["catalogueManifestSha256"]
         or evidence["operationPinSha256"] != pin["pinSha256"]

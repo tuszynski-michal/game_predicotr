@@ -164,11 +164,22 @@ def weighted_node_losses(
     nodes: torch.Tensor,
     weights: torch.Tensor,
     board: Any,
+    node_weights: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """Lab node losses with a per-crop weight; equal weights give the lab means exactly."""
+    if node_weights is not None:
+        if (
+            node_weights.shape != nodes.shape[:2]
+            or not torch.isfinite(node_weights).all()
+            or (node_weights < 0).any()
+        ):
+            raise ValueError("GRID_NODE_WEIGHTS_INVALID")
+        effective = weights[:, None] * node_weights
+        # Mask before arithmetic, so an unknown NaN target cannot poison valid gradients.
+        nodes = torch.where(effective[..., None] > 0, nodes, torch.zeros_like(nodes))
     coordinate = torch.nn.functional.smooth_l1_loss(
         predicted.float(), nodes, beta=1.0, reduction="none"
-    ).mean(dim=(1, 2))
+    ).mean(dim=-1)
     batch, channels, height, width = node_logits.shape
     xs = torch.arange(width, device=node_logits.device, dtype=torch.float32) + 0.5
     ys = torch.arange(height, device=node_logits.device, dtype=torch.float32) + 0.5
@@ -180,11 +191,53 @@ def weighted_node_losses(
     )
     gaussian = gaussian / gaussian.sum(dim=(2, 3), keepdim=True).clamp(min=1e-6)
     log_probability = torch.log_softmax(node_logits.float().reshape(batch, channels, -1), dim=-1)
-    heatmap = -(gaussian.reshape(batch, channels, -1) * log_probability).sum(dim=-1).mean(dim=1)
+    heatmap = -(gaussian.reshape(batch, channels, -1) * log_probability).sum(dim=-1)
+    if node_weights is None:
+        coordinate, heatmap = coordinate.mean(dim=1), heatmap.mean(dim=1)
+    else:
+        weights = effective
     return {
         "nodes": _weighted_mean(coordinate, weights) * board.coordinate_loss_weight,
         "node_heatmap": _weighted_mean(heatmap, weights) * board.heatmap_loss_weight,
     }
+
+
+def _supervised_losses(
+    logits: torch.Tensor,
+    predicted: torch.Tensor,
+    visibility: torch.Tensor,
+    nodes: torch.Tensor,
+    weights: torch.Tensor,
+    batch: Mapping[str, torch.Tensor],
+    board: Any,
+    device: str,
+) -> dict[str, torch.Tensor]:
+    if "node_weights" not in batch:
+        return weighted_node_losses(logits, predicted, nodes, weights, board)
+    node_weights = batch["node_weights"].to(device).reshape(-1, 24).float()
+    targets = batch["visibility_targets"].to(device).reshape(-1, 15).float()
+    mask = batch["visibility_mask"].to(device).reshape(-1, 15).float()
+    if visibility.shape != targets.shape or mask.shape != targets.shape:
+        raise ValueError("GRID_VISIBILITY_SHAPE_INVALID")
+    if not torch.isfinite(mask).all() or ((mask < 0) | (mask > 1)).any():
+        raise ValueError("GRID_VISIBILITY_MASK_INVALID")
+    effective = mask * weights[:, None]
+    targets = torch.where(effective > 0, targets, torch.zeros_like(targets))
+    if not torch.isfinite(targets).all() or ((targets < 0) | (targets > 1)).any():
+        raise ValueError("GRID_VISIBILITY_TARGET_INVALID")
+    losses = weighted_node_losses(logits, predicted, nodes, weights, board, node_weights)
+    raw = torch.nn.functional.binary_cross_entropy_with_logits(
+        visibility.float(), targets, reduction="none"
+    )
+    losses["visibility"] = _weighted_mean(raw, effective) * board.visibility_loss_weight
+    losses["total"] = sum(losses.values(), torch.zeros((), device=device))
+    losses["valid_nodes"] = ((node_weights * weights[:, None]) > 0).sum().float().detach()
+    losses["masked_nodes"] = (node_weights.numel() - losses["valid_nodes"]).detach()
+    losses["valid_visibility"] = (effective > 0).sum().float().detach()
+    losses["masked_visibility"] = (mask.numel() - losses["valid_visibility"]).detach()
+    losses["positive_visibility"] = ((effective > 0) & (targets == 1)).sum().float().detach()
+    losses["negative_visibility"] = ((effective > 0) & (targets == 0)).sum().float().detach()
+    return losses
 
 
 def board_only_losses(
@@ -196,9 +249,12 @@ def board_only_losses(
     nodes = batch["nodes"].to(device, non_blocking=True)
     weights = batch["weights"].to(device, non_blocking=True).float()
     with torch.autocast("cuda", dtype=torch.float16, enabled=device.startswith("cuda")):
-        node_logits, predicted, _ = network.board(crops)
-    losses = weighted_node_losses(node_logits, predicted, nodes, weights, recipe.board)
-    losses["total"] = losses["nodes"] + losses["node_heatmap"]
+        node_logits, predicted, visibility = network.board(crops)
+    losses = _supervised_losses(
+        node_logits, predicted, visibility, nodes, weights, batch, recipe.board, device
+    )
+    if "total" not in losses:
+        losses["total"] = losses["nodes"] + losses["node_heatmap"]
     return losses
 
 
@@ -217,14 +273,23 @@ def screen_grid_losses(
     weights = batch["weights"].to(device, non_blocking=True).flatten(0, 1).float()
     with torch.autocast("cuda", dtype=torch.float16, enabled=device.startswith("cuda")):
         heat_logits, predicted_offsets = network.screen(images)
-        node_logits, predicted, _ = network.board(crops)
+        node_logits, predicted, visibility = network.board(crops)
     losses = {
         "heat": focal_loss(heat_logits, heat),
         "offsets": offset_loss(predicted_offsets, offsets, offset_weight)
         * recipe.screen.offset_loss_weight,
-        **weighted_node_losses(node_logits, predicted, nodes, weights, recipe.board),
+        **_supervised_losses(
+            node_logits, predicted, visibility, nodes, weights, batch, recipe.board, device
+        ),
     }
-    losses["total"] = sum(losses.values(), torch.zeros((), device=device))
+    losses["total"] = sum(
+        (
+            losses[key]
+            for key in ("heat", "offsets", "nodes", "node_heatmap", "visibility")
+            if key in losses
+        ),
+        torch.zeros((), device=device),
+    )
     return losses
 
 
@@ -414,6 +479,7 @@ class TrainingResult:
     history: list[dict[str, Any]]
     checkpoint_selection: dict[str, Any] | None = None
     exposure: dict[str, Any] | None = None
+    visibility_exposure: dict[str, int] | None = None
 
 
 class _ScalerSlot:
@@ -474,6 +540,8 @@ def train(
     best_state: dict[str, Any] | None = None
     step = 0
     last: tuple[Path, str] | None = None
+    visibility_exposure = {"positiveTargets": 0, "negativeTargets": 0, "optimizerSteps": 0}
+    visibility_enabled = "gridOutputContract" in plan.binding
     if resume is not None:
         value = load_checkpoint(resume[0], resume[1], expected_binding=plan.binding)
         restore_checkpoint(value, network, optimizer, scaler, generator)
@@ -482,6 +550,8 @@ def train(
         if not isinstance(stored, dict) or "early" not in stored:
             raise ValueError("CHECKPOINT_INVALID")
         stopping.restore(stored["early"])
+        if visibility_enabled:
+            visibility_exposure = dict(stored["visibilityExposureCurrent"])
         if exposure is not None:
             exposure.restore(stored["exposureCurrent"], step)
         # An interruption before the first evaluation stores no best model yet.
@@ -506,6 +576,11 @@ def train(
             best_state={
                 **state,
                 "early": stopping.state(),
+                **(
+                    {"visibilityExposureCurrent": dict(visibility_exposure)}
+                    if visibility_enabled
+                    else {}
+                ),
                 **({"exposureCurrent": exposure.state()} if exposure is not None else {}),
             },
         )
@@ -535,7 +610,11 @@ def train(
             nonfinite += 1
             if nonfinite > NONFINITE_LIMIT:
                 raise ValueError("GRID_TRAINING_LOSS_NONFINITE")
-        else:
+        elif (
+            "valid_nodes" not in values
+            or "heat" in values
+            or float(values["valid_nodes"] + values["valid_visibility"]) > 0
+        ):
             nonfinite = 0
             scaler.scaler.scale(values["total"]).backward()
             scaler.scaler.unscale_(optimizer)
@@ -543,6 +622,17 @@ def train(
             scale_before = scaler.scaler.get_scale()
             scaler.scaler.step(optimizer)
             scaler.scaler.update()
+            if (
+                visibility_enabled
+                and scaler.scaler.get_scale() >= scale_before
+                and "valid_visibility" in values
+            ):
+                positive = int(values["positive_visibility"].detach())
+                negative = int(values["negative_visibility"].detach())
+                if positive + negative:
+                    visibility_exposure["positiveTargets"] += positive
+                    visibility_exposure["negativeTargets"] += negative
+                    visibility_exposure["optimizerSteps"] += 1
             if exposure is not None and scaler.scaler.get_scale() >= scale_before:
                 if exposure_members is None:
                     raise ValueError("GRID_RESCUE_EXPOSURE_MEMBERS_REQUIRED")
@@ -592,6 +682,11 @@ def train(
                 "model": {k: v.detach().cpu().clone() for k, v in network.state_dict().items()},
                 "step": step,
                 "metric": metric,
+                **(
+                    {"visibilityExposureAtBest": dict(visibility_exposure)}
+                    if visibility_enabled
+                    else {}
+                ),
                 **({"exposureAtBest": exposure.state()} if exposure is not None else {}),
             }
         last = publish()
@@ -619,6 +714,7 @@ def _result(
         checkpoint_sha256=last[1],
         history=list(history),
         exposure=best_state.get("exposureAtBest"),
+        visibility_exposure=best_state.get("visibilityExposureAtBest"),
         checkpoint_selection={
             "rule": stopping.selection_rule,
             "role": "VALIDATION",
@@ -830,9 +926,12 @@ def bundle_document(
     provenance: Mapping[str, Any],
     parity: Mapping[str, Any],
     model_version: str = "neural-grid-v1",
+    output_contract: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if output_contract is not None and model_version == "neural-grid-v1":
+        model_version = "neural-grid-v2"
     return {
-        "format": "neural-grid-bundle-v1",
+        "format": "neural-grid-bundle-v1" if output_contract is None else "neural-grid-bundle-v2",
         "model_version": model_version,
         "preset": dict(preset_payload),
         "preset_fingerprint": preset_fingerprint,
@@ -841,6 +940,7 @@ def bundle_document(
         "files": dict(files),
         "provenance": dict(provenance),
         "parity": dict(parity),
+        **({"gridOutputContract": dict(output_contract)} if output_contract is not None else {}),
     }
 
 

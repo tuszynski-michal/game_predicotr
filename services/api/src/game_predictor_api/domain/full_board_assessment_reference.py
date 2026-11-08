@@ -5,11 +5,11 @@ Never construct it from a calibration sidecar or its self-declared target hashes
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
-from .full_board_calibration import AssessedTarget, CalibrationPlan
+from .full_board_calibration import AssessedTarget, CalibrationPlan, ReferenceTarget, make_plan
 from .grid_training_cohorts import digest
 
 
@@ -22,6 +22,9 @@ class FrozenAssessmentReferences:
     targets: Mapping[str, tuple[tuple[str, str, int, str], ...]]
     source_counts: Mapping[str, int]
     role_proof_sha256: str
+    content_references: Mapping[tuple[str, int], tuple[str, int, bool]] = field(
+        default_factory=dict
+    )
 
     @classmethod
     def from_sources(
@@ -76,6 +79,22 @@ class FrozenAssessmentReferences:
                     "assessments": references,
                 }
             ),
+            {
+                (
+                    source["sourceIdentity"]["normalized_pixel_checksum_sha256"],
+                    target["positionIndex"],
+                ): (
+                    target["contentReferenceSha256"],
+                    target["contentReferenceRevision"],
+                    target["contentReferenceInputCropped"],
+                )
+                for source in sources["A"]
+                for target in source["targets"]
+                if isinstance(target.get("contentReferenceSha256"), str)
+                and type(target.get("contentReferenceRevision")) is int
+                and target["contentReferenceRevision"] >= 1
+                and type(target.get("contentReferenceInputCropped")) is bool
+            },
         )
 
     def require_targets(self, role: str, observed: Sequence[AssessedTarget]) -> None:
@@ -97,6 +116,41 @@ class FrozenAssessmentReferences:
 
     def require_plan(self, prepared: Mapping[str, Any]) -> CalibrationPlan:
         plan = CalibrationPlan.model_validate(prepared["plan"])
+        if plan.version.endswith("-v2"):
+            references = [
+                ReferenceTarget.model_validate(value) for value in prepared["selectionReferences"]
+            ]
+            for item in references:
+                edge = item.inputEdgeReference
+                if (
+                    edge is not None
+                    and edge.referenceKind == "verified_content"
+                    and (
+                        self.content_references.get(
+                            (item.sourceRepresentativeSha256, item.positionIndex)
+                        )
+                        != (edge.contentReferenceSha256, edge.contentRevision, edge.inputCropped)
+                    )
+                ):
+                    raise ValueError("INPUT_EDGE_FROZEN_CONTENT_REFERENCE_REQUIRED")
+            expected = {(sha, slot) for _, sha, slot, _ in self.targets["A"]}
+            if {
+                (item.sourceRepresentativeSha256, item.positionIndex) for item in references
+            } != expected:
+                raise ValueError("INPUT_EDGE_FROZEN_REFERENCE_CHANGED")
+            rebuilt = make_plan(
+                references,
+                game_id=plan.gameId,
+                candidate_sha=plan.candidateManifestSha256,
+                baseline_sha=plan.baselineManifestSha256,
+                routing_sha=plan.routingSha256,
+                role_proof_sha=plan.roleProofSha256,
+                b_assessment_sha=plan.bAssessmentSha256,
+                regression_assessment_sha=plan.regressionAssessmentSha256,
+                feature_version="full-board-completeness-features-v2",
+            )
+            if rebuilt != plan:
+                raise ValueError("INPUT_EDGE_PLAN_CHANGED")
         if (
             plan.gameId != self.game_id
             or plan.roleProofSha256 != self.role_proof_sha256

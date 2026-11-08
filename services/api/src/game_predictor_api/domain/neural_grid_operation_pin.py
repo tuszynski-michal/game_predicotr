@@ -107,7 +107,12 @@ def make_operation_pin(
     }
     if automatic_qualification is not None:
         pin["contractVersion"] = CALIBRATED_PIN_VERSION
-        pin["qualificationPolicyVersion"] = "full-board-calibration-qualification-v1"
+        profile = automatic_qualification.get("profile")
+        pin["qualificationPolicyVersion"] = (
+            "full-board-calibration-qualification-v2"
+            if isinstance(profile, dict) and profile.get("version") == "full-board-auto-profile-v2"
+            else "full-board-calibration-qualification-v1"
+        )
         pin["automaticQualification"] = automatic_qualification
         pin["rescue"] = rescue
     pin["pinSha256"] = descriptor_sha256(pin)
@@ -172,7 +177,14 @@ def require_operation_pin(
             or pin["boardColumns"] != 5
             or pin["qualificationPolicyVersion"]
             != (
-                "full-board-calibration-qualification-v1"
+                (
+                    "full-board-calibration-qualification-v2"
+                    if isinstance(pin.get("automaticQualification"), dict)
+                    and isinstance(pin["automaticQualification"].get("profile"), dict)
+                    and pin["automaticQualification"]["profile"].get("version")
+                    == "full-board-auto-profile-v2"
+                    else "full-board-calibration-qualification-v1"
+                )
                 if is_calibrated
                 else GAME_QUALIFICATION_POLICY
             )
@@ -255,7 +267,7 @@ def require_automatic_qualification(
     value: object, *, game_id: str, manifest_sha: str
 ) -> dict[str, Any]:
     """A selected profile, never the 256-entry search menu, travels with an operation."""
-    from .full_board_calibration import AXES
+    from .full_board_calibration import axes_for
 
     if isinstance(value, dict) and value == {
         "state": "unqualified",
@@ -288,7 +300,7 @@ def require_automatic_qualification(
     }:
         raise ValueError("NEURAL_GRID_CALIBRATION_PROFILE_INVALID")
     if (
-        profile["version"] != "full-board-auto-profile-v1"
+        profile["version"] not in ("full-board-auto-profile-v1", "full-board-auto-profile-v2")
         or profile["gameId"] != game_id
         or profile["candidateManifestSha256"] != manifest_sha
         or profile["assessmentScope"] != "labelled_targets"
@@ -298,7 +310,9 @@ def require_automatic_qualification(
         raise ValueError("NEURAL_GRID_CALIBRATION_PROFILE_INVALID")
     import math
 
-    if not isinstance(profile["configuration"], dict) or set(profile["configuration"]) != set(AXES):
+    if not isinstance(profile["configuration"], dict) or set(profile["configuration"]) != set(
+        axes_for(profile["version"])
+    ):
         raise ValueError("NEURAL_GRID_CALIBRATION_PROFILE_INVALID")
     for number in [*profile["configuration"].values(), profile["gameLogAspectReference"]]:
         if number is not None and (type(number) not in (int, float) or not math.isfinite(number)):

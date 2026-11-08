@@ -7,8 +7,14 @@ from typing import Any
 from uuid import UUID
 
 import numpy as np
-from game_predictor_api.domain.full_board_calibration import AXES, AssessedTarget, FeatureVector
+from game_predictor_api.domain.full_board_calibration import (
+    AXES,
+    AXES_V2,
+    AssessedTarget,
+    FeatureVector,
+)
 from game_predictor_api.domain.grid_training_cohorts import digest
+from game_predictor_api.domain.input_edge_clearance import InputEdgeReference
 from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_BLOCKING_REASONS
 
 from ..geometry_core.lattice import structurally_valid
@@ -30,9 +36,12 @@ class CalibrationObserver:
         sources: Mapping[str, dict[str, Any]],
         game_aspect: float | None,
         routing: Mapping[str, Any] | None,
+        role: str | None = None,
+        routing_sha: str | None = None,
     ) -> None:
         self.game_id, self.sources = game_id, sources
         self.game_aspect, self.routing = game_aspect, routing
+        self.role, self.routing_sha = role, routing_sha
 
     def __call__(
         self, photo: CorrectionControlPhoto, rgb: Any, observed: Mapping[str, Any]
@@ -41,6 +50,7 @@ class CalibrationObserver:
         targets = sorted(source["targets"], key=lambda target: target["positionIndex"])
         width, height = rgb.shape[1], rgb.shape[0]
         evaluated: dict[tuple[str, int], tuple[bool, bool | None, bool, bool, FeatureVector]] = {}
+        edges: dict[int, InputEdgeReference] = {}
         for name in ("base", "candidate"):
             found, measured, engine = observed[name]
             usable = [detection for detection in found if detection.nodes is not None]
@@ -48,6 +58,14 @@ class CalibrationObserver:
             binding = slots(found)
             neighbors = perspective_neighbor_deviation(found, binding or {})
             settings = getattr(getattr(engine, "engine", engine), "settings", None)
+            contract = getattr(getattr(engine, "engine", engine), "output_contract", None)
+            available = None
+            if contract is not None and photo.available_source_box is not None:
+                left, top, right, bottom = photo.available_source_box
+                if 0 <= left < right <= width and 0 <= top < bottom <= height:
+                    available = np.array(
+                        [[left, top], [right, top], [right, bottom], [left, bottom]]
+                    )
             for index, target in enumerate(targets):
                 position = target["positionIndex"]
                 match = matching.get(index)
@@ -59,7 +77,10 @@ class CalibrationObserver:
                         False,
                         False,
                         FeatureVector(
-                            values=dict.fromkeys(AXES),
+                            version="full-board-completeness-features-v2"
+                            if contract is not None
+                            else "full-board-completeness-features-v1",
+                            values=dict.fromkeys(AXES_V2 if contract is not None else AXES),
                             hardReasons=("COMPLETENESS_DETECTION_MISSING",),
                         ),
                     )
@@ -127,7 +148,30 @@ class CalibrationObserver:
                     primary=primary,
                     rescue_required=required,
                     rescue_completed=completed,
+                    output_contract=contract,
+                    board=None if settings is None else settings.board,
+                    geometry=geometry,
+                    available_source_support=available,
                 )
+                if name == "candidate" and contract is not None and self.role == "VALIDATION-A":
+                    if self.routing_sha is None:
+                        raise ValueError("INPUT_EDGE_ROUTING_REQUIRED")
+                    edges[index] = InputEdgeReference(
+                        referenceKind="geometry_proxy",
+                        sourceRepresentativeSha256=source["sourceIdentity"][
+                            "normalized_pixel_checksum_sha256"
+                        ],
+                        positionIndex=position,
+                        variantSha256=self.routing_sha,
+                        clearance=vector.values["inputEdgeClearance"],
+                        inputCropped=gt_cropped(
+                            photo.labels[index],
+                            photo.labels[index],
+                            real_input_support=support,
+                            width=width,
+                            height=height,
+                        ),
+                    )
                 if not bound:
                     vector = vector.model_copy(
                         update={
@@ -157,6 +201,7 @@ class CalibrationObserver:
                     baselineT0Accepted=base[3],
                     candidateFeatures=candidate[4],
                     synthetic=False,
+                    inputEdgeReference=edges.get(index),
                 ).model_dump(mode="json")
             )
         return result

@@ -358,7 +358,9 @@ export type AutomaticCalibration = {
   /**
    * Version
    */
-  version?: 'full-board-calibration-qualification-v1';
+  version?:
+    | 'full-board-calibration-qualification-v1'
+    | 'full-board-calibration-qualification-v2';
 };
 
 /**
@@ -527,7 +529,7 @@ export type AutomaticProfile = {
   /**
    * Version
    */
-  version?: 'full-board-auto-profile-v1';
+  version?: 'full-board-auto-profile-v1' | 'full-board-auto-profile-v2';
 };
 
 /**

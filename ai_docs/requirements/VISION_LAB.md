@@ -6,6 +6,34 @@ last_updated: 2026-10-16
 
 # Laboratorium wizji
 
+## Explicit cell visibility (TASK-1164)
+
+The opt-in v2 geometry contract exports 24 node confidences and 15 row-major cell
+visibility probabilities. A low value in any of the 15 cells blocks automatic use;
+no ground-truth mask may hide weak runtime output. Historical contracts keep their
+original interpretation. Missing metadata does not establish trained visibility.
+
+Visibility supervision uses human-approved content references, independently of
+geometry revisions: visible=1, occluded/out_of_frame=0, unknown=masked. Crop,
+source padding and artificial occlusions update content availability using content
+quads and actual pixels. Geometry points alone never create content labels.
+Before augmentation, each required TRAIN game needs 30 unique positive and 30
+unique negative cells, each class spanning at least five source photos after
+pixel-copy deduplication. Missing coverage masks this loss and prevents automatic
+qualification; otherwise admissible geometry learning remains available.
+
+The new inputEdgeClearance signal measures the distance of raw outer nodes from
+real crop/source support in nominal cell units. A selects one threshold for the
+exact input/routing variant: fewer missed cuts, fewer unnecessary rescues, lower
+threshold. At least five real cut boards from three A photos are required.
+Insufficient data leaves the threshold unknown, never PASS. This signal is a
+suspicion of missing content, not proof that all omitted rows can be detected.
+T1 supplies the optional supervision interface; durable reference collection and
+new training-arm admission remain the responsibilities of T2 and T4.
+Geometry-only coverage is a proxy and cannot supply the five verified cut boards.
+The actual content reference and its revision must be pinned independently in A;
+missing T2/T3 evidence keeps the new automatic path unqualified.
+
 ## Actual-input presentation (TASK-1159)
 
 The compact panel separates proposal quality, per-game automatic qualification,

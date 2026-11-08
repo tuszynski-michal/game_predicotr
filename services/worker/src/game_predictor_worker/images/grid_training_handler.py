@@ -520,6 +520,11 @@ class GridTrainingJobHandler:
             "supervisor": {"pid": pid, "created": created},
             "resume": state.checkpoint,
             **({"rescueRecipe": payload["rescue_recipe"]} if "rescue_recipe" in payload else {}),
+            **(
+                {"gridOutputContract": payload["grid_output_contract"]}
+                if "grid_output_contract" in payload
+                else {}
+            ),
             **({} if joint is None else {"joint": joint}),
         }
 
@@ -832,6 +837,9 @@ class GridTrainingJobHandler:
             ):
                 raise JobHandlerError("GRID_TRAINING_EXPORT_CORRUPT", "Exported files differ.")
         bundle = json.loads((directory / "bundle.json").read_text(encoding="utf-8"))
+        from game_predictor_api.domain.grid_visibility_contract import require_output_contract
+
+        require_output_contract(bundle)
         self._verify_screen_export(run_dir, bundle, required=required_screen)
 
     @staticmethod
@@ -844,7 +852,7 @@ class GridTrainingJobHandler:
         )
         spec_path = run_dir / "spec.json"
         if not spec_path.exists():
-            if required:
+            if required or bundle.get("format") == "neural-grid-bundle-v2":
                 raise JobHandlerError(
                     "GRID_TRAINING_EXPORT_CORRUPT", "Screen export requires its run specification."
                 )
@@ -855,6 +863,9 @@ class GridTrainingJobHandler:
             raise JobHandlerError(
                 "GRID_TRAINING_EXPORT_CORRUPT", "Training specification checksum differs."
             )
+        from game_predictor_api.domain.grid_visibility_contract import require_output_contract
+
+        require_output_contract(bundle, spec.get("gridOutputContract"), require_expected=True)
         if not required and spec.get("preset", {}).get("id") != "screen-grid-corrections-v1":
             return
         try:
@@ -926,8 +937,8 @@ class GridTrainingJobHandler:
             "profile": profile,
             "version": version,
             "modelKind": "neural_grid",
-            "modelVersion": base["modelVersion"],
-            "bundleFormat": base["bundleFormat"],
+            "modelVersion": bundle.get("model_version", base["modelVersion"]),
+            "bundleFormat": bundle.get("format", base["bundleFormat"]),
             **identity,
             "preset": str(bundle["preset"].get("name", base["inferenceManifest"]["preset"])),
             "frozenOn": self.wall_clock().date().isoformat(),
@@ -953,8 +964,8 @@ class GridTrainingJobHandler:
             "versionId": str(version_id),
             "version": version,
             "modelKind": "neural_grid",
-            "modelVersion": base["modelVersion"],
-            "bundleFormat": base["bundleFormat"],
+            "modelVersion": bundle.get("model_version", base["modelVersion"]),
+            "bundleFormat": bundle.get("format", base["bundleFormat"]),
             "preprocessingVersion": base["preprocessingVersion"],
             "decodingPolicyVersion": base["decodingPolicyVersion"],
             "topology": base["topology"],

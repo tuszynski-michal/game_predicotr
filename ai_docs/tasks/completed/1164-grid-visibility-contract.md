@@ -1,6 +1,6 @@
 ---
 title: Kontrakt 24 punktów i 15 ocen widoczności
-status: in_progress
+status: done
 last_updated: 2026-11-08
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-11-08
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -39,7 +39,7 @@ gpt-6-astra/high, audyt Claude Code claude-opus-5-5/high; brak modelu blokuje.
 - ai_docs/requirements/SUPERVISED_MODEL_IMPROVEMENT.md
 - ai_docs/architecture/SUPERVISED_MODEL_IMPROVEMENT.md
 - ai_docs/process/DEFINITION_OF_DONE.md
-- ai_docs/process/decisions/DECISION_LOG_2026.md (D-584–588, zakresy według nagłówków)
+- ai_docs/process/decisions/DECISION_LOG_2026.md (D-584–589, zakresy według nagłówków)
 - ai_docs/architecture/CODE_MAP.md
 
 ## Scope
@@ -55,13 +55,13 @@ Operatortraining, dane operatora, nowe etykiety z domysłu, zmiana starych rapor
 
 ## Acceptance criteria
 
-- [ ] Prawdziwy BoardExport i runtime dostarczają peak24/visibility15 bez utraty.
-- [ ] Cele visible/occluded/out_of_frame/unknown i maski stosowane po augmentacji.
-- [ ] Loss nie uczy nieosiągalnych/padded węzłów; brak ważnych celów jawny.
-- [ ] Niedobór30+30/5zdjęć blokuje oś/automat, nie geometrię.
-- [ ] inputEdgeClearance wersjonowane, ≥5ucięć/3zdjęcia dla progu; brak danych nie daje PASS.
-- [ ] Historyczne modele/raporty zachowują semantykę, fixture rzeczywiście15.
-- [ ] Testy/scoped lint/types/ONNX, dokumentacja/decyzja i audyt albo jawne oczekiwanie.
+- [x] Prawdziwy BoardExport i runtime dostarczają peak24/visibility15 bez utraty.
+- [x] Cele visible/occluded/out_of_frame/unknown i maski stosowane po augmentacji.
+- [x] Loss nie uczy nieosiągalnych/padded węzłów; brak ważnych celów jawny.
+- [x] Niedobór30+30/5zdjęć blokuje oś/automat, nie geometrię.
+- [x] inputEdgeClearance wersjonowane, ≥5ucięć/3zdjęcia dla progu; brak danych nie daje PASS.
+- [x] Historyczne modele/raporty zachowują semantykę, fixture rzeczywiście15.
+- [x] Testy/scoped lint/types/ONNX, dokumentacja/decyzja i audyt albo jawne oczekiwanie.
 
 ## Technical notes
 
@@ -133,6 +133,17 @@ nie wchodzą jako składniki do sumy loss.
   z realnym eksportem BoardExport/ONNX na CPU.
 - Wymagania/architektura VISION_LAB; decyzję i mapę kodu koordynuje lead.
 
+Rzeczywisty zakres implementacji doprecyzowany: `neural_grid_network.py`,
+`settings.py` i `schemas/grid_model_evaluations.py` nie wymagały zmian.
+Nowe moduły to API `domain/grid_visibility_contract.py`,
+`domain/input_edge_clearance.py` oraz worker
+`training_core/grid_visibility_targets.py`. Dodatkowo zmieniono
+`domain/full_board_assessment_reference.py`, `domain/grid_model_registry.py`
+i `images/grid_training_handler.py`; dodano API
+`tests/test_grid_visibility_calibration.py`. Pełna jawna lista plików znajduje
+się w `artifacts/TASK-1164_SCOPE.txt`; obejmuje wygenerowane mapy oraz tylko diff
+root-owned `DECISION_LOG.md`, `DECISION_LOG_2026.md`, `DECISION_INDEX_ARCHIVE.md`.
+
 ## Test cases
 
 15vs24 fixture i realny eksport, masked gradients/unknown/all masked,
@@ -145,24 +156,23 @@ Root .venv i .venv-vision-lab, PYTHONPATH właściwego worktree. Skończone
 testy/scoped lint/types ≤120s, większy znany eksport osobno kontrolowany.
 Zapisać dokładne komendy/wyniki w quality/TASK-1164_VERIFICATION.md.
 
-Potwierdzone wejścia narzędzi (planowane; jeszcze nie uruchomiono testów):
+Wejścia narzędzi; dokładne wykonane grupy i wyniki zawiera raport weryfikacji:
 
 ```powershell
 # cwd D:\game_predicotr\worktrees\full-symbol-crops; każda komenda w procesie
 # kontrolowanym przez runner z timeout120s, ONNX jako osobna komenda.
 $env:PYTHONPATH = "$PWD\services\api\src;$PWD\services\worker\src;$PWD\services\test_support"
-$taskPython = 'D:\game_predicotr\.venv-vision-lab\Scripts\python.exe'
+$taskPython = 'D:\game_predicotr\.venv\Scripts\python.exe'
 & $taskPython -m pytest services/worker/tests/test_grid_visibility_contract.py -q
 & $taskPython -m pytest services/worker/tests/test_durable_v3_grid_training.py services/worker/tests/test_full_board_completeness.py -q
 & $taskPython -m pytest services/worker/tests/test_full_board_calibration_integration.py -q
 & $taskPython -m pytest services/api/tests/test_full_board_calibration.py services/api/tests/test_full_board_calibration_report.py -q
 # Ruff format --check, ruff check i mypy: jawna lista zmienionych plików,
 # interpreter D:\game_predicotr\.venv\Scripts\python.exe, ten sam PYTHONPATH.
-npm run openapi:generate
-npm run build --workspace @game-predictor/admin-api-client
-npx tsx --test packages/admin-api-client/test/grid-model-evaluation-request.test.mjs
-npm run typecheck --workspace @game-predictor/admin-api-client
-npm run docs:check
+npm.cmd run openapi:generate
+node --import tsx --test packages/admin-api-client/test/grid-model-evaluation-request.test.mjs
+npm.cmd run typecheck --workspace @game-predictor/admin-api-client
+npm.cmd run docs:check
 ```
 
 Realny eksport nie może być zastąpiony TinyNetwork ani stałym fixture15.
@@ -176,4 +186,55 @@ nie wymyślać zatwierdzeń. To nie blokuje implementacji bezpiecznego kontraktu
 
 ## Outcome
 
-Nie rozpoczęto.
+Commit: v1.7.573 (hash dopisuje kolejny commit).
+
+Implementacja i jedna runda poprawek zakończone; niezależny focused R2 Opus PASS.
+Wersjonowany pion v2 obejmuje wyjście24/15, nadzór komórek, maskowane straty,
+eksport, runtime, kalibrację i API/SDK. Historyczny v1 pozostaje domyślny.
+`trainedVisibility` wymaga zarówno unikalnych etykiet TRAIN per gra, jak
+i poświadczonego niezerowego nadzoru obu klas przed wybranym checkpointem.
+Stan ekspozycji przechodzi przez checkpoint i wznowienie. Całkowicie zamaskowany
+board-only batch nie wykonuje kroku AdamW.
+
+`inputEdgeClearance` korzysta z rzeczywistych pikseli wejścia, a jeden próg
+może pochodzić tylko z A tego samego wariantu. Historyczne `gt_cropped`
+pozostaje `geometry_proxy`: nie spełnia minimum 5 plansz/3 zdjęć. API wymaga
+zgodności SHA i rewizji `verified_content` z niezależnym frozen readerem A;
+sam claim workera jest odrzucany. Brak danych pozostawia próg unset/unqualified.
+
+Weryfikacja: scoped Python/SDK, rzeczywisty BoardNetwork→BoardExport→ONNX→ORT
+na CPU, lint/format 24 plików, mypy 20 modułów, spójność wygenerowanego SDK,
+OpenAPI i mapy. Szczegóły: `ai_docs/quality/TASK-1164_VERIFICATION.md`.
+Znany wcześniejszy błąd dwóch testów Mock w `test_neural_grid_operation_pin.py`
+odtworzono w pełnej izolowanej kopii T0/v1.7.572, z potwierdzonym importem
+modułów wyłącznie ze shadow; nie rozszerzano zakresu.
+Środowiskowe błędy hardlink/temp powtórzono w odizolowanym katalogu i uzyskano PASS.
+
+Nie wykonano treningu operatora, pomiaru jakości, usług, zmian danych ani
+kwalifikacji rzeczywistego modelu. T2 musi dostarczyć trwałe zatwierdzone
+`BoardContentReference` i reader; T3 zaufane piny zawartości A, T4 opt-in
+kontraktu w jobie. Audyt Opus, zamknięcie i commit wykonuje lead. Brak audytu
+nie jest PASS, a testy na syntetycznych danych nie dowodzą jakości modelu.
+
+Po rzeczywistym R1, którego format parser odrzucił, wykonano jedną rundę
+poprawek wszystkich5 uwag: trusted inputCropped strictbool, wspólny atestowany
+RGB/valid_box dla kalibracji v2 i runtime, blokada cache frame i jeden odczyt
+per zdjęcie, wymagany kontrakt spec dla eksportu v2, test back-off skalera.
+Dodatkowe callery: `images/grid_cohort_dataset.py`,
+`images/grid_model_evaluation_handler.py`, `training_core/grid_correction_metrics.py`.
+Focused27 PASS, caller regressions18 PASS, Ruff14/mypy11 PASS; R2 oczekuje
+na niezależny werdykt. Historia ID/provenance i komendy są w raporcie weryfikacji.
+
+Audyt terminalowy: `ai_docs/quality/TASK-1164_AUDIT_claude-opus-5-5.md`
+i receipt o zgodnym SHA pakietu. Runda 2 zamknęła oba P1 i trzy P2;
+pozostało 0 otwartych P0/P1/P2. Historia timeout i nieprawidłowego formatu R1
+jest zachowana jawnie, bez odtwarzania brakującego nagłówka lub fikcyjnego PASS.
+Opcjonalne scenariusze integracyjne z raportu przechodzą do zależnych T2/T3.
+
+Odbiór AC/DoD: kontrakt, maski, widoczność, minima i próg wejścia mają testy;
+historyczne wersje zachowane. Testy 27 oraz 18 po poprawkach, scoped lint/types,
+realny ONNX z pierwotnej weryfikacji i pion API/SDK mają zapisane wyniki.
+Mapę kodu wygenerowano i sprawdzono w izolowanym drzewie 38 źródeł T1, bez T2.
+Zmian schematu i UI w T1 nie było; PostgreSQL/build interfejsów nie są tu
+właściwymi kontrolami. Rzeczywista kwalifikacja wymaga nadal adapterów T2/T3
+oraz danych człowieka; nie jest deklarowanym wynikiem tego taska.

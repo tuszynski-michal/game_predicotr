@@ -8,7 +8,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Final, Protocol
+from typing import Any, Final, Protocol
 
 import cv2
 import numpy as np
@@ -196,12 +196,14 @@ class NeuralGridEngine:
         settings: DecodeSettings,
         model_version: str = MODEL_VERSION,
         board_batch: int = 16,
+        output_contract: Any = None,
     ) -> None:
         self.screen_runner = screen_runner
         self.board_runner = board_runner
         self.settings = settings
         self.model_version = model_version
         self.board_batch = board_batch
+        self.output_contract = output_contract
         self.timings: dict[str, float] = {}
 
     def analyse(self, rgb: ByteImage) -> list[BoardDetection]:
@@ -259,6 +261,17 @@ class NeuralGridEngine:
         for start in range(0, len(crops), self.board_batch):
             batch = np.stack(crops[start : start + self.board_batch]).astype(np.float32)
             nodes, peak, visibility = self.board_runner(batch)
+            if self.output_contract is not None and (
+                nodes.shape != (len(batch), 24, 2)
+                or peak.shape != (len(batch), 24)
+                or visibility.shape != (len(batch), 15)
+                or not all(np.isfinite(value).all() for value in (nodes, peak, visibility))
+                or np.any(peak < 0)
+                or np.any(peak > 1)
+                or np.any(visibility < 0)
+                or np.any(visibility > 1)
+            ):
+                raise ValueError("GRID_OUTPUT_24_15_INVALID")
             for offset, detection in enumerate(owners[start : start + self.board_batch]):
                 matrix = matrices[start + offset]
                 raw = transform_points(nodes[offset], np.asarray(np.linalg.inv(matrix), np.float64))
@@ -304,6 +317,9 @@ def onnx_engine(
     ):
         raise ValueError("NEURAL_GRID_BUNDLE_CHECKSUM_MISMATCH")
     bundle = json.loads(bundle_bytes)
+    from game_predictor_api.domain.grid_visibility_contract import require_output_contract
+
+    output_contract = require_output_contract(bundle)
     raw = bundle["preset"]
     settings = DecodeSettings(
         ScreenPreset.model_validate(raw["screen"]),
@@ -335,5 +351,9 @@ def onnx_engine(
         screen,
         board,
         settings,
-        model_version=f"{MODEL_VERSION}:{raw['name']}:{bundle['weights_sha256'][:12]}",
+        model_version=(
+            f"{bundle.get('model_version', MODEL_VERSION)}:"
+            f"{raw['name']}:{bundle['weights_sha256'][:12]}"
+        ),
+        output_contract=output_contract,
     )

@@ -1,7 +1,7 @@
 ---
 title: Decision index — older entries
 status: active
-last_updated: 2026-11-03
+last_updated: 2026-11-08
 ---
 
 # Indeks starszych decyzji (D-1..D-540)
@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-559](DECISION_LOG_2026.md#d-559--ocena-kandydata-geometrii-v3-per-gra-i-most-aktualności-dowodów) | Ocena kandydata geometrii V3 per gra i most aktualności dowodów | accepted | 2026-10-16 | Raport v2 z miarami bazy i kandydata per gra, PASS tylko bez regresji w każdej grze, proof per gra z licznikiem notices blokuje nieaktualną publikację. |
 | [D-558](DECISION_LOG_2026.md#d-558--trwały-trening-geometrii-v3-w-osobnym-lane-z-procesem-gpu) | Trwały trening geometrii V3 w osobnym lane z procesem GPU | accepted | 2026-10-16 | Lane i slot `grid_training`, nadzorca z bazą i trener GPU bez bazy, wznowienie po kroku, kandydat `not_evaluated` bez duplikatu. |
 | [D-557](DECISION_LOG_2026.md#d-557--presety-treningu-geometrii-v3-dzierżawa-gpu-i-dopuszczenie-runu) | Presety treningu geometrii V3, dzierżawa GPU i dopuszczenie runu | accepted | 2026-10-16 | Wersjonowane presety z odciskiem, koszt kohorty, jedna dzierżawa GPU aplikacji, budżet bez odnowienia przy wznowieniu i smoke 50 kroków/120 s treningu. |
 | [D-556](DECISION_LOG_2026.md#d-556--niezmienne-kohorty-geometrii-v3-i-aktualność-dowodów) | Niezmienne kohorty geometrii V3 i aktualność dowodów | accepted | 2026-10-16 | Exact human labels i24nodes, bounded snapshot/use/currentness; zachowana historia, nowe użycie usuniętego źródła zablokowane decyzją operatora. |

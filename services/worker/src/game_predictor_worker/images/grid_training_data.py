@@ -16,6 +16,11 @@ from typing import Any
 
 import numpy as np
 import torch
+from game_predictor_api.domain.grid_visibility_contract import (
+    BoardContentReference,
+    GridOutputContract,
+    visibility_supervision,
+)
 
 from ..geometry_core.inference import DecodeSettings, NeuralGridEngine
 from ..geometry_core.preprocessing import board_rectifier, corners, crop_board, transform_points
@@ -33,7 +38,12 @@ from ..training_core.neural_grid_augmentation import (
     build_screen_item_with_indices,
 )
 from ..training_core.neural_grid_network import BoardExport, NeuralGridNetwork, ScreenExport
-from .grid_cohort_dataset import GridBoardDataset, GridCohortSnapshot, has_full_geometry
+from .grid_cohort_dataset import (
+    GridBoardDataset,
+    GridCohortSnapshot,
+    frame_rgb_and_box,
+    has_full_geometry,
+)
 
 PREFETCH_STEPS = 4
 PARITY_CROPS = 8
@@ -155,6 +165,71 @@ def _crop_tensor(crops: list[np.ndarray]) -> torch.Tensor:
     return torch.from_numpy(np.ascontiguousarray(np.stack(crops).transpose(0, 3, 1, 2)))
 
 
+def content_references(photos: Any, index: int) -> list[BoardContentReference | None]:
+    """Optional guarded T2 adapter, aligned with targets; absent never means visible."""
+    if isinstance(photos, JointPhotos):
+        part, local = photos._locate(index)
+        return content_references(part, local)
+    reader = getattr(photos, "content_references", None)
+    values = [None] * len(photos.targets(index)) if reader is None else reader(index)
+    if len(values) != len(photos.targets(index)):
+        raise ValueError("GRID_CONTENT_TARGET_ALIGNMENT")
+    parsed = [
+        None if value is None else BoardContentReference.model_validate(value) for value in values
+    ]
+    if isinstance(photos, CohortPhotos):
+        if photos.role != "TRAIN":
+            raise ValueError("GRID_VISIBILITY_TRAIN_ROLE_REQUIRED")
+        source = photos.rows[index][0]
+        positions = sorted(target["positionIndex"] for target in source["targets"])
+        for reference, position in zip(parsed, positions, strict=True):
+            if reference is not None and (
+                reference.sourceRepresentativeSha256
+                != source["sourceIdentity"]["normalized_pixel_checksum_sha256"]
+                or reference.positionIndex != position
+                or str(reference.gameId) != str(photos.snapshot.manifest["gameId"])
+            ):
+                raise ValueError("GRID_CONTENT_SOURCE_OR_SLOT_CHANGED")
+    return parsed
+
+
+def require_visibility_contract(photos: Any, contract: GridOutputContract | None) -> None:
+    if contract is None:
+        return
+    if contract.trainedVisibility:
+        raise ValueError("GRID_VISIBILITY_INPUT_CANNOT_CLAIM_TRAINING")
+    references = [
+        value
+        for index in range(len(photos))
+        for value in content_references(photos, index)
+        if value is not None
+    ]
+    parts = photos.parts if isinstance(photos, JointPhotos) else [photos]
+    games = [
+        str(part.snapshot.manifest["gameId"]) for part in parts if isinstance(part, CohortPhotos)
+    ]
+    if visibility_supervision(references, game_ids=games) != contract.supervision:
+        raise ValueError("GRID_VISIBILITY_SUPERVISION_CHANGED")
+
+
+def photo_pixels_and_support(photos: Any, index: int) -> tuple[np.ndarray, np.ndarray]:
+    """One frame read per photo, even when it contributes several board crops."""
+    if isinstance(photos, JointPhotos):
+        part, local = photos._locate(index)
+        return photo_pixels_and_support(part, local)
+    if isinstance(photos, CohortPhotos):
+        rgb, box = frame_rgb_and_box(photos.snapshot.frame(photos.rows[index][0], photos.role))
+        support = np.zeros(rgb.shape[:2], np.float32)
+        left, top, right, bottom = box
+        support[top:bottom, left:right] = 1
+        return rgb, support
+    rgb = photos.rgb(index)
+    reader = getattr(photos, "source_support", None)
+    if reader is not None:
+        return rgb, np.asarray(reader(index), dtype=np.float32)
+    return rgb, np.ones(rgb.shape[:2], np.float32)
+
+
 class GridOnlyBatches(_Prefetched):
     """``photos`` TRAIN photos per step, up to ``boards_per_image`` crops each; a photo with
     fewer complete boards is padded with zero-weight copies, never with duplicated weight."""
@@ -167,8 +242,12 @@ class GridOnlyBatches(_Prefetched):
         seed: int,
         workers: int,
         strata: Any = None,
+        *,
+        output_contract: GridOutputContract | None = None,
     ) -> None:
         self.photos, self.recipe, self.seed = photos, recipe, seed
+        self.output_contract = output_contract
+        require_visibility_contract(photos, output_contract)
         self.k = int(recipe.board.boards_per_image)
         self.sampler = _sampler(len(photos), max(1, batch_boards // self.k), seed, strata)
         super().__init__(self._build, workers)
@@ -177,15 +256,42 @@ class GridOnlyBatches(_Prefetched):
         crops: list[np.ndarray] = []
         nodes: list[np.ndarray] = []
         weights: list[float] = []
+        supervised: list[dict[str, np.ndarray]] = []
         for slot, index in enumerate(self.sampler.indices(step)):
             rng = step_rng(self.seed, step, slot)
-            rgb, targets = self.photos.rgb(index), self.photos.targets(index)
+            targets = self.photos.targets(index)
+            rgb, support = (
+                (self.photos.rgb(index), None)
+                if self.output_contract is None
+                else photo_pixels_and_support(self.photos, index)
+            )
             chosen = rng.choice(len(targets), size=min(self.k, len(targets)), replace=False)
             for position in chosen:
                 label, weight = targets[int(position)]
-                crop, crop_nodes = build_board_crop(
-                    rgb, label.astype(np.float32), self.recipe.board, self.recipe.augmentation, rng
-                )
+                if self.output_contract is None:
+                    crop, crop_nodes = build_board_crop(
+                        rgb,
+                        label.astype(np.float32),
+                        self.recipe.board,
+                        self.recipe.augmentation,
+                        rng,
+                    )
+                else:
+                    from ..training_core.grid_visibility_targets import supervised_board_crop
+
+                    assert support is not None
+                    item = supervised_board_crop(
+                        rgb,
+                        label.astype(np.float32),
+                        self.recipe.board,
+                        self.recipe.augmentation,
+                        rng,
+                        reference=content_references(self.photos, index)[int(position)],
+                        supervision=self.output_contract.supervision,
+                        source_support=support,
+                    )
+                    crop, crop_nodes = item["crop"], item["nodes"]
+                    supervised.append(item)
                 crops.append(crop)
                 nodes.append(crop_nodes)
                 weights.append(float(weight))
@@ -193,11 +299,23 @@ class GridOnlyBatches(_Prefetched):
                 crops.append(crops[-1])
                 nodes.append(nodes[-1])
                 weights.append(0.0)
-        return {
+                if supervised:
+                    supervised.append(supervised[-1])
+        result = {
             "crops": _crop_tensor(crops),
             "nodes": torch.from_numpy(np.stack(nodes).astype(np.float32)),
             "weights": torch.tensor(weights, dtype=torch.float32),
         }
+        if self.output_contract is not None:
+            result.update(
+                {
+                    key: torch.from_numpy(np.stack([item[key] for item in supervised]))
+                    for key in ("node_weights", "visibility_targets", "visibility_mask")
+                }
+            )
+            for key in ("node_weights", "visibility_mask"):
+                result[key] *= (result["weights"] > 0)[:, None]
+        return result
 
 
 class ScreenGridBatches(_Prefetched):
@@ -213,8 +331,11 @@ class ScreenGridBatches(_Prefetched):
         strata: Any = None,
         *,
         variant: GridRescueVariantV1 | None = None,
+        output_contract: GridOutputContract | None = None,
     ) -> None:
         self.photos, self.recipe, self.seed = photos, recipe, seed
+        self.output_contract = output_contract
+        require_visibility_contract(photos, output_contract)
         self.variant = variant
         if variant is not None:
             variant.require_baseline(recipe.board.margin)
@@ -228,8 +349,13 @@ class ScreenGridBatches(_Prefetched):
             rng = step_rng(self.seed, step, slot)
             targets = self.photos.targets(index)
             boards = [(label.astype(np.float32), ()) for label, _ in targets]
+            rgb, support = (
+                (self.photos.rgb(index), None)
+                if self.output_contract is None
+                else photo_pixels_and_support(self.photos, index)
+            )
             item, chosen = build_screen_item_with_indices(
-                self.photos.rgb(index),
+                rgb,
                 boards,
                 self.recipe.screen,
                 self.recipe.board,
@@ -237,6 +363,13 @@ class ScreenGridBatches(_Prefetched):
                 rng,
                 screen_geometry_override=None if active is None else active.screen,
                 board_geometry_override=None if active is None else active.board,
+                content_references=None
+                if self.output_contract is None
+                else content_references(self.photos, index),
+                visibility_supervision=None
+                if self.output_contract is None
+                else self.output_contract.supervision,
+                source_support=support,
             )
             seen: set[int] = set()
             row = []
@@ -250,6 +383,15 @@ class ScreenGridBatches(_Prefetched):
             for key in ("image", "heat", "offsets", "offset_weight", "crops", "nodes")
         }
         batch["weights"] = torch.tensor(weights, dtype=torch.float32)
+        if self.output_contract is not None:
+            batch.update(
+                {
+                    key: torch.from_numpy(np.stack([item[key] for item in items]))
+                    for key in ("node_weights", "visibility_targets", "visibility_mask")
+                }
+            )
+            for key in ("node_weights", "visibility_mask"):
+                batch[key] *= (batch["weights"] > 0)[..., None]
         return batch
 
     def exposure_members(self, step: int) -> list[dict[str, str]]:

@@ -1,0 +1,27 @@
+{
+  "task": "TASK-1164",
+  "review_round": 1,
+  "requested_model": "claude-opus-5-5",
+  "requested_effort": "high",
+  "payload_sha256": "83cf0368c38d69b18224b29a17722a80c95054917e6ed0a6ef37bf4abbdc5cb1",
+  "protocol": 1,
+  "request_sha256": "cbc62b83be4f5cccac6922527494b7a7ba4becdddd1b101cc4daba42ceb46816",
+  "attempts": [
+    {
+      "number": 1,
+      "status": "blocked",
+      "owner_pid": 22000,
+      "started_unix": 1794147848.1403558,
+      "transport": "cli",
+      "requested_effort": "high",
+      "evidence_source": "cli-system.init;effort-requested-only",
+      "pid": 31344,
+      "process_identity": "134386214481594679",
+      "observed_model": "claude-opus-5-5",
+      "session_ref": "cefc303a-4131-4b53-951a-7d3d8b1d0aee",
+      "exit_code": 0,
+      "diagnostic": "Open findings list contradicts explicit counters.",
+      "ended_unix": 1794148286.9197445
+    }
+  ]
+}

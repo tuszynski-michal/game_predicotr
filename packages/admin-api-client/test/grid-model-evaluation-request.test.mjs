@@ -2,6 +2,35 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('evaluation wrapper preserves the versioned visibility15 and input edge profile', async () => {
+  const evaluation = '22222222-2222-4222-8222-222222222222';
+  const automaticCalibration = [
+    {
+      version: 'full-board-calibration-qualification-v2',
+      state: 'unqualified',
+      reasonCodes: ['COMPLETENESS_REFERENCE_MISSING:inputEdgeClearance'],
+      profile: null,
+    },
+  ];
+  const document = { report: { automaticCalibration } };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      assert.equal(request.method, 'GET');
+      assert.equal(
+        request.url,
+        `http://127.0.0.1:8000/api/v1/admin/grid-model-evaluations/${evaluation}`,
+      );
+      return new Response(JSON.stringify(document), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  });
+  const response = await client.getGridModelEvaluation(evaluation);
+  assert.deepEqual(response.data, document);
+});
+
 test('grid model evaluation wrappers use admin routes and exact bodies', async () => {
   const calls = [];
   const client = createAdminApiClient({

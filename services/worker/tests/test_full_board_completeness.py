@@ -15,7 +15,7 @@ from game_predictor_worker.images.full_board_completeness import (
 def detection(x=10, y=10):
     quad = np.array([[x, y], [x + 50, y], [x + 50, y + 30], [x, y + 30]], np.float32)
     nodes = grid_from_quad(quad)
-    return BoardDetection(1, quad, nodes.copy(), nodes, np.ones(24), np.ones(24), 0.0, 0.0, 24, [])
+    return BoardDetection(1, quad, nodes.copy(), nodes, np.ones(24), np.ones(15), 0.0, 0.0, 24, [])
 
 
 def test_top_row_outside_true_network_input_is_measured_even_for_valid_grid():

@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .grid_training_cohorts import digest
+from .input_edge_clearance import InputEdgeReference, select_input_edge_threshold
 
 AXES = (
     "peak",
@@ -23,6 +24,7 @@ AXES = (
     "rescueDisagreement",
 )
 MINIMUM_AXES = frozenset(AXES[:3])
+AXES_V2 = (*AXES, "inputEdgeClearance")
 QUANTILE_VERSION: Final = "nearest-rank-human-good-source-dedup-v1"
 OUTCOME_VERSION: Final = "full-board-reference-outcome-v1"
 CALIBRATION_VERSION = "full-board-calibration-v1"
@@ -39,14 +41,16 @@ class ClosedCalibration(BaseModel):
 
 
 class FeatureVector(ClosedCalibration):
-    version: Literal["full-board-completeness-features-v1"] = FEATURE_VERSION
+    version: Literal[
+        "full-board-completeness-features-v1", "full-board-completeness-features-v2"
+    ] = FEATURE_VERSION
     values: dict[str, Finite | None]
     notApplicable: tuple[str, ...] = ()
     hardReasons: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def closed_axes(self) -> FeatureVector:
-        if set(self.values) != set(AXES) or set(self.notApplicable) - {
+        if set(self.values) != set(axes_for(self.version)) or set(self.notApplicable) - {
             "rescueDisagreement",
             "neighborDeviation",
         }:
@@ -65,10 +69,15 @@ class ReferenceTarget(ClosedCalibration):
     role: Literal["TRAIN", "VALIDATION-A"]
     humanGood: bool
     features: FeatureVector
+    inputEdgeReference: InputEdgeReference | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
 
 
 class CalibrationPlan(ClosedCalibration):
-    version: Literal["full-board-calibration-plan-v1"] = "full-board-calibration-plan-v1"
+    version: Literal["full-board-calibration-plan-v1", "full-board-calibration-plan-v2"] = (
+        "full-board-calibration-plan-v1"
+    )
     gameId: UUID
     candidateManifestSha256: Sha
     baselineManifestSha256: Sha
@@ -93,10 +102,11 @@ class CalibrationPlan(ClosedCalibration):
     def integrity(self) -> CalibrationPlan:
         if not 1 <= len(self.menu) <= MAX_CONFIGURATIONS:
             raise ValueError("CALIBRATION_MENU_BUDGET")
-        if set(self.manualWhenApplicable) - set(AXES) or set(self.axisCounts) != set(AXES):
+        axes = axes_for(self.version)
+        if set(self.manualWhenApplicable) - set(axes) or set(self.axisCounts) != set(axes):
             raise ValueError("CALIBRATION_PLAN_AXES_INVALID")
         for config in self.menu:
-            if set(config) != set(AXES) or {
+            if set(config) != set(axes) or {
                 key for key, value in config.items() if value is None
             } != set(self.manualWhenApplicable):
                 raise ValueError("CALIBRATION_PLAN_AXES_INVALID")
@@ -109,6 +119,10 @@ class CalibrationPlan(ClosedCalibration):
         return self
 
 
+def axes_for(version: str) -> tuple[str, ...]:
+    return AXES_V2 if version.endswith("-v2") else AXES
+
+
 def make_plan(
     references: Sequence[ReferenceTarget],
     *,
@@ -119,6 +133,7 @@ def make_plan(
     role_proof_sha: str,
     b_assessment_sha: str,
     regression_assessment_sha: str,
+    feature_version: str | None = None,
 ) -> CalibrationPlan:
     """At most 2**8 configurations PER GAME. No inference or B access here.
 
@@ -135,10 +150,37 @@ def make_plan(
             raise ValueError("CALIBRATION_REFERENCE_ALIAS_CONFLICT")
         unique[key] = target
     ordered = [unique[key] for key in sorted(unique)]
+    versions: set[str] = {item.features.version for item in ordered}
+    if feature_version is not None:
+        if feature_version not in (FEATURE_VERSION, "full-board-completeness-features-v2"):
+            raise ValueError("CALIBRATION_FEATURE_VERSION_MISMATCH")
+        versions.add(feature_version)
+    if len(versions) > 1:
+        raise ValueError("CALIBRATION_FEATURE_VERSION_MISMATCH")
+    v2 = versions == {"full-board-completeness-features-v2"}
+    axes = AXES_V2 if v2 else AXES
     levels: list[Sequence[float | None]] = []
     counts: dict[str, dict[str, int]] = {}
     missing = []
-    for axis in AXES:
+    for axis in axes:
+        if axis == "inputEdgeClearance":
+            edge = [
+                item.inputEdgeReference for item in ordered if item.inputEdgeReference is not None
+            ]
+            for item in ordered:
+                ref = item.inputEdgeReference
+                if ref is not None and (
+                    item.role != "VALIDATION-A"
+                    or ref.sourceRepresentativeSha256 != item.sourceRepresentativeSha256
+                    or ref.positionIndex != item.positionIndex
+                    or ref.clearance != item.features.values[axis]
+                ):
+                    raise ValueError("INPUT_EDGE_REFERENCE_TARGET_MISMATCH")
+            threshold, counts[axis] = select_input_edge_threshold(edge, routing_sha)
+            levels.append([threshold])
+            if threshold is None:
+                missing.append(axis)
+            continue
         measured = [
             item
             for item in ordered
@@ -165,10 +207,10 @@ def make_plan(
             )
         )
     menu = sorted(
-        (dict(zip(AXES, values, strict=True)) for values in itertools.product(*levels)), key=digest
+        (dict(zip(axes, values, strict=True)) for values in itertools.product(*levels)), key=digest
     )
     payload = {
-        "version": "full-board-calibration-plan-v1",
+        "version": "full-board-calibration-plan-v2" if v2 else "full-board-calibration-plan-v1",
         "gameId": str(game_id),
         "candidateManifestSha256": candidate_sha,
         "baselineManifestSha256": baseline_sha,
@@ -192,16 +234,21 @@ def make_plan(
 def acceptance_reasons(
     features: FeatureVector, config: Mapping[str, float | None]
 ) -> tuple[str, ...]:
-    if set(config) != set(AXES):
+    axes = axes_for(features.version)
+    if set(config) != set(axes):
         raise ValueError("CALIBRATION_CONFIG_AXES_INVALID")
     reasons = set(features.hardReasons)
-    for axis in AXES:
+    for axis in axes:
         if axis in features.notApplicable:
             continue
         value, threshold = features.values[axis], config[axis]
         if value is None or threshold is None:
             reasons.add("COMPLETENESS_REFERENCE_MISSING:" + axis)
-        elif value < threshold if axis in MINIMUM_AXES else value > threshold:
+        elif (
+            value < threshold
+            if axis in MINIMUM_AXES or axis == "inputEdgeClearance"
+            else value > threshold
+        ):
             reasons.add("COMPLETENESS_THRESHOLD:" + axis)
     return tuple(sorted(reasons))
 
@@ -219,6 +266,9 @@ class AssessedTarget(ClosedCalibration):
     baselineT0Accepted: bool
     candidateFeatures: FeatureVector
     synthetic: bool = False
+    inputEdgeReference: InputEdgeReference | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
 
 
 def _targets(plan: CalibrationPlan, targets: Sequence[AssessedTarget]) -> list[AssessedTarget]:
@@ -311,7 +361,9 @@ def seal_b(plan: CalibrationPlan, targets: Sequence[AssessedTarget]) -> dict[str
     chosen_index = choice[0][2] if choice is not None else None
     chosen_measurement = choice[1] if choice is not None else None
     payload: dict[str, Any] = {
-        "version": "full-board-calibration-sealed-v1",
+        "version": "full-board-calibration-sealed-v2"
+        if plan.version.endswith("-v2")
+        else "full-board-calibration-sealed-v1",
         "gameId": str(plan.gameId),
         "planSha256": plan.sha256,
         "configurationIndex": chosen_index,
@@ -322,6 +374,11 @@ def seal_b(plan: CalibrationPlan, targets: Sequence[AssessedTarget]) -> dict[str
         else ["CALIBRATION_NO_SAFE_CONFIGURATION"],
         "comparisons": len(plan.menu),
     }
+    if plan.version.endswith("-v2"):
+        payload["reasonCodes"] = sorted(
+            set(payload["reasonCodes"])
+            | {"COMPLETENESS_REFERENCE_MISSING:" + axis for axis in plan.manualWhenApplicable}
+        )
     return {**payload, "sha256": digest(payload)}
 
 
@@ -349,7 +406,9 @@ def assess_regression(
         measured = measure_targets(plan, targets, plan.menu[index])
         reasons = list(sealed["reasonCodes"]) + qualification_reasons(measured)
     payload: dict[str, Any] = {
-        "version": CALIBRATION_VERSION,
+        "version": "full-board-calibration-v2"
+        if plan.version.endswith("-v2")
+        else CALIBRATION_VERSION,
         "gameId": str(plan.gameId),
         "planSha256": plan.sha256,
         "sealedSha256": sealed["sha256"],

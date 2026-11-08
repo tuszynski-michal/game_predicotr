@@ -126,7 +126,9 @@ def require_calibration_evidence(
     if parsed.profile is not None:
         profile = parsed.profile.model_dump(mode="json")
         expected = {
-            "version": "full-board-auto-profile-v1",
+            "version": "full-board-auto-profile-v2"
+            if plan.version.endswith("-v2")
+            else "full-board-auto-profile-v1",
             "gameId": str(plan.gameId),
             "candidateManifestSha256": plan.candidateManifestSha256,
             "planSha256": plan.sha256,

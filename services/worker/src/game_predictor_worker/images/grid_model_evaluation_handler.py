@@ -50,6 +50,7 @@ from .grid_cohort_dataset import (
     GridBoardDataset,
     GridCohortDatasetError,
     GridCohortSnapshot,
+    frame_rgb_and_box,
     has_full_geometry,
 )
 
@@ -279,6 +280,9 @@ class GridModelEvaluationJobHandler:
             def load(source: dict[str, Any] = source) -> Any:
                 return snapshot.frame(source, role).rgb
 
+            def load_with_support(source: dict[str, Any] = source) -> Any:
+                return frame_rgb_and_box(snapshot.frame(source, role))
+
             arguments = (
                 source_id,
                 group,
@@ -287,7 +291,11 @@ class GridModelEvaluationJobHandler:
                 load,
             )
             photos.append(
-                CorrectionControlPhoto(*arguments, full_geometry=has_full_geometry(source))
+                CorrectionControlPhoto(
+                    *arguments,
+                    full_geometry=has_full_geometry(source),
+                    load_with_support=load_with_support,
+                )
                 if correction
                 else ControlPhoto(*arguments)
             )

@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 from game_predictor_api.domain.grid_model_registry import descriptor_sha256 as digest
+from game_predictor_api.domain.grid_visibility_contract import require_output_contract
 
 from ..geometry_core.settings import BoardPreset
 from .full_board_completeness import (
@@ -56,6 +57,11 @@ def runtime_evidence(
         raise ValueError("COMPLETENESS_PRESET_CHANGED")
     archived = json.loads(content)
     board = BoardPreset.model_validate(archived["preset"]["board"])
+    contract = None
+    if profile["version"] == "full-board-auto-profile-v2":
+        if archived.get("format") != "neural-grid-bundle-v2":
+            return {}
+        contract = require_output_contract(archived)
     route = observation.get("routing")
     selected = observation.get("selectedPath")
     routing_sha = calibration_routing_sha(pin["catalogueManifestSha256"], board, route, selected)
@@ -94,13 +100,18 @@ def runtime_evidence(
             rescue_required=required,
             rescue_completed=completed,
             available_source_support=available,
+            output_contract=contract,
+            board=board,
+            geometry=geometry,
         )
         if position is None:
             vector = vector.model_copy(
                 update={"hardReasons": (*vector.hardReasons, "COMPLETENESS_SLOT_BINDING_REQUIRED")}
             )
         value = {
-            "version": "full-board-result-evidence-v1",
+            "version": "full-board-result-evidence-v2"
+            if contract is not None
+            else "full-board-result-evidence-v1",
             "sourceSha256": source_sha,
             "modelManifestSha256": pin["catalogueManifestSha256"],
             "operationPinSha256": pin["pinSha256"],

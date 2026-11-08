@@ -455,6 +455,11 @@ class GridCohortEvidenceReader:
                             from .grid_cell_content_pins import apply_blind_a_geometry
 
                             label = apply_blind_a_geometry(label)
+                        from .production_cell_reference import capture_production_reference
+
+                        label["productionContentReference"] = capture_production_reference(
+                            self.session, game, source, label
+                        )
                 except (GridCohortError, ContentError) as error:
                     label = None
                     reason = error.code

@@ -169,7 +169,7 @@ i `find_referencing_symbols`. Stałe użycie Serena i Graphify wymaga werdyktu
 
 - Każda skończona komenda musi mieć jawny timeout, domyślnie ≤ 120 s; dłuższy
   tylko dla znanego builda lub benchmarku po uprzedzeniu użytkownika oraz dla
-  audytu krzyżowego (≤ 600 s, według skilla audytu).
+  audytu krzyżowego (1800 s, host ≤ 1860 s; decyzja operatora 2026-11-08).
 - Serwery, watchery i procesy bez końca uruchamiaj jako osobny, kontrolowany
   proces (nie foreground), zapisz PID, gotowość sprawdzaj pollingiem ≤ 10 s.
 - Komendę bez nowego wyniku przez 60 s (poza kontrolowanym buildem lub

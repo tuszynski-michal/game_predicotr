@@ -43,10 +43,22 @@ def load_frozen_assessment(
     snapshot = GridCohortSnapshot(root, row.manifest_path, pin["manifestSha256"])
     if snapshot.manifest["gameId"] != str(game) or snapshot.manifest["cohortId"] != pin["cohortId"]:
         raise ValueError("CALIBRATION_FROZEN_COHORT_CHANGED")
-    return snapshot_assessment_references(snapshot)
+    context = None
+    if report.get("schemaVersion") == "grid-model-evaluation-read-v6":
+        from game_predictor_worker.images.production_cell_input import manifest_input_context
+
+        from .grid_model_registry_models import GridModelVersionModel
+
+        candidate = session.get(GridModelVersionModel, UUID(report["versionId"]))
+        if candidate is None:
+            raise ValueError("INPUT_CONTENT_MODEL_CONTEXT_REQUIRED")
+        context = manifest_input_context(root, json.loads(candidate.manifest_json))
+    return snapshot_assessment_references(snapshot, input_context=context)
 
 
-def snapshot_assessment_references(snapshot: Any) -> FrozenAssessmentReferences:
+def snapshot_assessment_references(
+    snapshot: Any, *, input_context: dict[str, Any] | None = None
+) -> FrozenAssessmentReferences:
     """Project exact metadata through the same strict dataset adapters as the worker."""
     from game_predictor_worker.images.grid_cohort_dataset import (
         GridAssessmentDataset,
@@ -55,7 +67,11 @@ def snapshot_assessment_references(snapshot: Any) -> FrozenAssessmentReferences:
 
     if snapshot.manifest["policyVersion"] != "application-grid-corrections-v4":
         raise ValueError("CALIBRATION_PURPOSE_COHORT_REQUIRED")
-    return FrozenAssessmentReferences.from_sources(
+    from dataclasses import replace
+
+    from game_predictor_worker.images.production_cell_input import bind_input_references
+
+    frozen = FrozenAssessmentReferences.from_sources(
         snapshot.manifest,
         snapshot.manifest_sha256,
         {
@@ -65,6 +81,12 @@ def snapshot_assessment_references(snapshot: Any) -> FrozenAssessmentReferences:
                 source for source, _ in GridAssessmentDataset(snapshot, "REGRESSION").indexed()
             ],
         },
+    )
+    return replace(
+        frozen,
+        input_content_verifier=lambda prepared: bind_input_references(
+            frozen, snapshot, prepared, input_context
+        ),
     )
 
 

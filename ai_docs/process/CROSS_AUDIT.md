@@ -26,14 +26,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/audit_task.ps1 `
   -Task 1163 -Auditor claude -Model claude-opus-5-5 -Effort high `
   -Paths scripts/run_claude_audit.py,scripts/audit_task.ps1,scripts/tests `
   -Plan ai_docs/delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md `
-  -Python D:/game_predicotr/.venv/Scripts/python.exe -TimeoutSec 480 -DryRun
+  -Python D:/game_predicotr/.venv/Scripts/python.exe -TimeoutSec 1800 -DryRun
 ```
 
 Dostosuj `-Paths` do pełnego zakresu taska; przykład nie jest jego listą plików.
 `-DryRun` zapisuje tylko pakiet i wypisuje SHA256, bez płatnego wywołania.
 Sprawdź brak danych spoza zatwierdzonego zakresu. Uruchomienie bez `-DryRun`
-wykonuje jedną próbę. Host audytu ma limit 600 s, runner najwyżej 480 s,
-bezczynność strumienia najwyżej 60 s. Codex domyślnie zachowuje `medium`,
+wykonuje jedną próbę. Decyzją operatora z 2026-11-08 domyślny i maksymalny
+limit audytu wynosi 1800 s (30 minut), a host ma do 1860 s na pracę i sprzątanie.
+Zastępuje to wcześniejsze 480/600 s. Limit bezczynności strumienia pozostaje
+60 s. Codex domyślnie zachowuje `medium`,
 Claude używa `high`; tabela planu jest nadrzędna wobec domyślnych ustawień.
 
 Runner `scripts/run_claude_audit.py` przekazuje cały zamrożony pakiet na stdin

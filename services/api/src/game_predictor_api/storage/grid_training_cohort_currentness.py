@@ -23,6 +23,9 @@ from game_predictor_api.storage.grid_quality_observations import (
 from game_predictor_api.storage.grid_reinference import source_fence
 from game_predictor_api.storage.grid_training_cohort_evidence import unchanged_approved_target
 from game_predictor_api.storage.grid_training_cohort_repository import CohortDeadline
+from game_predictor_api.storage.production_cell_reference import (
+    require_current_production_reference,
+)
 
 
 @dataclass(frozen=True)
@@ -77,9 +80,12 @@ def inspect_member(repo: Any, member: Any) -> MemberCurrentness:
         if label is None:
             continue
         try:
-            require_current_content_pin(repo.session, member.game_id, label)
+            require_current_content_pin(repo.session, member.game_id, label, source=source)
+            require_current_production_reference(repo.session, member.game_id, source, label)
         except ContentError as error:
             failure = GridCohortError(error.code, error.message)
+        except GridCohortError as error:
+            failure = error
         current = targets.get(position["positionIndex"])
         old = label["targetFence"]["board"]
         live = (current or {}).get("board") or {}

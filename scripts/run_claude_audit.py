@@ -631,7 +631,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--effort", choices=("low", "medium", "high"), default="high")
     parser.add_argument("--review-round", type=int, choices=(1, 2), default=1)
     parser.add_argument("--transport-attempt", type=int, default=1)
-    parser.add_argument("--timeout", type=float, default=480)
+    parser.add_argument("--timeout", type=float, default=1800)
     parser.add_argument("--idle-timeout", type=float, default=60)
     parser.add_argument("--import-report", type=Path)
     parser.add_argument("--payload-sha")
@@ -643,8 +643,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--task must be TASK-NNNN")
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", args.model):
         parser.error("invalid model name")
-    if not 0 < args.timeout <= 480 or not 0 < args.idle_timeout <= 60:
-        parser.error("total deadline must be <=480s and idle deadline <=60s")
+    if not 0 < args.timeout <= 1800 or not 0 < args.idle_timeout <= 60:
+        parser.error("total deadline must be <=1800s and idle deadline <=60s")
     if args.transport_attempt < 1:
         parser.error("transport attempt must be positive")
     return args

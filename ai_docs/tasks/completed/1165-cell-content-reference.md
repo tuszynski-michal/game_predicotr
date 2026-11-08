@@ -341,7 +341,7 @@ nie importować ani przypisać ich testowo bez operacyjnej zgody.
 
 ## Outcome
 
-Commit: v1.7.574 (hash dopisuje kolejny commit).
+Commit: v1.7.574 / `450f9ef11bc08aae5b9e9e5fbba89d1408a020ed`.
 
 R1 audytu: REVISE, P0=0/P1=1/P2=4. Jedna runda poprawek jest gotowa do R2:
 pixel/frame-bound contentTargetSource z zachowanym annotation provenance;

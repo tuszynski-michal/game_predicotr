@@ -37,6 +37,9 @@ _UNQUALIFIED = {
 class _PinnedInspector:
     """The snapshot loader already verified bytes; this reader checks evidence only."""
 
+    def __init__(self, root: Path | None = None) -> None:
+        self.root = root
+
     def inspect(self, payload: dict[str, Any]) -> tuple[bool, str]:
         return True, "PINNED_MODEL"
 
@@ -46,10 +49,12 @@ class _PinnedInspector:
         )
 
 
-def _evidence(session: Session, snapshot: NeuralGridSnapshot, game_id: UUID) -> dict[str, Any]:
+def _evidence(
+    session: Session, snapshot: NeuralGridSnapshot, game_id: UUID, artifact_root: Path | None = None
+) -> dict[str, Any]:
     descriptor = snapshot_descriptor(snapshot)
     repository = SqlAlchemyGridModelRegistryRepository(session)
-    service = GridModelRegistryService(repository, _PinnedInspector())
+    service = GridModelRegistryService(repository, _PinnedInspector(artifact_root))
     # Deliberately skip mutable assignment/default. The exact frozen descriptor is authority.
     _, evidence = service.control._eligible_inspected(
         {
@@ -77,7 +82,7 @@ def prepare_operation_pin(
         "reasonCodes": [GAME_EVALUATION_REQUIRED],
     }
     try:
-        evidence = _evidence(session, snapshot, game_id)
+        evidence = _evidence(session, snapshot, game_id, artifact_root)
     except GridModelRegistryError as error:
         if error.code not in _UNQUALIFIED:
             raise
@@ -116,6 +121,7 @@ def recheck_operation_pin(
     pin: object,
     model_snapshot: object,
     game_id: UUID,
+    artifact_root: Path | None = None,
 ) -> tuple[str, ...]:
     snapshot = NeuralGridSnapshot.from_payload(model_snapshot)
     try:
@@ -130,7 +136,7 @@ def recheck_operation_pin(
         return (GAME_EVALUATION_REQUIRED,)
     # Check the exact report and evidence selected at prepare, never replace it.
     try:
-        evidence = _evidence(session, snapshot, game_id)
+        evidence = _evidence(session, snapshot, game_id, artifact_root)
     except GridModelRegistryError as error:
         if error.code not in _UNQUALIFIED:
             raise
@@ -179,9 +185,25 @@ def _automatic_evidence(
     if report is None or invalidated or report.report_sha256 != evidence["evaluationSha256"]:
         return unqualified
     document = json.loads(report.report_json)
-    if document.get("schemaVersion") != "grid-model-evaluation-read-v5":
+    if document.get("schemaVersion") not in {
+        "grid-model-evaluation-read-v5",
+        "grid-model-evaluation-read-v6",
+    }:
         return unqualified
-    matches = [item for item in document["automaticCalibration"] if item["gameId"] == str(game)]
+    if document.get("schemaVersion") == "grid-model-evaluation-read-v6":
+        from game_predictor_api.domain.production_cell_evaluation import require_report
+
+        try:
+            require_report(
+                report.report_json,
+                manifest=snapshot_descriptor(snapshot),
+                base_sha256=document["baseManifestSha256"],
+            )
+        except (KeyError, ValueError, TypeError):
+            return unqualified
+    matches = [
+        item for item in document.get("automaticCalibration", []) if item["gameId"] == str(game)
+    ]
     if len(matches) != 1 or matches[0]["state"] != "qualified":
         return unqualified
     from .full_board_calibration_evidence import (

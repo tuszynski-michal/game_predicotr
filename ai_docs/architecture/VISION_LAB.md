@@ -1,10 +1,49 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-11-03
+last_updated: 2026-11-08
 ---
 
 # Architektura laboratorium wizji
+
+## Production cell evaluation (D-591, TASK-1166)
+
+Opt-in capture freezes `production-cell-evaluation-reference-v1` in each target:
+the full import classifier/render snapshot and source provenance, plus the frozen
+TRAIN/A repeatability report where available. `ProductionContentRun` accepts one
+consistent qualified measurement per game; REG never estimates u or δ. Old
+manifests are not backfilled. `VirtualCellRenderer` supplies actual padded corners,
+quantized exactly as the production float32 warp and then evaluated in float64.
+The convex support intersects real source pixels. Managed crops already occupy
+their original-coordinate canvas; valid_box is applied once, including renderer
+clearance. Missing raster/detection is distinct from unknown annotation.
+
+`production_cell_geometry` implements Euclidean dilation containment, convex
+erosion/intersection and source-wide symbol/crop coverage. EPS=1e-6 source pixel;
+area comparisons derive their tolerance from pixel epsilon and perimeter. Empty
+erosion is borderline. `ProductionContentObserver` reuses already-executed model
+outputs, preserves Hungarian matching, detects alternative optimal assignments
+and requires consistent physical slots. Every crop, including unmatched predicted
+boards, participates in the foreign-symbol matrix. Durable per-photo records keep
+predictions, actual raster hashes, support, matrix and separate input/final states.
+
+The A adapter records `frozen-a-neural-input-content-v1` before B: screen quad,
+actual homography, canvas/preset and rescue variant, source/canvas/raster checksums,
+content SHA/revision and per-cell input truth. The frozen reader recomputes pixels
+and truth and checks preset/variant against the pinned neural bundle. Only then
+does it supply T1's verified SHA/revision/strict-bool tuple. No historical cohort
+flag is edited. Unknown or unavailable evidence never becomes inputCropped=False.
+
+`grid-model-evaluation-read-v6` pairs exclusively with
+`production-cell-per-game-gate-v1` and rule
+`production-cell-content-evaluation-v1`. The full previous v3/v4/v5 report remains
+in rawQuality. Typed content evidence produces the new per-game decisions without
+changing legacy gate code. SQL0183 adds command-v6/bind-v4 and exact version pairs;
+existing wrappers remain historical. Publication/default/apply replays frozen
+detail/reference evidence and compares current crop configuration, not classifier
+weight identity. Cross-game reads use independent READ ONLY game sessions, never
+rebind a catalogue transaction. Nullable original-source links remain legal on
+verified live copies; deletion of the actual target still fails currentness.
 
 ## Durable source-cell content (D-590, TASK-1165)
 
@@ -94,9 +133,9 @@ qualification/profile versions through regenerated OpenAPI and client types.
 Only `verified_content` with a content SHA and revision may supply the threshold;
 the API requires the same `contentReferenceSha256`/`contentReferenceRevision` in
 the independently frozen A target, in the existing game/source/slot/purpose scope.
-Absent reader pins or forged evidence fail closed. T1's default observer emits
-only the geometry proxy; T2/T3 must provide the actual content adapter before
-automatic qualification is possible.
+Absent reader pins or forged evidence fail closed. T1's legacy observer emits
+only the geometry proxy. T3 supplies the actual content adapter for new opt-in
+cohorts and independently replays its input evidence before automatic qualification.
 
 ## Compact status and input replay (TASK-1159, D-588)
 

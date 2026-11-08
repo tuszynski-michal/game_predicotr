@@ -1,10 +1,33 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-10-16
+last_updated: 2026-11-08
 ---
 
 # Laboratorium wizji
+
+## Ocena produkcyjnej zawartości (D-591, TASK-1166)
+
+Nowa ocena rozróżnia `finalContentState` rzeczywistego rastra klasyfikatora od
+`inputContentState` wejścia sieci geometrii. Utrata pikseli na wejściu NN może
+blokować automat, lecz nie zmienia pełnego końcowego wycinka w clipped. Geometry
+proxy nie zastępuje pełnej, zatwierdzonej obwiedni symbolu. Unknown i opcjonalne
+fragmenty nie dają dowodu preserved; brak detekcji lub renderu to missing.
+
+Każda oznaczona instancja i każda wymagana gra A/REG mają stały mianownik dla
+bazy i kandydata. Nie wolno kompensować nowego pogorszenia, obcego pola, remisu
+lub pełnego obcego symbolu poprawą innej instancji. Wymagane są jednoznaczne
+Hungarian/slot binding, brak regresji recall/board/full-photo correctness oraz
+FP/duplikatów na pełnych zdjęciach i NME≤base+zamrożoneδ. Bieżąca gra wymaga
+co najmniej jednej dodatkowej poprawnej planszy z15visible/preserved bez
+niejednoznaczności. REG wymaga5pełnych opisanych zdjęć per gra; partial nie
+ustanawia poprawności całego zdjęcia, unknown>10% roli blokuje ocenę.
+
+Dowód dotyczy przypiętych rzeczywistych ustawień wycinka. Zmiana paddingu,
+rozmiaru, interpolacji lub wersji renderowania blokuje użycie starego raportu
+do publikacji/defaultu/automatycznego zastosowania. Sama zmiana wag przy tej
+samej konfiguracji cropu nie zmienia geometrii. Historyczne raporty zachowują
+swoją interpretację; brak nowych pinów nie tworzy kwalifikacji nowej wersji.
 
 ## Niezależna zawartość i ślepy pomiar (D-590, TASK-1165)
 

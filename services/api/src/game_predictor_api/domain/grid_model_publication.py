@@ -59,6 +59,7 @@ def require_evaluation_evidence(
             "grid-model-evaluation-read-v3",
             "grid-model-evaluation-read-v4",
             "grid-model-evaluation-read-v5",
+            "grid-model-evaluation-read-v6",
         }:
             return _require_v2(
                 report_id=report_id,
@@ -159,6 +160,7 @@ def _require_v2(
             "grid-model-evaluation-read-v3",
             "grid-model-evaluation-read-v4",
             "grid-model-evaluation-read-v5",
+            "grid-model-evaluation-read-v6",
         )
         if scoped:
             from .grid_correction_evaluation import require_report as correction_report
@@ -168,6 +170,10 @@ def _require_v2(
             from .full_board_calibration_report import require_report as calibrated_report
 
             reader = calibrated_report
+        if json.loads(report_json).get("schemaVersion") == "grid-model-evaluation-read-v6":
+            from .production_cell_evaluation import require_report as content_report
+
+            reader = content_report
         report = reader(report_json, manifest=manifest, base_sha256=base_sha256)
     except GridEvaluationReportError as error:
         raise ValueError(str(error)) from error

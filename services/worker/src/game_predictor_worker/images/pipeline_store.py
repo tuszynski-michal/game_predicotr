@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from hashlib import sha256
+from pathlib import Path
 from typing import cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -117,8 +118,11 @@ class ImagePipelineStoreError(JobHandlerError):
 
 
 class SqlAlchemyImagePipelineStore:
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(
+        self, session_factory: sessionmaker[Session], *, artifact_root: Path | None = None
+    ) -> None:
         self._session_factory = session_factory
+        self._artifact_root = artifact_root
 
     def stage_results(
         self,
@@ -795,6 +799,7 @@ class SqlAlchemyImagePipelineStore:
                 job=job,
                 source=source,
                 revision=source_geometry,
+                artifact_root=self._artifact_root,
                 structured=None
                 if geometry_stage is None
                 else geometry_stage.payload.get("structuredGeometry"),

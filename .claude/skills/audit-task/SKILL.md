@@ -25,13 +25,14 @@ niej nowej walidacji receipt ani sprawdzania `system.init`.
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/audit_task.ps1 `
      -Task 1163 -Auditor codex -Model gpt-6-astra -Effort medium -Base HEAD `
      -Paths scripts/run_claude_audit.py,scripts/audit_task.ps1,scripts/tests `
-     -Plan ai_docs/delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md -TimeoutSec 480
+     -Plan ai_docs/delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md -TimeoutSec 1800
    ```
 
    `-DryRun` tylko przygotowuje brief. `-Base` domyślnie HEAD obejmuje zmiany
    niezacommitowane i nowe pliki; po commicie wskaż ref sprzed taska. Pusta
    lista zmian dla podanego `-Paths` jest błędem, nie pustym audytem.
-3. Host ma limit do600s, audyt do480s. Codex CLI pracuje z `exec --sandbox
+3. Host ma limit do1860s, audyt do1800s (decyzja operatora 2026-11-08).
+   Codex CLI pracuje z `exec --sandbox
    read-only --output-last-message`, przez `node.exe` i `codex.js`, gdy shim
    `.cmd` nie przenosi cudzysłowów. Domyślne nadpisanie Windows sandbox to
    `unelevated`; `-CodexWindowsSandbox none` pozostawia konfigurację operatora.

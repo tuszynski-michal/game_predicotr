@@ -27,11 +27,12 @@ P0/P1, task, rundę i SHA pakietu. Receipt jest częścią dowodu audytu.
      -Task 1163 -Auditor claude -Model claude-opus-5-5 -Effort high -Base HEAD `
      -Paths scripts/run_claude_audit.py,scripts/audit_task.ps1,scripts/tests `
      -Plan ai_docs/delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md `
-     -Python D:/game_predicotr/.venv/Scripts/python.exe -TimeoutSec 480
+     -Python D:/game_predicotr/.venv/Scripts/python.exe -TimeoutSec 1800
    ```
 
    Zastąp scope przykładu rzeczywistymi plikami taska. Host może mieć limit
-   600 s. Runner ma limit480s/idle60s, Read/Glob/Grep bez MCP i prompt na stdin.
+   1860 s. Runner ma limit1800s/idle60s (decyzja operatora 2026-11-08),
+   Read/Glob/Grep bez MCP i prompt na stdin.
    Nie zmieniaj ustawień konta, `setting-sources`, auth ani poświadczeń.
 4. Odczytaj raport i sąsiedni `.receipt.json`; dopasuj SHA do pakietu.
    `REVISE` lub otwarte P0/P1 blokują commit. Brak raportu, timeout, OAuth

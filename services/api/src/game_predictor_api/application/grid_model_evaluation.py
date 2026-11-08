@@ -599,6 +599,12 @@ class GridModelEvaluationService:
                 )
 
                 reader = calibrated_report
+            if json.loads(row.report_json).get("schemaVersion") == "grid-model-evaluation-read-v6":
+                from game_predictor_api.domain.production_cell_evaluation import (
+                    require_report as content_report,
+                )
+
+                reader = content_report
             return reader(row.report_json, manifest=manifest, base_sha256=base.manifest_sha256)
         except GridEvaluationReportError as error:
             raise _error("GRID_MODEL_REGISTRY_CORRUPT", str(error)) from error

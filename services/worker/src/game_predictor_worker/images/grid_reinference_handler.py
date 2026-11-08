@@ -259,6 +259,7 @@ class GridReinferenceHandler:
                         pin=d.get(OPERATION_PIN_KEY),
                         model_snapshot=d["modelSnapshot"],
                         game_id=job.game_id,
+                        artifact_root=self.root,
                     )
             prepared = (
                 None
@@ -283,7 +284,7 @@ class GridReinferenceHandler:
                     )
                 )
                 acquire_sequence_ownership_lock(session, game_id=job.game_id)
-                writer = SqlAlchemyVirtualGridGeometryRepository(session)
+                writer = SqlAlchemyVirtualGridGeometryRepository(session, artifact_root=self.root)
                 writer._ensure_projection_state(job.game_id)
                 acquire_image_sequence_locks(
                     session,
@@ -336,6 +337,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                         pin=d.get(OPERATION_PIN_KEY),
                         model_snapshot=d["modelSnapshot"],
                         game_id=job.game_id,
+                        artifact_root=self.root,
                     )
                 good, outcomes = [], {}
                 for target in targets:

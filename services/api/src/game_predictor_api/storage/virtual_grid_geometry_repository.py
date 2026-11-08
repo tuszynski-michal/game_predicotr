@@ -146,9 +146,11 @@ class SqlAlchemyVirtualGridGeometryRepository:
         session: Session,
         *,
         source_snapshot_policy: Literal["board_revision", "current_live_slots"] = "board_revision",
+        artifact_root: Any = None,
     ) -> None:
         self._session = session
         self._source_snapshot_policy = source_snapshot_policy
+        self._artifact_root = artifact_root
 
     def save_automatic_reinference_source(
         self,
@@ -184,6 +186,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 pin=operation_pin,
                 model_snapshot=model_snapshot,
                 game_id=base.game_id,
+                artifact_root=self._artifact_root,
             )
             if qualification_blockers:
                 return {}, qualification_blockers

@@ -320,7 +320,7 @@ class SqlAlchemyGridTrainingCohortRepository:
                     dict[str, Any],
                     self.session.execute(
                         text(
-                            "SELECT public.recording_cohort_command_v5("
+                            "SELECT public.recording_cohort_command_v6("
                             ":game,CAST(:body AS jsonb),:actor)"
                         ),
                         {"game": game, "body": json.dumps(command), "actor": actor},

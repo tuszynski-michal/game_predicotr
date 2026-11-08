@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-561](DECISION_LOG_2026.md#d-561--parity-eksportu-onnx-względna-do-wielkości-wyjścia) | Parity eksportu ONNX względna do wielkości wyjścia | accepted | 2026-10-16 | Różnica torch/ONNX dzielona przez max(1, moduł wyjścia torch): współrzędne w pikselach nie padają na szumie fp32, wyjścia jednostkowe bez zmian. |
 | [D-560](DECISION_LOG_2026.md#d-560--wspólny-kandydat-geometrii-v3-kilku-gier) | Wspólny kandydat geometrii V3 kilku gier | accepted | 2026-10-16 | Jedna baza na TRAIN kilku gier z równą wagą gier i nagrań, przypięty plan bez aliasów kontrolnych, ocena na wszystkich kohortach treningu. |
 | [D-559](DECISION_LOG_2026.md#d-559--ocena-kandydata-geometrii-v3-per-gra-i-most-aktualności-dowodów) | Ocena kandydata geometrii V3 per gra i most aktualności dowodów | accepted | 2026-10-16 | Raport v2 z miarami bazy i kandydata per gra, PASS tylko bez regresji w każdej grze, proof per gra z licznikiem notices blokuje nieaktualną publikację. |
 | [D-558](DECISION_LOG_2026.md#d-558--trwały-trening-geometrii-v3-w-osobnym-lane-z-procesem-gpu) | Trwały trening geometrii V3 w osobnym lane z procesem GPU | accepted | 2026-10-16 | Lane i slot `grid_training`, nadzorca z bazą i trener GPU bez bazy, wznowienie po kroku, kandydat `not_evaluated` bez duplikatu. |

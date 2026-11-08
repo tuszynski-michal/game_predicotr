@@ -207,6 +207,24 @@ def report_path(audit: dict[str, Path]) -> Path:
     return audit["repo"] / "ai_docs/quality/TASK-1163_AUDIT_claude-opus-5-5.md"
 
 
+@pytest.mark.parametrize("explicit", [False, True], ids=["default", "explicit-1800"])
+def test_thirty_minute_deadline_completes_fast_fake_cli(
+    audit: dict[str, Path], explicit: bool
+) -> None:
+    arguments = command(audit)
+    index = arguments.index("--timeout")
+    del arguments[index : index + 2]
+    if explicit:
+        arguments += ["--timeout", "1800"]
+    started = time.monotonic()
+    result = subprocess.run(arguments, capture_output=True, text=True, timeout=40)
+    assert result.returncode == 0, result.stderr
+    assert time.monotonic() - started < 40
+    assert re.search(r"total=1800(?:\.0)?s idle=60s", result.stdout)
+    assert len(audit["calls"].read_text().splitlines()) == 1
+    assert "Werdykt: PASS" in report_path(audit).read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize("mode, verdict", [("pass", "PASS"), ("revise", "REVISE")])
 def test_completed_replay_after_lost_publication(
     audit: dict[str, Path],
@@ -466,6 +484,11 @@ def test_audit_oauth_topic_is_not_auth_failure(
     [
         ["--review-round", "3"],
         ["--timeout", "invalid"],
+        ["--timeout", "1800.000001"],
+        ["--timeout", "nan"],
+        ["--timeout", "inf"],
+        ["--timeout=-inf"],
+        ["--timeout", "0"],
         ["--model"],
         ["--effort", "max"],
     ],

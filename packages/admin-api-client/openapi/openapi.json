@@ -7556,6 +7556,116 @@
         "title": "ContentBlindWrite",
         "type": "object"
       },
+      "ContentGameEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "classifierSnapshotSha256s": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "title": "Classifiersnapshotsha256S",
+            "type": "array"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "freshRegression": {
+            "title": "Freshregression",
+            "type": "boolean"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "measurementSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurementsha256"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "renderConfigurationSha256s": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "title": "Renderconfigurationsha256S",
+            "type": "array"
+          },
+          "roles": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ContentRoleEvidence"
+            },
+            "propertyNames": {
+              "enum": [
+                "VALIDATION",
+                "REGRESSION"
+              ]
+            },
+            "title": "Roles",
+            "type": "object"
+          },
+          "state": {
+            "enum": [
+              "ready",
+              "not_evaluable"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "u": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "U"
+          }
+        },
+        "required": [
+          "gameId",
+          "state",
+          "reasonCodes",
+          "u",
+          "delta",
+          "measurementSha256",
+          "classifierSnapshotSha256s",
+          "renderConfigurationSha256s",
+          "freshRegression",
+          "roles"
+        ],
+        "title": "ContentGameEvidence",
+        "type": "object"
+      },
       "ContentReadinessResponse": {
         "additionalProperties": false,
         "properties": {
@@ -7837,6 +7947,118 @@
           "recordedAt"
         ],
         "title": "ContentRevision",
+        "type": "object"
+      },
+      "ContentRoleEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "base": {
+            "$ref": "#/components/schemas/ModelContentCounts"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/ModelContentCounts"
+          },
+          "degradedInstances": {
+            "minimum": 0.0,
+            "title": "Degradedinstances",
+            "type": "integer"
+          },
+          "fullPhotos": {
+            "minimum": 0.0,
+            "title": "Fullphotos",
+            "type": "integer"
+          },
+          "newForeignSymbols": {
+            "minimum": 0.0,
+            "title": "Newforeignsymbols",
+            "type": "integer"
+          },
+          "newMatchAmbiguities": {
+            "minimum": 0.0,
+            "title": "Newmatchambiguities",
+            "type": "integer"
+          },
+          "newTies": {
+            "minimum": 0.0,
+            "title": "Newties",
+            "type": "integer"
+          },
+          "newWrongCells": {
+            "minimum": 0.0,
+            "title": "Newwrongcells",
+            "type": "integer"
+          },
+          "occluded": {
+            "minimum": 0.0,
+            "title": "Occluded",
+            "type": "integer"
+          },
+          "outOfFrame": {
+            "minimum": 0.0,
+            "title": "Outofframe",
+            "type": "integer"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "referenceSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Referencesha256",
+            "type": "string"
+          },
+          "slots": {
+            "minimum": 0.0,
+            "title": "Slots",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "ready",
+              "not_evaluable"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "unknown": {
+            "minimum": 0.0,
+            "title": "Unknown",
+            "type": "integer"
+          },
+          "visible": {
+            "minimum": 0.0,
+            "title": "Visible",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "reasonCodes",
+          "photos",
+          "fullPhotos",
+          "slots",
+          "visible",
+          "unknown",
+          "occluded",
+          "outOfFrame",
+          "referenceSha256",
+          "base",
+          "candidate",
+          "degradedInstances",
+          "newWrongCells",
+          "newTies",
+          "newForeignSymbols",
+          "newMatchAmbiguities"
+        ],
+        "title": "ContentRoleEvidence",
         "type": "object"
       },
       "ContentRoleReadiness": {
@@ -16835,7 +17057,8 @@
                     "grid-model-evaluation-read-v2": "#/components/schemas/GridModelEvaluationReport",
                     "grid-model-evaluation-read-v3": "#/components/schemas/GridCorrectionEvaluationReport",
                     "grid-model-evaluation-read-v4": "#/components/schemas/GridScreenCorrectionEvaluationReport",
-                    "grid-model-evaluation-read-v5": "#/components/schemas/GridCalibratedEvaluationReport"
+                    "grid-model-evaluation-read-v5": "#/components/schemas/GridCalibratedEvaluationReport",
+                    "grid-model-evaluation-read-v6": "#/components/schemas/GridProductionCellEvaluationReport"
                   },
                   "propertyName": "schemaVersion"
                 },
@@ -16851,6 +17074,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/GridCalibratedEvaluationReport"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GridProductionCellEvaluationReport"
                   },
                   {
                     "$ref": "#/components/schemas/GridAssignedComparisonReport"
@@ -17614,6 +17840,356 @@
           "reasonCode"
         ],
         "title": "GridModelVersionResponse",
+        "type": "object"
+      },
+      "GridProductionCellEvaluationGame": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "coverage": {
+            "enum": [
+              "complete",
+              "incomplete"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "regression": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Regression",
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationRoles"
+          },
+          "targetMetric": {
+            "const": "production_cell_content",
+            "title": "Targetmetric",
+            "type": "string"
+          },
+          "validation": {
+            "enum": [
+              "pass",
+              "fail",
+              "not_evaluable"
+            ],
+            "title": "Validation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validation",
+          "regression",
+          "coverage",
+          "reasons",
+          "gameId",
+          "cohortId",
+          "mode",
+          "targetMetric",
+          "roles"
+        ],
+        "title": "GridProductionCellEvaluationGame",
+        "type": "object"
+      },
+      "GridProductionCellEvaluationPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "baseVersionId": {
+            "const": "3ed60010-7c3e-5c3b-91aa-4e03eb9bfa5e",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "compensationAllowed": {
+            "const": false,
+            "title": "Compensationallowed",
+            "type": "boolean"
+          },
+          "instanceOrder": {
+            "items": {
+              "enum": [
+                "preserved",
+                "borderline",
+                "clipped/missing"
+              ],
+              "type": "string"
+            },
+            "title": "Instanceorder",
+            "type": "array"
+          },
+          "maximumUnknownFraction": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Maximumunknownfraction",
+            "type": "number"
+          },
+          "minimumCurrentUsableBoardGain": {
+            "const": 1,
+            "title": "Minimumcurrentusableboardgain",
+            "type": "integer"
+          },
+          "minimumFreshFullRegressionPhotos": {
+            "const": 5,
+            "title": "Minimumfreshfullregressionphotos",
+            "type": "integer"
+          },
+          "ruleVersion": {
+            "const": "production-cell-content-evaluation-v1",
+            "title": "Ruleversion",
+            "type": "string"
+          },
+          "sourcePixelEpsilon": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourcepixelepsilon",
+            "type": "number"
+          },
+          "uncertaintyVersion": {
+            "const": "cell-content-repeatability-v1",
+            "title": "Uncertaintyversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ruleVersion",
+          "minimumFreshFullRegressionPhotos",
+          "maximumUnknownFraction",
+          "minimumCurrentUsableBoardGain",
+          "sourcePixelEpsilon",
+          "uncertaintyVersion",
+          "instanceOrder",
+          "compensationAllowed",
+          "baseVersionId"
+        ],
+        "title": "GridProductionCellEvaluationPolicy",
+        "type": "object"
+      },
+      "GridProductionCellEvaluationReport": {
+        "additionalProperties": false,
+        "properties": {
+          "automaticCalibration": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AutomaticCalibration"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automaticcalibration"
+          },
+          "baseManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Basemanifestsha256",
+            "type": "string"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "checkpointSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionCheckpointSelection"
+              },
+              {
+                "$ref": "#/components/schemas/GridScreenCorrectionCheckpointSelection"
+              }
+            ],
+            "title": "Checkpointselection"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "contentEvaluation": {
+            "items": {
+              "$ref": "#/components/schemas/ContentGameEvidence"
+            },
+            "title": "Contentevaluation",
+            "type": "array"
+          },
+          "evidenceLevel": {
+            "const": "photo-only",
+            "title": "Evidencelevel",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GridProductionCellEvaluationGame"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "parity": {
+            "$ref": "#/components/schemas/GridModelEvaluationParity"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/GridProductionCellEvaluationPolicy"
+          },
+          "policyVersion": {
+            "const": "production-cell-per-game-gate-v1",
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "producer": {
+            "const": "server:grid-model-evaluator-v1",
+            "title": "Producer",
+            "type": "string"
+          },
+          "rawQuality": {
+            "discriminator": {
+              "mapping": {
+                "grid-model-evaluation-read-v3": "#/components/schemas/GridCorrectionEvaluationReport",
+                "grid-model-evaluation-read-v4": "#/components/schemas/GridScreenCorrectionEvaluationReport",
+                "grid-model-evaluation-read-v5": "#/components/schemas/GridCalibratedEvaluationReport"
+              },
+              "propertyName": "schemaVersion"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionEvaluationReport"
+              },
+              {
+                "$ref": "#/components/schemas/GridScreenCorrectionEvaluationReport"
+              },
+              {
+                "$ref": "#/components/schemas/GridCalibratedEvaluationReport"
+              }
+            ],
+            "title": "Rawquality"
+          },
+          "rawQualitySchemaVersion": {
+            "anyOf": [
+              {
+                "enum": [
+                  "grid-model-evaluation-read-v3",
+                  "grid-model-evaluation-read-v4"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rawqualityschemaversion"
+          },
+          "requiredGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Requiredgameids",
+            "type": "array"
+          },
+          "ruleVersion": {
+            "const": "production-cell-content-evaluation-v1",
+            "title": "Ruleversion",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "grid-model-evaluation-read-v6",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationScope"
+          },
+          "trainingGameId": {
+            "format": "uuid",
+            "title": "Traininggameid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "REVISE",
+              "NOT_EVALUABLE"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "producer",
+          "ruleVersion",
+          "policyVersion",
+          "policy",
+          "versionId",
+          "manifestSha256",
+          "baseVersionId",
+          "baseManifestSha256",
+          "familyId",
+          "trainingGameId",
+          "parity",
+          "cohorts",
+          "requiredGameIds",
+          "games",
+          "verdict",
+          "scope",
+          "evidenceLevel",
+          "limitations",
+          "checkpointSelection",
+          "rawQuality",
+          "contentEvaluation"
+        ],
+        "title": "GridProductionCellEvaluationReport",
         "type": "object"
       },
       "GridProfileActivationAction": {
@@ -30700,6 +31276,69 @@
           "seed"
         ],
         "title": "MockDatasetCreate",
+        "type": "object"
+      },
+      "ModelContentCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "ambiguousBoards": {
+            "minimum": 0.0,
+            "title": "Ambiguousboards",
+            "type": "integer"
+          },
+          "borderline": {
+            "minimum": 0.0,
+            "title": "Borderline",
+            "type": "integer"
+          },
+          "clipped": {
+            "minimum": 0.0,
+            "title": "Clipped",
+            "type": "integer"
+          },
+          "foreignSymbols": {
+            "minimum": 0.0,
+            "title": "Foreignsymbols",
+            "type": "integer"
+          },
+          "missing": {
+            "minimum": 0.0,
+            "title": "Missing",
+            "type": "integer"
+          },
+          "preserved": {
+            "minimum": 0.0,
+            "title": "Preserved",
+            "type": "integer"
+          },
+          "ties": {
+            "minimum": 0.0,
+            "title": "Ties",
+            "type": "integer"
+          },
+          "usableBoards": {
+            "minimum": 0.0,
+            "title": "Usableboards",
+            "type": "integer"
+          },
+          "wrongCells": {
+            "minimum": 0.0,
+            "title": "Wrongcells",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "preserved",
+          "borderline",
+          "clipped",
+          "missing",
+          "wrongCells",
+          "ties",
+          "foreignSymbols",
+          "ambiguousBoards",
+          "usableBoards"
+        ],
+        "title": "ModelContentCounts",
         "type": "object"
       },
       "ModelQualityAdvisoryThresholdResponse": {

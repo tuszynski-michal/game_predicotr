@@ -459,6 +459,13 @@ class SqlAlchemyGridModelRegistryRepository:
     def family_games(self, family_id: UUID) -> set[str]:
         return evaluation_evidence.family_games(self.session, family_id)
 
+    def require_production_content_freshness(
+        self, report: dict[str, Any], root: Path | None
+    ) -> None:
+        from .production_cell_reference import require_production_content_freshness
+
+        require_production_content_freshness(self.session, root, report)
+
     def default(self) -> GridModelDefaultModel | None:
         # A caller may have read the head before waiting for the transaction lock.
         return self.session.get(GridModelDefaultModel, "geometry-v3", populate_existing=True)

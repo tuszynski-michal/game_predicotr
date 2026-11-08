@@ -38,15 +38,20 @@ class CalibrationObserver:
         routing: Mapping[str, Any] | None,
         role: str | None = None,
         routing_sha: str | None = None,
+        frame_loader: Any = None,
     ) -> None:
         self.game_id, self.sources = game_id, sources
         self.game_aspect, self.routing = game_aspect, routing
         self.role, self.routing_sha = role, routing_sha
+        self.frame_loader = frame_loader
+        self.input_proofs: list[dict[str, Any]] = []
+        self.production_observation: dict[str, Any] | None = None
 
     def __call__(
         self, photo: CorrectionControlPhoto, rgb: Any, observed: Mapping[str, Any]
     ) -> list[dict[str, Any]]:
         source = self.sources[photo.source_id]
+        self.input_proofs = []
         targets = sorted(source["targets"], key=lambda target: target["positionIndex"])
         width, height = rgb.shape[1], rgb.shape[0]
         evaluated: dict[tuple[str, int], tuple[bool, bool | None, bool, bool, FeatureVector]] = {}
@@ -172,6 +177,31 @@ class CalibrationObserver:
                             height=height,
                         ),
                     )
+                    if self.frame_loader is not None and "productionContentReference" in target:
+                        board = next(
+                            (
+                                b
+                                for b in (self.production_observation or {}).get("boards", [])
+                                if b["positionIndex"] == position
+                            ),
+                            None,
+                        )
+                        proof = (
+                            board[name]["inputEvidence"]
+                            if bound and board is not None and not board[name]["matchAmbiguous"]
+                            else None
+                        )
+                        if proof is not None:
+                            self.input_proofs.append(proof)
+                            if type(proof["inputCropped"]) is bool:
+                                edges[index] = edges[index].model_copy(
+                                    update={
+                                        "referenceKind": "verified_content",
+                                        "inputCropped": proof["inputCropped"],
+                                        "contentReferenceSha256": proof["contentReferenceSha256"],
+                                        "contentRevision": proof["contentReferenceRevision"],
+                                    }
+                                )
                 if not bound:
                     vector = vector.model_copy(
                         update={
@@ -185,6 +215,40 @@ class CalibrationObserver:
         result = []
         for index, target in enumerate(targets):
             base, candidate = evaluated["base", index], evaluated["candidate", index]
+            if self.production_observation is not None:
+                board = next(
+                    b
+                    for b in self.production_observation["boards"]
+                    if b["positionIndex"] == target["positionIndex"]
+                )
+                refined = []
+                for name, value in (("base", base), ("candidate", candidate)):
+                    proof = board[name]["inputEvidence"]
+                    known = all(cell["contentState"] == "visible" for cell in board["cells"])
+                    input_cropped = None if proof is None else proof["inputCropped"]
+                    final_cropped = (
+                        any(
+                            cell[name]["finalContentState"] in ("clipped", "missing")
+                            for cell in board["cells"]
+                        )
+                        if known
+                        else None
+                    )
+                    truth = (
+                        None
+                        if input_cropped is None or final_cropped is None
+                        else input_cropped or final_cropped
+                    )
+                    good = bool(board[name]["usable"] and input_cropped is False)
+                    vector = value[4]
+                    if not known or input_cropped is not False:
+                        vector = vector.model_copy(
+                            update={
+                                "hardReasons": (*vector.hardReasons, "CONTENT_INPUT_NOT_PRESERVED")
+                            }
+                        )
+                    refined.append((good, truth, value[2], value[3], vector))
+                base, candidate = refined
             result.append(
                 AssessedTarget(
                     gameId=UUID(self.game_id),

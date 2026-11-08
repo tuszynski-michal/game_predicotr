@@ -12,6 +12,7 @@ not involved: this job only reads already exported models.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import uuid
 from collections.abc import Mapping
@@ -313,6 +314,7 @@ class GridModelEvaluationJobHandler:
         groups: Mapping[str, str],
         engines: tuple[Engine, Engine],
         calibration: Any = None,
+        production_content: Any = None,
     ) -> dict[str, Any]:
         def before_photo(_index: int) -> None:
             context.heartbeat()
@@ -328,6 +330,9 @@ class GridModelEvaluationJobHandler:
                 *engines,
                 before_photo=before_photo,
                 observation=None if calibration is None else calibration.observer(role),
+                content_observation=None
+                if production_content is None
+                else production_content.observer(role),
             )
         else:
             summary, rows = measure_role(photos, *engines, before_photo=before_photo)
@@ -353,16 +358,21 @@ class GridModelEvaluationJobHandler:
 
     def _verify_details(
         self, job: Job, state: Mapping[str, Any], cohorts: list[dict[str, str]]
-    ) -> None:
+    ) -> dict[str, dict[str, Any]]:
         """A reused unit (also after a restart) must still pin its exact detail file."""
+        documents = {}
         for entry in cohorts:
             for role in ROLES:
                 detail = state["units"][f"{entry['game_id']}:{role}"]["detail"]
                 path = self.artifact_root / detail_path(job.id, entry["game_id"], role)
                 try:
-                    actual = hashlib.sha256(path.read_bytes()).hexdigest()
-                except OSError:
-                    actual = None
+                    payload = path.read_bytes()
+                    actual = hashlib.sha256(payload).hexdigest()
+                except OSError as error:
+                    raise JobHandlerError(
+                        "GRID_EVALUATION_DETAIL_CHANGED",
+                        "A per-photo result file is missing or differs; evaluate again.",
+                    ) from error
                 if (
                     detail["path"] != detail_path(job.id, entry["game_id"], role)
                     or actual != detail["sha256"]
@@ -371,6 +381,8 @@ class GridModelEvaluationJobHandler:
                         "GRID_EVALUATION_DETAIL_CHANGED",
                         "A per-photo result file is missing or differs; evaluate again.",
                     )
+                documents[f"{entry['game_id']}:{role}"] = json.loads(payload)
+        return documents
 
     # -- run -----------------------------------------------------------------------------
 
@@ -411,6 +423,7 @@ class GridModelEvaluationJobHandler:
         engines: tuple[Engine, Engine] | None = None
         modes: dict[str, str] = dict(state.get("modes", {}))
         calibration_results = dict(state.get("automaticCalibration", {}))
+        content_results = dict(state.get("productionContent", {}))
         for entry in cohorts:
             pending = [role for role in ROLES if f"{entry['game_id']}:{role}" not in state["units"]]
             if not pending and (not correction or entry["game_id"] in calibration_results):
@@ -423,6 +436,11 @@ class GridModelEvaluationJobHandler:
             modes[entry["game_id"]] = mode
             state["modes"] = modes
             engines = engines or self._engines(manifest, base)
+            from .production_cell_run import ProductionContentRun, content_enabled
+
+            production_content = (
+                ProductionContentRun(snapshot) if correction and content_enabled(snapshot) else None
+            )
             calibration = None
             if (
                 correction
@@ -453,7 +471,19 @@ class GridModelEvaluationJobHandler:
                     groups,
                     engines,
                     calibration,
+                    production_content,
                 )
+                self._persist(context, state, len(cohorts))
+            if production_content is not None:
+                verified = self._verify_details(job, state, [entry])
+                content_results[entry["game_id"]] = production_content.finish(
+                    self.artifact_root,
+                    job.id,
+                    verified_details={
+                        role: verified[f"{entry['game_id']}:{role}"] for role in ROLES
+                    },
+                )
+                state["productionContent"] = content_results
                 self._persist(context, state, len(cohorts))
             if calibration is not None:
                 calibration.prepare_b(lambda _index: context.heartbeat())
@@ -466,6 +496,9 @@ class GridModelEvaluationJobHandler:
                 require_calibration_evidence,
                 snapshot_assessment_references,
             )
+
+            from .production_cell_input import manifest_input_context
+            from .production_cell_run import content_enabled
 
             for value in calibration_results.values():
                 pins = [entry for entry in cohorts if entry["game_id"] == value["gameId"]]
@@ -482,7 +515,14 @@ class GridModelEvaluationJobHandler:
                 require_calibration_evidence(
                     self.artifact_root,
                     value,
-                    frozen=snapshot_assessment_references(frozen),
+                    frozen=snapshot_assessment_references(
+                        frozen,
+                        input_context=(
+                            manifest_input_context(self.artifact_root, manifest)
+                            if content_enabled(frozen)
+                            else None
+                        ),
+                    ),
                     candidate_sha=payload["manifest_sha256"],
                     baseline_sha=base_sha,
                 )
@@ -536,6 +576,18 @@ class GridModelEvaluationJobHandler:
                     calibration_results.get(game)
                     or unqualified(game, "CALIBRATION_PURPOSE_COHORT_REQUIRED")
                     for game in report["requiredGameIds"]
+                ],
+            )
+        if correction and content_results:
+            from game_predictor_api.domain.production_cell_evaluation import attach_content
+
+            from .production_cell_run import unavailable_content
+
+            report = attach_content(
+                report,
+                [
+                    content_results.get(game["gameId"]) or unavailable_content(game)
+                    for game in report["games"]
                 ],
             )
         report_json = canonical_json(report)

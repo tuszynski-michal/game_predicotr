@@ -44,7 +44,8 @@ i działającą aplikację. Jedna próba i ograniczona diagnostyka po błędzie
 auth; bez pętli logowania i kopiowania poświadczeń. Desktop jest jawną
 metodą zastępczą ze śladem faktycznego wykonania.
 
-Zachować scope, 480 s, aktywność streamu, idempotencję, własność procesu.
+Zachować scope, aktywność streamu, idempotencję i własność procesu. Operator
+2026-11-08 zwiększył limit audytu z 480 do 1800 s; host do 1860 s, idle nadal60s.
 Sprawdzać główny model i rzeczywisty raport, nie zbiór modeli pomocniczych.
 Effort zapisywać jako żądany lub obserwowane ustawienie UI. Brak raportu,
 błąd dostępu i otwarte P0/P1 blokują zamknięcie; nigdy zastępczy PASS.

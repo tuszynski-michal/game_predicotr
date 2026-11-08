@@ -6,6 +6,27 @@ last_updated: 2026-11-01
 
 # Kontrakty API i danych mobilnych
 
+## Ocena zachowania treści symboli (TASK-1166, D-591)
+
+Istniejące GET/list `grid-model-evaluations` zwracają dodatkowy zamknięty wariant
+`grid-model-evaluation-read-v6`, wyłącznie z
+`policyVersion=production-cell-per-game-gate-v1` oraz
+`ruleVersion=production-cell-content-evaluation-v1`. `rawQuality` zachowuje pełny
+raport v3/v4/v5, a `contentEvaluation` zawiera typowane dowody per gra i rola,
+liczniki instancji, użytecznych plansz, błędnych komórek, remisów oraz obcych
+symboli, niepewność i SHA przypiętych pomiarów/konfiguracji. `games.targetMetric`
+ma wartość `production_cell_content`; główny `verdict` wynika z nowej bramki,
+więc historyczny PASS w `rawQuality` nie wystarcza do przyjęcia modelu.
+
+Jeśli źródłowym raportem jest v5, zachowane są także dotychczasowe pola
+`automaticCalibration` i `rawQualitySchemaVersion`. Ich brak dla v3/v4 nie
+generuje nowych wartości null. Publikacja oraz kwalifikacja operacji wymagają
+ponownego potwierdzenia dowodów treści i bieżącej konfiguracji renderowania;
+brak dostępu do artefaktów odmawia kwalifikacji. Starsze raporty zachowują własne
+interpretacje. Migracja 0183 dodaje osobny zapis pary raport/bramka, delegując
+starsze wersje do historycznych funkcji; nie wykonano jej na bazie operatora.
+OpenAPI, generowany SDK, eksporty wrappera i test żądania obejmują ten sam wariant.
+
 
 ## Recognition status projections (TASK-1159)
 

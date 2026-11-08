@@ -2,6 +2,55 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('evaluation GET and list preserve content v6 and nested historical quality', async () => {
+  const id = '22222222-2222-4222-8222-222222222222';
+  const calibration = [
+    { state: 'unqualified', reasonCodes: ['NO_B_LABELS'], profile: null },
+  ];
+  const report = {
+    schemaVersion: 'grid-model-evaluation-read-v6',
+    policyVersion: 'production-cell-per-game-gate-v1',
+    ruleVersion: 'production-cell-content-evaluation-v1',
+    rawQuality: {
+      schemaVersion: 'grid-model-evaluation-read-v5',
+      verdict: 'PASS',
+      automaticCalibration: calibration,
+    },
+    automaticCalibration: calibration,
+    verdict: 'NOT_EVALUABLE',
+    contentEvaluation: [
+      {
+        gameId: id,
+        state: 'not_evaluable',
+        reasonCodes: ['CONTENT_REFERENCE_MISSING'],
+      },
+    ],
+  };
+  const calls = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      calls.push([request.method, request.url]);
+      const body = new URL(request.url).searchParams.has('versionId')
+        ? { items: [{ report }] }
+        : { report };
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  });
+  assert.deepEqual((await client.getGridModelEvaluation(id)).data, { report });
+  assert.deepEqual((await client.listGridModelEvaluations(id)).data, {
+    items: [{ report }],
+  });
+  const root = 'http://127.0.0.1:8000/api/v1/admin/grid-model-evaluations';
+  assert.deepEqual(calls, [
+    ['GET', `${root}/${id}`],
+    ['GET', `${root}?versionId=${id}`],
+  ]);
+});
+
 test('evaluation wrapper preserves the versioned visibility15 and input edge profile', async () => {
   const evaluation = '22222222-2222-4222-8222-222222222222';
   const automaticCalibration = [

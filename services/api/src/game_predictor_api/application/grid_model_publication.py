@@ -37,6 +37,7 @@ class GridModelControlRepository(Protocol):
         self, report_id: UUID, cohorts: Sequence[Mapping[str, Any]]
     ) -> list[dict[str, Any]]: ...
     def family_games(self, family_id: UUID) -> set[str]: ...
+    def require_production_content_freshness(self, report: dict[str, Any], root: Any) -> None: ...
 
 
 class GridModelPublicationService:
@@ -108,6 +109,11 @@ class GridModelPublicationService:
             base_sha256=base.manifest_sha256,
             game_id=game_id,
         )
+        parsed_report = json.loads(report.report_json)
+        if parsed_report.get("schemaVersion") == "grid-model-evaluation-read-v6":
+            self.repository.require_production_content_freshness(
+                parsed_report, getattr(self.registry.inspector, "root", None)
+            )
         if evidence.cohorts:
             self._require_current(evidence.report_id, evidence.cohorts)
             if publishing and not evidence.scoped:

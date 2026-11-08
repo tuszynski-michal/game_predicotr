@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from hashlib import sha256
+from pathlib import Path
 from typing import cast
 
 from sqlalchemy import select
@@ -40,6 +41,7 @@ def finalize_v3_engine_acceptance(
     source: SourceImageModel,
     revision: ImageSourceGeometryRevisionModel | None,
     structured: object,
+    artifact_root: Path | None = None,
 ) -> tuple[str, ...]:
     """Require locked source/sequences and flushed owners before qualification.
 
@@ -108,6 +110,7 @@ def finalize_v3_engine_acceptance(
                 pin=operation_pin,
                 model_snapshot=job.input_payload.get("neural_grid_proposal"),
                 game_id=job.game_id,
+                artifact_root=artifact_root,
             )
         boards = session.scalars(
             select(RecognizedBoardModel)

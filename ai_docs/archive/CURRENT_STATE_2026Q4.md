@@ -6,10 +6,19 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1166 — Ocena produkcyjnych wycinków (done)
+
+- Plik: `tasks/completed/1166-production-cell-evaluation.md`.
+- Commit: **v1.7.575** (hash dopisuje kolejny commit).
+- Realny renderer, niezależna zawartość15pól, fixed denominators i brak kompensacji; v6/SQL0183/API/SDK, replay/freshness bez nadpisania historii.
+- Testy domeny/worker/cold replay,3disposablePGpiony, scopedlint/types,SDK/docs/map; jawne baseline i incydent helperDB w Verification.
+- Opus terminal R1REVISE→jednarundapoprawek→R2PASS0P0/0P1; raport/receipts w quality. Limit1800s na jawne polecenie operatora.
+- P2-1 koszt pełnego replayu przyjęty; P2-6 rozmiar detali przekazany doTASK1167. Bez operatorDB/GPU/default/importu/usług/merge/push.
+
 ### TASK-1165 — Niezależne etykiety zawartości i ślepy pomiar (done)
 
 - Plik: `tasks/completed/1165-cell-content-reference.md`.
-- Commit: **v1.7.574** (hash dopisuje kolejny commit).
+- Commit: **v1.7.574 / `450f9ef11bc08aae5b9e9e5fbba89d1408a020ed`** (hash dopisuje kolejny commit).
 - Append-only rewizje15pól, blind2pass/u/δ/oracle, Alembic0182/manifestv22, freshREG w istniejącym ledgerze, rzeczywista blind A w capture/freeze/reader i pełny pion API/SDK.
 - Weryfikacja: full PGpipeline PASS92,49s, PGalias PASS38,02s, focused API/domain/worker/request, lint/types, SDK, docs/map. Opus CLI R2 PASS, bez P0/P1.
 - Przyjęte P2-2: izolacja T5; fail-closed P2-5→T5, P2-6→T3. Legacy zachowane. Bez operator-labels/treningu/migracji produkcji/aktywacji. Parent/UI nadal T4/T5.

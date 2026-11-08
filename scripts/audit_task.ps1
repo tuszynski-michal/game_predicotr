@@ -69,7 +69,8 @@ registered by the ChatGPT desktop app fails from the CLI). "none" keeps the
 operator's config.toml value.
 
 .PARAMETER TimeoutSec
-Timeout for the auditor run in seconds (default 480, so the script can clean up within a 600 s tool timeout).
+Timeout for the auditor run in seconds (default and maximum 1800, or 30 minutes).
+The invoking tool must allow this deadline plus process cleanup; Claude stream-idle remains 60 s.
 
 .PARAMETER MaxSectionKB
 Maximum size of each diff section in the brief, in kilobytes (default 300).
@@ -99,8 +100,8 @@ param(
 
     [switch]$DryRun,
 
-    [ValidateRange(10, 480)]
-    [int]$TimeoutSec = 480,
+    [ValidateRange(10, 1800)]
+    [int]$TimeoutSec = 1800,
 
     [ValidateRange(10, 4000)]
     [int]$MaxSectionKB = 300,

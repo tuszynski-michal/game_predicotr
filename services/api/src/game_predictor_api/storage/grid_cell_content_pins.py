@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from game_predictor_api.domain.grid_cell_content import (
     ContentError,
     ContentRevision,
+    ContentSource,
     content_source_identity,
     same_content_frame,
 )
@@ -16,6 +17,29 @@ from game_predictor_api.domain.grid_training_cohorts import GridCohortError, dig
 
 from .grid_cell_content_models import GridCellContentRevisionModel as Revision
 from .grid_cell_content_models import GridCellContentSessionModel as Measurement
+
+
+def require_content_target_identity(
+    game: UUID,
+    source: dict[str, Any],
+    target: dict[str, Any],
+    annotation: ContentRevision,
+) -> ContentSource:
+    """The label's original source is provenance; the actual target owns liveness."""
+    target_source = content_source_identity(source)
+    if (
+        annotation.reference.gameId != game
+        or type(target.get("positionIndex")) is not int
+        or type(target.get("sequenceNumber")) is not int
+        or not same_content_frame(annotation.source, target_source)
+        or annotation.reference.positionIndex != target["positionIndex"]
+        or annotation.sequenceNumber != target["sequenceNumber"]
+    ):
+        raise ContentError(
+            "CONTENT_REFERENCE_IDENTITY_CONFLICT",
+            "The content label and target normalized frame or sequence differ.",
+        )
+    return target_source
 
 
 def content_pin(
@@ -44,16 +68,7 @@ def content_pin(
         raise ContentError("CONTENT_REFERENCE_CHECKSUM", "The retained label checksum differs.")
     if not annotation.reference.humanApproved:
         return {}
-    target_source = content_source_identity(source)
-    if (
-        annotation.reference.gameId != game
-        or not same_content_frame(annotation.source, target_source)
-        or annotation.sequenceNumber != target["sequenceNumber"]
-    ):
-        raise ContentError(
-            "CONTENT_REFERENCE_IDENTITY_CONFLICT",
-            "The content label and target normalized frame or sequence differ.",
-        )
+    target_source = require_content_target_identity(game, source, target, annotation)
     if purpose == "A":
         measured = (
             None
@@ -130,10 +145,34 @@ def apply_blind_a_geometry(label: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def require_current_content_pin(session: Session, game: UUID, target: dict[str, Any]) -> None:
+def require_current_content_pin(
+    session: Session, game: UUID, target: dict[str, Any], *, source: dict[str, Any] | None = None
+) -> None:
     if "contentAnnotation" not in target:
         return
     annotation = ContentRevision.model_validate(target["contentAnnotation"])
+    expected_source = (
+        ContentSource.model_validate(target["contentTargetSource"])
+        if "contentTargetSource" in target
+        else annotation.source
+    )
+    if source is None:
+        from game_predictor_api.domain.source_replacement import SourceReplacementError
+
+        from .grid_quality_observations import read_source
+        from .source_replacement_guards import require_active_source
+
+        try:
+            require_active_source(session, game, expected_source.sourceId)
+        except SourceReplacementError as error:
+            raise ContentError(error.code, str(error)) from error
+        source = read_source(session, game, expected_source.sourceId)
+    # inspect_member supplies its already-read active source and fence. Standalone
+    # callers resolve the same live target above; neither trusts a detached origin.
+    if source is None:
+        raise ContentError("CONTENT_TARGET_SOURCE_UNAVAILABLE", "The target source was removed.")
+    if require_content_target_identity(game, source, target, annotation) != expected_source:
+        raise ContentError("CONTENT_TARGET_SOURCE_CHANGED", "The actual target identity changed.")
     row = session.scalar(
         select(Revision)
         .where(
@@ -146,10 +185,12 @@ def require_current_content_pin(session: Session, game: UUID, target: dict[str, 
     )
     if (
         row is None
+        or not annotation.reference.humanApproved
+        or annotation.sha256 != target.get("contentReferenceSha256")
+        or type(target.get("contentReferenceRevision")) is not int
         or row.document_sha256 != target.get("contentReferenceSha256")
         or row.revision != target.get("contentReferenceRevision")
         or digest(row.document) != row.document_sha256
-        or row.live_source_image_id is None
     ):
         raise ContentError(
             "CONTENT_REFERENCE_STALE",

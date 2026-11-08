@@ -177,6 +177,8 @@ def measure_role(
     before_photo: Callable[[int], None] = lambda _index: None,
     observation: Callable[[CorrectionControlPhoto, Any, Mapping[str, Any]], list[dict[str, Any]]]
     | None = None,
+    content_observation: Callable[[CorrectionControlPhoto, Any, Mapping[str, Any]], dict[str, Any]]
+    | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     evaluated: dict[str, list[CorrectionPhotoEvaluation]] = {"base": [], "candidate": []}
     groups: dict[str, dict[str, list[CorrectionPhotoEvaluation]]] = defaultdict(
@@ -206,10 +208,17 @@ def measure_role(
             evaluated[name].append(result)
             groups[photo.group_id][name].append(result)
             row[name] = result.as_dict()
-            if observation is not None:
+            if observation is not None or content_observation is not None:
                 observed[name] = (found, result, engine)
+        if content_observation is not None:
+            row["contentEvaluation"] = content_observation(photo, rgb, observed)
+            if observation is not None and hasattr(observation, "production_observation"):
+                observation.production_observation = row["contentEvaluation"]
         if observation is not None:
             row["calibrationTargets"] = observation(photo, rgb, observed)
+            proofs = getattr(observation, "input_proofs", None)
+            if proofs:
+                row["inputContentEvidence"] = proofs
         details.append(row)
     return {
         "photos": len(photos),

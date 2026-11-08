@@ -4097,6 +4097,54 @@ export type ContentBlindWrite = {
 };
 
 /**
+ * ContentGameEvidence
+ */
+export type ContentGameEvidence = {
+  /**
+   * Classifiersnapshotsha256S
+   */
+  classifierSnapshotSha256s: Array<string>;
+  /**
+   * Delta
+   */
+  delta: number | null;
+  /**
+   * Freshregression
+   */
+  freshRegression: boolean;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Measurementsha256
+   */
+  measurementSha256: string | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Renderconfigurationsha256S
+   */
+  renderConfigurationSha256s: Array<string>;
+  /**
+   * Roles
+   */
+  roles: {
+    [key: string]: ContentRoleEvidence;
+  };
+  /**
+   * State
+   */
+  state: 'ready' | 'not_evaluable';
+  /**
+   * U
+   */
+  u: number | null;
+};
+
+/**
  * ContentReadinessResponse
  */
 export type ContentReadinessResponse = {
@@ -4238,6 +4286,74 @@ export type ContentRevision = {
    * Version
    */
   version?: 'source-cell-content-v1';
+};
+
+/**
+ * ContentRoleEvidence
+ */
+export type ContentRoleEvidence = {
+  base: ModelContentCounts;
+  candidate: ModelContentCounts;
+  /**
+   * Degradedinstances
+   */
+  degradedInstances: number;
+  /**
+   * Fullphotos
+   */
+  fullPhotos: number;
+  /**
+   * Newforeignsymbols
+   */
+  newForeignSymbols: number;
+  /**
+   * Newmatchambiguities
+   */
+  newMatchAmbiguities: number;
+  /**
+   * Newties
+   */
+  newTies: number;
+  /**
+   * Newwrongcells
+   */
+  newWrongCells: number;
+  /**
+   * Occluded
+   */
+  occluded: number;
+  /**
+   * Outofframe
+   */
+  outOfFrame: number;
+  /**
+   * Photos
+   */
+  photos: number;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Referencesha256
+   */
+  referenceSha256: string;
+  /**
+   * Slots
+   */
+  slots: number;
+  /**
+   * State
+   */
+  state: 'ready' | 'not_evaluable';
+  /**
+   * Unknown
+   */
+  unknown: number;
+  /**
+   * Visible
+   */
+  visible: number;
 };
 
 /**
@@ -9253,6 +9369,9 @@ export type GridModelEvaluationView = {
         schemaVersion: 'grid-model-evaluation-read-v5';
       } & GridCalibratedEvaluationReport)
     | ({
+        schemaVersion: 'grid-model-evaluation-read-v6';
+      } & GridProductionCellEvaluationReport)
+    | ({
         schemaVersion: 'grid-model-assigned-comparison-v1';
       } & GridAssignedComparisonReport)
     | null;
@@ -9650,6 +9769,191 @@ export type GridModelVersionResponse = {
    * Reasoncode
    */
   reasonCode: string;
+};
+
+/**
+ * GridProductionCellEvaluationGame
+ */
+export type GridProductionCellEvaluationGame = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Coverage
+   */
+  coverage: 'complete' | 'incomplete';
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Regression
+   */
+  regression: 'pass' | 'fail' | 'not_evaluable';
+  roles: GridCorrectionEvaluationRoles;
+  /**
+   * Targetmetric
+   */
+  targetMetric: 'production_cell_content';
+  /**
+   * Validation
+   */
+  validation: 'pass' | 'fail' | 'not_evaluable';
+};
+
+/**
+ * GridProductionCellEvaluationPolicy
+ */
+export type GridProductionCellEvaluationPolicy = {
+  /**
+   * Baseversionid
+   */
+  baseVersionId: '3ed60010-7c3e-5c3b-91aa-4e03eb9bfa5e';
+  /**
+   * Compensationallowed
+   */
+  compensationAllowed: false;
+  /**
+   * Instanceorder
+   */
+  instanceOrder: Array<'preserved' | 'borderline' | 'clipped/missing'>;
+  /**
+   * Maximumunknownfraction
+   */
+  maximumUnknownFraction: number;
+  /**
+   * Minimumcurrentusableboardgain
+   */
+  minimumCurrentUsableBoardGain: 1;
+  /**
+   * Minimumfreshfullregressionphotos
+   */
+  minimumFreshFullRegressionPhotos: 5;
+  /**
+   * Ruleversion
+   */
+  ruleVersion: 'production-cell-content-evaluation-v1';
+  /**
+   * Sourcepixelepsilon
+   */
+  sourcePixelEpsilon: number;
+  /**
+   * Uncertaintyversion
+   */
+  uncertaintyVersion: 'cell-content-repeatability-v1';
+};
+
+/**
+ * GridProductionCellEvaluationReport
+ */
+export type GridProductionCellEvaluationReport = {
+  /**
+   * Automaticcalibration
+   */
+  automaticCalibration?: Array<AutomaticCalibration> | null;
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Checkpointselection
+   */
+  checkpointSelection:
+    GridCorrectionCheckpointSelection | GridScreenCorrectionCheckpointSelection;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortPin>;
+  /**
+   * Contentevaluation
+   */
+  contentEvaluation: Array<ContentGameEvidence>;
+  /**
+   * Evidencelevel
+   */
+  evidenceLevel: 'photo-only';
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Games
+   */
+  games: Array<GridProductionCellEvaluationGame>;
+  /**
+   * Limitations
+   */
+  limitations: Array<string>;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  parity: GridModelEvaluationParity;
+  policy: GridProductionCellEvaluationPolicy;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'production-cell-per-game-gate-v1';
+  /**
+   * Producer
+   */
+  producer: 'server:grid-model-evaluator-v1';
+  /**
+   * Rawquality
+   */
+  rawQuality:
+    | ({
+        schemaVersion: 'grid-model-evaluation-read-v3';
+      } & GridCorrectionEvaluationReport)
+    | ({
+        schemaVersion: 'grid-model-evaluation-read-v4';
+      } & GridScreenCorrectionEvaluationReport)
+    | ({
+        schemaVersion: 'grid-model-evaluation-read-v5';
+      } & GridCalibratedEvaluationReport);
+  /**
+   * Rawqualityschemaversion
+   */
+  rawQualitySchemaVersion?:
+    'grid-model-evaluation-read-v3' | 'grid-model-evaluation-read-v4' | null;
+  /**
+   * Requiredgameids
+   */
+  requiredGameIds: Array<string>;
+  /**
+   * Ruleversion
+   */
+  ruleVersion: 'production-cell-content-evaluation-v1';
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-evaluation-read-v6';
+  scope: GridCorrectionEvaluationScope;
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE';
+  /**
+   * Versionid
+   */
+  versionId: string;
 };
 
 /**
@@ -17003,6 +17307,48 @@ export type MockDatasetCreate = {
    * Seed
    */
   seed: number;
+};
+
+/**
+ * ModelContentCounts
+ */
+export type ModelContentCounts = {
+  /**
+   * Ambiguousboards
+   */
+  ambiguousBoards: number;
+  /**
+   * Borderline
+   */
+  borderline: number;
+  /**
+   * Clipped
+   */
+  clipped: number;
+  /**
+   * Foreignsymbols
+   */
+  foreignSymbols: number;
+  /**
+   * Missing
+   */
+  missing: number;
+  /**
+   * Preserved
+   */
+  preserved: number;
+  /**
+   * Ties
+   */
+  ties: number;
+  /**
+   * Usableboards
+   */
+  usableBoards: number;
+  /**
+   * Wrongcells
+   */
+  wrongCells: number;
 };
 
 /**

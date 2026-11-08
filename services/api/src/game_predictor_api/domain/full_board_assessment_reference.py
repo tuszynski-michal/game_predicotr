@@ -4,7 +4,7 @@ This is a projection of the existing snapshot reader, not a second GT/role ledge
 Never construct it from a calibration sidecar or its self-declared target hashes.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
@@ -24,6 +24,9 @@ class FrozenAssessmentReferences:
     role_proof_sha256: str
     content_references: Mapping[tuple[str, int], tuple[str, int, bool]] = field(
         default_factory=dict
+    )
+    input_content_verifier: Callable[[Mapping[str, Any]], "FrozenAssessmentReferences"] | None = (
+        field(default=None, compare=False, repr=False)
     )
 
     @classmethod
@@ -115,6 +118,11 @@ class FrozenAssessmentReferences:
             raise ValueError("CALIBRATION_FROZEN_TARGET_SET_CHANGED:" + role)
 
     def require_plan(self, prepared: Mapping[str, Any]) -> CalibrationPlan:
+        if self.input_content_verifier is not None:
+            rebound = self.input_content_verifier(prepared)
+            from dataclasses import replace
+
+            return replace(rebound, input_content_verifier=None).require_plan(prepared)
         plan = CalibrationPlan.model_validate(prepared["plan"])
         if plan.version.endswith("-v2"):
             references = [

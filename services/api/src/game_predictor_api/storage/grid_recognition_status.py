@@ -86,7 +86,7 @@ def read_game_recognition_status(
         automatic = decision("unavailable", view["reasonCode"])
     else:
         try:
-            evidence = _evidence(session, snapshot, game_id)
+            evidence = _evidence(session, snapshot, game_id, root)
         except GridModelRegistryError as error:
             if error.code not in _UNQUALIFIED:
                 raise

@@ -10,7 +10,6 @@ from typing import Any
 from uuid import UUID
 
 import numpy as np
-from game_predictor_api.domain.full_board_assessment_reference import FrozenAssessmentReferences
 from game_predictor_api.domain.full_board_calibration import (
     AssessedTarget,
     CalibrationPlan,
@@ -74,10 +73,14 @@ class FullBoardCalibrationRun:
                     if components.get(component, role) != role:
                         raise ValueError("CALIBRATION_ROLE_COMPONENT_CONFLICT")
                     components[component] = role
-        self.frozen = FrozenAssessmentReferences.from_sources(
-            snapshot.manifest,
-            snapshot.manifest_sha256,
-            {role: [source for source, _ in rows] for role, rows in self.rows.items()},
+        from game_predictor_api.storage.full_board_calibration_evidence import (
+            snapshot_assessment_references,
+        )
+
+        from .production_cell_input import engine_input_context
+
+        self.frozen = snapshot_assessment_references(
+            snapshot, input_context=engine_input_context(engines[1])
         )
         self.references = self.frozen.references
         self.role_proof = self.frozen.role_proof_sha256
@@ -104,6 +107,7 @@ class FullBoardCalibrationRun:
             routing=self.routing,
             role="VALIDATION-A" if key == "A" else key,
             routing_sha=self.routing_sha,
+            frame_loader=lambda source: self.snapshot.frame(source, "VALIDATION"),
         )
 
     def _path(self, phase: str) -> Path:
@@ -154,6 +158,14 @@ class FullBoardCalibrationRun:
 
     def prepare_b(self, before_photo: Callable[[int], None]) -> None:
         a = self._observations("VALIDATION")
+        detail_path = (
+            self.root / "grid-model-evaluations" / str(self.job_id) / f"{self.game}-VALIDATION.json"
+        )
+        evidence = [
+            proof
+            for row in json.loads(detail_path.read_bytes())["photos"]
+            for proof in row.get("inputContentEvidence", [])
+        ]
         references = [
             ReferenceTarget(
                 gameId=item.gameId,
@@ -196,6 +208,7 @@ class FullBoardCalibrationRun:
                 "cohortManifestSha256": self.frozen.manifest_sha256,
                 "gameLogAspectReference": self.aspect,
                 "referenceAssessmentSha256": self.references["A"],
+                **({"inputContentEvidence": evidence} if evidence else {}),
                 **(
                     {"selectionReferences": [item.model_dump(mode="json") for item in references]}
                     if plan.version.endswith("-v2")
@@ -203,6 +216,8 @@ class FullBoardCalibrationRun:
                 ),
             },
         )
+        # Validate the actual-input adapter before the first B image or inference.
+        self.frozen.require_plan(self._read(self._path("plan")))
         if self._path("b").exists():
             self._require_b(plan)
             return
@@ -228,8 +243,15 @@ class FullBoardCalibrationRun:
                     load_with_support=load_with_support,
                 )
             )
+        from .production_cell_run import ProductionContentRun, content_enabled
+
+        production = ProductionContentRun(self.snapshot) if content_enabled(self.snapshot) else None
         _, rows = measure_role(
-            photos, *self.engines, before_photo=before_photo, observation=self.observer("B")
+            photos,
+            *self.engines,
+            before_photo=before_photo,
+            observation=self.observer("B"),
+            content_observation=None if production is None else production.observer("B"),
         )
         assessed = [
             AssessedTarget.model_validate(value)

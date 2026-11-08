@@ -12,6 +12,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 from game_predictor_api.domain.full_board_calibration_report import AutomaticCalibration
+from game_predictor_api.domain.production_cell_evaluation import ContentGameEvidence
 
 _SHA = r"^[0-9a-f]{64}$"
 Decision = Literal["pass", "fail", "not_evaluable"]
@@ -356,6 +357,62 @@ class GridCalibratedEvaluationReport(EvaluationClosedModel):
     automaticCalibration: list[AutomaticCalibration]
 
 
+class GridProductionCellEvaluationPolicy(EvaluationClosedModel):
+    ruleVersion: Literal["production-cell-content-evaluation-v1"]
+    minimumFreshFullRegressionPhotos: Literal[5]
+    maximumUnknownFraction: float = Field(ge=0, le=1, allow_inf_nan=False)
+    minimumCurrentUsableBoardGain: Literal[1]
+    sourcePixelEpsilon: float = Field(gt=0, allow_inf_nan=False)
+    uncertaintyVersion: Literal["cell-content-repeatability-v1"]
+    instanceOrder: list[Literal["preserved", "borderline", "clipped/missing"]]
+    compensationAllowed: Literal[False]
+    baseVersionId: Literal["3ed60010-7c3e-5c3b-91aa-4e03eb9bfa5e"]
+
+
+class GridProductionCellEvaluationGame(GridCorrectionEvaluationDecision):
+    gameId: UUID
+    cohortId: UUID
+    mode: Literal["grid-only", "screen+grid"]
+    targetMetric: Literal["production_cell_content"]
+    roles: GridCorrectionEvaluationRoles
+
+
+class GridProductionCellEvaluationReport(EvaluationClosedModel):
+    schemaVersion: Literal["grid-model-evaluation-read-v6"]
+    producer: Literal["server:grid-model-evaluator-v1"]
+    ruleVersion: Literal["production-cell-content-evaluation-v1"]
+    policyVersion: Literal["production-cell-per-game-gate-v1"]
+    policy: GridProductionCellEvaluationPolicy
+    versionId: UUID
+    manifestSha256: str = Field(pattern=_SHA)
+    baseVersionId: UUID
+    baseManifestSha256: str = Field(pattern=_SHA)
+    familyId: UUID
+    trainingGameId: UUID
+    parity: GridModelEvaluationParity
+    cohorts: list[GridModelEvaluationCohortPin]
+    requiredGameIds: list[UUID]
+    games: list[GridProductionCellEvaluationGame]
+    verdict: Verdict
+    scope: GridCorrectionEvaluationScope
+    evidenceLevel: Literal["photo-only"]
+    limitations: list[str]
+    checkpointSelection: GridCorrectionCheckpointSelection | GridScreenCorrectionCheckpointSelection
+    rawQuality: Annotated[
+        GridCorrectionEvaluationReport
+        | GridScreenCorrectionEvaluationReport
+        | GridCalibratedEvaluationReport,
+        Field(discriminator="schemaVersion"),
+    ]
+    contentEvaluation: list[ContentGameEvidence]
+    rawQualitySchemaVersion: (
+        Literal["grid-model-evaluation-read-v3", "grid-model-evaluation-read-v4"] | None
+    ) = Field(default=None, exclude_if=lambda value: value is None)
+    automaticCalibration: list[AutomaticCalibration] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+
 class GridAssignedComparisonReport(EvaluationClosedModel):
     schemaVersion: Literal["grid-model-assigned-comparison-v1"]
     producer: Literal["server:grid-model-evaluator-v1"]
@@ -408,6 +465,7 @@ class GridModelEvaluationView(EvaluationClosedModel):
             | GridCorrectionEvaluationReport
             | GridScreenCorrectionEvaluationReport
             | GridCalibratedEvaluationReport
+            | GridProductionCellEvaluationReport
             | GridAssignedComparisonReport,
             Field(discriminator="schemaVersion"),
         ]

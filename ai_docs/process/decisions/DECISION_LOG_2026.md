@@ -15,6 +15,121 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+## D-591 — Ocena zawartości produkcyjnych wycinków z niezależnym odniesieniem
+
+Status: accepted — wykonanie FULL_SYMBOL_CROPS_PLAN_20261108, T3.
+Data: 2026-11-08
+
+Doprecyzowanie wykonawcze:
+
+Wersje: raport `grid-model-evaluation-read-v6`, reguła
+`production-cell-content-evaluation-v1`, bramka
+`production-cell-per-game-gate-v1`, frozen pin
+`production-cell-evaluation-reference-v1`, obserwacja zdjęcia
+`production-cell-photo-v1`, dowód wejścia A `frozen-a-neural-input-content-v1`.
+Raport zachowuje cały historyczny raport v3/v4/v5 jako `rawQuality`, a nową
+interpretację umieszcza w top-level games/verdict/policy i `contentEvaluation`.
+Migracja0183 tworzy wrapper v6/bind v4; SQL dopuszcza dokładną nową parę
+report/policy oraz ruleVersion, nie iloczyn niezależnych allowlist.
+
+Nowy opt-in capture dodaje `productionContentReference`: pełny snapshot
+klasyfikatora z rzeczywistego import job źródła, dokładny renderConfiguration,
+provenance import/sequence/rules oraz SHA; dla A także pełny zatwierdzony frozen
+raport ślepej sesji TRAIN/A z u/δ i jego SHA. Piny powstają po stronie backendu
+przed materializacją, nie z hashów dostarczonych przez worker. Historycznych
+manifestów nie uzupełnia się po fakcie. Brak pinu/pomiaru albo niejednoznaczny
+zbiór raportów powtarzalności daje `not_evaluable`. REG nie wyznacza tolerancji.
+
+Freshness ma dwie odrębne tożsamości. Pełny dawny classifier snapshot służy
+reprodukcji konkretnego importu. Dopuszczenie publikacji/defaultu/aktywacji i
+automatycznego zastosowania porównuje natomiast wyłącznie konfigurację cropu:
+extractorVersion, preprocessingVersion, interpolation, outputWidth/Height,
+paddingFraction. Same nowe wagi lub identyfikator klasyfikatora przy identycznej
+konfiguracji nie zmieniają geometrii. Zmieniony rozmiar/padding/interpolacja
+blokuje zastosowanie starego dowodu. Czytnik otwiera odrębną transakcję READ ONLY
+z routingiem danej gry, nie przepina katalogowej lub cudzej game-session.
+
+Actual NNinput replay używa dokładnego produkcyjnego board_rectifier/crop_board,
+float32 screenQuad→homography, board canvas i wybranego rescue margin. Dowód
+zapisuje matrix, screenQuad, boardPreset, routing/path/geometry, checksum RGB
+wejścia i source canvas, source support oraz SHA/revision adnotacji. Zapis A
+wchodzi do trwałego planu przed pierwszym B. Niezależny czytnik ponownie ładuje
+zamrożone piksele A i oblicza inputCropped; preset i dopuszczony wariant odczytuje
+z checksum-bound pakietu modelu. Tuple SHA/revision/strict-bool powstaje wyłącznie
+z tego sprawdzenia, nie z flagi w sidecarze. Wznowienie nie dopisuje nowych
+etykiet do starych cohortów ani nie odtwarza planu z B/REG. Obserwowany screenQuad
+jest wynikiem modelu jak inne dotychczasowe metryki; replay nie wykonuje ponownego
+NN inference, lecz ponownie wiąże transformację, raster i niezależną treść.
+
+Publication reader sprawdza także checksum per-photo detail, dokładny roster,
+odtwarza Hungarian/slot binding i końcowy VirtualCellRenderer z zapisanych
+predykcji oraz frozen źródeł, macierz i podsumowania. Hash raportu sam nie daje
+nowego dowodu. Zmieniona pojedyncza instancja nie może zniknąć w sumie poprawy.
+
+Sama zgodność punktów nie dowodzi zachowania symbolu. Nowa wersja oceny używa
+zatwierdzonych, niezależnych referencji T2 oraz rzeczywistego VirtualCellRenderer,
+przypiętego pełnego snapshotu klasyfikatora i konfiguracji wycinków. Utrwalamy
+pochodzenie i checksumy źródła, u/δ, ustawienia oraz wersję dowodu. Sam hash
+zadeklarowany przez workera nie zastępuje pełnego, zweryfikowanego odniesienia.
+Brak takiego dowodu daje not_evaluable; starych snapshotów nie uzupełniamy.
+Ocena dotyczy przypiętej konfiguracji. Zmiana istotnych ustawień wycinków wymaga
+kontroli aktualności dowodu przed publikacją i zależnym zastosowaniem.
+
+FinalContentState mierzy końcowy raster klasyfikatora: produkcyjny footprint
+przecięty z realnymi pikselami źródła. InputContentState osobno mierzy faktyczne
+wejście sieci geometrii. Brak treści na wejściu NN nie dowodzi przycięcia pełnego
+końcowego rastra; oba dowody pozostają odrębne. Wyliczenie inputCropped dla T1
+wiążemy z rzeczywistym wariantem, transformacją, wsparciem i zawartością A,
+zamrożonymi przed wyborem progu, zamiast z geometry_proxy lub samym worker claim.
+
+Renderer kwantyzuje source quad do float32; metryka liczy float64 na rzeczywistym
+footprint float32→float64. Nie zmieniamy produkcyjnego paddingu, interpolacji
+ani sposobu wyznaczania pól w celu zaliczenia. Zarządzany crop zachowuje
+original-xy w pełnowymiarowym canvasie; nie odejmujemy ponownie offsetu. Fill
+canvasu nie jest źródłem pikseli. Dla kompaktowego rastra offset i macierz są
+jawnie składane. Obowiązują valid_box oraz produkcyjny clearance przy brzegu.
+
+Ustalone u z T2 przeliczamy raz na piksele przekątną referencyjnej komórki,
+tak samo dla bazy i kandydata. Dylatacja obwiedni mieszcząca się w faktycznym
+support daje preserved. Jeśli nawet erozja się nie mieści, wynik jest clipped.
+Pozostałe przypadki są borderline; pusta erozja nie jest sukcesem. Brak wyniku
+lub nieważny raster to missing, nie powód usunięcia instancji. Nieważne GT ma
+własny powód jakości danych. ε=1e-6 piksela źródła jest tolerancją numeryczną;
+nie używamy go bezpośrednio jako tolerancji bezwymiarowej powierzchni/pokrycia.
+
+Wykorzystujemy jednoznaczne dopasowanie plansz, bez używania jednej predykcji
+dla dwóch celów. Macierz pokrycia wszystkich opisanych symboli i wycinków
+tego zdjęcia wykrywa większe pokrycie w obcym polu, dodatni remis oraz pełne
+przejęcie obcego symbolu. Nie pozwalamy kompensować nowego błędu konkretnej
+instancji poprawieniem innej. Kolejność stanów: preserved → borderline →
+clipped/missing. Niewidoczne lub nieopisane fragmenty nie dają preserved.
+
+Wymagania nowej bramki sprawdzamy osobno w każdej wymaganej grze i A/REG:
+bez nowych przycięć, zamian i niejednoznaczności; bez spadku wykrywania,
+poprawności plansz i pełnych zdjęć; bez wzrostu fałszywych i zdublowanych
+detekcji na pełnych zdjęciach; NME kandydata ≤ NME bazy + zamrożone δ.
+NME to średnia24 odległości / przekątna obwiedni GT, clamp1 i missing1,
+następnie średnia po zdjęciach. Bieżąca gra wymaga co najmniej jednej nowej
+w pełni użytecznej planszy na świeżym REG (poprawna geometria i15 widocznych,
+zachowanych symboli we właściwych polach). Samo zwiększenie odrzuceń nie jest
+poprawą rozpoznania. W REG potrzeba co najmniej5 pełnych zdjęć na wymaganą grę;
+częściowe zdjęcia oceniają tylko opisane cele i nie dowodzą jakości całości.
+Ponad10% nierozstrzygniętych etykiet blokuje zaliczenie roli.
+
+Raport, gate, reader, publikacja/default/aktywacja i zamknięty katalog wersji
+SQL muszą obsłużyć nowy format spójnie. Rozszerzenie funkcji SQL wymaga nowej
+migracji Alembic0183; nie edytujemy0182 ani historycznych migracji. Stare
+raporty i polityki zachowują własną interpretację. Brak danych, brak poprawy
+i regresja są odrębnymi wynikami; nowa gra nie dziedziczy jakości innych gier.
+Auto kwalifikacja B/REG pozostaje odrębna od jakości propozycji i wymaga
+własnego dowodu. REG nie stroi checkpointu ani ustawień.
+
+Residual P2-6 T2 należy do tego pionu: capture i currentness mają spójnie
+obsługiwać odłączone źródło adnotacji przy potwierdzonej aktualnej kopii.
+Historia/provenance pozostaje; usunięty rzeczywisty target jest blokowany.
+Nie uruchamiamy tym taskiem treningu, migracji operatora, wdrożenia, defaultu
+ani importu. Źródło: TASK-1166 i zaakceptowany plan T0–T5.
+
 ## D-590 — Niezależna zawartość 15 pól i ślepy pomiar powtarzalności
 
 Status: accepted — wykonanie zaakceptowanego FULL_SYMBOL_CROPS_PLAN_20261108, T2.

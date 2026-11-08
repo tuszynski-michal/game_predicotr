@@ -420,7 +420,9 @@ class ProductionImageImportWorkflow:
             session_factory
         )
         self._batch_store = SqlAlchemyImageBatchStore(session_factory)
-        self._projection_store = SqlAlchemyImagePipelineStore(session_factory)
+        self._projection_store = SqlAlchemyImagePipelineStore(
+            session_factory, artifact_root=artifact_root
+        )
         self._board_cell_geometry_deferred_writer = BoardCellGeometryDeferredWriter(
             session_factory,
             ManagedBoardCellProcessingManifestStore(self._artifact_root),
@@ -738,6 +740,7 @@ class ProductionImageImportWorkflow:
                     pin=job.input_payload.get(OPERATION_PIN_KEY),
                     model_snapshot=job.input_payload.get("neural_grid_proposal"),
                     game_id=job.game_id,
+                    artifact_root=self._artifact_root,
                 )
         return ProductionImageStageAdapterSuite(
             self._artifact_root,

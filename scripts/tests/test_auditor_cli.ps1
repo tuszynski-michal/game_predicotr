@@ -22,6 +22,24 @@ function Assert-Equal($Expected, $Actual, $Label) {
     if ($Expected -ne $Actual) { throw "$Label expected '$Expected', got '$Actual'" }
     Write-Output "PASS: $Label"
 }
+$timeoutParameter = $ast.ParamBlock.Parameters | Where-Object {
+    $_.Name.VariablePath.UserPath -eq 'TimeoutSec'
+}
+if ($null -eq $timeoutParameter) { throw 'Timeout parameter not found' }
+# Execute only the actual parameter declaration, never the audit script body.
+$bindTimeout = [scriptblock]::Create('param(' + $timeoutParameter.Extent.Text + ') $TimeoutSec')
+Assert-Equal 1800 (& $bindTimeout) 'Audit deadline defaults to 30 minutes'
+Assert-Equal 1800 (& $bindTimeout -TimeoutSec 1800) 'Audit deadline accepts 30 minutes'
+Assert-Equal 10 (& $bindTimeout -TimeoutSec 10) 'Audit deadline keeps 10-second minimum'
+foreach ($invalidDeadline in @(0, 9, 1801)) {
+    $rejected = $false
+    try { & $bindTimeout -TimeoutSec $invalidDeadline | Out-Null }
+    catch [System.Management.Automation.ParameterBindingException] {
+        if ($_.FullyQualifiedErrorId -notlike 'ParameterArgumentValidationError*') { throw }
+        $rejected = $true
+    }
+    Assert-Equal $true $rejected "Audit deadline rejects $invalidDeadline before script body"
+}
 $argumentBuilder = $ast.Find({ param($node)
     $node -is [System.Management.Automation.Language.IfStatementAst] -and
     $node.Extent.Text.Contains('$helpArguments = @(''exec'', ''--help'')')

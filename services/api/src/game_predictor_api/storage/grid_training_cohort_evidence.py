@@ -332,6 +332,7 @@ class GridCohortEvidenceReader:
     def capture(
         self, game: UUID, source_id: UUID, ordinal: int, recording: dict[str, Any], mode: str
     ) -> dict[str, Any]:
+        from game_predictor_api.domain.grid_cell_content import ContentError
         from game_predictor_api.domain.source_replacement import SourceReplacementError
         from game_predictor_api.storage.source_replacement_guards import require_active_source
 
@@ -439,7 +440,23 @@ class GridCohortEvidenceReader:
                         "targetFence": target_fence(target),
                         "approvalFence": _approval_projection(geometry_approval_fence(target)),
                     }
-                except GridCohortError as error:
+                    from .grid_cell_content_pins import content_pin
+
+                    if recording.get("contentSamplingPolicy"):
+                        pin = content_pin(
+                            self.session,
+                            game,
+                            source,
+                            label,
+                            purpose=recording.get("validationPurpose") or recording.get("role", ""),
+                        )
+                        label.update(pin)
+                        if recording.get("validationPurpose") == "A":
+                            from .grid_cell_content_pins import apply_blind_a_geometry
+
+                            label = apply_blind_a_geometry(label)
+                except (GridCohortError, ContentError) as error:
+                    label = None
                     reason = error.code
             if reason:
                 reasons.add(reason)

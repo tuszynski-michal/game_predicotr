@@ -24,6 +24,7 @@ from game_predictor_api.api.geometry_correction_reverts import (
 )
 from game_predictor_api.api.grid_audit_proposals import create_grid_audit_proposals_router
 from game_predictor_api.api.grid_calibration import create_grid_calibration_router
+from game_predictor_api.api.grid_cell_content import create_grid_cell_content_router
 from game_predictor_api.api.grid_engine_profiles import create_grid_engine_profiles_router
 from game_predictor_api.api.grid_quality_measurements import create_grid_quality_measurements_router
 from game_predictor_api.api.grid_shadow import create_grid_shadow_router
@@ -266,6 +267,7 @@ def create_api_router(
         )
     )
     router.include_router(create_image_storage_router(image_storage_service_dependency))
+    router.include_router(create_grid_cell_content_router(image_review_service_dependency))
     router.include_router(
         create_grid_quality_measurements_router(
             image_review_service_dependency, reviewer_access_service_dependency, artifact_root

@@ -15,11 +15,15 @@ from game_predictor_api.storage.grid_training_cohort_repository import (
 
 class GridTrainingCohortService:
     def __init__(
-        self, repository: SqlAlchemyGridTrainingCohortRepository, artifact_root: Path
+        self,
+        repository: SqlAlchemyGridTrainingCohortRepository,
+        artifact_root: Path,
+        provider_index_sha256: str | None = None,
     ) -> None:
         self.repository = repository
         self.artifact_root = artifact_root
         self.artifacts = GridCohortArtifactStore(artifact_root)
+        self.provider_index_sha256 = provider_index_sha256
 
     def list(self, game: UUID, cursor: UUID | None, limit: int) -> dict[str, Any]:
         from sqlalchemy import select

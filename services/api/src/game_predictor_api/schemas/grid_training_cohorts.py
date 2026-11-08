@@ -55,9 +55,17 @@ class GridCohortPrepareCommand(CohortClosedModel):
     validation_assignments: dict[UUID, Literal["A", "B", "BUFFER"]] | None = Field(
         None, alias="validationAssignments", max_length=5000
     )
+    content_sampling_policy: Literal["full-symbol-content-sampling-v1"] | None = Field(
+        None, alias="contentSamplingPolicy"
+    )
 
     @model_validator(mode="after")
     def unique_recordings(self) -> "GridCohortPrepareCommand":
+        if (
+            self.content_sampling_policy is not None
+            and self.policy_version != "application-grid-corrections-v4"
+        ):
+            raise ValueError("Content sampling requires explicit purpose policy v4.")
         if (
             self.validation_assignments is not None
             and self.policy_version != "application-grid-corrections-v4"

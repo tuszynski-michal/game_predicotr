@@ -8,11 +8,13 @@ from typing import Any
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 
+from game_predictor_api.domain.grid_cell_content import ContentError
 from game_predictor_api.domain.grid_training_cohorts import (
     GridCohortError,
     require_minima,
     target_fence,
 )
+from game_predictor_api.storage.grid_cell_content_pins import require_current_content_pin
 from game_predictor_api.storage.grid_quality_observations import (
     current_targets,
     own_target,
@@ -74,6 +76,10 @@ def inspect_member(repo: Any, member: Any) -> MemberCurrentness:
         label = position["label"]
         if label is None:
             continue
+        try:
+            require_current_content_pin(repo.session, member.game_id, label)
+        except ContentError as error:
+            failure = GridCohortError(error.code, error.message)
         current = targets.get(position["positionIndex"])
         old = label["targetFence"]["board"]
         live = (current or {}).get("board") or {}
@@ -123,7 +129,7 @@ def inspect_member(repo: Any, member: Any) -> MemberCurrentness:
                     member.source_id,
                     label["approvalFence"],
                     current,
-                    render_proof=label["render"],
+                    render_proof=label.get("canonicalRender", label["render"]),
                     source_row=source,
                 )
             )

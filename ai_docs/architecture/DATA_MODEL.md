@@ -3180,6 +3180,16 @@ producenta oryginału nadal pozostaje luką pomiaru jakości modelu.
 
 ## Kohorty geometrii aplikacji (D-556, TASK-0995, Alembic0163)
 
+TASK-1165/D-590 dodaje w Alembic0182/manifest v22 niezależne
+`grid_cell_content_revisions`, `grid_cell_content_sessions` i
+`grid_cell_content_commands`. Klucz rewizji to gra, normalized pixel SHA,
+pozycja planszy i własny revision; dokument zawiera dokładnie 15 komórek,
+source UUID/bytes SHA/frame oraz pochodzenie i zatwierdzonego aktora. Nullable
+live source FK może się odłączyć bez usunięcia historii. Sesja utrwala roster,
+przebiegi i raport; receipt wiąże exact command SHA. Partycje, forced RLS i
+triggery chronią historię/CAS; downgrade z danymi odmawia. Role pozostają
+wyłącznie w istniejącym ledgerze, obrazy w plikach.
+
 Bieżący manifest v16 dodaje sześć game-owned tabel partycjonowanych:
 `grid_training_cohorts`, `grid_training_cohort_members`,
 `grid_training_cohort_pages`, `grid_training_cohort_commands`,

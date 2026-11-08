@@ -1,0 +1,26 @@
+{
+  "task": "TASK-1165",
+  "review_round": 1,
+  "requested_model": "claude-opus-5-5",
+  "requested_effort": "high",
+  "payload_sha256": "42e997b489a780a9366cbff62f0a8f36556e806fb9e188ac8b40fc11e55518e0",
+  "protocol": 1,
+  "request_sha256": "fd79c1d9c3ff1895ebdbd3f8266203aec37a6d3c5c9d7d6e0d1fd8327eb435ef",
+  "attempts": [
+    {
+      "number": 1,
+      "status": "blocked",
+      "owner_pid": 9928,
+      "started_unix": 1794152638.5175066,
+      "transport": "cli",
+      "requested_effort": "high",
+      "evidence_source": "cli-system.init;effort-requested-only",
+      "pid": 23716,
+      "process_identity": "134386262385418426",
+      "observed_model": "claude-opus-5-5",
+      "session_ref": "42246743-059e-4016-a4d5-d97fb6e83119",
+      "diagnostic": "Audit total/stream-idle timeout; no verdict.",
+      "ended_unix": 1794153118.6353521
+    }
+  ]
+}

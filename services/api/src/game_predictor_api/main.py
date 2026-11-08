@@ -246,6 +246,7 @@ from game_predictor_api.domain.datasets import (
     DatasetError,
     DatasetNotFoundError,
 )
+from game_predictor_api.domain.grid_cell_content import ContentError
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError
 from game_predictor_api.domain.grid_shadow import GridShadowError
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError
@@ -1572,6 +1573,7 @@ def create_app(
     )
 
     def default_image_review_service_dependency() -> Iterator[OperationalImageReviewService]:
+        from game_predictor_api.application.grid_cell_content import GridCellContentService
         from game_predictor_api.application.grid_geometry_approvals import (
             GridGeometryApprovalService,
         )
@@ -1582,6 +1584,7 @@ def create_app(
             GridQualityMeasurementService,
         )
         from game_predictor_api.application.grid_reinference import GridReinferenceService
+        from game_predictor_api.storage.grid_cell_content import SqlAlchemyGridCellContentRepository
         from game_predictor_api.storage.grid_geometry_approvals import (
             SqlAlchemyGridGeometryApprovalRepository,
         )
@@ -1602,6 +1605,13 @@ def create_app(
                     grid_quality_measurements=GridQualityMeasurementService(
                         SqlAlchemyGridQualityMeasurementRepository(
                             session, resolved_settings.artifact_root
+                        )
+                    ),
+                    grid_cell_content=GridCellContentService(
+                        SqlAlchemyGridCellContentRepository(
+                            session,
+                            resolved_settings.artifact_root,
+                            resolved_settings.recording_provider_index_sha256,
                         )
                     ),
                     grid_geometry_approvals=GridGeometryApprovalService(
@@ -2332,6 +2342,7 @@ def create_app(
                         session, resolved_settings.artifact_root
                     ),
                     resolved_settings.artifact_root,
+                    resolved_settings.recording_provider_index_sha256,
                 )
                 session.commit()
             except BaseException:
@@ -2356,6 +2367,12 @@ def create_app(
             except BaseException:
                 session.rollback()
                 raise
+
+    @application.exception_handler(ContentError)
+    async def grid_content_error_handler(_request: Request, error: ContentError) -> JSONResponse:
+        from game_predictor_api.api.grid_cell_content import content_error_response
+
+        return content_error_response(error)
 
     @application.exception_handler(GridCohortError)
     async def grid_cohort_error_handler(_request: Request, error: GridCohortError) -> JSONResponse:

@@ -273,6 +273,12 @@ _REVIEWER_MUTATION_PATTERNS = tuple(
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-revisions$",
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-approvals$",
+        # Local human content labelling; route-level actor validation still rejects
+        # remote Bearer sessions, which have no content-session capability.
+        r"^/api/v1/admin/games/[^/]+/grid-quality-measurements/content-references$",
+        r"^/api/v1/admin/games/[^/]+/grid-quality-measurements/content-sessions$",
+        r"^/api/v1/admin/games/[^/]+/grid-quality-measurements/"
+        r"content-sessions/[^/]+/(?:observations|advance)$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-revisions$",
         r"^/api/v1/admin/image-review-items/[^/]+/grid-geometry-proposals$",

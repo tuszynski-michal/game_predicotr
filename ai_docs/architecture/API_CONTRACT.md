@@ -5563,6 +5563,34 @@ receiptu; niepowodzenie archiwum zachowuje pending.
 
 ## Opisowy pomiar siatek i zatwierdzenie bez zmiany (D-555, TASK-1009)
 
+TASK-1165/D-590 rozszerza ten sam obszar o niezależne adnotacje. Pod prefiksem
+`/api/v1/admin/games/{gameId}/grid-quality-measurements` dostępne są:
+
+- GET `content-references/{sourceId}/{positionIndex}`, POST `content-references`;
+- GET/POST `content-sessions`, GET `content-sessions/{sessionId}`;
+- POST `content-sessions/{sessionId}/observations` i `/advance`;
+- GET `content-sessions/{sessionId}/sources/{sourceId}/asset` (no-store);
+- GET `content-readiness?cohortId=&manifestSha256=`;
+- POST `content-sampling-preview` (odczytowy preflight, bez rezerwacji ról).
+
+Zamknięte DTO/OpenAPI są źródłem typów SDK. Zapisy mają UUID polecenia i CAS;
+powtórzenie dokładnego body oddaje trwały receipt, zmieniony payload/stale CAS
+daje 409. Aktor jest rozstrzygany po stronie serwera dla lokalnego Admin/Reviewer.
+Ślepa obserwacja wymaga literalnego `true` i nie przyjmuje pól AI/propozycji.
+Create przypina cohort/manifest i sourceIds; opcjonalne targetSelection wybiera
+dokładne sloty tych samych źródeł. GET/receipt sesji nie ujawnia adnotacji ani
+geometrii poprzedniego przebiegu. Low-level prepare kohorty ma opcjonalne
+`contentSamplingPolicy=full-symbol-content-sampling-v1`; brak pola zachowuje
+historyczny kontrakt. Rodowód i politykę dostarcza serwer, nie klient.
+
+Readiness zwraca `basis=frozen_content_pins`, osobne `annotationProgress`
+(żywe etykiety) i `frozenPinCoverage` (dokładne piny manifestu). Główne `state`
+oraz `games` odpowiadają drugiemu wynikowi; brak pinów kohorty legacy nie jest
+uzupełniany żywymi etykietami. Quad poza źródłem daje typowany HTTP422 z kodem
+`CONTENT_QUAD_OUTSIDE_SOURCE`, bez zapisu rewizji. Zwykły GET content-references
+pozostaje poza protokołem blind; T5 izoluje workspace i nie udostępnia tam tego
+odczytu ani dawnych szkiców. Nie deklarujemy blokady zewnętrznej ekspozycji.
+
 ```text
 GET  /api/v1/admin/games/{gameId}/grid-quality-measurements?cursor=&limit=
 GET  /api/v1/admin/games/{gameId}/grid-quality-measurements/{measurementId}

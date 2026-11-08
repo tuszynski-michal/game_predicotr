@@ -116,6 +116,24 @@ def prepare(
     identifier = uuid5(game, "grid-cohort:" + body["idempotencyKey"])
     policy = body.get("policyVersion", POLICY)
     photo_split = None
+    content_sampling = None
+    if body.get("contentSamplingPolicy") is not None:
+        from game_predictor_api.storage.grid_content_sampling import resolve_content_sampling
+
+        if (
+            body["contentSamplingPolicy"] != "full-symbol-content-sampling-v1"
+            or policy != "application-grid-corrections-v4"
+        ):
+            raise GridCohortError(
+                "CONTENT_SAMPLING_POLICY_INVALID", "Explicit content policy requires v4."
+            )
+        content_sampling = resolve_content_sampling(
+            repo,
+            game,
+            UUID(body["baseVersionId"]),
+            UUID(body["familyId"]),
+            service.provider_index_sha256,
+        )
     if policy in CORRECTION_POLICIES:
         if (
             body["mode"] != correction_mode_for_policy(policy, body["mode"])
@@ -135,6 +153,7 @@ def prepare(
             policy=policy,
             mode=body["mode"],
             validation_assignments=body.get("validationAssignments"),
+            content_sampling=content_sampling,
         )
     elif policy != POLICY:
         raise GridCohortError("GRID_COHORT_POLICY_UNSUPPORTED", "Unknown cohort policy.", 422)

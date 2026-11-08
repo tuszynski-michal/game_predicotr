@@ -15,6 +15,106 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+## D-590 — Niezależna zawartość 15 pól i ślepy pomiar powtarzalności
+
+Status: accepted — wykonanie zaakceptowanego FULL_SYMBOL_CROPS_PLAN_20261108, T2.
+Data: 2026-11-08
+
+Sama zatwierdzona geometria nie opisuje całej grafiki symbolu. Etykieta zawartości
+ma tożsamość gry, EXIF-normalized pixel SHA, pozycji planszy i pola row-major.
+Niezmienna rewizja planszy zawiera dokładnie 15 stanów visible/occluded/
+out_of_frame/unknown, własną rewizję niezależną od geometryRevision, checksum
+bajtów źródła, wymiary/adapter, aktora, pochodzenie i jawne zatwierdzenie.
+Visible wymaga pełnego wypukłego quadu; pozostałe stany mogą zawierać jedynie
+zaobserwowany fragment. Propozycja AI zachowuje pochodzenie i nie staje się
+ślepym ręcznym oznaczeniem przez sam status.
+
+Alembic 0182 dodaje partycjonowane relacje gry: rewizje, sesje i receipts,
+manifest v22, RLS oraz niezmienność historii. Usunięcie żywego źródła może
+odłączyć nullable FK, zachowując utrwaloną tożsamość. Exact replay, konflikt
+treści komendy i CAS mają trwały, transakcyjny zapis. Obrazy pozostają plikami.
+
+Rozszerzamy istniejące grid-quality-measurements o content-references,
+content-sessions, plain assets, content-readiness i content-sampling-preview.
+Lokalna intencja Admina/Reviewera ustala aktora; treść żądania nie udaje człowieka.
+Sesja przypina członkostwo TRAIN/A, jawny roster oraz dwa niezależne przebiegi
+24 węzłów i 15 obwiedni. Opcjonalne targetSelection wybiera dokładne pozycje,
+aby 30 plansz z 10 zdjęć nie wymuszało oznaczenia 90 plansz. Odczyty i listy sesji
+oraz receipts pokazują stan i tożsamość celu, bez wcześniejszych etykiet,
+punktów, propozycji i predykcji. T5 montuje pusty, odizolowany edytor, chowa
+zwykłe narzędzia i nie odtwarza w canvasie treści retry. To nie jest techniczna
+gwarancja, że operator nie oglądał źródła poza tym przepływem.
+Zwykły GET content-references pozostaje poza protokołem ślepego pomiaru
+i może zwrócić wcześniejsze adnotacje. P2-2 audytu przyjmujemy jako jawną
+granicę: T5 izoluje aktywny edytor i nie wywołuje tego odczytu ani dawnych
+narzędzi, ale API nie obiecuje technicznego zapobieżenia zewnętrznej ekspozycji.
+
+cell-content-repeatability-v1 liczy float64 symetryczny Hausdorff wypełnionych,
+zamkniętych wypukłych quadów, dzielony przez mniejszą przekątną axis-aligned
+obwiedni komórki z obu ręcznych geometrii. δ to maksimum obu kierunków
+istniejącego NME24 planszy, następnie średnia po zdjęciu i nearest-rank P95.
+P95 = sorted[ceil(.95*n)-1]. Brak lub niepoprawna geometria nigdy nie daje zera.
+Pomiar per gra tylko TRAIN/A: co najmniej 30 plansz/10 zdjęć, u≤0,02 i δ≤0,002;
+ponad 10% nierozstrzygniętych pól daje not_evaluable. Jeden aktor oznacza
+powtarzalność wewnątrzoperatorską, nie niezależność wielu operatorów.
+
+Drugi przebieg używa rzeczywistego VirtualCellRenderer z przypiętym snapshotem
+klasyfikatora i konfiguracją. Oracle mierzy faktyczny footprint po produkcyjnej
+kwantyzacji float32 oraz realne wsparcie canonical source. Przycinanie przez
+renderer blokuje kwalifikację zawartości nawet przy idealnej geometrii;
+fragmenty niewidocznych symboli nie dają preserved. checkedBoards liczy wyniki
+mierzalne, blockedBoards tylko rzeczywiste render_contract_blocked, a osobne
+notEvaluableBoards obejmuje brak mierzalnego visible. Kwalifikacja ma priorytet
+render_contract_blocked, potem not_evaluable, a ready wymaga wszystkich checked.
+Po zaliczonym u/δ sesję można zamrozić bez pełnej kwalifikacji A; nie jest to
+zakaz użycia legalnych ujemnych etykiet TRAIN do geometrii lub visibility.
+Końcowy raster i wejście NN są osobnymi faktami. T3 wyprowadzi inputCropped z rzeczywistego wariantu
+wejścia oraz niezależnie zamrożonego dowodu; źródłowa adnotacja tego nie zgaduje.
+
+Nowy capture może przypiąć zatwierdzony content SHA, rewizję i dokument.
+Starych snapshotów nie uzupełniamy. Currentness chroni zmianę przypiętych etykiet,
+a reader sprawdza grę, źródło, pozycję, checksumy i rewizję. Adapter T1 pobiera
+TRAIN przed augmentacją, per gra; brak etykiet pozostawia maskę zerową.
+Etykieta zawartości nie zmienia po cichu legacy admission geometrii.
+Klucz pixel SHA/pozycja pozwala użyć zatwierdzenia na dokładnej kopii pikseli.
+UUID i byte SHA źródła adnotacji pozostają jej pochodzeniem; osobny
+contentTargetSource przypina rzeczywiste źródło odbiorcy. Reader sprawdza
+tożsamość i piksele docelowego źródła, zgodność znormalizowanego frame, pozycji
+i sequenceNumber oraz niezmienny content SHA. Sama flaga aliasu nie jest dowodem. Ledger nadal łączy
+kopie i chroni role. Dotychczasowa bariera own_target nadal może wykluczyć
+kopię; test aliasów nie zakłada jednoczesnej własności dwóch aktywnych kopii.
+Znane niedobory lub błędy pina mają policzoną przyczynę
+per źródło, bez nieobsłużonego ContentError zatrzymującego całą populację.
+Postęp żywych adnotacji i pokrycie pinami zamrożonej kohorty są osobne;
+stary snapshot bez contentAnnotation nie udaje gotowego wejścia workera.
+Dla nowej polityki referencyjna geometria A pochodzi z ręcznego drugiego
+ślepego przebiegu, z pinem sesji, rewizji i SHA. Nowy capture/materializacja
+przekazują te 24 węzły oraz ich cellQuads do ewaluatora; nie wystarczy dołączyć
+obwiedni symboli do starych zatwierdzonych predykcji bazy. Qualified labels SHA
+jest liczony po ostatecznym podziale A/B. Kanoniczne korekty operatora pozostają
+bez zmian, a domyślny legacy capture zachowuje poprzednią geometrię i format.
+
+full-symbol-content-sampling-v1 jest jawną opcją istniejącego prepare_split,
+a nie drugim rejestrem ról ani reinterpretacją v4. Najpierw rozstrzyga rodowód,
+providers, ledger closure, kopie, ekspozycję i bufor 10 zdjęć. Potem seed20261108
+wybiera co najmniej 5 świeżych, kompletnie opisanych dziewięcioplanszowych zdjęć
+REGRESSION per gra. Brak etykiet, rodowodu lub tożsamości daje policzone braki
+not_evaluable. Rejestracja źródła pozostaje w dotychczasowym mechanizmie;
+preflight nie importuje stagingu operatora. Domyślny v4 zachowuje znaczenie.
+Historyczne REG pozostają chronione w ledgerze, lecz nie udają świeżego testu.
+Nowa ocena używa wybranego świeżego REG; wyłączenia historycznych przykładów
+są jawne w dowodzie contentExcluded, bez przepisania ich ról lub historii.
+Mianownik nierozstrzygniętych komórek obejmuje cały wybrany komponent,
+a kopie liczymy raz; brak geometrii pozostaje jawnym unresolvedPhotos.
+selection_ready nie oznacza kwalifikacji modelu: qualificationState pozostaje
+not_evaluated do rzeczywistej oceny, a unknown>10% blokuje zaliczenie roli.
+T2 dostarcza realny adapter prepare_split i read-only preview; T4 przypina opcję
+i dowód w parent/freeze/child/eksperymencie. T5 pokazuje gotowość osobno od
+legalnych dotychczasowych treningów geometrii i ręcznych propozycji.
+
+Task nie wykonuje adnotacji operatora, importu, migracji produkcji, treningu,
+zmiany defaultu ani rzeczywistej kwalifikacji. Źródło: TASK-1165 i plan T0–T5.
+
 ## D-589 — Jawny nadzór visibility15 i próg brzegu wejścia w kontrakcie v2
 
 Status: accepted — zakres zaakceptowanego planu FULL_SYMBOL_CROPS_PLAN_20261108, T1.

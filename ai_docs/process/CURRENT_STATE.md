@@ -48,7 +48,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` | accepted; T0–T1 kod/testy/OpusPASS; cały zakres/koszt zlecony, terminal CLI | TASK-1165–1168 | `codex/full-symbol-crops` |
+| `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` | accepted; T0–T2 kod/testy/OpusPASS; cały zakres/koszt zlecony, terminal CLI | TASK-1166–1168 | `codex/full-symbol-crops` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -88,10 +88,6 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1165 — Etykiety zawartości (in_progress)
-
-- Plik: `tasks/1165-cell-content-reference.md`. T2 nowe moduły i testy; integracja istniejących plików oraz head Alembic czekają na zamknięcie poprawek/audytu T1.
-
 ### TASK-1166 — Ocena wycinków (todo)
 
 - Plik: `tasks/1166-production-cell-evaluation.md`. T3; produkcyjne rastry i bramka per instancja.
@@ -110,7 +106,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1164** — Kontrakt 24 punktów i 15 ocen widoczności — v1.7.573 — tasks/completed/1164-grid-visibility-contract.md
+- **TASK-1165** — Niezależne etykiety zawartości i ślepy pomiar — v1.7.574 — tasks/completed/1165-cell-content-reference.md
+- **TASK-1164** — Kontrakt 24 punktów i 15 ocen widoczności — v1.7.573 / `1629b8be` — tasks/completed/1164-grid-visibility-contract.md
 - **TASK-1163** — Trwała procedura audytu krzyżowego — v1.7.572 / `32db23e3` — tasks/completed/1163-durable-cross-audit-runner.md
 - **TASK-1162** — Routing rejestracji diagnostyk — v1.7.569 / `08c2fd74` — tasks/completed/1162-diagnostic-registration-routing.md
 - **TASK-1160** — Odbiór pełnego przepływu — v1.7.565 / `f42a31bd` — tasks/completed/1160-full-board-acceptance.md
@@ -119,4 +116,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1158** — Kompletność i rozdzielona kalibracja — v1.7.563 / `c7ed8afe` — tasks/completed/1158-full-board-calibration.md
 - **TASK-1157** — Korekty detektora i ratunek — v1.7.562 / `f78c5b5a` — tasks/completed/1157-screen-grid-corrections-rescue.md
 - **TASK-1156** — Możliwości modelu i kwalifikacja gry — v1.7.560 / `337affe8` — tasks/completed/1156-neural-model-game-capabilities.md
-- **TASK-1155** — Odtwarzalne wejście sieci i dowody gotowości — v1.7.559 / `887d8a3b` — tasks/completed/1155-full-board-input-diagnostics.md

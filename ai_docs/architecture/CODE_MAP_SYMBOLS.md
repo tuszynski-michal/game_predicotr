@@ -24,6 +24,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - api/geometry_correction_reverts.py: create_geometry_correction_reverts_router
 - api/grid_audit_proposals.py: create_grid_audit_proposals_router
 - api/grid_calibration.py: create_grid_calibration_router
+- api/grid_cell_content.py: content_error_response, create_grid_cell_content_router
 - api/grid_correction_apply.py: create_grid_correction_apply_router
 - api/grid_correction_learning.py: create_grid_correction_learning_router
 - api/grid_engine_profiles.py: create_grid_engine_profiles_router
@@ -90,6 +91,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/grid_audit_proposals.py: class GridAuditProposalStore, class GridAuditBoardReader, class GridAuditQueueEntry, class GridAuditQueueCounts, class GridAuditQueuePage, class GridAuditProposalView, class GridAuditProposalService, class FileGridAuditProposalStore
 - application/grid_audit_symbol_suggestions.py: class GridAuditCellSymbolSuggestion, class GridAuditSymbolSuggestions, class FileGridAuditSymbolSuggestionStore
 - application/grid_calibration.py: class GridCalibrationRepository, class GridCalibrationService
+- application/grid_cell_content.py: class ContentRepository, class GridCellContentService
 - application/grid_correction_apply.py: apply_key, class GridCorrectionApplyService, job_version_from_pin
 - application/grid_correction_history.py: select_historical_cohorts, verified_history, require_historical_cohort
 - application/grid_correction_learning.py: child_key, class GridCorrectionLearningService
@@ -205,6 +207,9 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/grid_assigned_comparison.py: build_report, require_report
 - domain/grid_audit_proposals.py: class GridAuditProposalError, class GridAuditImportStatus, class GridAuditQueueStatus, class GridAuditPoint, class GridAuditProposalGrid, class GridAuditProposalItem, class GridAuditProposalArtifact, class GridAuditBoardState, derive_grid_audit_queue_status, proposal_grid_from_nodes, parse_grid_audit_proposal_document, grid_audit_proposal_item_document
 - domain/grid_calibration.py: class GridProfileStatus, class GridProfileActivationAction, class VerifiedGeometrySample, class GeometryCohort, class GridCalibrationProfile, class GridProfileActivation, class GridProfileActivationPreview, class GeometryCohortDiagnostics, build_geometry_manifest, train_grid_profile, profile_checksum, grid_profile_end_to_end_gate_is_current, activation_command_sha256
+- domain/grid_cell_content.py: class ContentError, require_human, class ContentSource, content_source_identity, same_content_frame, require_content_bounds, class ContentRevision, class ContentTarget, require_reference, content_readiness, content_readiness_views, oracle_qualification, content_capture_counts
+- domain/grid_content_repeatability.py: nearest_rank_p95, bbox_diagonal, point_to_filled_quad, symmetric_quad_hausdorff, lattice_cell, symmetric_board_nme, repeatability_report
+- domain/grid_content_sampling.py: fresh_regression_preview
 - domain/grid_correction_evaluation.py: require_metrics, decide_game, require_scope, require_checkpoint_selection, build_report, require_report
 - domain/grid_correction_incremental_split.py: solve_incremental_split
 - domain/grid_correction_policy.py: correction_policy_for_mode, correction_mode_for_policy
@@ -300,6 +305,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/geometry_qualification.py: class GridCorrectionCellSymbolPayload, class GridCorrectionCellSymbolSuggestionResponse, class GridCorrectionSymbolsResponse, to_grid_correction_symbols_response, class ManualSourceGeometryPoint, class GeometryQualificationPayload, class AutomaticPartialGeometryProposalPayload, class AutomaticFrameGeometryProposalPayload
 - schemas/grid_audit_proposals.py: class GridAuditQueueCountsResponse, class GridAuditQueueItemResponse, class GridAuditQueuePageResponse, class GridAuditNodeResponse, class GridAuditProposalGridResponse, class GridAuditSymbolSuggestionsResponse, class GridAuditProposalResponse, to_grid_audit_queue_item_response, to_grid_audit_queue_page_response, to_grid_audit_proposal_response
 - schemas/grid_calibration.py: class GeometryCohortResponse, class GridCalibrationProfileResponse, class CreateGridCalibrationCandidateResponse, class GridEndToEndGateSource, class GridEndToEndGateReportCommand, class CreateGridCalibrationCandidateCommand, class GeometryCohortDiagnosticsResponse, class GridProfileActivationCommand, class GridProfileActivationPreviewResponse, class GridProfileActivationResponse, class GridProfileActivationCommandResponse, to_cohort_response, to_diagnostics_response, to_profile_response, to_activation_preview_response, to_activation_response
+- schemas/grid_cell_content.py: class ContentWriteCommand, class ContentSessionTargetSelection, class ContentSessionCreate, class ContentBlindWrite, class ContentSessionAdvance, class ContentReferenceResponse, class ContentWriteResponse, class ContentBlindTarget, class ContentSessionStatus, class ContentSessionResponse, class ContentSessionCommandResponse, class ContentSessionList, class ContentSamplingPreview, class ContentRoleReadiness, class ContentReadinessSummary, class ContentReadinessResponse, class ContentSamplingResponse
 - schemas/grid_correction_apply.py: class GridCorrectionApplyTarget, class GridCorrectionApplyPreview, class GridCorrectionApplyStartCommand, class GridCorrectionApplyStep, class GridCorrectionApplyView, class GridCorrectionApplyList
 - schemas/grid_correction_learning.py: class CorrectionLearningClosedModel, class GridCorrectionLearningExclusion, class GridCorrectionLearningPreviewCommand, class GridCorrectionLearningStartCommand, class GridCorrectionLearningRoleCount, class GridCorrectionDataAvailability, class GridCorrectionLearningCount, class GridCorrectionLearningExclusionCount, class GridCorrectionLearningProgressCounts, class DetectorRoleReadiness, class GridDetectorReadiness, class GridValidationSourceChoice, class GridValidationPurposeChoice, class GridValidationComponentChoice, class GridValidationPurposeCount, class GridCorrectionLearningPreview, class GridCorrectionLearningView, class GridCorrectionLearningList
 - schemas/grid_engine_acceptance.py: class HistoricalAcceptanceCreateCommand, class HistoricalAcceptancePreviewCommand, class HistoricalAcceptanceConfirmCommand, class HistoricalAcceptanceRunCommand, class HistoricalAcceptanceItemResponse, class HistoricalAcceptanceResponse, historical_acceptance_response
@@ -386,6 +392,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/game_data_v2_manifest_v2.py: ownership
 - storage/game_data_v2_manifest_v20.py: ownership
 - storage/game_data_v2_manifest_v21.py: ownership
+- storage/game_data_v2_manifest_v22.py: ownership
 - storage/game_data_v2_manifest_v3.py: ownership
 - storage/game_data_v2_manifest_v4.py: ownership
 - storage/game_data_v2_manifest_v5.py: ownership
@@ -407,7 +414,13 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/global_shape_geometry_readiness.py: class GlobalGeometryReadinessReader, class GlobalShapeGeometryReadinessResolver
 - storage/grid_audit_board_reader.py: class SqlAlchemyGridAuditBoardReader
 - storage/grid_calibration_repository.py: class SqlAlchemyGridCalibrationRepository
+- storage/grid_cell_content.py: source_identity, class SqlAlchemyGridCellContentRepository
+- storage/grid_cell_content_migration.py: guard, manifest, protect, upgrade, downgrade
+- storage/grid_cell_content_models.py: class GridCellContentRevisionModel, class GridCellContentSessionModel, class GridCellContentCommandModel
+- storage/grid_cell_content_pins.py: content_pin, apply_blind_a_geometry, require_current_content_pin
 - storage/grid_cohort_asset_retention.py: class AssetDeadline, class CohortAssetDeadline, cohort_asset_guard_key, acquire_cohort_asset_guard, parse_cohort_asset_path, read_cohort_asset_reference
+- storage/grid_content_oracle_context.py: capture_oracle_context
+- storage/grid_content_sampling.py: class ContentSamplingPreparationError, resolve_content_sampling, constrain_content_regression
 - storage/grid_correction_split.py: previously_used_train_boards, class GridCorrectionSplitPreparationError, population, population_sha, contexts, prepare_split, validate_population, split_mapping
 - storage/grid_diagnostic_readiness.py: summarize_capture, read_readiness
 - storage/grid_diagnostics_repository.py: read_grid_diagnostics
@@ -606,6 +619,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/geometry_rollout_backfill.py: class ImageGeometryRolloutBackfillHandler
 - images/global_symbol_lattice.py: class GlobalSymbolCandidate, class GlobalSymbolLattice, detect_global_symbol_candidates, refine_global_symbol_center, locate_global_symbol_lattice
 - images/grid_calibration.py: class GridCalibrationError, local_corner_offsets, apply_local_corner_offsets, build_profile_document, class CalibrationAnchor, class CalibrationProfile, class CalibrationApplication, class GridCalibrationProfiles, profile_document_bytes
+- images/grid_cell_content_reference.py: run_blind_content_oracle, frozen_content_reference, content_oracle
 - images/grid_cohort_dataset.py: class GridCohortDatasetError, class GridCohortSnapshot, frame_rgb_and_box, has_full_geometry, class GridBoardDataset, class GridAssessmentDataset, class GridScreenDataset
 - images/grid_correction_apply_handler.py: class GridCorrectionApplyJobHandler
 - images/grid_correction_learning_handler.py: class GridCorrectionLearningJobHandler

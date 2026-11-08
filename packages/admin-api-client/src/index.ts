@@ -5,6 +5,36 @@ export type {
   GridModelEvaluationCohortPin,
 } from './generated/types.gen';
 import {
+  getGridCellContentReference as generatedContentReference,
+  writeGridCellContentReference as generatedContentWrite,
+  listGridContentSessions as generatedContentSessions,
+  createGridContentSession as generatedContentSessionCreate,
+  getGridContentSession as generatedContentSession,
+  getGridContentSessionSource as generatedContentSource,
+  writeGridBlindContentObservation as generatedContentObservation,
+  advanceGridContentSession as generatedContentAdvance,
+  getGridContentReadiness as generatedContentReadiness,
+  previewGridContentSampling as generatedContentSampling,
+} from './generated/sdk.gen';
+import type {
+  ContentWriteCommand,
+  ContentSessionCreate,
+  ContentBlindWrite,
+  ContentSessionAdvance,
+  ContentSamplingPreview,
+} from './generated/types.gen';
+export type {
+  ContentWriteCommand,
+  ContentSessionCreate,
+  ContentBlindWrite,
+  ContentSessionAdvance,
+  ContentSamplingPreview,
+  ContentSessionResponse,
+  ContentSessionStatus,
+  ContentRevision,
+  ContentSource,
+} from './generated/types.gen';
+import {
   planSourceReplacement as generatedReplacementPlan,
   listSourceReplacementCandidates as generatedReplacementCandidates,
   listSourceReplacementBatches as generatedReplacementBatches,
@@ -1833,6 +1863,90 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { game_id: gameId },
         query: options,
       }),
+    getGridCellContentReference: (
+      gameId: string,
+      sourceId: string,
+      positionIndex: number,
+    ) =>
+      generatedContentReference({
+        client,
+        path: {
+          game_id: gameId,
+          source_id: sourceId,
+          position_index: positionIndex,
+        },
+      }),
+    writeGridCellContentReference: (
+      gameId: string,
+      body: ContentWriteCommand,
+    ) => generatedContentWrite({ client, path: { game_id: gameId }, body }),
+    listGridContentSessions: (gameId: string, limit = 20) =>
+      generatedContentSessions({
+        client,
+        path: { game_id: gameId },
+        query: { limit },
+      }),
+    createGridContentSession: (gameId: string, body: ContentSessionCreate) =>
+      generatedContentSessionCreate({
+        client,
+        path: { game_id: gameId },
+        body,
+      }),
+    getGridContentSession: (gameId: string, sessionId: string) =>
+      generatedContentSession({
+        client,
+        path: { game_id: gameId, session_id: sessionId },
+      }),
+    getGridContentSessionSource: (
+      gameId: string,
+      sessionId: string,
+      sourceId: string,
+    ) =>
+      generatedContentSource({
+        client,
+        path: { game_id: gameId, session_id: sessionId, source_id: sourceId },
+      }),
+    gridContentSessionSourceUrl: (
+      gameId: string,
+      sessionId: string,
+      sourceId: string,
+    ) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/grid-quality-measurements/content-sessions/${encodeURIComponent(sessionId)}/sources/${encodeURIComponent(sourceId)}/asset`,
+    writeGridBlindContentObservation: (
+      gameId: string,
+      sessionId: string,
+      body: ContentBlindWrite,
+    ) =>
+      generatedContentObservation({
+        client,
+        path: { game_id: gameId, session_id: sessionId },
+        body,
+      }),
+    advanceGridContentSession: (
+      gameId: string,
+      sessionId: string,
+      body: ContentSessionAdvance,
+    ) =>
+      generatedContentAdvance({
+        client,
+        path: { game_id: gameId, session_id: sessionId },
+        body,
+      }),
+    // Top-level state follows frozen pins; annotationProgress is live labeling progress.
+    getGridContentReadiness: (
+      gameId: string,
+      cohortId: string,
+      manifestSha256: string,
+    ) =>
+      generatedContentReadiness({
+        client,
+        path: { game_id: gameId },
+        query: { cohortId, manifestSha256 },
+      }),
+    previewGridContentSampling: (
+      gameId: string,
+      body: ContentSamplingPreview,
+    ) => generatedContentSampling({ client, path: { game_id: gameId }, body }),
     getGridQualityMeasurement: (gameId: string, measurementId: string) =>
       getGeneratedGridQualityMeasurement({
         client,

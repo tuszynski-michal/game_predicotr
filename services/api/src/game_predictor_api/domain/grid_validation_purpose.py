@@ -180,7 +180,11 @@ def refine_validation_purposes(
                 pin.update(eligibleBoards=0 if excluded else count, detectorExcluded=excluded)
         else:
             pin["validationPurpose"] = None
-        if role == "REGRESSION" and context.get("diagnosticExposed"):
+        if (
+            role == "REGRESSION"
+            and context.get("diagnosticExposed")
+            and not pin.get("contentExcluded")
+        ):
             raise GridCohortError(
                 "GRID_VALIDATION_DIAGNOSTIC_EXPOSED", "Diagnostic regression is excluded."
             )

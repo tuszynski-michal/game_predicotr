@@ -6991,6 +6991,9 @@ from game_predictor_api.storage import (  # noqa: E402
     geometry_correction_revert_models as geometry_correction_revert_models,
 )
 from game_predictor_api.storage import (  # noqa: E402
+    grid_cell_content_models as grid_cell_content_models,
+)
+from game_predictor_api.storage import (  # noqa: E402
     grid_engine_acceptance_models as grid_engine_acceptance_models,
 )
 from game_predictor_api.storage import (  # noqa: E402

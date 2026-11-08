@@ -6,6 +6,30 @@ last_updated: 2026-10-16
 
 # Laboratorium wizji
 
+## Niezależna zawartość i ślepy pomiar (D-590, TASK-1165)
+
+Obwiednie 15 symboli są niezależnymi, wersjonowanymi adnotacjami źródła po EXIF,
+z aktorem, pochodzeniem i jawnym zatwierdzeniem. Zmiana siatki nie przesuwa
+obwiedni. `visible` wymaga pełnego wypukłego quadu; pozostałe stany pozwalają
+zapisać wyłącznie faktycznie widoczny fragment, bez odgadywania brakujących pikseli.
+
+Dwa ślepe przebiegi TRAIN/A zapisują osobno 24 punkty geometrii i 15 stanów/quadów,
+bez poprzednich adnotacji i propozycji. Pomiar obejmuje co najmniej 30 plansz na
+10 zdjęciach per gra; jawny wybór slotów pozwala uniknąć wymuszenia 90 plansz.
+P95 nearest-rank: u to Hausdorff wypukłych wypełnionych quadów podzielony przez
+mniejszą przekątną bbox komórki z dwóch geometrii; δ to maksimum dwóch NME na
+planszę, średnia na zdjęcie i P95 zdjęć. Caps .02/.002 pozostają niezmienione.
+Niepoprawne dane nie dają zera; unknown ponad 10% roli oznacza `not_evaluable`.
+
+Nowa opcjonalna polityka ocenia A względem drugiej ślepej geometrii, nie starych
+punktów kanonicznych. Oracle używa rzeczywistego renderera/paddingu i blokuje
+kwalifikację, jeśli sam wycinek obcina symbol. Wejście sieci ocenia się osobno.
+Świeży REG wymaga pięciu pełnych oznaczonych zdjęć per gra, seed 20261108 oraz
+istniejących ochron ról, ekspozycji, kopii, sesji, rodowodu i buforów. Historyczne
+REG pozostają chronione, lecz nie są nowym testem. Brak etykiet blokuje nową
+kwalifikację, nie legalne starsze treningi geometrii ani propozycje ręczne.
+T5 dostarcza izolowany pusty edytor; T4 przekazuje opt-in przez eksperyment.
+
 ## Explicit cell visibility (TASK-1164)
 
 The opt-in v2 geometry contract exports 24 node confidences and 15 row-major cell

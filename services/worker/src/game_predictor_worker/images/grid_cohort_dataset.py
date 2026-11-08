@@ -528,6 +528,17 @@ class GridBoardDataset:
                 targets = source["targets"]
                 if any(not isinstance(target, dict) for target in targets):
                     _fail("TARGETS_INVALID", "Each target must be a metadata object.")
+                from .grid_cell_content_reference import frozen_content_reference
+
+                content_policy = self.snapshot.manifest.get("photoSplit", {}).get("contentSampling")
+                for target in targets:
+                    frozen_content_reference(UUID(self.snapshot.manifest["gameId"]), source, target)
+                    if (
+                        content_policy
+                        and source.get("validationPurpose") == "A"
+                        and "blindGeometry" not in target
+                    ):
+                        _fail("CONTENT_BLIND_A_REQUIRED", "A requires independent blind geometry.")
                 positions = [target.get("positionIndex") for target in targets]
                 if (
                     not 1 <= len(targets) <= 9

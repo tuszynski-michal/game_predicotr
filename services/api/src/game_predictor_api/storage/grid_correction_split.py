@@ -9,6 +9,7 @@ from uuid import UUID
 
 from sqlalchemy import text
 
+from game_predictor_api.domain.grid_cell_content import content_capture_counts
 from game_predictor_api.domain.grid_correction_incremental_split import solve_incremental_split
 from game_predictor_api.domain.grid_correction_policy import (
     CORRECTION_POLICY,
@@ -223,6 +224,7 @@ def prepare_split(
     mode: str | None = None,
     validation_assignments: dict[str, str] | None = None,
     validation_components: list[dict[str, Any]] | None = None,
+    content_sampling: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     rows = population(repo, game, imports)
     purpose_aware = policy == "application-grid-corrections-v4"
@@ -361,6 +363,17 @@ def prepare_split(
                         "Copies have different current human geometry for the same target.",
                     )
                 seen_labels[alias_key] = nodes
+    content_selection = None
+    if content_sampling is not None:
+        if not purpose_aware:
+            raise GridCohortError(
+                "CONTENT_PURPOSE_POLICY_REQUIRED", "Content sampling requires v4."
+            )
+        from .grid_content_sampling import constrain_content_regression
+
+        sources, content_selection = constrain_content_regression(
+            repo, game, sources, metadata, content_sampling, deadline
+        )
     try:
         readiness = None
         if screen:
@@ -399,6 +412,12 @@ def prepare_split(
     buffers = set(solved.buffers)
     representatives = set(solved.representative_sources)
     for pin in pins:
+        if (
+            content_selection is not None
+            and pin["sourceId"] in content_selection["excludedLegacyRegressionSourceIds"]
+        ):
+            pin["contentExcluded"] = True
+            pin["eligibleBoards"] = 0
         pin.update(
             role=assignments[pin["sourceId"]],
             buffer=pin["sourceId"] in buffers,
@@ -414,7 +433,7 @@ def prepare_split(
                 else 0,
                 detectorExcluded=0 < count < 9 and role != "REGRESSION",
             )
-    result = {
+    result: dict[str, Any] = {
         "schemaVersion": solved.schema_version,
         "solverVersion": solved.solver_version,
         "sources": pins,
@@ -425,6 +444,7 @@ def prepare_split(
         "evidenceLevel": "photo-only",
         "limitations": list(solved.limitations),
         "objective": [solved.objective_numerator, solved.objective_denominator],
+        **({"contentSampling": content_selection} if content_selection is not None else {}),
         **(
             {"detectorReadiness": detector_readiness(list(deduplicated.values()), pins)}
             if screen
@@ -435,9 +455,26 @@ def prepare_split(
     if purpose_aware:
         from game_predictor_api.domain.grid_validation_purpose import refine_validation_purposes
 
-        return refine_validation_purposes(
+        result = refine_validation_purposes(
             result, sources, metadata, validation_assignments or {}, full_training=screen
         )
+    if content_selection is not None:
+        mapping = split_mapping(result)
+        for ordinal, pin in enumerate(result["sources"]):
+            deadline.check(repo.session)
+            captured = reader.capture(
+                game, UUID(pin["sourceId"]), ordinal, mapping[pin["sourceId"]], mode or "grid-only"
+            )
+            labels = [p["label"] for p in captured["positions"] if p["label"] is not None]
+            pin.update(content_capture_counts(pin["eligibleBoards"], captured["positions"]))
+            if pin.get("validationPurpose") == "A" and any(
+                p["reason"] == "CONTENT_BLIND_A_REQUIRED" for p in captured["positions"]
+            ):
+                raise GridCohortError(
+                    "CONTENT_BLIND_A_REQUIRED", "Re-label A in a frozen blind session."
+                )
+            pin["qualifiedLabelsSha256"] = digest(labels)
+        result["sha256"] = digest({k: v for k, v in result.items() if k != "sha256"})
     return result
 
 
@@ -481,8 +518,11 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             if item["role"] is not None
             and item["representative"]
             and not item.get("detectorExcluded")
+            and not item.get("contentExcluded")
             else "blocked",
-            "reasonCodes": ["GRID_CORRECTION_BUFFER"]
+            "reasonCodes": ["CONTENT_LEGACY_REG_EXCLUDED"]
+            if item.get("contentExcluded")
+            else ["GRID_CORRECTION_BUFFER"]
             if item["buffer"]
             else ["GRID_CORRECTION_EXACT_ALIAS"]
             if not item["representative"]
@@ -493,6 +533,11 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             else [],
             "splitSha256": split["sha256"],
             "expectedBoardCount": item["eligibleBoards"],
+            **(
+                {"contentSamplingPolicy": split["contentSampling"]["policy"]}
+                if "contentSampling" in split
+                else {}
+            ),
             **(
                 {
                     "validationPurpose": item["validationPurpose"],

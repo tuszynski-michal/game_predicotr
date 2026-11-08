@@ -1993,6 +1993,55 @@
         "title": "BoardCellRecropJobSnapshotPayload",
         "type": "object"
       },
+      "BoardContentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/CellContentReference"
+            },
+            "maxItems": 15,
+            "minItems": 15,
+            "title": "Cells",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "humanApproved": {
+            "title": "Humanapproved",
+            "type": "boolean"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sourceRepresentativeSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcerepresentativesha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "sourceRepresentativeSha256",
+          "positionIndex",
+          "revision",
+          "humanApproved",
+          "cells"
+        ],
+        "title": "BoardContentReference",
+        "type": "object"
+      },
       "BoardCropGeometryV1": {
         "additionalProperties": false,
         "properties": {
@@ -7101,6 +7150,93 @@
         "title": "CatalogueNeuralGridSnapshotPayload",
         "type": "object"
       },
+      "CellContentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "quad": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "type": "array"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quad"
+          },
+          "state": {
+            "enum": [
+              "visible",
+              "occluded",
+              "out_of_frame",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "CellContentReference",
+        "type": "object"
+      },
       "CleanupCommandRequest": {
         "additionalProperties": false,
         "properties": {
@@ -7311,6 +7447,1049 @@
           "reasonCodes"
         ],
         "title": "CompletenessStatus",
+        "type": "object"
+      },
+      "ContentBlindTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "positionIndex": {
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "sequenceNumber": {
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ContentSource"
+          }
+        },
+        "required": [
+          "source",
+          "positionIndex",
+          "sequenceNumber",
+          "completed"
+        ],
+        "title": "ContentBlindTarget",
+        "type": "object"
+      },
+      "ContentBlindWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/CellContentReference"
+            },
+            "maxItems": 15,
+            "minItems": 15,
+            "title": "Cells",
+            "type": "array"
+          },
+          "expectedSessionRevision": {
+            "minimum": 1.0,
+            "title": "Expectedsessionrevision",
+            "type": "integer"
+          },
+          "humanApproval": {
+            "const": true,
+            "title": "Humanapproval",
+            "type": "boolean"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "measuredNodes": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 24,
+            "minItems": 24,
+            "title": "Measurednodes",
+            "type": "array"
+          },
+          "passNumber": {
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Passnumber",
+            "type": "integer"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedSessionRevision",
+          "passNumber",
+          "sourceId",
+          "positionIndex",
+          "cells",
+          "measuredNodes",
+          "humanApproval"
+        ],
+        "title": "ContentBlindWrite",
+        "type": "object"
+      },
+      "ContentReadinessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "annotationProgress": {
+            "$ref": "#/components/schemas/ContentReadinessSummary"
+          },
+          "basis": {
+            "const": "frozen_content_pins",
+            "title": "Basis",
+            "type": "string"
+          },
+          "frozenPinCoverage": {
+            "$ref": "#/components/schemas/ContentReadinessSummary"
+          },
+          "games": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ContentRoleReadiness"
+              },
+              "propertyNames": {
+                "enum": [
+                  "TRAIN",
+                  "A",
+                  "B",
+                  "REGRESSION"
+                ]
+              },
+              "type": "object"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Games",
+            "type": "object"
+          },
+          "state": {
+            "enum": [
+              "evaluable",
+              "not_evaluable"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "const": "source-cell-content-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "state",
+          "games",
+          "basis",
+          "annotationProgress",
+          "frozenPinCoverage"
+        ],
+        "title": "ContentReadinessResponse",
+        "type": "object"
+      },
+      "ContentReadinessSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "games": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ContentRoleReadiness"
+              },
+              "propertyNames": {
+                "enum": [
+                  "TRAIN",
+                  "A",
+                  "B",
+                  "REGRESSION"
+                ]
+              },
+              "type": "object"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Games",
+            "type": "object"
+          },
+          "state": {
+            "enum": [
+              "evaluable",
+              "not_evaluable"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "const": "source-cell-content-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "state",
+          "games"
+        ],
+        "title": "ContentReadinessSummary",
+        "type": "object"
+      },
+      "ContentReferenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "annotation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentRevision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contentReferenceSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentreferencesha256"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "annotation",
+          "contentReferenceSha256",
+          "revision"
+        ],
+        "title": "ContentReferenceResponse",
+        "type": "object"
+      },
+      "ContentRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "approvedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approvedat"
+          },
+          "approvedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approvedby"
+          },
+          "measuredNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measurednodes"
+          },
+          "origin": {
+            "enum": [
+              "manual",
+              "manual_blind",
+              "ai_proposal"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "passNumber": {
+            "anyOf": [
+              {
+                "enum": [
+                  1,
+                  2
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passnumber"
+          },
+          "proposalSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposalsha256"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "title": "Recordedat",
+            "type": "string"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/BoardContentReference"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionid"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ContentSource"
+          },
+          "version": {
+            "const": "source-cell-content-v1",
+            "default": "source-cell-content-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "reference",
+          "sequenceNumber",
+          "origin",
+          "actor",
+          "recordedAt"
+        ],
+        "title": "ContentRevision",
+        "type": "object"
+      },
+      "ContentRoleReadiness": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "title": "Boards",
+            "type": "integer"
+          },
+          "fullPhotos": {
+            "title": "Fullphotos",
+            "type": "integer"
+          },
+          "missingFullPhotos": {
+            "title": "Missingfullphotos",
+            "type": "integer"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "slots": {
+            "title": "Slots",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "evaluable",
+              "not_evaluable"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "states": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "visible",
+                "occluded",
+                "out_of_frame",
+                "unknown"
+              ]
+            },
+            "title": "States",
+            "type": "object"
+          },
+          "unapprovedSlots": {
+            "title": "Unapprovedslots",
+            "type": "integer"
+          },
+          "unresolvedPhotos": {
+            "title": "Unresolvedphotos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "reasonCodes",
+          "boards",
+          "slots",
+          "unapprovedSlots",
+          "unresolvedPhotos",
+          "states",
+          "fullPhotos",
+          "missingFullPhotos"
+        ],
+        "title": "ContentRoleReadiness",
+        "type": "object"
+      },
+      "ContentSamplingPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "importJobIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Importjobids",
+            "type": "array"
+          },
+          "trainingMode": {
+            "default": "grid-only",
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Trainingmode",
+            "type": "string"
+          },
+          "validationAssignments": {
+            "additionalProperties": {
+              "enum": [
+                "A",
+                "B",
+                "BUFFER"
+              ],
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Validationassignments",
+            "type": "object"
+          }
+        },
+        "required": [
+          "baseVersionId",
+          "familyId",
+          "importJobIds"
+        ],
+        "title": "ContentSamplingPreview",
+        "type": "object"
+      },
+      "ContentSamplingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "policy": {
+            "const": "full-symbol-content-sampling-v1",
+            "default": "full-symbol-content-sampling-v1",
+            "title": "Policy",
+            "type": "string"
+          },
+          "qualificationState": {
+            "const": "not_evaluated",
+            "default": "not_evaluated",
+            "title": "Qualificationstate",
+            "type": "string"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "roleWrites": {
+            "const": false,
+            "title": "Rolewrites",
+            "type": "boolean"
+          },
+          "selection": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split"
+          },
+          "state": {
+            "enum": [
+              "selection_ready",
+              "not_evaluable"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "roleWrites"
+        ],
+        "title": "ContentSamplingResponse",
+        "type": "object"
+      },
+      "ContentSessionAdvance": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedSessionRevision": {
+            "minimum": 1.0,
+            "title": "Expectedsessionrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedSessionRevision"
+        ],
+        "title": "ContentSessionAdvance",
+        "type": "object"
+      },
+      "ContentSessionCommandResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "session": {
+            "$ref": "#/components/schemas/ContentSessionStatus"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "session"
+        ],
+        "title": "ContentSessionCommandResponse",
+        "type": "object"
+      },
+      "ContentSessionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "expectedManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedmanifestsha256",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "sourceIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Sourceids",
+            "type": "array"
+          },
+          "targetSelection": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ContentSessionTargetSelection"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetselection"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "cohortId",
+          "expectedManifestSha256",
+          "sourceIds"
+        ],
+        "title": "ContentSessionCreate",
+        "type": "object"
+      },
+      "ContentSessionList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentSessionStatus"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ContentSessionList",
+        "type": "object"
+      },
+      "ContentSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "pass1",
+              "pass2",
+              "frozen"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ContentBlindTarget"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessionId",
+          "gameId",
+          "revision",
+          "phase",
+          "completed",
+          "total",
+          "targets"
+        ],
+        "title": "ContentSessionResponse",
+        "type": "object"
+      },
+      "ContentSessionStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "pass1",
+              "pass2",
+              "frozen"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessionId",
+          "gameId",
+          "revision",
+          "phase",
+          "completed",
+          "total"
+        ],
+        "title": "ContentSessionStatus",
+        "type": "object"
+      },
+      "ContentSessionTargetSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "positionIndices": {
+            "items": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxItems": 9,
+            "minItems": 1,
+            "title": "Positionindices",
+            "type": "array"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId",
+          "positionIndices"
+        ],
+        "title": "ContentSessionTargetSelection",
+        "type": "object"
+      },
+      "ContentSource": {
+        "additionalProperties": false,
+        "properties": {
+          "coordinateSpace": {
+            "const": "exif-normalized-rgb-pixels-v1",
+            "default": "exif-normalized-rgb-pixels-v1",
+            "title": "Coordinatespace",
+            "type": "string"
+          },
+          "exifOrientation": {
+            "anyOf": [
+              {
+                "maximum": 8.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exiforientation"
+          },
+          "height": {
+            "exclusiveMinimum": 0.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "normalizationAdapterVersion": {
+            "const": "image-normalization-v2-in-memory-source-v1",
+            "default": "image-normalization-v2-in-memory-source-v1",
+            "title": "Normalizationadapterversion",
+            "type": "string"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "sourceRepresentativeSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcerepresentativesha256",
+            "type": "string"
+          },
+          "sourceSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcesha256",
+            "type": "string"
+          },
+          "width": {
+            "exclusiveMinimum": 0.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sourceId",
+          "sourceSha256",
+          "sourceRepresentativeSha256",
+          "width",
+          "height"
+        ],
+        "title": "ContentSource",
+        "type": "object"
+      },
+      "ContentWriteCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/CellContentReference"
+            },
+            "maxItems": 15,
+            "minItems": 15,
+            "title": "Cells",
+            "type": "array"
+          },
+          "expectedPixelSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedpixelsha256",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "expectedSourceSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedsourcesha256",
+            "type": "string"
+          },
+          "humanApproval": {
+            "default": false,
+            "title": "Humanapproval",
+            "type": "boolean"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "origin": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "ai_proposal"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "proposalSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposalsha256"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceId": {
+            "format": "uuid",
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "sourceId",
+          "expectedSourceSha256",
+          "expectedPixelSha256",
+          "positionIndex",
+          "sequenceNumber",
+          "expectedRevision",
+          "cells"
+        ],
+        "title": "ContentWriteCommand",
+        "type": "object"
+      },
+      "ContentWriteResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "annotation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentRevision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contentReferenceSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentreferencesha256"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "annotation",
+          "contentReferenceSha256",
+          "revision",
+          "idempotencyKey"
+        ],
+        "title": "ContentWriteResponse",
         "type": "object"
       },
       "CreateGridCalibrationCandidateCommand": {
@@ -11243,6 +12422,18 @@
             "format": "uuid",
             "title": "Baseversionid",
             "type": "string"
+          },
+          "contentSamplingPolicy": {
+            "anyOf": [
+              {
+                "const": "full-symbol-content-sampling-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentsamplingpolicy"
           },
           "familyId": {
             "format": "uuid",
@@ -54440,6 +55631,903 @@
           }
         ],
         "summary": "Capture",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-readiness": {
+      "get": {
+        "operationId": "getGridContentReadiness",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cohortId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohortid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifestSha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifestsha256",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Readiness",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-references": {
+      "post": {
+        "operationId": "writeGridCellContentReference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentWriteCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentWriteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Write",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-references/{source_id}/{position_index}": {
+      "get": {
+        "operationId": "getGridCellContentReference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "position_index",
+            "required": true,
+            "schema": {
+              "title": "Position Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentReferenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sampling-preview": {
+      "post": {
+        "operationId": "previewGridContentSampling",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentSamplingPreview"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSamplingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Sampling",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions": {
+      "get": {
+        "operationId": "listGridContentSessions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSessionList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sessions",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      },
+      "post": {
+        "operationId": "createGridContentSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentSessionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSessionCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions/{session_id}": {
+      "get": {
+        "operationId": "getGridContentSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions/{session_id}/advance": {
+      "post": {
+        "operationId": "advanceGridContentSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentSessionAdvance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSessionCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Advance",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions/{session_id}/observations": {
+      "post": {
+        "operationId": "writeGridBlindContentObservation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentBlindWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentSessionCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Observe",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions/{session_id}/sources/{source_id}/asset": {
+      "get": {
+        "operationId": "getGridContentSessionSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Asset",
         "tags": [
           "grid-quality-measurements"
         ]

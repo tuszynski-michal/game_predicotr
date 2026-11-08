@@ -6,10 +6,18 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1165 — Niezależne etykiety zawartości i ślepy pomiar (done)
+
+- Plik: `tasks/completed/1165-cell-content-reference.md`.
+- Commit: **v1.7.574** (hash dopisuje kolejny commit).
+- Append-only rewizje15pól, blind2pass/u/δ/oracle, Alembic0182/manifestv22, freshREG w istniejącym ledgerze, rzeczywista blind A w capture/freeze/reader i pełny pion API/SDK.
+- Weryfikacja: full PGpipeline PASS92,49s, PGalias PASS38,02s, focused API/domain/worker/request, lint/types, SDK, docs/map. Opus CLI R2 PASS, bez P0/P1.
+- Przyjęte P2-2: izolacja T5; fail-closed P2-5→T5, P2-6→T3. Legacy zachowane. Bez operator-labels/treningu/migracji produkcji/aktywacji. Parent/UI nadal T4/T5.
+
 ### TASK-1164 — Kontrakt 24 punktów i 15 ocen widoczności (done)
 
 - Plik: `tasks/completed/1164-grid-visibility-contract.md`.
-- Commit: **v1.7.573** (hash dopisuje kolejny commit).
+- Commit: **v1.7.573 / `1629b8be89f3f6dc72e83cd00b058d0545702da4`** (hash dopisuje kolejny commit).
 - Kontrakt v2: peak24/visibility15, rzeczywiste cele/maski i ekspozycja checkpointu; próg wejścia z trusted A oraz realnego wsparcia pikseli. Legacy v1 zachowane.
 - Weryfikacja: realny eksport ONNX/ORT CPU, 27 focused i 18 caller testów po poprawkach, scoped lint/types, SDK, izolowana mapa, docs. Opus CLI R2 PASS, 0 otwartych P0/P1/P2.
 - Bez treningu lub kwalifikacji operatorowego modelu; adaptery etykiet/realnego cięcia pozostają T2/T3.

@@ -6,6 +6,52 @@ last_updated: 2026-11-03
 
 # Architektura laboratorium wizji
 
+## Durable source-cell content (D-590, TASK-1165)
+
+`grid_cell_content` domain/schema/repository/API implement independent 15-cell
+revisions and a pass1/pass2/frozen workflow with exact replay and CAS. Alembic0182
+and immutable manifest v22 register three partitioned, RLS-protected metadata
+tables. Canonical pixels stay in files. Session reads return only source/slot
+identity and completion, with no previous nodes, labels or proposals; optional
+`targetSelection` freezes an explicit subset of slots.
+
+`grid_content_repeatability` implements the versioned float64 filled-quad
+Hausdorff/cell-bbox u and symmetric NME/photo-average δ oracle. Second-pass writes
+also invoke the production `VirtualCellRenderer` with pinned classifier/render
+configuration, actual source support and float32 warp footprint. Its result is
+immutable evidence; source absence and non-visible fragments cannot become PASS.
+
+`grid_content_sampling.resolve_content_sampling` resolves installed ancestor
+providers. Its optional `full-symbol-content-sampling-v1` input constrains the
+existing `prepare_split`; actual reservations still use the existing recording
+ledger. Historical REG remains reserved but is excluded from new evaluation.
+Low-level cohort prepare accepts `contentSamplingPolicy`; the default v4 path is
+unchanged. T4 owns forwarding this opt-in through parent/child admission.
+
+Only opt-in capture adds content SHA/revision/document. A uses the frozen second
+blind pass as actual `nodes` and `render.cellQuads`, preserving canonical approval
+and render proof separately. Qualified label hashes are recomputed after A/B
+assignment. Materialization keeps these exact targets; the worker verifies the
+source-frame pin and blind nodes/quads before yielding them. `CohortPhotos` reads
+TRAIN content into the T1 optional supervision adapter, with no geometry fallback.
+T3 owns independently trusted input-cropped evidence for the selected neural input.
+
+Pixel-identical aliases share the content revision while retaining immutable
+annotation source UUID/byte SHA. A separate `contentTargetSource` pins the actual
+target UUID/byte SHA/EXIF and normalized frame; the worker checks both provenance
+and shared pixel SHA, dimensions, coordinate space and normalization adapter.
+Known content conflicts become counted per-board capture exclusions. Readiness
+separates live `annotationProgress` from `frozenPinCoverage`; its top-level state
+follows only frozen pins, so live labels cannot upgrade a legacy cohort.
+Oracle `blockedBoards` counts actual renderer blocks, while `notEvaluableBoards`
+counts absent visible evidence. Either prevents full qualification, with renderer
+blocks taking precedence; valid TRAIN negatives remain available for supervision.
+New-policy split pins distinguish canonicalBoards, contentUsedBoards,
+contentQualifiedBoards and contentMissingBoards, with contentReasonCounts.
+Rejected identity proofs are excluded; missing frozen targets remain unresolved
+in role readiness rather than disappearing from the denominator. These diagnostics
+do not alter the existing role solver or turn missing content into geometry labels.
+
 ## Versioned visibility supervision (TASK-1164)
 
 `domain/grid_visibility_contract.py` defines source-pixel content references and

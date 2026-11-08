@@ -82,6 +82,20 @@ class CohortPhotos:
     def targets(self, index: int) -> list[tuple[np.ndarray, int]]:
         return self.rows[index][1]
 
+    def content_references(self, index: int) -> list[BoardContentReference | None]:
+        from .grid_cell_content_reference import frozen_content_reference
+
+        source, targets = self.rows[index]
+        if self.role != "TRAIN":
+            return [None] * len(targets)
+        from uuid import UUID
+
+        labels = sorted(source["targets"], key=lambda target: target["positionIndex"])
+        return [
+            frozen_content_reference(UUID(self.snapshot.manifest["gameId"]), source, label)
+            for label in labels
+        ]
+
 
 class JointPhotos:
     """TRAIN photos of several games in one index space (TASK-1006).

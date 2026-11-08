@@ -30,6 +30,9 @@ import type {
   ActivateSymbolModelData,
   ActivateSymbolModelErrors,
   ActivateSymbolModelResponses,
+  AdvanceGridContentSessionData,
+  AdvanceGridContentSessionErrors,
+  AdvanceGridContentSessionResponses,
   ApplyRemoteManualSelectionOperationData,
   ApplyRemoteManualSelectionOperationErrors,
   ApplyRemoteManualSelectionOperationResponses,
@@ -144,6 +147,9 @@ import type {
   CreateGridCalibrationCandidateData,
   CreateGridCalibrationCandidateErrors,
   CreateGridCalibrationCandidateResponses,
+  CreateGridContentSessionData,
+  CreateGridContentSessionErrors,
+  CreateGridContentSessionResponses,
   CreateGridModelEvaluationData,
   CreateGridModelEvaluationErrors,
   CreateGridModelEvaluationResponses,
@@ -420,6 +426,18 @@ import type {
   GetGridCalibrationCohortDiagnosticsData,
   GetGridCalibrationCohortDiagnosticsErrors,
   GetGridCalibrationCohortDiagnosticsResponses,
+  GetGridCellContentReferenceData,
+  GetGridCellContentReferenceErrors,
+  GetGridCellContentReferenceResponses,
+  GetGridContentReadinessData,
+  GetGridContentReadinessErrors,
+  GetGridContentReadinessResponses,
+  GetGridContentSessionData,
+  GetGridContentSessionErrors,
+  GetGridContentSessionResponses,
+  GetGridContentSessionSourceData,
+  GetGridContentSessionSourceErrors,
+  GetGridContentSessionSourceResponses,
   GetGridCorrectionApplyData,
   GetGridCorrectionApplyErrors,
   GetGridCorrectionApplyResponses,
@@ -785,6 +803,9 @@ import type {
   ListGridCalibrationProfilesData,
   ListGridCalibrationProfilesErrors,
   ListGridCalibrationProfilesResponses,
+  ListGridContentSessionsData,
+  ListGridContentSessionsErrors,
+  ListGridContentSessionsResponses,
   ListGridCorrectionApplyData,
   ListGridCorrectionApplyErrors,
   ListGridCorrectionApplyResponses,
@@ -1026,6 +1047,9 @@ import type {
   PreviewGeometryCorrectionRevertData,
   PreviewGeometryCorrectionRevertErrors,
   PreviewGeometryCorrectionRevertResponses,
+  PreviewGridContentSamplingData,
+  PreviewGridContentSamplingErrors,
+  PreviewGridContentSamplingResponses,
   PreviewGridCorrectionApplyData,
   PreviewGridCorrectionApplyErrors,
   PreviewGridCorrectionApplyResponses,
@@ -1428,6 +1452,12 @@ import type {
   WithdrawSourceImageGeometryExceptionData,
   WithdrawSourceImageGeometryExceptionErrors,
   WithdrawSourceImageGeometryExceptionResponses,
+  WriteGridBlindContentObservationData,
+  WriteGridBlindContentObservationErrors,
+  WriteGridBlindContentObservationResponses,
+  WriteGridCellContentReferenceData,
+  WriteGridCellContentReferenceErrors,
+  WriteGridCellContentReferenceResponses,
 } from './types.gen';
 
 export type Options<
@@ -2839,6 +2869,231 @@ export const captureGridQualityMeasurement = <
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Readiness
+ */
+export const getGridContentReadiness = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridContentReadinessData, ThrowOnError>,
+): RequestResult<
+  GetGridContentReadinessResponses,
+  GetGridContentReadinessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridContentReadinessResponses,
+    GetGridContentReadinessErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-readiness',
+    ...options,
+  });
+
+/**
+ * Write
+ */
+export const writeGridCellContentReference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<WriteGridCellContentReferenceData, ThrowOnError>,
+): RequestResult<
+  WriteGridCellContentReferenceResponses,
+  WriteGridCellContentReferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    WriteGridCellContentReferenceResponses,
+    WriteGridCellContentReferenceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-references',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read
+ */
+export const getGridCellContentReference = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridCellContentReferenceData, ThrowOnError>,
+): RequestResult<
+  GetGridCellContentReferenceResponses,
+  GetGridCellContentReferenceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridCellContentReferenceResponses,
+    GetGridCellContentReferenceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-references/{source_id}/{position_index}',
+    ...options,
+  });
+
+/**
+ * Sampling
+ */
+export const previewGridContentSampling = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewGridContentSamplingData, ThrowOnError>,
+): RequestResult<
+  PreviewGridContentSamplingResponses,
+  PreviewGridContentSamplingErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewGridContentSamplingResponses,
+    PreviewGridContentSamplingErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sampling-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Sessions
+ */
+export const listGridContentSessions = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridContentSessionsData, ThrowOnError>,
+): RequestResult<
+  ListGridContentSessionsResponses,
+  ListGridContentSessionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridContentSessionsResponses,
+    ListGridContentSessionsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions',
+    ...options,
+  });
+
+/**
+ * Create
+ */
+export const createGridContentSession = <ThrowOnError extends boolean = false>(
+  options: Options<CreateGridContentSessionData, ThrowOnError>,
+): RequestResult<
+  CreateGridContentSessionResponses,
+  CreateGridContentSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateGridContentSessionResponses,
+    CreateGridContentSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Session
+ */
+export const getGridContentSession = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridContentSessionData, ThrowOnError>,
+): RequestResult<
+  GetGridContentSessionResponses,
+  GetGridContentSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridContentSessionResponses,
+    GetGridContentSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions/{session_id}',
+    ...options,
+  });
+
+/**
+ * Advance
+ */
+export const advanceGridContentSession = <ThrowOnError extends boolean = false>(
+  options: Options<AdvanceGridContentSessionData, ThrowOnError>,
+): RequestResult<
+  AdvanceGridContentSessionResponses,
+  AdvanceGridContentSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    AdvanceGridContentSessionResponses,
+    AdvanceGridContentSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions/{session_id}/advance',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Observe
+ */
+export const writeGridBlindContentObservation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<WriteGridBlindContentObservationData, ThrowOnError>,
+): RequestResult<
+  WriteGridBlindContentObservationResponses,
+  WriteGridBlindContentObservationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    WriteGridBlindContentObservationResponses,
+    WriteGridBlindContentObservationErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions/{session_id}/observations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Asset
+ */
+export const getGridContentSessionSource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridContentSessionSourceData, ThrowOnError>,
+): RequestResult<
+  GetGridContentSessionSourceResponses,
+  GetGridContentSessionSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridContentSessionSourceResponses,
+    GetGridContentSessionSourceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions/{session_id}/sources/{source_id}/asset',
+    ...options,
   });
 
 /**

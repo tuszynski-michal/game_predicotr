@@ -73,6 +73,8 @@ def create_grid_training_cohorts_router(dependency: Callable[..., object]) -> AP
             del body["policyVersion"]
         if body.get("validationAssignments") is None:
             del body["validationAssignments"]
+        if body.get("contentSamplingPolicy") is None:
+            del body["contentSamplingPolicy"]
         return GridCohortCommandResponse.model_validate(
             service.prepare(game_id, body, actor(request))
         )

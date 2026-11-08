@@ -186,7 +186,7 @@ nie wymyślać zatwierdzeń. To nie blokuje implementacji bezpiecznego kontraktu
 
 ## Outcome
 
-Commit: v1.7.573 (hash dopisuje kolejny commit).
+Commit: v1.7.573 / `1629b8be89f3f6dc72e83cd00b058d0545702da4`.
 
 Implementacja i jedna runda poprawek zakończone; niezależny focused R2 Opus PASS.
 Wersjonowany pion v2 obejmuje wyjście24/15, nadzór komórek, maskowane straty,

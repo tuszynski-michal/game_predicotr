@@ -146,7 +146,7 @@ def test_worker_summarizes_exact_verified_documents_after_file_replacement(tmp_p
         state["units"][f"{fixture.game}:{role}"] = {
             "detail": {"path": relative, "sha256": hashlib.sha256(payload).hexdigest()}
         }
-    verified = handler._verify_details(job, state, [{"game_id": fixture.game}])
+    verified = handler._verify_details(job, state, [{"game_id": fixture.game}], load_documents=True)
     for path in paths:
         path.write_bytes(b"replaced after checksum verification")
     result = run.finish(

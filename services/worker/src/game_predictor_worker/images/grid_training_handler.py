@@ -40,6 +40,7 @@ from game_predictor_api.domain.shared_grid_model_candidate import (
 from ..jobs.runtime import JobExecutionContext, JobHandlerError, _ExecutionStopped
 from ..training_core.gpu_lease import GpuLease, lease_path
 from ..training_core.grid_training_admission import (
+    CONTENT_LIMIT_POLICY,
     PRESETS,
     RunBudget,
     RuntimeFacts,
@@ -155,6 +156,16 @@ def deterministic_ids(job_id: UUID, checkpoint_sha256: str) -> tuple[UUID, str, 
 ChildLauncher = Callable[[list[str], Mapping[str, str], Path], Any]
 
 
+def _read_content_bundle(path: Path) -> Any:
+    from game_predictor_api.domain.grid_content_bundle import ContentBundleTooLarge
+    from game_predictor_api.storage.grid_content_bundle import read_content_bundle
+
+    try:
+        return read_content_bundle(path)
+    except ContentBundleTooLarge as error:
+        raise JobHandlerError(error.code, str(error)) from error
+
+
 def _default_launcher(command: list[str], environment: Mapping[str, str], cwd: Path) -> Any:
     flags = 0
     if sys.platform == "win32":
@@ -208,7 +219,12 @@ class GridTrainingJobHandler:
         preset = PRESETS.get(str(payload["preset_id"]))
         if preset is None or preset.fingerprint != payload["preset_fingerprint"]:
             raise JobHandlerError("GRID_RUN_PRESET_NOT_APPROVED", "Preset is unknown or changed.")
-        state = RunState.load(job.checkpoint_payload, RunBudget.for_preset(preset, "train"))
+        state = RunState.load(
+            job.checkpoint_payload,
+            RunBudget.for_preset(
+                preset, "train", content_experiment=payload.get("content_experiment")
+            ),
+        )
         run_dir = run_directory(self.artifact_root, job.id)
         run_dir.mkdir(parents=True, exist_ok=True)
         if state.registered is not None:
@@ -263,7 +279,7 @@ class GridTrainingJobHandler:
         progress = self._read_json(run_dir / "progress.json")
         if progress is not None and progress.get("attempt") == state.attempt:
             start = state.attempt_start
-            if start is not None:
+            if start is not None and state.budget.limit_policy != CONTENT_LIMIT_POLICY:
                 done = int(start["reserved"]) + int(progress.get("step") or 0) - int(start["step"])
                 if done > state.budget.reserved_steps:
                     state.budget = replace(
@@ -284,6 +300,7 @@ class GridTrainingJobHandler:
                 run_dir,
                 result["export"],
                 required_screen=job.input_payload.get("preset_id") == "screen-grid-corrections-v1",
+                content_experiment=job.input_payload.get("content_experiment") is not None,
             )
             self._adopt_pointer(state, run_dir, result.get("checkpoint"))
             state.export = {
@@ -295,6 +312,14 @@ class GridTrainingJobHandler:
             state.history.append(
                 {"attempt": state.attempt, "status": "exported", "recovered": True}
             )
+        if state.budget.limit_policy == CONTENT_LIMIT_POLICY:
+            if state.checkpoint is not None:
+                path = run_dir / "checkpoints" / state.checkpoint["path"]
+                if not path.is_file() or sha256_file(path) != state.checkpoint["sha256"]:
+                    raise JobHandlerError(
+                        "GRID_TRAINING_CHECKPOINT_CORRUPT", "Logical checkpoint differs."
+                    )
+            self._settle_steps(state, 0)
         self._persist(context, state, "recovered", 0, None)
 
     def _persist(
@@ -475,6 +500,7 @@ class GridTrainingJobHandler:
             counts=counts,
             stored_budget=state.budget,
             rescue_variant=(payload.get("rescue_recipe") or {}).get("variant"),
+            content_experiment=payload.get("content_experiment"),
         )
         if not decision.admitted or decision.budget is None:
             raise JobHandlerError(decision.reasons[0], "Run admission refused.")
@@ -493,6 +519,41 @@ class GridTrainingJobHandler:
         payload = _payload(job)
         pid, created = own_identity()
         training = {item["name"]: item for item in base["trainingArtifacts"]}
+        output_contract = payload.get("grid_output_contract")
+        if payload.get("content_experiment") is not None:
+            from game_predictor_api.domain.grid_visibility_contract import (
+                GridOutputContract,
+                visibility_supervision,
+            )
+
+            from .grid_cohort_dataset import GridCohortSnapshot
+            from .grid_content_experiment_data import verify_inputs
+            from .grid_training_data import CohortPhotos, content_references
+
+            pins = joint["cohorts"] if joint else [cohort]
+            snapshots = [
+                GridCohortSnapshot(self.artifact_root, pin["manifestPath"], pin["manifestSha256"])
+                for pin in pins
+            ]
+            verify_inputs(
+                payload["content_experiment"], payload["content_experiment_inputs"], snapshots
+            )
+            references: list[Any] = []
+            training_games = []
+            for snapshot in snapshots:
+                if snapshot.manifest["counts"]["TRAIN"]["photos"] == 0:
+                    continue
+                training_games.append(snapshot.manifest["gameId"])
+                photos = CohortPhotos(snapshot, "TRAIN", full_only=True)
+                references.extend(
+                    ref
+                    for i in range(len(photos))
+                    for ref in content_references(photos, i)
+                    if ref is not None
+                )
+            output_contract = GridOutputContract(
+                supervision=visibility_supervision(references, game_ids=training_games)
+            ).model_dump(mode="json")
         return {
             "format": SPEC_FORMAT,
             "jobId": str(job.id),
@@ -516,16 +577,27 @@ class GridTrainingJobHandler:
             "budget": {
                 "remainingSeconds": state.budget.remaining_seconds,
                 "remainingSteps": state.budget.remaining_steps,
+                "chargedSeconds": state.budget.used_seconds,
+                "startedMonotonic": self.monotonic(),
+                **(
+                    {"logicalCompletedSteps": state.budget.logical_completed_steps}
+                    if state.budget.limit_policy == CONTENT_LIMIT_POLICY
+                    else {}
+                ),
             },
             "supervisor": {"pid": pid, "created": created},
             "resume": state.checkpoint,
             **({"rescueRecipe": payload["rescue_recipe"]} if "rescue_recipe" in payload else {}),
+            **({"gridOutputContract": output_contract} if output_contract is not None else {}),
+            **({} if joint is None else {"joint": joint}),
             **(
-                {"gridOutputContract": payload["grid_output_contract"]}
-                if "grid_output_contract" in payload
+                {
+                    "contentExperiment": payload["content_experiment"],
+                    "contentExperimentInputs": payload["content_experiment_inputs"],
+                }
+                if payload.get("content_experiment") is not None
                 else {}
             ),
-            **({} if joint is None else {"joint": joint}),
         }
 
     def _verified_export_without_result(self, job: Job, run_dir: Path) -> dict[str, Any] | None:
@@ -535,7 +607,11 @@ class GridTrainingJobHandler:
         candidates = []
         for directory in run_dir.glob("export-*"):
             try:
-                bundle = json.loads((directory / "bundle.json").read_text(encoding="utf-8"))
+                bundle = (
+                    _read_content_bundle(directory / "bundle.json")
+                    if job.input_payload.get("content_experiment") is not None
+                    else json.loads((directory / "bundle.json").read_text(encoding="utf-8"))
+                )
                 provenance = bundle["provenance"]
                 expected = {
                     **dict(bundle["files"]),
@@ -567,6 +643,7 @@ class GridTrainingJobHandler:
                     "checkpoint.pt",
                     "preset.json",
                     "bundle.json",
+                    *(("content.onnx",) if "content.onnx" in bundle["files"] else ()),
                 )
                 files = {
                     name: {
@@ -608,6 +685,7 @@ class GridTrainingJobHandler:
         path = run_dir / "checkpoints" / str(pointer.get("path"))
         if (
             int(pointer.get("step", -1)) > current
+            and (state.budget.limit_policy != CONTENT_LIMIT_POLICY or int(pointer["step"]) <= 4800)
             and path.parent == run_dir / "checkpoints"
             and path.is_file()
             and sha256_file(path) == pointer.get("sha256")
@@ -617,6 +695,8 @@ class GridTrainingJobHandler:
                 "sha256": str(pointer["sha256"]),
                 "step": int(pointer["step"]),
             }
+            if state.budget.limit_policy == CONTENT_LIMIT_POLICY:
+                self._settle_steps(state, 0)
 
     def _train(
         self, context: JobExecutionContext, job: Job, state: RunState, run_dir: Path
@@ -634,8 +714,8 @@ class GridTrainingJobHandler:
         (run_dir / "cancel.intent").unlink(missing_ok=True)
         heartbeat = run_dir / "supervisor.heartbeat"
         heartbeat.write_text(self._now_iso(), encoding="utf-8")
-        # Budget steps are cumulative over attempts: steps repeated after a resume from an
-        # earlier checkpoint are charged again, never hidden behind the sampler position.
+        # Legacy charges replayed physical steps. Content uses durable logical
+        # checkpoint offsets; elapsed time, including replay, is always charged.
         start_step = int(state.checkpoint["step"]) if state.checkpoint else 0
         state.attempt_start = {"reserved": state.budget.reserved_steps, "step": start_step}
         allowance = self._reserve(state, start_step)
@@ -674,6 +754,7 @@ class GridTrainingJobHandler:
                 run_dir,
                 export,
                 required_screen=job.input_payload.get("preset_id") == "screen-grid-corrections-v1",
+                content_experiment=job.input_payload.get("content_experiment") is not None,
             )
             state.export = {
                 **export,
@@ -696,6 +777,14 @@ class GridTrainingJobHandler:
 
     def _reserve(self, state: RunState, allowance: int) -> int:
         """Extend the step allowance by one bounded block and charge it before use."""
+        if state.budget.limit_policy == CONTENT_LIMIT_POLICY:
+            # Permission is a global logical high-water mark, not another charge
+            # for steps replayed from the last durable checkpoint after a crash.
+            next_allowance = min(state.budget.max_steps, allowance + ALLOWANCE_STEPS)
+            state.budget = replace(
+                state.budget, reserved_steps=max(state.budget.reserved_steps, next_allowance)
+            )
+            return next_allowance
         extra = min(ALLOWANCE_STEPS, state.budget.remaining_steps)
         if extra > 0:
             state.budget = replace(state.budget, reserved_steps=state.budget.reserved_steps + extra)
@@ -707,6 +796,12 @@ class GridTrainingJobHandler:
 
     def _settle_steps(self, state: RunState, reported: int) -> None:
         """Replace the reserved block by the confirmed count once the trainer has ended."""
+        if state.budget.limit_policy == CONTENT_LIMIT_POLICY:
+            logical = int(state.checkpoint["step"]) if state.checkpoint is not None else 0
+            if not state.budget.logical_completed_steps <= logical <= state.budget.max_steps:
+                raise JobHandlerError("GRID_TRAINING_CHECKPOINT_CORRUPT", "Logical step regressed.")
+            state.budget = replace(state.budget, logical_completed_steps=logical)
+            return
         start = state.attempt_start
         if start is None:
             return
@@ -747,6 +842,8 @@ class GridTrainingJobHandler:
             if state.attempt_start
             else start_step
         )
+        if state.budget.limit_policy == CONTENT_LIMIT_POLICY:
+            allowance = min(state.budget.max_steps, start_step + ALLOWANCE_STEPS)
         step = start_step
         while True:
             heartbeat.write_text(self._now_iso(), encoding="utf-8")
@@ -772,6 +869,10 @@ class GridTrainingJobHandler:
                 and not exited
                 and step + ALLOWANCE_STEPS // 2 >= allowance
                 and state.budget.remaining_steps > 0
+                and (
+                    state.budget.limit_policy != CONTENT_LIMIT_POLICY
+                    or allowance < state.budget.max_steps
+                )
             )
             if extend:
                 allowance = self._reserve(state, allowance)
@@ -825,7 +926,12 @@ class GridTrainingJobHandler:
     # --- install and register ------------------------------------------------------------------
 
     def _verify_export(
-        self, run_dir: Path, export: Mapping[str, Any], *, required_screen: bool = False
+        self,
+        run_dir: Path,
+        export: Mapping[str, Any],
+        *,
+        required_screen: bool = False,
+        content_experiment: bool = False,
     ) -> None:
         directory = run_dir / export["directory"]
         for name, item in export["files"].items():
@@ -836,7 +942,11 @@ class GridTrainingJobHandler:
                 or sha256_file(path) != item["sha256"]
             ):
                 raise JobHandlerError("GRID_TRAINING_EXPORT_CORRUPT", "Exported files differ.")
-        bundle = json.loads((directory / "bundle.json").read_text(encoding="utf-8"))
+        bundle = (
+            _read_content_bundle(directory / "bundle.json")
+            if content_experiment
+            else json.loads((directory / "bundle.json").read_text(encoding="utf-8"))
+        )
         from game_predictor_api.domain.grid_visibility_contract import require_output_contract
 
         require_output_contract(bundle)
@@ -866,6 +976,21 @@ class GridTrainingJobHandler:
         from game_predictor_api.domain.grid_visibility_contract import require_output_contract
 
         require_output_contract(bundle, spec.get("gridOutputContract"), require_expected=True)
+        if spec.get("contentExperiment") is not None:
+            from game_predictor_api.domain.grid_content_experiment_evidence import (
+                require_content_experiment_evidence,
+            )
+
+            proof = require_content_experiment_evidence(bundle)
+            if (
+                proof["plan"] != spec["contentExperiment"]
+                or proof["inputs"] != spec["contentExperimentInputs"]
+                or bundle["provenance"]["runId"] != spec["jobId"]
+            ):
+                raise JobHandlerError(
+                    "CONTENT_EXPERIMENT_EXPORT_CHANGED", "Closed experiment export differs."
+                )
+            return
         if not required and spec.get("preset", {}).get("id") != "screen-grid-corrections-v1":
             return
         try:
@@ -904,10 +1029,13 @@ class GridTrainingJobHandler:
         checkpoint_sha = provenance["checkpointSha256"]
         version_id, version, key = deterministic_ids(job.id, checkpoint_sha)
         profile = base["inferenceManifest"]["profile"]
-        bundle = json.loads(
-            (
-                run_directory(self.artifact_root, job.id) / export["directory"] / "bundle.json"
-            ).read_text(encoding="utf-8")
+        bundle_path = (
+            run_directory(self.artifact_root, job.id) / export["directory"] / "bundle.json"
+        )
+        bundle = (
+            _read_content_bundle(bundle_path)
+            if job.input_payload.get("content_experiment") is not None
+            else json.loads(bundle_path.read_text(encoding="utf-8"))
         )
 
         def entry(name: str) -> dict[str, Any]:
@@ -918,7 +1046,14 @@ class GridTrainingJobHandler:
             }
 
         inference_files = [
-            entry(name) for name in ("screen.onnx", "board.onnx", "bundle.json", "preset.json")
+            entry(name)
+            for name in (
+                "screen.onnx",
+                "board.onnx",
+                "bundle.json",
+                "preset.json",
+                *(("content.onnx",) if "content.onnx" in files else ()),
+            )
         ]
         reports: list[dict[str, str]] = []
         identity = {
@@ -994,6 +1129,9 @@ class GridTrainingJobHandler:
         from game_predictor_api.storage.grid_model_registry import GridModelArtifactInspector
 
         target = self.artifact_root / payload["managedDirectory"]
+        source = run_dir / export["directory"]
+        if payload["modelVersion"] == "neural-grid-v2":
+            _read_content_bundle(source / "bundle.json")
         if target.exists():
             available, reason = GridModelArtifactInspector(self.artifact_root).inspect(
                 dict(payload)
@@ -1001,12 +1139,17 @@ class GridTrainingJobHandler:
             if available:
                 return
             raise JobHandlerError("GRID_TRAINING_INSTALL_CONFLICT", reason)
-        source = run_dir / export["directory"]
         target.parent.mkdir(parents=True, exist_ok=True)
         staging = target.parent / f".{target.name}.installing-{uuid.uuid4().hex}"
         try:
             (staging / "training-base").mkdir(parents=True)
-            for name in ("screen.onnx", "board.onnx", "bundle.json", "preset.json"):
+            for name in (
+                "screen.onnx",
+                "board.onnx",
+                "bundle.json",
+                "preset.json",
+                *(("content.onnx",) if "content.onnx" in export["files"] else ()),
+            ):
                 shutil.copyfile(source / name, staging / name)
             (staging / "manifest.json").write_text(
                 json.dumps(payload["inferenceManifest"], indent=2, sort_keys=True), encoding="utf-8"
@@ -1022,6 +1165,10 @@ class GridTrainingJobHandler:
                 "sources": {name: str((source / name).resolve()) for name in names},
             }
             (training / "receipt.json").write_bytes(receipt_bytes(identity))
+            if payload["modelVersion"] == "neural-grid-v2":
+                # A source may have grown between preflight and copy; do not publish it.
+                _read_content_bundle(staging / "bundle.json")
+                _read_content_bundle(training / "bundle.json")
             for path in [*staging.iterdir(), *training.iterdir()]:
                 if path.is_file():
                     with path.open("r+b") as stream:  # Windows fsync needs a writable handle
@@ -1042,6 +1189,7 @@ class GridTrainingJobHandler:
             run_dir,
             state.export,
             required_screen=job.input_payload.get("preset_id") == "screen-grid-corrections-v1",
+            content_experiment=job.input_payload.get("content_experiment") is not None,
         )
         base = self.store.base_version(UUID(str(_payload(job)["base_version_id"])))
         stored = state.export.get("descriptor")

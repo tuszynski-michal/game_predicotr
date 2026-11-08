@@ -324,7 +324,8 @@ def validate_neural_source_proposal(value: object) -> Mapping[str, object]:
     _checksum(raw["sourceChecksumSha256"])
     width, height = _integer(raw["sourceWidth"]), _integer(raw["sourceHeight"])
     _range(raw["originalRange"])
-    NeuralGridSnapshot.from_payload(raw["engineSnapshot"]).require_game(str(raw["gameId"]))
+    snapshot = NeuralGridSnapshot.from_payload(raw["engineSnapshot"])
+    snapshot.require_game(str(raw["gameId"]))
     checksum = _checksum(raw["proposalChecksumSha256"])
     if checksum != proposal_checksum_sha256(raw):
         raise NeuralGridProposalError(
@@ -345,9 +346,33 @@ def validate_neural_source_proposal(value: object) -> Mapping[str, object]:
                 "cellVisibility",
                 "structurallyValid",
                 "reasonCodes",
-            },
+            }
+            | (
+                {"inputVariant"}
+                if isinstance(detection, Mapping) and "inputVariant" in detection
+                else set()
+            ),
             "Neural detection",
         )
+        if "inputVariant" in item:
+            from .full_board_input_variant import require_input_variant_binding
+
+            if (
+                snapshot.version.model_version != "neural-grid-v2"
+                or snapshot.version.catalogue_manifest_json is None
+            ):
+                raise _invalid("Input variants require a catalogue content model.")
+            try:
+                require_input_variant_binding(
+                    item["inputVariant"],
+                    proposal=raw,
+                    detection=item,
+                    model_sha256=descriptor_sha256(
+                        json.loads(snapshot.version.catalogue_manifest_json)
+                    ),
+                )
+            except (KeyError, TypeError, ValueError) as error:
+                raise _invalid("The recorded input variant differs from its proposal.") from error
         detection_id = item["detectionId"]
         score = item["score"]
         reasons = item["reasonCodes"]

@@ -276,7 +276,11 @@ def attach_content(quality: dict[str, Any], contents: list[dict[str, Any]]) -> d
 
 
 def require_report(
-    report_json: str, *, manifest: Mapping[str, Any], base_sha256: str
+    report_json: str,
+    *,
+    manifest: Mapping[str, Any],
+    base_sha256: str,
+    allow_variant_calibration: bool = False,
 ) -> dict[str, Any]:
     from .full_board_calibration_report import require_report as calibrated_report
     from .grid_correction_evaluation import require_report as correction_report
@@ -289,7 +293,17 @@ def require_report(
             raise ValueError("CONTENT_REPORT_INVALID")
         quality = report["rawQuality"]
         reader = calibrated_report if quality["schemaVersion"].endswith("v5") else correction_report
-        reader(canonical_json(quality), manifest=manifest, base_sha256=base_sha256)
+        reader(
+            canonical_json(quality),
+            manifest=manifest,
+            base_sha256=base_sha256,
+            allow_content_selection=True,
+            **(
+                {"allow_variant_calibration": allow_variant_calibration}
+                if reader is calibrated_report
+                else {}
+            ),
+        )
         if attach_content(quality, report["contentEvaluation"]) != report:
             raise ValueError("CONTENT_REPORT_DECISION_CHANGED")
         return cast(dict[str, Any], report)

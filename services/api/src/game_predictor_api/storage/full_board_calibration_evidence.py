@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -44,6 +45,7 @@ def load_frozen_assessment(
     if snapshot.manifest["gameId"] != str(game) or snapshot.manifest["cohortId"] != pin["cohortId"]:
         raise ValueError("CALIBRATION_FROZEN_COHORT_CHANGED")
     context = None
+    variant_contexts = None
     if report.get("schemaVersion") == "grid-model-evaluation-read-v6":
         from game_predictor_worker.images.production_cell_input import manifest_input_context
 
@@ -53,11 +55,25 @@ def load_frozen_assessment(
         if candidate is None:
             raise ValueError("INPUT_CONTENT_MODEL_CONTEXT_REQUIRED")
         context = manifest_input_context(root, json.loads(candidate.manifest_json))
-    return snapshot_assessment_references(snapshot, input_context=context)
+        if any(
+            item.get("version") == "full-board-calibration-qualification-v3"
+            for item in report.get("automaticCalibration", [])
+        ):
+            from game_predictor_worker.images.full_board_variant_context import (
+                manifest_variant_contexts,
+            )
+
+            variant_contexts = manifest_variant_contexts(root, json.loads(candidate.manifest_json))
+    return snapshot_assessment_references(
+        snapshot, input_context=context, variant_contexts=variant_contexts
+    )
 
 
 def snapshot_assessment_references(
-    snapshot: Any, *, input_context: dict[str, Any] | None = None
+    snapshot: Any,
+    *,
+    input_context: dict[str, Any] | None = None,
+    variant_contexts: Sequence[Mapping[str, Any]] | None = None,
 ) -> FrozenAssessmentReferences:
     """Project exact metadata through the same strict dataset adapters as the worker."""
     from game_predictor_worker.images.grid_cohort_dataset import (
@@ -87,7 +103,16 @@ def snapshot_assessment_references(
         input_content_verifier=lambda prepared: bind_input_references(
             frozen, snapshot, prepared, input_context
         ),
+        variant_observation_verifier=None
+        if variant_contexts is None
+        else _variant_verifier(snapshot, variant_contexts),
     )
+
+
+def _variant_verifier(snapshot: Any, contexts: Sequence[Mapping[str, Any]]) -> Any:
+    from .full_board_variant_calibration_evidence import observation_verifier
+
+    return observation_verifier(snapshot, contexts)
 
 
 def require_calibration_evidence(
@@ -98,6 +123,12 @@ def require_calibration_evidence(
     candidate_sha: str,
     baseline_sha: str,
 ) -> dict[str, Any]:
+    if value.get("version") == "full-board-calibration-qualification-v3":
+        from .full_board_variant_calibration_evidence import require_variant_calibration_evidence
+
+        return require_variant_calibration_evidence(
+            root, value, frozen=frozen, candidate_sha=candidate_sha, baseline_sha=baseline_sha
+        )
     parsed = AutomaticCalibration.model_validate(value)
     if parsed.evidence is None:
         if parsed.state == "qualified":

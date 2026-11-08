@@ -62,9 +62,9 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 - `services/api/src/game_predictor_api/api/` (59 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
 - `services/api/src/game_predictor_api/application/` (111 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (114 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/domain/` (121 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (64 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (211 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/storage/` (216 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (498 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (152 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (507 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (155 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -98,7 +98,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Katalogi
 
-- `services/worker/src/game_predictor_worker/images/` (157 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
+- `services/worker/src/game_predictor_worker/images/` (162 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
 - `services/worker/src/game_predictor_worker/symbols/` (19 py) - klasyfikacja symboli, biblioteka referencyjna, RGB v2; Versioned symbol-training dataset tools.
 - `services/worker/src/game_predictor_worker/payouts/` (6 py) - wypłaty: kontrakty, handler, gotowość, audyt; Batch payout precomputation for durable worker jobs.
 - `services/worker/src/game_predictor_worker/domain/super_games/` (4 py) - supergry: definicje, rejestr, Wild; Code-defined super game kinds (D-535).
@@ -109,7 +109,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 - `services/worker/src/game_predictor_worker/domain/` (10 py) - kontrakty, sygnatury, wypłaty (czysta domena); Framework-independent Game Predictor domain contracts.
 - `services/worker/src/game_predictor_worker/semi_automatic_selection/` (46 py) - półautomatyczna selekcja obrazów; Pure contracts for the independent semi-automatic image selection workflow.
 - `services/worker/src/game_predictor_worker/geometry_core/` (14 py) - wspólny rdzeń geometrii; Neutral V3 geometry inference: no storage, training or laboratory dependencies.
-- `services/worker/src/game_predictor_worker/training_core/` (13 py) - wspólny rdzeń treningu modeli; Neutral training primitives; no application, database or laboratory imports.
+- `services/worker/src/game_predictor_worker/training_core/` (14 py) - wspólny rdzeń treningu modeli; Neutral training primitives; no application, database or laboratory imports.
 - `services/worker/src/game_predictor_worker/vision_lab/` (76 py) - laboratorium wizji (izolowane); Standalone, file-backed vision laboratory; no production entry-point imports.
 - `services/worker/src/game_predictor_worker/releases/` (6 py) - wydania modeli/aplikacji; Resumable mobile release workflow and controlled Android publication.
 - `services/worker/src/game_predictor_worker/benchmarks/` (4 py) - benchmarki (nie uruchamiać bez polecenia); Deterministic datasets and verification helpers for performance benchmarks.
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (298 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (311 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

@@ -31,6 +31,9 @@ class GridCorrectionLearningExclusion(CorrectionLearningClosedModel):
 
 
 class GridCorrectionLearningPreviewCommand(CorrectionLearningClosedModel):
+    contentExperiment: Literal["full-symbol-content-experiment-v1"] | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
     trainingMode: Literal["grid-only", "screen+grid"] = "grid-only"
     policyVersion: Literal["application-grid-corrections-v4"] | None = None
     validationAssignments: dict[UUID, Literal["A", "B", "BUFFER"]] | None = Field(
@@ -45,6 +48,16 @@ class GridCorrectionLearningPreviewCommand(CorrectionLearningClosedModel):
 
     @model_validator(mode="after")
     def rescue_mode(self) -> "GridCorrectionLearningPreviewCommand":
+        if self.contentExperiment is not None and (
+            self.trainingMode != "screen+grid"
+            or self.policyVersion != "application-grid-corrections-v4"
+            or self.validationAssignments is None
+            or self.rescueVariant is not None
+        ):
+            raise ValueError(
+                "Content experiments require explicit screen/v4 purposes "
+                "and no legacy rescue override."
+            )
         if (self.policyVersion is None) != (self.validationAssignments is None):
             raise ValueError("Explicit v4 policy and validation assignments are required together.")
         if self.policyVersion is not None and "trainingMode" not in self.model_fields_set:
@@ -180,6 +193,12 @@ class GridValidationPurposeCount(CorrectionLearningClosedModel):
 
 
 class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
+    contentExperiment: Literal["full-symbol-content-experiment-v1"] | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
+    contentExperimentReadiness: "GridContentExperimentReadiness | None" = Field(
+        None, exclude_if=lambda value: value is None
+    )
     trainingMode: Literal["grid-only", "screen+grid"] = "grid-only"
     policyVersion: Literal["application-grid-corrections-v4"] | None = Field(
         None, exclude_if=lambda value: value is None
@@ -222,6 +241,10 @@ class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
 
 
 class GridCorrectionLearningView(CorrectionLearningClosedModel):
+    contentExperiment: Literal["full-symbol-content-experiment-v1"] | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
+    contentExperimentPlanSha256: Sha256 | None = Field(None, exclude_if=lambda value: value is None)
     learningId: UUID
     gameId: UUID
     status: JobStatus
@@ -245,3 +268,27 @@ class GridCorrectionLearningView(CorrectionLearningClosedModel):
 
 class GridCorrectionLearningList(CorrectionLearningClosedModel):
     items: list[GridCorrectionLearningView]
+
+
+class GridContentExperimentGameReadiness(CorrectionLearningClosedModel):
+    gameId: UUID
+    bankEligiblePhotos: int = Field(ge=0)
+    excludedPhotos: int = Field(ge=0)
+
+
+class GridContentExperimentReadiness(CorrectionLearningClosedModel):
+    state: Literal["metadata_ready", "blocked"]
+    reasonCodes: list[str]
+    games: list[GridContentExperimentGameReadiness]
+    inputsSha256: Sha256 | None
+    seed: Literal[20261108] = 20261108
+    maxSteps: Literal[4800] = 4800
+    maxSeconds: Literal[7200] = 7200
+    armReserveSeconds: tuple[Literal[1500], Literal[1500], Literal[2100], Literal[2100]] = (
+        1500,
+        1500,
+        2100,
+        2100,
+    )
+    bankMeasurement: Literal["pending_worker"] = "pending_worker"
+    automaticQualification: Literal["not_evaluated"] = "not_evaluated"

@@ -129,9 +129,13 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     GridModelEvaluationCohortPin[]
   >([]);
   const [purposeAware, setPurposeAware] = useState(false);
+  const [contentExperiment, setContentExperiment] = useState(false);
   const [validationAssignments, setValidationAssignments] =
     useState<ValidationAssignments>({});
   const requestOptions = {
+    ...(contentExperiment
+      ? { contentExperiment: 'full-symbol-content-experiment-v1' as const }
+      : {}),
     ...(trainingMode === 'screen+grid' || purposeAware
       ? { trainingMode, historicalCohorts }
       : {}),
@@ -146,6 +150,9 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     JSON.stringify({ trainingMode: 'grid-only', historicalCohorts: [] }),
   );
   const optionsKey = JSON.stringify({
+    ...(contentExperiment
+      ? { contentExperiment: 'full-symbol-content-experiment-v1' }
+      : {}),
     trainingMode,
     historicalCohorts,
     ...(purposeAware
@@ -694,6 +701,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 disabled={disabled}
                 value={trainingMode}
                 onChange={(event) => {
+                  setContentExperiment(false);
                   setTrainingMode(
                     event.target
                       .value as GridCorrectionLearningPreviewCommand['trainingMode'] &
@@ -707,6 +715,31 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 <option value="screen+grid">Detektor i punkty siatki</option>
               </select>
             </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={contentExperiment}
+                disabled={disabled || refreshing}
+                onChange={(event) => {
+                  setContentExperiment(event.target.checked);
+                  if (event.target.checked) {
+                    setTrainingMode('screen+grid');
+                    setPurposeAware(true);
+                  }
+                  setValidationAssignments({});
+                  setHistoricalCohorts([]);
+                }}
+              />{' '}
+              Pełne symbole — kontrolowany eksperyment
+            </label>
+            {ready.contentExperimentReadiness ? (
+              <p>
+                Plan obejmuje do czterech wariantów, łącznie 4800 kroków i 7200
+                sekund. Pomiar banku błędów oraz wykonalności pozostaje do
+                sprawdzenia przed uczeniem. Automat nie jest jeszcze
+                zakwalifikowany.
+              </p>
+            ) : null}
             {ready.detectorReadiness ? (
               <p>
                 Pełne zdjęcia z zatwierdzoną geometrią:{' '}
@@ -830,6 +863,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 disabled={disabled || refreshing}
                 onChange={(event) => {
                   setPurposeAware(event.target.checked);
+                  if (!event.target.checked) setContentExperiment(false);
                   setValidationAssignments({});
                   setHistoricalCohorts([]);
                 }}
@@ -979,6 +1013,10 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               (ready.trainingMode ?? 'grid-only') !== trainingMode ||
               (ready.policyVersion ?? null) !==
                 (purposeAware ? VALIDATION_POLICY : null) ||
+              (ready.contentExperiment ?? null) !==
+                (contentExperiment
+                  ? 'full-symbol-content-experiment-v1'
+                  : null) ||
               previewedOptions !== optionsKey ||
               !exclusionsMatch ||
               runs.some((item) => learningActive(item.status))
@@ -990,6 +1028,9 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 key,
                 target: gameId,
                 body: {
+                  ...(ready.contentExperiment
+                    ? { contentExperiment: ready.contentExperiment }
+                    : {}),
                   idempotencyKey: key,
                   previewSha256: ready.previewSha256,
                   importJobIds: ready.importJobIds,
@@ -1313,13 +1354,14 @@ function LearningReport({
     !('scope' in report) ||
     (report.schemaVersion !== 'grid-model-evaluation-read-v3' &&
       report.schemaVersion !== 'grid-model-evaluation-read-v4' &&
-      report.schemaVersion !== 'grid-model-evaluation-read-v5')
+      report.schemaVersion !== 'grid-model-evaluation-read-v5' &&
+      report.schemaVersion !== 'grid-model-evaluation-read-v6')
   )
     return <p>Raport oceny: {view.verdict ?? 'W przygotowaniu'}.</p>;
   return (
     <section aria-label="Wynik uczenia">
       <h4>Wynik: {report.verdict}</h4>
-      {'automaticCalibration' in report ? (
+      {'automaticCalibration' in report && report.automaticCalibration ? (
         <>
           <p>
             Ocena jakości i kwalifikacja automatu są osobne. Propozycje nadal
@@ -1334,13 +1376,20 @@ function LearningReport({
                   : 'wymaga kalibracji'}
               </summary>
               <p>{item.reasonCodes.map(reasonLabel).join('; ')}</p>
-              <p>
-                Kontrole B: {item.b?.baselineBadSources ?? 'brak'} błędnych /{' '}
-                {item.b?.baselineGoodSources ?? 'brak'} dobrych źródeł.
-                Regresja: {item.regression?.baselineBadSources ?? 'brak'} /{' '}
-                {item.regression?.baselineGoodSources ?? 'brak'}. Wspólne
-                zdjęcie może wystąpić w obu klasach.
-              </p>
+              {('variants' in item ? item.variants : [item]).map((variant) => (
+                <p
+                  key={'variantKey' in variant ? variant.variantKey : 'legacy'}
+                >
+                  {'variantKey' in variant && 'allowedVariants' in item
+                    ? `${item.allowedVariants.find((context) => context.sha256 === variant.variantKey)?.stage === 'wide' ? 'Szerszy wycinek' : 'Podstawowy wycinek'}: `
+                    : ''}
+                  Kontrole B: {variant.b?.baselineBadSources ?? 'brak'} błędnych
+                  / {variant.b?.baselineGoodSources ?? 'brak'} dobrych źródeł.
+                  Regresja: {variant.regression?.baselineBadSources ?? 'brak'} /{' '}
+                  {variant.regression?.baselineGoodSources ?? 'brak'}. Wspólne
+                  zdjęcie może wystąpić w obu klasach.
+                </p>
+              ))}
             </details>
           ))}
         </>

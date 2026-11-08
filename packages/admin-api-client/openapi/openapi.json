@@ -12998,6 +12998,318 @@
         "title": "GridCohortSummary",
         "type": "object"
       },
+      "GridContentCalibratedEvaluationReport": {
+        "additionalProperties": false,
+        "properties": {
+          "automaticCalibration": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AutomaticCalibration"
+                },
+                {
+                  "$ref": "#/components/schemas/VariantAutomaticCalibration"
+                }
+              ]
+            },
+            "title": "Automaticcalibration",
+            "type": "array"
+          },
+          "baseManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Basemanifestsha256",
+            "type": "string"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "checkpointSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionCheckpointSelection"
+              },
+              {
+                "$ref": "#/components/schemas/GridScreenCorrectionCheckpointSelection"
+              }
+            ],
+            "title": "Checkpointselection"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "evidenceLevel": {
+            "const": "photo-only",
+            "title": "Evidencelevel",
+            "type": "string"
+          },
+          "familyId": {
+            "format": "uuid",
+            "title": "Familyid",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GridCorrectionEvaluationGame"
+                },
+                {
+                  "$ref": "#/components/schemas/GridScreenCorrectionEvaluationGame"
+                }
+              ]
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "parity": {
+            "$ref": "#/components/schemas/GridModelEvaluationParity"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridScreenCorrectionEvaluationPolicy"
+              }
+            ],
+            "title": "Policy"
+          },
+          "policyVersion": {
+            "enum": [
+              "grid-model-per-game-gate-v2",
+              "grid-model-per-game-gate-v3"
+            ],
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "producer": {
+            "const": "server:grid-model-evaluator-v1",
+            "title": "Producer",
+            "type": "string"
+          },
+          "rawQualitySchemaVersion": {
+            "enum": [
+              "grid-model-evaluation-read-v3",
+              "grid-model-evaluation-read-v4"
+            ],
+            "title": "Rawqualityschemaversion",
+            "type": "string"
+          },
+          "requiredGameIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Requiredgameids",
+            "type": "array"
+          },
+          "schemaVersion": {
+            "const": "grid-model-evaluation-read-v5",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/GridCorrectionEvaluationScope"
+          },
+          "trainingGameId": {
+            "format": "uuid",
+            "title": "Traininggameid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "REVISE",
+              "NOT_EVALUABLE"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "rawQualitySchemaVersion",
+          "producer",
+          "policyVersion",
+          "policy",
+          "versionId",
+          "manifestSha256",
+          "baseVersionId",
+          "baseManifestSha256",
+          "familyId",
+          "trainingGameId",
+          "parity",
+          "cohorts",
+          "requiredGameIds",
+          "games",
+          "verdict",
+          "scope",
+          "evidenceLevel",
+          "limitations",
+          "checkpointSelection",
+          "automaticCalibration"
+        ],
+        "title": "GridContentCalibratedEvaluationReport",
+        "type": "object"
+      },
+      "GridContentExperimentGameReadiness": {
+        "additionalProperties": false,
+        "properties": {
+          "bankEligiblePhotos": {
+            "minimum": 0.0,
+            "title": "Bankeligiblephotos",
+            "type": "integer"
+          },
+          "excludedPhotos": {
+            "minimum": 0.0,
+            "title": "Excludedphotos",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "bankEligiblePhotos",
+          "excludedPhotos"
+        ],
+        "title": "GridContentExperimentGameReadiness",
+        "type": "object"
+      },
+      "GridContentExperimentReadiness": {
+        "additionalProperties": false,
+        "properties": {
+          "armReserveSeconds": {
+            "default": [
+              1500,
+              1500,
+              2100,
+              2100
+            ],
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "const": 1500,
+                "type": "integer"
+              },
+              {
+                "const": 1500,
+                "type": "integer"
+              },
+              {
+                "const": 2100,
+                "type": "integer"
+              },
+              {
+                "const": 2100,
+                "type": "integer"
+              }
+            ],
+            "title": "Armreserveseconds",
+            "type": "array"
+          },
+          "automaticQualification": {
+            "const": "not_evaluated",
+            "default": "not_evaluated",
+            "title": "Automaticqualification",
+            "type": "string"
+          },
+          "bankMeasurement": {
+            "const": "pending_worker",
+            "default": "pending_worker",
+            "title": "Bankmeasurement",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/GridContentExperimentGameReadiness"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "inputsSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inputssha256"
+          },
+          "maxSeconds": {
+            "const": 7200,
+            "default": 7200,
+            "title": "Maxseconds",
+            "type": "integer"
+          },
+          "maxSteps": {
+            "const": 4800,
+            "default": 4800,
+            "title": "Maxsteps",
+            "type": "integer"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "seed": {
+            "const": 20261108,
+            "default": 20261108,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "metadata_ready",
+              "blocked"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "reasonCodes",
+          "games",
+          "inputsSha256"
+        ],
+        "title": "GridContentExperimentReadiness",
+        "type": "object"
+      },
       "GridCorrectionApplyJobPayload": {
         "additionalProperties": false,
         "description": "Separate server-owned closed payload for applying a completed learning.",
@@ -14427,6 +14739,28 @@
             "title": "Canstart",
             "type": "boolean"
           },
+          "contentExperiment": {
+            "anyOf": [
+              {
+                "const": "full-symbol-content-experiment-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentexperiment"
+          },
+          "contentExperimentReadiness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridContentExperimentReadiness"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cost": {
             "anyOf": [
               {
@@ -14696,6 +15030,18 @@
       "GridCorrectionLearningPreviewCommand": {
         "additionalProperties": false,
         "properties": {
+          "contentExperiment": {
+            "anyOf": [
+              {
+                "const": "full-symbol-content-experiment-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentexperiment"
+          },
           "exclusions": {
             "items": {
               "$ref": "#/components/schemas/GridCorrectionLearningExclusion"
@@ -14871,6 +15217,18 @@
       "GridCorrectionLearningStartCommand": {
         "additionalProperties": false,
         "properties": {
+          "contentExperiment": {
+            "anyOf": [
+              {
+                "const": "full-symbol-content-experiment-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentexperiment"
+          },
           "exclusions": {
             "items": {
               "$ref": "#/components/schemas/GridCorrectionLearningExclusion"
@@ -15003,6 +15361,30 @@
               }
             ],
             "title": "Cohortid"
+          },
+          "contentExperiment": {
+            "anyOf": [
+              {
+                "const": "full-symbol-content-experiment-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentexperiment"
+          },
+          "contentExperimentPlanSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentexperimentplansha256"
           },
           "createdAt": {
             "title": "Createdat",
@@ -15787,7 +16169,7 @@
             "items": {
               "$ref": "#/components/schemas/GridModelArtifact"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "minItems": 4,
             "title": "Files",
             "type": "array"
@@ -17472,7 +17854,7 @@
             "items": {
               "$ref": "#/components/schemas/GridModelArtifact"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "minItems": 4,
             "title": "Files",
             "type": "array"
@@ -17997,7 +18379,14 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/AutomaticCalibration"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AutomaticCalibration"
+                    },
+                    {
+                      "$ref": "#/components/schemas/VariantAutomaticCalibration"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -18092,7 +18481,7 @@
               "mapping": {
                 "grid-model-evaluation-read-v3": "#/components/schemas/GridCorrectionEvaluationReport",
                 "grid-model-evaluation-read-v4": "#/components/schemas/GridScreenCorrectionEvaluationReport",
-                "grid-model-evaluation-read-v5": "#/components/schemas/GridCalibratedEvaluationReport"
+                "grid-model-evaluation-read-v5": "#/components/schemas/GridContentCalibratedEvaluationReport"
               },
               "propertyName": "schemaVersion"
             },
@@ -18104,7 +18493,7 @@
                 "$ref": "#/components/schemas/GridScreenCorrectionEvaluationReport"
               },
               {
-                "$ref": "#/components/schemas/GridCalibratedEvaluationReport"
+                "$ref": "#/components/schemas/GridContentCalibratedEvaluationReport"
               }
             ],
             "title": "Rawquality"
@@ -20659,6 +21048,30 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Cohortmanifestsha256",
             "type": "string"
+          },
+          "contentExperiment": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentexperiment"
+          },
+          "contentExperimentInputs": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentexperimentinputs"
           },
           "familyId": {
             "format": "uuid",
@@ -27744,6 +28157,207 @@
         "title": "IncompleteGeometryImageResponse",
         "type": "object"
       },
+      "InputVariant": {
+        "additionalProperties": false,
+        "properties": {
+          "availableSourceBox": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Availablesourcebox",
+            "type": "array"
+          },
+          "boardInputSupport": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              }
+            ],
+            "title": "Boardinputsupport",
+            "type": "array"
+          },
+          "detectionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Detectionid",
+            "type": "string"
+          },
+          "modelManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Modelmanifestsha256",
+            "type": "string"
+          },
+          "nodesSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Nodessha256",
+            "type": "string"
+          },
+          "operationPinSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Operationpinsha256",
+            "type": "string"
+          },
+          "screenQuad": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              }
+            ],
+            "title": "Screenquad",
+            "type": "array"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "sourceSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcesha256",
+            "type": "string"
+          },
+          "variantKey": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Variantkey",
+            "type": "string"
+          },
+          "version": {
+            "const": "full-board-input-variant-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "variantKey",
+          "sourceSha256",
+          "modelManifestSha256",
+          "operationPinSha256",
+          "detectionId",
+          "nodesSha256",
+          "screenQuad",
+          "boardInputSupport",
+          "availableSourceBox",
+          "sha256"
+        ],
+        "title": "InputVariant",
+        "type": "object"
+      },
       "JobErrorResponse": {
         "additionalProperties": false,
         "properties": {
@@ -31604,6 +32218,16 @@
           "detectionId": {
             "title": "Detectionid",
             "type": "string"
+          },
+          "inputVariant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InputVariant"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "latticeNodes": {
             "anyOf": [
@@ -49878,6 +50502,419 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VariantAutomaticCalibration": {
+        "additionalProperties": false,
+        "properties": {
+          "allowedVariants": {
+            "items": {
+              "$ref": "#/components/schemas/VariantContext"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Allowedvariants",
+            "type": "array"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalibrationArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "plannedComparisons": {
+            "minimum": 0.0,
+            "title": "Plannedcomparisons",
+            "type": "integer"
+          },
+          "plannedConfigurations": {
+            "maximum": 512.0,
+            "minimum": 1.0,
+            "title": "Plannedconfigurations",
+            "type": "integer"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VariantAutomaticProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "roleProofSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Roleproofsha256",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "qualified",
+              "unqualified"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "usedVariantKeys": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 2,
+            "title": "Usedvariantkeys",
+            "type": "array"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/VariantQualificationChild"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Variants",
+            "type": "array"
+          },
+          "version": {
+            "const": "full-board-calibration-qualification-v3",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "gameId",
+          "state",
+          "reasonCodes",
+          "allowedVariants",
+          "usedVariantKeys",
+          "variants",
+          "profile",
+          "evidence",
+          "plannedConfigurations",
+          "plannedComparisons",
+          "roleProofSha256",
+          "limitations"
+        ],
+        "title": "VariantAutomaticCalibration",
+        "type": "object"
+      },
+      "VariantAutomaticProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "allowedVariants": {
+            "items": {
+              "$ref": "#/components/schemas/VariantContext"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Allowedvariants",
+            "type": "array"
+          },
+          "assessmentScope": {
+            "const": "labelled_targets",
+            "title": "Assessmentscope",
+            "type": "string"
+          },
+          "candidateManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidatemanifestsha256",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "routingSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Routingsha256",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "usedVariantKeys": {
+            "items": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Usedvariantkeys",
+            "type": "array"
+          },
+          "variantPlanSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Variantplansha256",
+            "type": "string"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/VariantProfileChild"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Variants",
+            "type": "array"
+          },
+          "version": {
+            "const": "full-board-auto-profile-v3",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "gameId",
+          "candidateManifestSha256",
+          "routingSha256",
+          "variantPlanSha256",
+          "allowedVariants",
+          "usedVariantKeys",
+          "variants",
+          "assessmentScope",
+          "sha256"
+        ],
+        "title": "VariantAutomaticProfile",
+        "type": "object"
+      },
+      "VariantContext": {
+        "additionalProperties": false,
+        "properties": {
+          "boardGeometry": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boardgeometry"
+          },
+          "boardPreset": {
+            "additionalProperties": true,
+            "title": "Boardpreset",
+            "type": "object"
+          },
+          "candidateManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidatemanifestsha256",
+            "type": "string"
+          },
+          "preprocessingContract": {
+            "const": "neural-grid-content-preprocessing-v1",
+            "default": "neural-grid-content-preprocessing-v1",
+            "title": "Preprocessingcontract",
+            "type": "string"
+          },
+          "routingSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Routingsha256",
+            "type": "string"
+          },
+          "screenGeometry": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Screengeometry"
+          },
+          "screenPreset": {
+            "additionalProperties": true,
+            "title": "Screenpreset",
+            "type": "object"
+          },
+          "selectedPath": {
+            "anyOf": [
+              {
+                "const": "combined",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selectedpath"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "baseline",
+              "wide"
+            ],
+            "title": "Stage",
+            "type": "string"
+          },
+          "version": {
+            "const": "full-board-final-variant-v1",
+            "default": "full-board-final-variant-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidateManifestSha256",
+          "routingSha256",
+          "selectedPath",
+          "stage",
+          "screenPreset",
+          "screenGeometry",
+          "boardPreset",
+          "boardGeometry",
+          "sha256"
+        ],
+        "title": "VariantContext",
+        "type": "object"
+      },
+      "VariantProfileChild": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/AutomaticProfile"
+          },
+          "variantKey": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Variantkey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variantKey",
+          "profile"
+        ],
+        "title": "VariantProfileChild",
+        "type": "object"
+      },
+      "VariantQualificationChild": {
+        "additionalProperties": false,
+        "properties": {
+          "b": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalibrationCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "planSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Plansha256",
+            "type": "string"
+          },
+          "plannedComparisons": {
+            "minimum": 0.0,
+            "title": "Plannedcomparisons",
+            "type": "integer"
+          },
+          "plannedConfigurations": {
+            "maximum": 256.0,
+            "minimum": 1.0,
+            "title": "Plannedconfigurations",
+            "type": "integer"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutomaticProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "regression": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalibrationCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resultSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Resultsha256",
+            "type": "string"
+          },
+          "sealedSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sealedsha256",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "qualified",
+              "unqualified"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "variantKey": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Variantkey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variantKey",
+          "state",
+          "reasonCodes",
+          "b",
+          "regression",
+          "profile",
+          "planSha256",
+          "sealedSha256",
+          "resultSha256",
+          "plannedConfigurations",
+          "plannedComparisons"
+        ],
+        "title": "VariantQualificationChild",
         "type": "object"
       },
       "VerifiedCohortExportResponse": {

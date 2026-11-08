@@ -27,9 +27,15 @@ def _serve(
     checksum: str,
     threads: int,
     factory: Callable[..., Analyser],
+    bundle_bytes: bytes | None = None,
 ) -> None:
     try:
-        engine = factory(bundle, threads=threads, expected_bundle_sha256=checksum)
+        engine = factory(
+            bundle,
+            threads=threads,
+            expected_bundle_sha256=checksum,
+            **({"bundle_bytes": bundle_bytes} if bundle_bytes is not None else {}),
+        )
         connection.send(("ready", None))
         while True:
             rgb = connection.recv()
@@ -37,16 +43,18 @@ def _serve(
                 return
             if isinstance(rgb, dict):
                 from .inference import NeuralGridEngine
-                from .rescue import BoardCropGeometryV1, ScreenInputGeometryV1
+                from .rescue import BoardCropGeometryV1, BoardCropGeometryV2, ScreenInputGeometryV1
 
                 if not isinstance(engine, NeuralGridEngine) or set(rgb) != {"rgb", "stage"}:
                     raise ValueError("GRID_RESCUE_STAGE_INVALID")
                 request = rgb["stage"]
                 import cv2
 
-                if (
-                    request.get("opencvVersion") != cv2.__version__
-                    or request.get("preprocessingContract") != "neural-grid-rescue-preprocessing-v1"
+                if request.get("opencvVersion") != cv2.__version__ or request.get(
+                    "preprocessingContract"
+                ) not in (
+                    "neural-grid-rescue-preprocessing-v1",
+                    "neural-grid-content-preprocessing-v1",
                 ):
                     raise ValueError("GRID_RESCUE_PREPROCESSING_CHANGED")
                 environment_keys = {"opencvVersion", "preprocessingContract"}
@@ -67,7 +75,12 @@ def _serve(
                     geometry = (
                         None
                         if request["geometry"] is None
-                        else BoardCropGeometryV1.model_validate(request["geometry"])
+                        else (
+                            BoardCropGeometryV2
+                            if request["preprocessingContract"]
+                            == "neural-grid-content-preprocessing-v1"
+                            else BoardCropGeometryV1
+                        ).model_validate(request["geometry"])
                     )
                     value = [
                         engine.recrop(
@@ -111,9 +124,18 @@ class CPUGridProposalRunner:
         heartbeat: Callable[[], None],
         max_seconds: float,
         _stage: dict[str, Any] | None = None,
+        bundle_bytes: bytes | None = None,
     ) -> list[BoardDetection]:
         if not 0 < max_seconds <= 120:
             raise ValueError("A source inference requires a bounded deadline.")
+        if bundle_bytes is not None:
+            import hashlib
+
+            from game_predictor_api.domain.grid_content_bundle import require_content_bundle_bytes
+
+            require_content_bundle_bytes(len(bundle_bytes))
+            if hashlib.sha256(bundle_bytes).hexdigest() != bundle_sha256:
+                raise ValueError("NEURAL_GRID_BUNDLE_CHECKSUM_MISMATCH")
         identity = (bundle.resolve(), bundle_sha256)
         deadline = time.monotonic() + max_seconds
         started = self._process is None
@@ -122,7 +144,7 @@ class CPUGridProposalRunner:
             parent, child = context.Pipe()
             spawned = context.Process(
                 target=_serve,
-                args=(child, bundle, bundle_sha256, self._threads, self._factory),
+                args=(child, bundle, bundle_sha256, self._threads, self._factory, bundle_bytes),
                 name="neural-folder-source",
             )
             try:
@@ -203,9 +225,16 @@ class CPUGridProposalRunner:
         request: dict[str, Any],
         heartbeat: Callable[[], None],
         max_seconds: float,
+        bundle_bytes: bytes | None = None,
     ) -> list[BoardDetection]:
         return self.run(
-            bundle, bundle_sha256, rgb, heartbeat=heartbeat, max_seconds=max_seconds, _stage=request
+            bundle,
+            bundle_sha256,
+            rgb,
+            heartbeat=heartbeat,
+            max_seconds=max_seconds,
+            _stage=request,
+            bundle_bytes=bundle_bytes,
         )
 
     def close(self) -> None:

@@ -24,7 +24,7 @@ from game_predictor_api.domain.grid_visibility_contract import (
 
 from ..geometry_core.inference import DecodeSettings, NeuralGridEngine
 from ..geometry_core.preprocessing import board_rectifier, corners, crop_board, transform_points
-from ..geometry_core.rescue import GridRescueVariantV1
+from ..geometry_core.rescue import GridRescueVariantV1, GridRescueVariantV2
 from ..training_core.grid_rescue_training import variant_step
 from ..training_core.grid_training import (
     BalancedSampler,
@@ -55,12 +55,34 @@ class GridTrainingDataError(ValueError):
         self.code = code
 
 
+class ContentSelectionDataset(GridBoardDataset):
+    """Pinned A targets for content parity; partial photos retain their fixed target scope."""
+
+    def __init__(self, snapshot: GridCohortSnapshot, role: str) -> None:
+        if (
+            role != "VALIDATION"
+            or snapshot.manifest.get("policyVersion") != "application-grid-corrections-v4"
+            or snapshot.manifest.get("photoSplit", {}).get("contentSampling", {}).get("policy")
+            != "full-symbol-content-sampling-v1"
+        ):
+            raise GridTrainingDataError("CONTENT_EXPERIMENT_SELECTION_POLICY_REQUIRED")
+        super().__init__(snapshot, role)
+
+
 class CohortPhotos:
     """Metadata index of one role; pixels are decoded per use through the role guard."""
 
-    def __init__(self, snapshot: GridCohortSnapshot, role: str, *, full_only: bool) -> None:
+    def __init__(
+        self,
+        snapshot: GridCohortSnapshot,
+        role: str,
+        *,
+        full_only: bool,
+        content_selection: bool = False,
+    ) -> None:
         self.snapshot, self.role = snapshot, role
-        rows = GridBoardDataset(snapshot, role).indexed()
+        dataset = ContentSelectionDataset if content_selection else GridBoardDataset
+        rows = dataset(snapshot, role).indexed()
         if full_only:
             if snapshot.manifest["policyVersion"] in (
                 "application-grid-corrections-v3",
@@ -344,11 +366,16 @@ class ScreenGridBatches(_Prefetched):
         workers: int,
         strata: Any = None,
         *,
-        variant: GridRescueVariantV1 | None = None,
+        variant: GridRescueVariantV1 | GridRescueVariantV2 | None = None,
         output_contract: GridOutputContract | None = None,
+        content_experiment: bool = False,
+        content_auxiliary: bool = False,
     ) -> None:
         self.photos, self.recipe, self.seed = photos, recipe, seed
         self.output_contract = output_contract
+        self.content_experiment, self.content_auxiliary = content_experiment, content_auxiliary
+        if content_experiment and output_contract is None:
+            raise ValueError("CONTENT_TRAINING_OUTPUT_CONTRACT_REQUIRED")
         require_visibility_contract(photos, output_contract)
         self.variant = variant
         if variant is not None:
@@ -384,6 +411,8 @@ class ScreenGridBatches(_Prefetched):
                 if self.output_contract is None
                 else self.output_contract.supervision,
                 source_support=support,
+                explicit_skip=self.content_experiment,
+                content_auxiliary=self.content_auxiliary,
             )
             seen: set[int] = set()
             row = []
@@ -406,7 +435,31 @@ class ScreenGridBatches(_Prefetched):
             )
             for key in ("node_weights", "visibility_mask"):
                 batch[key] *= (batch["weights"] > 0)[..., None]
+        if self.content_experiment:
+            batch["crop_skipped"] = torch.from_numpy(
+                np.stack([item["crop_skipped"] for item in items])
+            )
+            batch["weights"] *= 1 - batch["crop_skipped"].to(torch.float32)
+        if self.content_auxiliary:
+            for key in ("content_quads", "content_quad_mask"):
+                batch[key] = torch.from_numpy(np.stack([item[key] for item in items]))
+            batch["content_quad_mask"] *= (batch["weights"] > 0)[..., None]
         return batch
+
+    def content_exposure_members(self, step: int, batch: Any, values: Any) -> dict[str, Any]:
+        """Only photos contributing a nonzero component enter optimizer receipts."""
+        del values
+        members = self.exposure_members(step)
+        board = []
+        for index, member in enumerate(members):
+            weights = batch["weights"][index] > 0
+            if any(
+                bool((batch[key][index] * weights[..., None]).sum() > 0)
+                for key in ("node_weights", "visibility_mask", "content_quad_mask")
+                if key in batch
+            ):
+                board.append(member)
+        return {"screen": members, "board": board}
 
     def exposure_members(self, step: int) -> list[dict[str, str]]:
         result = []

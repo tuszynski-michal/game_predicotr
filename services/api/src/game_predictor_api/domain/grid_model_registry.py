@@ -128,12 +128,21 @@ def validate_manifest(payload: dict[str, Any]) -> str:
             "GRID_MODEL_MANIFEST_INVALID", "Inference manifest identity differs."
         )
     files = payload["files"]
-    if {file["name"] for file in files} != {
+    expected_files = {
         "screen.onnx",
         "board.onnx",
         "bundle.json",
         "preset.json",
-    } or len(files) != 4:
+    }
+    if any(file["name"] == "content.onnx" for file in files) and (
+        payload["modelVersion"] == "neural-grid-v2"
+        and payload["bundleFormat"] == "neural-grid-bundle-v2"
+        and payload["admission"] == "not_evaluated"
+    ):
+        # The artifact inspector additionally requires an exact R3 experiment,
+        # real trained-head exposure, runtime parity and the fifth graph's bytes.
+        expected_files.add("content.onnx")
+    if {file["name"] for file in files} != expected_files or len(files) != len(expected_files):
         raise GridModelRegistryError(
             "GRID_MODEL_MANIFEST_INVALID", "Artifact names must be unique."
         )

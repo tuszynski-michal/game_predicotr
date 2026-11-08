@@ -623,16 +623,6 @@ class NeuralPageGeometryPreflightHandler:
                         "reasonCodes": reasons,
                     }
                 )
-            proposal = build_neural_source_proposal(
-                game_id=str(job.game_id),
-                source_selection_id=cast(str, payload["sourceSelectionId"]),
-                source_checksum_sha256=original.checksum_sha256,
-                source_width=width,
-                source_height=height,
-                original_range=sequence,
-                snapshot=snapshot,
-                detections=detections,
-            )
             from .full_board_runtime_evidence import runtime_evidence
 
             calibration_evidence = runtime_evidence(
@@ -646,6 +636,16 @@ class NeuralPageGeometryPreflightHandler:
                 width=width,
                 height=height,
                 available_source_box=[0, 0, width, height],
+            )
+            proposal = build_neural_source_proposal(
+                game_id=str(job.game_id),
+                source_selection_id=cast(str, payload["sourceSelectionId"]),
+                source_checksum_sha256=original.checksum_sha256,
+                source_width=width,
+                source_height=height,
+                original_range=sequence,
+                snapshot=snapshot,
+                detections=detections,
             )
         else:
             proposal = dict(validate_neural_source_proposal(old_proposal))

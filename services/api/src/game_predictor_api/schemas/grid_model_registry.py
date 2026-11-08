@@ -59,7 +59,7 @@ class GridInferenceManifest(ApiModel):
     selection_reason: str = Field(min_length=1, max_length=1000)
     report: str = Field(min_length=1, max_length=300)
     report_results: list[GridModelHistoricalReport] = Field(max_length=20)
-    files: list[GridModelArtifact] = Field(min_length=4, max_length=4)
+    files: list[GridModelArtifact] = Field(min_length=4, max_length=5)
 
 
 class GridModelManifest(ApiModel):
@@ -86,7 +86,7 @@ class GridModelManifest(ApiModel):
     historical_reports: list[GridModelHistoricalReport] = Field(max_length=20)
     managed_directory: str = Field(min_length=1, max_length=300)
     inference_manifest: GridInferenceManifest
-    files: list[GridModelArtifact] = Field(min_length=4, max_length=4)
+    files: list[GridModelArtifact] = Field(min_length=4, max_length=5)
     training_artifacts: list[GridModelArtifact] = Field(min_length=4, max_length=4)
 
 

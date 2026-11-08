@@ -99,7 +99,10 @@ export function learningActive(status: string): boolean {
 export function learningStage(view: GridCorrectionLearningView): string {
   if (view.verdict) return 'Ocena ukończona';
   if (view.evaluationId) return 'Porównanie kandydata z bazą';
-  if (view.trainingRunId) return 'Trening modelu';
+  if (view.trainingRunId)
+    return view.contentExperiment
+      ? 'Kontrolowany eksperyment pełnych symboli'
+      : 'Trening modelu';
   if (view.cohortId) return 'Przygotowanie i sprawdzenie danych';
   return 'Sprawdzanie gotowości';
 }

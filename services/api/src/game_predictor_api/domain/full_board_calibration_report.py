@@ -157,7 +157,10 @@ def unqualified(game_id: str, reason: str) -> dict[str, Any]:
 
 
 def attach_calibration(
-    quality: dict[str, Any], calibrations: list[dict[str, Any]]
+    quality: dict[str, Any],
+    calibrations: list[dict[str, Any]],
+    *,
+    allow_variant_calibration: bool = False,
 ) -> dict[str, Any]:
     if quality["schemaVersion"] not in (
         "grid-model-evaluation-read-v3",
@@ -165,11 +168,15 @@ def attach_calibration(
     ):
         raise ValueError("CALIBRATION_RAW_REPORT_REQUIRED")
     parsed = [
-        AutomaticCalibration.model_validate(value).model_dump(mode="json") for value in calibrations
+        parse_calibration(value, allow_variant_calibration=allow_variant_calibration)
+        for value in calibrations
     ]
     if [value["gameId"] for value in parsed] != quality["requiredGameIds"]:
         raise ValueError("CALIBRATION_REPORT_SCOPE_INVALID")
-    if sum(value["plannedConfigurations"] for value in parsed) > 256 * len(parsed):
+    if sum(value["plannedConfigurations"] for value in parsed) > sum(
+        512 if value["version"] == "full-board-calibration-qualification-v3" else 256
+        for value in parsed
+    ):
         raise ValueError("CALIBRATION_MENU_BUDGET")
     return {
         **quality,
@@ -179,8 +186,25 @@ def attach_calibration(
     }
 
 
+def parse_calibration(
+    value: Mapping[str, Any], *, allow_variant_calibration: bool = False
+) -> dict[str, Any]:
+    if value.get("version") == "full-board-calibration-qualification-v3":
+        if not allow_variant_calibration:
+            raise ValueError("VARIANT_CALIBRATION_CONTENT_DISPATCH_REQUIRED")
+        from .full_board_variant_calibration_types import VariantAutomaticCalibration
+
+        return VariantAutomaticCalibration.model_validate(value).model_dump(mode="json")
+    return AutomaticCalibration.model_validate(value).model_dump(mode="json")
+
+
 def require_report(
-    report_json: str, *, manifest: Mapping[str, Any], base_sha256: str
+    report_json: str,
+    *,
+    manifest: Mapping[str, Any],
+    base_sha256: str,
+    allow_content_selection: bool = False,
+    allow_variant_calibration: bool = False,
 ) -> dict[str, Any]:
     from .grid_correction_evaluation import require_report as require_quality
     from .grid_model_evaluation import MAX_REPORT_BYTES, GridEvaluationReportError
@@ -199,8 +223,20 @@ def require_report(
             if key not in {"rawQualitySchemaVersion", "automaticCalibration"}
         }
         quality["schemaVersion"] = report["rawQualitySchemaVersion"]
-        require_quality(canonical_json(quality), manifest=manifest, base_sha256=base_sha256)
-        if attach_calibration(quality, report["automaticCalibration"]) != report:
+        require_quality(
+            canonical_json(quality),
+            manifest=manifest,
+            base_sha256=base_sha256,
+            allow_content_selection=allow_content_selection,
+        )
+        if (
+            attach_calibration(
+                quality,
+                report["automaticCalibration"],
+                allow_variant_calibration=allow_variant_calibration,
+            )
+            != report
+        ):
             raise ValueError("CALIBRATION_REPORT_INVALID")
         for value in report["automaticCalibration"]:
             profile = value["profile"]

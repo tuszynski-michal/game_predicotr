@@ -575,9 +575,11 @@ def test_openapi_has_eight_operations_and_closed_preview_view_schemas(tmp_path: 
                 "validationAssignments",
                 "validationComponents",
                 "validationPurposeCounts",
+                "contentExperiment",
+                "contentExperimentReadiness",
             }
             if name == "GridCorrectionLearningPreview"
-            else set()
+            else {"contentExperiment", "contentExperimentPlanSha256"}
         )
         assert set(schemas[name]["required"]) == set(expected) - {
             "progressCounts",

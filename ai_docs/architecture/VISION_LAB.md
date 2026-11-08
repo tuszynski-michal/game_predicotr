@@ -6,6 +6,49 @@ last_updated: 2026-11-08
 
 # Architektura laboratorium wizji
 
+## Bounded content experiment (D-592, TASK-1167)
+
+The existing correction-learning parent freezes the T2 content policy and
+server-owned lineage/role/copy proofs, then supplies one training child with
+`content_experiment` and `content_experiment_inputs`. The closed plan hashes
+base weights, cohorts and A/B/REG rosters. `training_core/grid_content_experiment.py`
+owns deterministic arm/state/budget/selection rules; existing training and
+checkpoint modules execute the steps. No second trainer or role ledger exists.
+
+`images/grid_content_experiment_data.py` verifies inputs, measures the frozen
+base only on eligible TRAIN bank sources and evaluates A with actual T3 crops.
+`grid_content_experiment_run.py` orchestrates measured preflight, arm checkpoints
+and cumulative budget; `grid_content_experiment_export.py` exports the selected
+actual checkpoint. Exact replay preserves child, bank and export identities.
+Checkpoint-local A engines reset photo-local rescue attempts; production receipts
+remain bound to bundle/variant/input identity. Validation heartbeat consumes time,
+not a fictitious optimizer step4801.
+
+V2 input geometry explicitly permits the two trained canvases. Opt-in dynamic
+ONNX exports are numerically checked on both; R3 auxiliary `content.onnx` is
+separate from unchanged legacy board outputs. API domain/storage
+`grid_content_experiment_inputs` and `grid_content_experiment_evidence` verify
+server proofs, actual frames, source/head exposure, device/timing, graph bytes
+and selected routing. Old descriptors and preset fingerprints remain closed.
+Preflight exports are never substituted for selected-checkpoint export proof.
+Operator GPU execution, model activation and migration remain separate actions.
+
+
+Content reportv6 opts into qualification/profilev3 with independently calibrated
+v2 children for actual BASE/WIDE inputs. All A menus are sealed before B; child
+partitions retain the frozen whole-role rosters and unresolved observations.
+A shared final-input resolver binds model/routing and actual preprocessing;
+source/slot/nodes/input witnesses are replayed independently by the API.
+Operationpinv3 carries qualification policyv3, while result-evidencev3 binds
+parent SHA, actual variant key and child profile SHA. Runtime never substitutes
+another child's threshold. A separately checksummed detection.inputVariant
+stamp binds the actual input before threshold selection and proposal assembly;
+result-evidencev3 points to its SHA. Both API callers verify current physical
+source/crop support, and the finalizer reconstructs the expected input support.
+No pixel-hash or NN-reexecution claim is made by the configuration identity.
+Legacy proposals omit the optional stamp entirely. The new numeric menu budget is256 per child,
+512 per game; NN call budgets and all historical v1/v2 serialization stay fixed.
+
 ## Production cell evaluation (D-591, TASK-1166)
 
 Opt-in capture freezes `production-cell-evaluation-reference-v1` in each target:

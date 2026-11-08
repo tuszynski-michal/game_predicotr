@@ -13,7 +13,7 @@ from game_predictor_api.domain.neural_grid_proposal import associate_quad_slots
 from ..geometry_core.inference import BoardDetection
 from ..geometry_core.metrics import quad_iou
 from ..geometry_core.preprocessing import quad_is_usable
-from ..geometry_core.rescue import GridRescueVariantV1
+from ..geometry_core.rescue import GridRescueVariantV1, GridRescueVariantV2
 
 ROUTING_POLICY = "grid-rescue-exact-slots-fit-or-pixels-v1"
 COMPLETENESS_ROUTING_POLICY = "grid-rescue-exact-slots-input-completeness-v2"
@@ -78,6 +78,7 @@ class RescueResult:
     redetect_calls: int
     crop_calls: dict[int, int]
     reasons: tuple[str, ...]
+    replacement_positions: tuple[int, ...] = ()
 
 
 def slots(detections: list[BoardDetection], *, screen: bool = False) -> dict[int, int] | None:
@@ -124,7 +125,7 @@ def execute_path(
     *,
     width: int,
     height: int,
-    variant: GridRescueVariantV1,
+    variant: GridRescueVariantV1 | GridRescueVariantV2,
     path: str,
     detect: Callable[[Any], list[BoardDetection] | None],
     recrop: Callable[[int, BoardDetection, Any], BoardDetection | None],
@@ -178,6 +179,7 @@ def execute_path(
     output = list(baseline)
     calls = {}
     reasons = []
+    replacements = []
     geometry = variant.board if path in ("board_only", "combined") else None
     for position, index in sorted(targets.items()):
         replacement = recrop(position, found[remap[position]], geometry)
@@ -186,4 +188,5 @@ def execute_path(
             reasons.append("GRID_RESCUE_ATTEMPT_CONSUMED")
         else:
             output[index] = replacement
-    return RescueResult(output, redetect, calls, tuple(sorted(set(reasons))))
+            replacements.append(position)
+    return RescueResult(output, redetect, calls, tuple(sorted(set(reasons))), tuple(replacements))

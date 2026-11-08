@@ -12,10 +12,11 @@ from typing import Any, cast
 
 import cv2
 from game_predictor_api.domain.grid_rescue_policy import require_rescue_evidence, require_rescue_pin
+from game_predictor_api.storage.grid_content_bundle import read_content_bundle_bytes
 
 from ..geometry_core.bounded_runtime import GeometryRuntimeError
 from ..geometry_core.inference import BoardDetection
-from ..geometry_core.rescue import GridRescueVariantV1
+from ..geometry_core.rescue import GridRescueVariantV1, GridRescueVariantV2
 from ..geometry_core.rescue_serialization import detection_document, detection_from_document
 from ..training_core.grid_training_admission import canonical, digest
 from .grid_rescue_strategy import execute_path
@@ -147,7 +148,9 @@ class RescueAttemptStore:
             )
         value = {
             "contractVersion": "grid-rescue-execution-v1",
-            "preprocessingContract": "neural-grid-rescue-preprocessing-v1",
+            "preprocessingContract": self.identity.get(
+                "preprocessingContract", "neural-grid-rescue-preprocessing-v1"
+            ),
             "identity": self.identity,
             "attempts": attempts,
             "reasonCodes": list(reasons),
@@ -193,18 +196,36 @@ def run_with_rescue(
 
     checked = require_rescue_pin(dict(pin), bundle_sha=bundle_sha)
     bundle_file = bundle / "bundle.json"
-    if bundle_file.stat().st_size > 16 * 1024 * 1024:
-        raise ValueError("GRID_RESCUE_BUNDLE_CHANGED")
-    content = bundle_file.read_bytes()
+    content = read_content_bundle_bytes(bundle_file)
     import hashlib
 
-    if len(content) > 16 * 1024 * 1024 or hashlib.sha256(content).hexdigest() != bundle_sha:
+    if hashlib.sha256(content).hexdigest() != bundle_sha:
         raise ValueError("GRID_RESCUE_BUNDLE_CHANGED")
-    proof = require_rescue_evidence(json.loads(content))
+    document = json.loads(content)
+    content_mode = checked["policyVersion"] == "grid-content-rescue-policy-v1"
+    if content_mode:
+        from game_predictor_api.domain.grid_content_experiment_evidence import (
+            require_content_experiment_evidence,
+        )
+
+        require_content_experiment_evidence(document)
+        proof = document["contentRescue"]
+        selected_path = proof["selectedPath"]
+        variant_id = GridRescueVariantV2.model_validate(proof["variant"]).sha256
+        routing = proof["routing"]
+        preset_sha = document["preset_fingerprint"]
+        preprocessing = "neural-grid-content-preprocessing-v1"
+    else:
+        proof = require_rescue_evidence(document)
+        selected_path = proof["selection"]["selectedPath"]
+        variant_id = proof["recipe"]["variantId"]
+        routing = proof["selection"]["pathProofs"][selected_path].get("routing")
+        preset_sha = proof["recipe"]["baselinePresetSha256"]
+        preprocessing = "neural-grid-rescue-preprocessing-v1"
     if (
         proof["sha256"] != checked["proofSha256"]
-        or proof["selection"]["selectedPath"] != checked["selectedPath"]
-        or proof["recipe"]["variantId"] != checked["variantId"]
+        or selected_path != checked["selectedPath"]
+        or variant_id != checked["variantId"]
     ):
         raise ValueError("GRID_RESCUE_PIN_CHANGED")
     store = RescueAttemptStore(
@@ -212,9 +233,9 @@ def run_with_rescue(
         {
             "sourceSha256": source_sha,
             "pin": checked,
-            "baselinePresetSha256": proof["recipe"]["baselinePresetSha256"],
+            "baselinePresetSha256": preset_sha,
             "opencvVersion": cv2.__version__,
-            "preprocessingContract": "neural-grid-rescue-preprocessing-v1",
+            "preprocessingContract": preprocessing,
             "positions": sorted(expected_positions),
             "width": int(rgb.shape[1]),
             "height": int(rgb.shape[0]),
@@ -222,7 +243,14 @@ def run_with_rescue(
         },
     )
     found = store.baseline(
-        lambda: runner.run(bundle, bundle_sha, rgb, heartbeat=heartbeat, max_seconds=remaining())
+        lambda: runner.run(
+            bundle,
+            bundle_sha,
+            rgb,
+            heartbeat=heartbeat,
+            max_seconds=remaining(),
+            **({"bundle_bytes": content} if content_mode else {}),
+        )
     )
     if store.position_alias:
         for detection in found:
@@ -232,14 +260,16 @@ def run_with_rescue(
         if summary_sink is not None:
             summary_sink.update(store.summary(("GRID_RESCUE_SLOT_BINDING_REQUIRED",)))
         return found
-    variant = GridRescueVariantV1.model_validate(checked["variant"])
+    variant = (GridRescueVariantV2 if content_mode else GridRescueVariantV1).model_validate(
+        checked["variant"]
+    )
 
     def detect(geometry: Any) -> list[BoardDetection] | None:
         request = {
             "kind": "screen",
             "geometry": geometry.model_dump(mode="json"),
             "opencvVersion": cv2.__version__,
-            "preprocessingContract": "neural-grid-rescue-preprocessing-v1",
+            "preprocessingContract": preprocessing,
         }
         return store.attempt(
             "redetect",
@@ -251,6 +281,7 @@ def run_with_rescue(
                 request=request,
                 heartbeat=heartbeat,
                 max_seconds=remaining(),
+                **({"bundle_bytes": content} if content_mode else {}),
             ),
         )
 
@@ -259,7 +290,7 @@ def run_with_rescue(
             "kind": "board",
             "geometry": None if geometry is None else geometry.model_dump(mode="json"),
             "opencvVersion": cv2.__version__,
-            "preprocessingContract": "neural-grid-rescue-preprocessing-v1",
+            "preprocessingContract": preprocessing,
             "detection": detection_document(detection),
         }
         result = store.attempt(
@@ -272,6 +303,7 @@ def run_with_rescue(
                 request=request,
                 heartbeat=heartbeat,
                 max_seconds=remaining(),
+                **({"bundle_bytes": content} if content_mode else {}),
             ),
         )
         if result is not None and len(result) != 1:
@@ -289,7 +321,7 @@ def run_with_rescue(
             detect=detect,
             recrop=recrop,
             expected_positions=expected_positions,
-            routing=proof["selection"]["pathProofs"][checked["selectedPath"]].get("routing"),
+            routing=routing,
         )
         reasons = result.reasons
         if observation_sink is not None:
@@ -297,10 +329,15 @@ def run_with_rescue(
                 baseline=found,
                 cropPositions=sorted(result.crop_calls),
                 selectedPath=checked["selectedPath"],
-                routing=proof["selection"]["pathProofs"][checked["selectedPath"]].get("routing"),
+                routing=routing,
                 boardGeometry=variant.board
                 if checked["selectedPath"] in ("board_only", "combined")
                 else None,
+                **(
+                    {"replacementPositions": list(result.replacement_positions)}
+                    if content_mode
+                    else {}
+                ),
             )
     finally:
         if summary_sink is not None:

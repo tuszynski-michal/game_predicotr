@@ -614,6 +614,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
             and source.normalization_adapter_version == context.normalization_adapter_version
             and newest == revision_id
         )
+        from .full_board_input_variant import current_variant_source_box
+
         return qualify_v3_engine_acceptance(
             operation_pin=operation_pin,
             qualification_blockers=qualification_blockers,
@@ -625,6 +627,16 @@ class SqlAlchemyVirtualGridGeometryRepository:
             source_checksum_sha256=context.source_checksum_sha256,
             width=context.oriented_width,
             height=context.oriented_height,
+            available_source_box=current_variant_source_box(
+                self._session,
+                pin=operation_pin,
+                source_sha256=context.source_checksum_sha256,
+                width=context.oriented_width,
+                height=context.oriented_height,
+                artifact_root=self._artifact_root,
+                source_relative_path=None if source is None else source.relative_path,
+                normalized_pixel_sha256=context.normalized_pixel_checksum_sha256,
+            ),
             active_slots=context.active_board_slots,
             sequence_start=context.sequence_range_start,
             sequence_end=context.sequence_range_end,

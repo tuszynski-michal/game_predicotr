@@ -814,8 +814,35 @@ class GridTrainingJobPayload(ApiModel):
     seed: int = Field(ge=0, le=2**31 - 1)
     planned_steps: int = Field(ge=1, le=1_000_000)
     rescue_recipe: dict[str, Any] | None = None
+    content_experiment: dict[str, Any] | None = Field(None, exclude_if=lambda value: value is None)
+    content_experiment_inputs: dict[str, Any] | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
     shared_cohorts: list[GridSharedCohortPin] | None = Field(None, min_length=1, max_length=7)
     joint_sha256: str | None = Field(None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def require_content_plan(self) -> GridTrainingJobPayload:
+        if self.content_experiment is None:
+            if self.content_experiment_inputs is not None:
+                raise ValueError("CONTENT_EXPERIMENT_PLAN_REQUIRED")
+            return self
+        from game_predictor_worker.training_core.grid_content_experiment import require_plan
+
+        from game_predictor_api.domain.grid_content_experiment_inputs import require_inputs
+
+        plan = require_plan(self.content_experiment)
+        if (
+            self.content_experiment_inputs is None
+            or self.mode != "screen+grid"
+            or self.rescue_recipe is not None
+            or self.seed != plan["seed"]
+            or self.planned_steps != plan["maxSteps"]
+            or str(self.base_version_id) != plan["baseVersionId"]
+        ):
+            raise ValueError("CONTENT_EXPERIMENT_PAYLOAD_CHANGED")
+        require_inputs(self.content_experiment_inputs, plan)
+        return self
 
 
 class GridModelEvaluationCohortPin(ApiModel):

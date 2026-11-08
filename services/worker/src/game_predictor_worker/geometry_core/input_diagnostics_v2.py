@@ -22,7 +22,13 @@ from .input_diagnostics import (
     digest,
 )
 from .preprocessing import ByteImage, board_rectifier, crop_board, quad_is_usable, screen_input
-from .rescue import BoardCropGeometryV1, GridRescueVariantV1, ScreenInputGeometryV1
+from .rescue import (
+    BoardCropGeometryV1,
+    BoardCropGeometryV2,
+    GridRescueVariantV1,
+    GridRescueVariantV2,
+    ScreenInputGeometryV1,
+)
 from .rescue_serialization import detection_from_document
 from .settings import BoardPreset, Contract, ScreenPreset
 
@@ -59,7 +65,8 @@ def _pixels(
     identity = execution["identity"]
     if (
         execution["contractVersion"] != "grid-rescue-execution-v1"
-        or execution["preprocessingContract"] != "neural-grid-rescue-preprocessing-v1"
+        or execution["preprocessingContract"]
+        not in ("neural-grid-rescue-preprocessing-v1", "neural-grid-content-preprocessing-v1")
         or identity.get("preprocessingContract") != execution["preprocessingContract"]
         or identity.get("opencvVersion") != cv2.__version__
     ):
@@ -116,7 +123,12 @@ def _pixels(
     screen = ScreenPreset.model_validate(preset.get("screen"))
     board = BoardPreset.model_validate(preset.get("board"))
     pin = require_rescue_pin(identity.get("pin"), bundle_sha=model.bundle_sha256)
-    variant = GridRescueVariantV1.model_validate(pin["variant"])
+    content_mode = pin["policyVersion"] == "grid-content-rescue-policy-v1"
+    variant = (GridRescueVariantV2 if content_mode else GridRescueVariantV1).model_validate(
+        pin["variant"]
+    )
+    if execution["preprocessingContract"] != variant.preprocessingContract:
+        raise ValueError("DIAGNOSTIC_REQUEST_GEOMETRY_MISMATCH")
     variant.require_baseline(board.margin)
     matches = [item for item in execution["attempts"] if item.get("attempt") == attempt]
     if len(matches) != 1:
@@ -163,12 +175,14 @@ def _pixels(
     if not quad_is_usable(detection.screen_quad):
         raise ValueError("DIAGNOSTIC_SCREEN_QUAD_INVALID")
     override = (
-        BoardCropGeometryV1.model_validate(request["geometry"])
+        (BoardCropGeometryV2 if content_mode else BoardCropGeometryV1).model_validate(
+            request["geometry"]
+        )
         if request["geometry"] is not None
         else None
     )
     matrix = board_rectifier(detection.screen_quad, board, geometry=override)
-    pixels = crop_board(rgb, matrix, board)
+    pixels = crop_board(rgb, matrix, board, geometry=override)
     return _stage(pixels, matrix, screen=False), pixels
 
 

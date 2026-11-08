@@ -83,12 +83,13 @@ class ScreenNetwork(nn.Module):
 
 
 class BoardNetwork(nn.Module):
-    def __init__(self, stride: int = 4, width: int = 96) -> None:
+    def __init__(self, stride: int = 4, width: int = 96, *, content_head: bool = False) -> None:
         super().__init__()
         self.stride = stride
         self.features = FeaturePyramid(width)
         self.nodes = nn.Sequential(_conv(width, width), nn.Conv2d(width, 24, 1))
         self.visibility = nn.Linear(960, 15)
+        self.content_head = nn.Conv2d(width, 9, 1) if content_head else None
 
     def forward(self, crops: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Node logits (N, 24, h, w), nodes in crop pixels (N, 24, 2), visibility logits."""
@@ -98,6 +99,43 @@ class BoardNetwork(nn.Module):
         nodes = soft_argmax(logits, self.stride)
         visibility = self.visibility(c5.float().mean(dim=(2, 3)))
         return logits, nodes, visibility
+
+    def _content(
+        self, features: torch.Tensor, crops: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if self.content_head is None:
+            raise ValueError("CONTENT_HEAD_NOT_ENABLED")
+        # Both approved rasters give feature maps divisible by3x5. Explicit
+        # adaptive bins preserve symbolic sizes in ONNX; adaptive_avg_pool2d's
+        # exporter otherwise freezes its initial kernel and mis-shapes480x288.
+        n, channels, height, width = features.shape
+        pooled = features.reshape(n, channels, 3, height // 3, 5, width // 5).mean(dim=(3, 5))
+        local = self.content_head(pooled)
+        local = local.permute(0, 2, 3, 1).reshape(-1, 15, 9).float()
+        unit = torch.sigmoid(local[..., :8].reshape(-1, 15, 4, 2))
+        quads = torch.stack(
+            (unit[..., 0] * crops.shape[-1], unit[..., 1] * crops.shape[-2]), dim=-1
+        )
+        return quads, local[..., 8]
+
+    def forward_content(self, crops: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        features, _ = self.features(crops)
+        return self._content(features, crops)
+
+    def forward_with_content(
+        self, crops: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """One shared feature pass; auxiliary labels never manufacture node targets."""
+        features, c5 = self.features(crops)
+        logits = self.nodes(features).float()
+        quads, local = self._content(features, crops)
+        return (
+            logits,
+            soft_argmax(logits, self.stride),
+            self.visibility(c5.float().mean(dim=(2, 3))),
+            quads,
+            local,
+        )
 
 
 def soft_argmax(logits: torch.Tensor, stride: int) -> torch.Tensor:
@@ -112,10 +150,10 @@ def soft_argmax(logits: torch.Tensor, stride: int) -> torch.Tensor:
 
 
 class NeuralGridNetwork(nn.Module):
-    def __init__(self, stride: int = 4) -> None:
+    def __init__(self, stride: int = 4, *, content_head: bool = False) -> None:
         super().__init__()
         self.screen = ScreenNetwork()
-        self.board = BoardNetwork(stride)
+        self.board = BoardNetwork(stride, content_head=content_head)
 
 
 class ScreenExport(nn.Module):
@@ -140,6 +178,18 @@ class BoardExport(nn.Module):
         batch, channels = logits.shape[:2]
         peak = torch.softmax(logits.reshape(batch, channels, -1), dim=-1).amax(dim=-1)
         return nodes, peak, torch.sigmoid(visibility)
+
+
+class ContentExport(nn.Module):
+    """R3-only graph: explicit quadrilaterals and local visibility probabilities."""
+
+    def __init__(self, board: BoardNetwork) -> None:
+        super().__init__()
+        self.board = board
+
+    def forward(self, crops: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        quads, visibility = self.board.forward_content(crops)
+        return quads, torch.sigmoid(visibility)
 
 
 # --- losses ------------------------------------------------------------------------------------

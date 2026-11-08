@@ -26,7 +26,7 @@ from .preprocessing import (
     screen_input,
     transform_points,
 )
-from .rescue import BoardCropGeometryV1, ScreenInputGeometryV1
+from .rescue import BoardCropGeometryV1, BoardCropGeometryV2, ScreenInputGeometryV1
 from .settings import MODEL_VERSION, BoardPreset, FitPreset, ScreenPreset
 
 GATE_REASON: Final = "NEURAL_GRID_GATE_UNCALIBRATED"
@@ -235,7 +235,7 @@ class NeuralGridEngine:
         rgb: ByteImage,
         detection: BoardDetection,
         *,
-        geometry: BoardCropGeometryV1 | None = None,
+        geometry: BoardCropGeometryV1 | BoardCropGeometryV2 | None = None,
     ) -> BoardDetection:
         """One additional crop, on an already bound screen quad."""
         result = BoardDetection(detection.score, detection.screen_quad.copy())
@@ -247,7 +247,7 @@ class NeuralGridEngine:
         rgb: ByteImage,
         detections: list[BoardDetection],
         *,
-        geometry: BoardCropGeometryV1 | None = None,
+        geometry: BoardCropGeometryV1 | BoardCropGeometryV2 | None = None,
     ) -> None:
         crops, matrices, owners = [], [], []
         for detection in detections:
@@ -255,7 +255,9 @@ class NeuralGridEngine:
                 detection.reasons.append("NEURAL_GRID_SCREEN_QUAD_INVALID")
                 continue
             matrix = board_rectifier(detection.screen_quad, self.settings.board, geometry=geometry)
-            crops.append(crop_board(rgb, matrix, self.settings.board).transpose(2, 0, 1))
+            crops.append(
+                crop_board(rgb, matrix, self.settings.board, geometry=geometry).transpose(2, 0, 1)
+            )
             matrices.append(matrix)
             owners.append(detection)
         for start in range(0, len(crops), self.board_batch):
@@ -304,13 +306,22 @@ def file_sha256(path: Path) -> str:
 
 
 def onnx_engine(
-    bundle_directory: Path, threads: int | None = None, *, expected_bundle_sha256: str | None = None
+    bundle_directory: Path,
+    threads: int | None = None,
+    *,
+    expected_bundle_sha256: str | None = None,
+    bundle_bytes: bytes | None = None,
 ) -> NeuralGridEngine:
     """CPU ORT engine from an exported bundle; every file is checksum-bound."""
 
     import onnxruntime as ort  # type: ignore[import-untyped]
 
-    bundle_bytes = (bundle_directory / BUNDLE_FILE).read_bytes()
+    if bundle_bytes is None:
+        bundle_bytes = (bundle_directory / BUNDLE_FILE).read_bytes()
+    else:
+        from game_predictor_api.domain.grid_content_bundle import require_content_bundle_bytes
+
+        require_content_bundle_bytes(len(bundle_bytes))
     if (
         expected_bundle_sha256 is not None
         and hashlib.sha256(bundle_bytes).hexdigest() != expected_bundle_sha256

@@ -6,6 +6,35 @@ last_updated: 2026-11-08
 
 # Laboratorium wizji
 
+## Kontrolowane warianty pełnych symboli (D-592, TASK-1167)
+
+Istniejące uczenie przyjmuje jawny opt-in `full-symbol-content-experiment-v1`.
+Jeden proces porównuje R0–R3 z tej samej bazy/danych/ziarna, po1200 ukończonych
+kroków, ze wspólnym limitem4800kroków/7200s i rezerwami1500/1500/2100/2100s.
+Ponowienie lub restart nie odnawia budżetu; nieukończone ramię nie jest wybierane.
+Gotowość metadanych nie zastępuje pomiaru kosztu na urządzeniu workera.
+
+Historyczny TRAIN pozostaje dostępny do powtórnego uczenia. Jedynie bank
+rzeczywistych błędnych obszarów wymaga dodatniego dowodu ancestor-unseen dla
+wybranego podzbioru TRAIN; nie korzysta z A/B/REG. R2 używa obu rzeczywistych
+rozmiarów wejścia, R3 dodaje nadzorowaną głowicę obwiedni15pól, bez klas symboli.
+R3 uruchamia się wyłącznie po niezaliczonym A przez ukończone R2, przy gotowych
+etykietach i pełnej rezerwie. Ranking A waży gry równo i nie kompensuje nowych
+uszkodzonych instancji. Zaliczone A ma pierwszeństwo także dla checkpointu.
+
+Kandydat z niezaliczonym A może być wyłącznie informacyjną propozycją z tym samym
+zmierzonym routingiem; nie dostaje publikacji/defaultu/automatu. Braki B/REG
+pozostają jawnym brakiem kwalifikacji. Dokładny kontrakt i ograniczenia opisuje
+D-592; stary workflow, raporty i ręczne korekty zachowują swoją interpretację.
+
+
+Automat nowego eksperymentu ma osobne progi dla faktycznie zwróconych
+zwykłych i szerszych wejść. Każdy używany wariant spełnia własne minima30good
++30bad źródeł w B i REG; łączna liczba obu wariantów nie wystarcza. Brak
+wariantu lub niejednoznaczny wynik pozostaje w raporcie i blokuje kwalifikację.
+Szersze wejście nigdy nie dziedziczy progów zwykłego. Nieobserwowany wariant
+pozostaje ręczny. Historyczne profile i raporty zachowują swoje reguły.
+
 ## Ocena produkcyjnej zawartości (D-591, TASK-1166)
 
 Nowa ocena rozróżnia `finalContentState` rzeczywistego rastra klasyfikatora od

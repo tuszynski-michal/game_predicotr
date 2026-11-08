@@ -71,7 +71,12 @@ def child_key(parent: UUID, kind: str) -> UUID:
 
 class GridCorrectionLearningService:
     def __init__(
-        self, engine: Engine, session_factory: sessionmaker[Session], artifact_root: Path
+        self,
+        engine: Engine,
+        session_factory: sessionmaker[Session],
+        artifact_root: Path,
+        *,
+        provider_index_sha256: str | None = None,
     ) -> None:
         self.engine, self.session_factory, self.artifact_root = (
             engine,
@@ -79,10 +84,13 @@ class GridCorrectionLearningService:
             artifact_root,
         )
         self.evaluations = GridModelEvaluationService(engine, session_factory, artifact_root)
+        self.provider_index_sha256 = provider_index_sha256
 
     def _cohorts(self, session: Session) -> GridTrainingCohortService:
         return GridTrainingCohortService(
-            SqlAlchemyGridTrainingCohortRepository(session, self.artifact_root), self.artifact_root
+            SqlAlchemyGridTrainingCohortRepository(session, self.artifact_root),
+            self.artifact_root,
+            self.provider_index_sha256,
         )
 
     def ready(self, game: UUID) -> dict[str, Any]:
@@ -95,6 +103,7 @@ class GridCorrectionLearningService:
         policy: str,
         mode: str,
         components: list[dict[str, Any]] | None = None,
+        base: Mapping[str, Any] | None = None,
     ) -> tuple[list[str], dict[str, Any]]:
         with game_storage_scope(game), self.session_factory() as session:
             repository = SqlAlchemyGridTrainingCohortRepository(session, self.artifact_root)
@@ -128,6 +137,22 @@ class GridCorrectionLearningService:
                 )
             elif policy == SCREEN_CORRECTION_POLICY:
                 options["policy"] = policy
+            if command.get("contentExperiment") is not None:
+                from game_predictor_api.storage.grid_content_sampling import (
+                    resolve_content_sampling,
+                )
+
+                if base is None or self.provider_index_sha256 is None:
+                    raise GridCohortError(
+                        "CONTENT_BANK_ANCESTRY_UNRESOLVED", "Trusted ancestry is required."
+                    )
+                options["content_sampling"] = resolve_content_sampling(
+                    repository,
+                    game,
+                    UUID(base["versionId"]),
+                    UUID(base["familyId"]),
+                    self.provider_index_sha256,
+                )
             return imports, prepare_split(repository, game, imports, CohortDeadline(), **options)
 
     def _preview(
@@ -144,6 +169,18 @@ class GridCorrectionLearningService:
         mode = str(command.get("trainingMode", "grid-only"))
         policy = command.get("policyVersion") or correction_policy_for_mode(mode)
         purpose_aware = policy == "application-grid-corrections-v4"
+        experiment = command.get("contentExperiment")
+        if experiment is not None and (
+            experiment != "full-symbol-content-experiment-v1"
+            or mode != "screen+grid"
+            or not purpose_aware
+            or command.get("rescueVariant") is not None
+        ):
+            raise GridCohortError(
+                "CONTENT_EXPERIMENT_MODE_INVALID",
+                "Explicit content screen/v4 mode is required.",
+                422,
+            )
         if policy not in (correction_policy_for_mode(mode), "application-grid-corrections-v4"):
             raise ValueError("Unsupported explicit correction policy.")
         if purpose_aware and not isinstance(command.get("validationAssignments"), dict):
@@ -191,7 +228,29 @@ class GridCorrectionLearningService:
                 trainingMode=mode,
                 validationAssignments=view["validationAssignments"],
             )
+        if experiment is not None:
+            view.update(
+                contentExperiment=experiment,
+                contentExperimentReadiness={
+                    "state": "blocked",
+                    "reasonCodes": [],
+                    "games": [],
+                    "inputsSha256": None,
+                },
+            )
+            view["pendingWorkerChecks"].extend(
+                ["CONTENT_BANK_MEASUREMENT", "EXPERIMENT_ARM_FEASIBILITY"]
+            )
+            pins.update(
+                contentExperiment=experiment,
+                providerIndexSha256=self.provider_index_sha256,
+                contentSamplingPolicy="full-symbol-content-sampling-v1",
+            )
         try:
+            if experiment is not None and self.provider_index_sha256 is None:
+                raise GridCohortError(
+                    "CONTENT_BANK_ANCESTRY_UNRESOLVED", "Trusted ancestry providers are required."
+                )
             with Session(self.engine) as session:
                 repository = SqlAlchemyGridModelRegistryRepository(session)
                 default = repository.default()
@@ -255,7 +314,12 @@ class GridCorrectionLearningService:
                 # minima; project choices before historical-cohort admission.
                 view.update(historicalCohorts=historic, requiredGameIds=required)
                 imports, split = self._split(
-                    game, command, policy, mode, view["validationComponents"]
+                    game,
+                    command,
+                    policy,
+                    mode,
+                    view["validationComponents"],
+                    **({"base": manifest} if experiment is not None else {}),
                 )
                 view["importJobIds"] = imports
             if set(required) - {str(game), *(pin["gameId"] for pin in historic)}:
@@ -441,7 +505,7 @@ class GridCorrectionLearningService:
                     selection_parts.append((pin["gameId"], historical_split))
             if purpose_aware:
                 pins["historicalCurrentness"] = historical_currentness
-            if screen:
+            if screen and experiment is None:
                 from game_predictor_worker.training_core.grid_rescue_training import (
                     rescue_recipe,
                     selection_input,
@@ -457,12 +521,38 @@ class GridCorrectionLearningService:
                 pins.update(selectionInput=selection, rescueRecipe=recipe)
                 pins["historicalCurrentness"] = historical_currentness
                 view["rescueRecipeSha256"] = recipe["sha256"]
-            cost = estimate_cohort_cost(
-                preset, summed_counts(summaries), rescue_variant=command.get("rescueVariant")
-            )
-            view["cost"] = cost_view(cost)
-            if not cost.within_budget or cost.planned_steps < 1:
-                blockers.append("GRID_RUN_COHORT_COST_EXCEEDS_BUDGET")
+            if experiment is not None:
+                from game_predictor_api.storage.grid_content_experiment_inputs import (
+                    read_experiment_inputs,
+                )
+
+                inputs = read_experiment_inputs(
+                    self.session_factory,
+                    self.artifact_root,
+                    manifest,
+                    pins["baseSha256"],
+                    selection_parts,
+                    self.provider_index_sha256,
+                )
+                pins["contentExperimentInputs"] = inputs
+                view["contentExperimentReadiness"].update(
+                    inputsSha256=inputs["sha256"],
+                    games=[
+                        {
+                            "gameId": p["gameId"],
+                            "bankEligiblePhotos": len(p["sources"]),
+                            "excludedPhotos": len(p["excluded"]),
+                        }
+                        for p in inputs["trainEligibility"]["games"]
+                    ],
+                )
+            else:
+                cost = estimate_cohort_cost(
+                    preset, summed_counts(summaries), rescue_variant=command.get("rescueVariant")
+                )
+                view["cost"] = cost_view(cost)
+                if not cost.within_budget or cost.planned_steps < 1:
+                    blockers.append("GRID_RUN_COHORT_COST_EXCEEDS_BUDGET")
         except (GridCohortError, GridModelRegistryError) as error:
             blockers.append(error.code)
             if isinstance(error, GridCorrectionSplitPreparationError):
@@ -472,6 +562,10 @@ class GridCorrectionLearningService:
             # Pure scope validation failures are input errors, never undocumented narrowing.
             raise GridCohortError("GRID_LEARNING_SCOPE_INVALID", str(error), 422) from error
         view["canStart"] = not blockers
+        if experiment is not None:
+            view["contentExperimentReadiness"].update(
+                state="metadata_ready" if not blockers else "blocked", reasonCodes=list(blockers)
+            )
         view["previewSha256"] = descriptor_sha256({"view": view, "pins": pins})
         return view, pins
 
@@ -513,6 +607,7 @@ class GridCorrectionLearningService:
             ("historicalCohorts", []),
             ("policyVersion", None),
             ("validationAssignments", None),
+            ("contentExperiment", None),
         ):
             if (
                 field == "trainingMode"
@@ -658,6 +753,14 @@ class GridCorrectionLearningService:
         state: Any = job.checkpoint_payload or {}
         preview: Any = job.input_payload["preview"]
         return {
+            **(
+                {
+                    "contentExperiment": preview["contentExperiment"],
+                    "contentExperimentPlanSha256": state.get("contentExperimentPlanSha256"),
+                }
+                if preview.get("contentExperiment") is not None
+                else {}
+            ),
             "learningId": str(job.id),
             "gameId": str(job.game_id),
             "status": job.status.value,
@@ -691,6 +794,13 @@ class GridCorrectionLearningService:
         payload: Any = job.input_payload
         state: dict[str, Any] = dict(job.checkpoint_payload or {})
         pins, preview = payload["pins"], payload["preview"]
+        if (
+            pins.get("contentExperiment") is not None
+            and pins.get("providerIndexSha256") != self.provider_index_sha256
+        ):
+            raise GridCohortError(
+                "CONTENT_EXPERIMENT_PROVIDER_CHANGED", "The pinned provider index changed."
+            )
         cohort_id = uuid5(game, "grid-cohort:" + str(child_key(job.id, "cohort")))
         state["cohortId"] = str(cohort_id)
         with game_storage_scope(game), self.session_factory() as session, session.begin():
@@ -734,6 +844,8 @@ class GridCorrectionLearningService:
                         mode=pins["trainingMode"],
                         validationAssignments=pins["validationAssignments"],
                     )
+                if pins.get("contentExperiment") is not None:
+                    command["contentSamplingPolicy"] = pins["contentSamplingPolicy"]
                 service.prepare(game, command, actor)
                 row = service.repository.cohort(game, cohort_id)
                 if row.document["photoSplit"]["sha256"] != pins["splitSha256"]:
@@ -782,6 +894,40 @@ class GridCorrectionLearningService:
                 SqlAlchemyGridTrainingRunJobs(session),
                 SharedGridCandidateService(self.session_factory, self.artifact_root),
             )
+            experiment_arguments = {}
+            if pins.get("contentExperiment") is not None:
+                from game_predictor_worker.training_core.grid_content_experiment import build_plan
+
+                from game_predictor_api.domain.grid_content_experiment_inputs import require_inputs
+
+                inputs = pins["contentExperimentInputs"]
+                plan = build_plan(
+                    base_version_id=preview["baseVersionId"],
+                    base_manifest_sha256=pins["baseSha256"],
+                    base_weights_sha256=next(
+                        a["sha256"]
+                        for a in pins["base"]["trainingArtifacts"]
+                        if a["name"] == "weights.pt"
+                    ),
+                    cohorts=[
+                        {
+                            "gameId": str(game),
+                            "cohortId": str(cohort_id),
+                            "manifestSha256": header["manifestSha256"],
+                        },
+                        *pins["historicalCohorts"],
+                    ],
+                    train_eligibility_sha256=inputs["trainEligibility"]["sha256"],
+                    selection_roster_sha256=inputs["selectionRoster"]["sha256"],
+                    calibration_roster_sha256=inputs["calibrationRoster"]["sha256"],
+                    regression_roster_sha256=inputs["regressionRoster"]["sha256"],
+                )
+                require_inputs(inputs, plan)
+                state["contentExperimentPlanSha256"] = plan["sha256"]
+                experiment_arguments = {
+                    "content_experiment": plan,
+                    "content_experiment_inputs": inputs,
+                }
             run = training.create(
                 game,
                 {
@@ -795,6 +941,7 @@ class GridCorrectionLearningService:
                     ],
                 },
                 **({"correction_recipe": pins["rescueRecipe"]} if "rescueRecipe" in pins else {}),
+                **experiment_arguments,
             )
         state["trainingRunId"] = run["runId"]
         if run["status"] != "completed":

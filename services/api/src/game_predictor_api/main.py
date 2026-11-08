@@ -2575,7 +2575,8 @@ def create_app(
 
     def default_grid_correction_learning_dependency() -> GridCorrectionLearningService:
         return GridCorrectionLearningService(
-            database_engine, session_factory, resolved_settings.artifact_root
+            database_engine, session_factory, resolved_settings.artifact_root,
+            provider_index_sha256=resolved_settings.recording_provider_index_sha256,
         )
 
     application.include_router(

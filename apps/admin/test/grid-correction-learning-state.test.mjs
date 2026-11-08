@@ -28,6 +28,10 @@ test('saved command retains exact key and body; a late response cannot clear a n
       previewSha256: 'hash',
       importJobIds: ['import'],
       exclusions: [],
+      contentExperiment: 'full-symbol-content-experiment-v1',
+      trainingMode: 'screen+grid',
+      policyVersion: 'application-grid-corrections-v4',
+      validationAssignments: { photo: 'A' },
     },
   };
   target.setItem(key, JSON.stringify(command));

@@ -15,6 +15,240 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+## D-592 — Ograniczony eksperyment uczenia pełnych symboli z jednym budżetem
+
+Status: accepted — wykonanie FULL_SYMBOL_CROPS_PLAN_20261108, T4.
+Data: 2026-11-08
+
+Kontekst: istniejący proces ma trwałego rodzica i pojedynczy trening, lecz
+bez zamkniętego porównania R0–R3 nie dowodzi wpływu celów ani wariantów wejścia.
+Odrzucono cztery niezależne zadania odnawiające budżet, drugi trener oraz
+pomocnicze funkcje bez rzeczywistego wpięcia do polecenia operatora.
+
+Nowy opt-in `contentExperiment="full-symbol-content-experiment-v1"` rozszerza
+istniejące preview/start correction-learning. Wymaga jawnego screen+grid,
+purpose-aware v4 i content sampling T2. Nie łączy się z legacy rescueVariant.
+UI zachowuje exact retry command; parent i jeden training child pozostają te same.
+Legacy bez opt-in zachowuje fingerprinty, limity, checkpointy i reguły wyboru.
+
+Serwer przed prepare zamraża pełny pozytywny dowód ancestor-unseen podzbioru
+TRAIN dopuszczonego do banku błędów
+(trusted lineage/providers, closure kopii, role, source byte/pixel SHA i label
+SHA) oraz rostery A/B/REG. Provider-index SHA przechodzi przez API settings/main,
+service ctor, parent preview/freeze i worker CLI. Brak zaufanego dostawcy jest
+CONTENT_BANK_ANCESTRY_UNRESOLVED, nie dowodem nieużycia. Sam brak modelId lub
+sam hash nie zastępuje pełnego proof. Przed optymalizacją worker wykonuje
+rzeczywistą inferencję przypiętej bazy na dopuszczonym TRAIN i zapisuje immutable
+bank błędów z manifestem/SHA. Pula dopuszczonych źródeł banku musi być niepusta
+łącznie; nie dodaje się minimum jednego nowego źródła na grę. Bank może
+zawierać zero błędów, jeśli tak wyszło w pomiarze, z jawnym powodem. Nie dobiera
+się A/B/REG ani OoF i nie wymyśla nowego minimum błędów.
+Pozostały historyczny TRAIN pozostaje dostępny do ponownego uczenia, także
+gdy wcześniejsze użycie albo nierozstrzygnięty rodowód wyklucza go z banku.
+Wymóg dotyczy banku, nie całego zbioru optymalizatora. Gry obejmowane wyłącznie
+kontrolą zakresu defaultu nie wymagają dopisania nowego TRAIN; ich obowiązkowych
+ocen nie wolno pomijać ani zastępować fikcyjnym pokryciem.
+
+Po freeze serwer buduje closed plan z pełnym baseVersion/descriptor/weights SHA,
+uporządkowanymi exact cohort(gameId,cohortId,manifestSha256), SHA pełnych proof
+TRAIN i rosterów A/B/REG oraz seed20261108. Private payload ma dwa pola:
+`content_experiment` (plan ze SHA) oraz `content_experiment_inputs` (pełne dowody
+serwera). Spec dziecka przypina oba. B/REG roster jest zamknięty przed wyborem
+zwycięzcy; jego GT nie jest wejściem optymalizatora ani rankingu A.
+
+Plan ma maksymalnie R0/R1/R2/R3. Każde zaczyna od tej samej bazy, danych i seed,
+ma1200 logicznych kroków i ocenę A co200 oraz na końcu. Rezerwy to dokładnie
+1500/1500/2100/2100s, łącznie7200 z walidacją; globalny pułap4800 logicznych
+kroków. Nowa wersja budżetu nie dziedziczy legacy minimum8000 na każde ramię.
+Start ramienia wymaga pełnej rezerwy i jawnego preflight wykonalności; resume
+zachowuje globalne/per-arm zużycie, rezerwacje, RNG/optimizer/scaler/checkpoint,
+rank i immutable plan/bank. Utrata odpowiedzi nie odnawia czasu ani eksportu.
+W tej polityce pułap kroków dotyczy trwałych kroków logicznych, nie wielkości
+blokowej rezerwacji ani ponowionych obliczeń utraconych po awarii checkpointu.
+Cały zużyty czas pozostaje naliczony. Przy4800 ukończonych krokach i pozostałym
+czasie admission dopuszcza sam eksport, bez żądania kroku4801.
+Ramię poniżej1200 nie jest complete ani eligible; earlystop monitor nie może
+udawać zakończenia planu. Publikowalny kandydat pochodzi tylko z wybranego
+ukończonego ramienia i jego rzeczywistego bestStep≤1200.
+
+Wybór preferuje wyłącznie ukończone ramiona z zaliczoną bramką A, jeśli
+takie istnieją. Dopiero gdy wszystkie wymagane ukończone ramiona nie zaliczają
+A, można zarejestrować najniższy rank jako informacyjnego kandydata do
+ręcznego nadzoru, z jawną blokadą publikacji/defaultu/automatu. Zachowuje on
+dokładnie ten routing, który zmierzono: trained+parity+A measured nie oznacza
+automatycznej kwalifikacji. Nie wyłącza się rescue przy eksporcie dla samego
+ominięcia blokady. Brak rezerwy, etykiet albo wykonalności wymaganego R3 po
+niezaliczeniu A przez R2 oznacza blocked/incomplete, nie zakończony eksperyment.
+R3 można pominąć wyłącznie po zaliczeniu A przez R2.
+Ta sama kolejność obowiązuje wewnątrz ramienia przy wyborze best checkpoint:
+zaliczone A ma pierwszeństwo przed samym rankiem. Późniejszy checkpoint
+z niezaliczonym A nie nadpisuje wcześniejszego zaliczonego; pełne1200 kroków
+nadal jest warunkiem ukończenia ramienia, a eksport dotyczy faktycznego bestStep.
+
+R0 korzysta z masek T1 i niezależnych refs T2. Po maksymalnie3 próbach jittera
+brak poprawnego cropu daje jawny skip i brak board optimizer exposure, nigdy GT
+fallback. R1 dodaje odrębne batchnorm_stats: running stats frozen, affine
+uczone, także po train→val→train. Historyczny batchnorm zachowuje znaczenie.
+R2 równomiernie uczy screen768/1280 oraz board320×192/.15 i480×288/.30.
+Wersjonowany canvas override nie zmienia historycznego preset Literal.
+Nowy opt-in dynamic board ONNX musi rzeczywiście przejść CPU parity obu rastrów,
+screen również768/1280; same metadata/exposure nie są dowodem runtime.
+
+R3 jest z góry zadeklarowane, lecz startuje tylko po ukończonym R2 niezaliczającym
+gate A, przy pełnej rezerwie i zatwierdzonych TRAIN content labels.
+Gotowość R3 wymaga również rzeczywistego `supervision.qualified` dla gier
+uczonych i zatwierdzonych widocznych quadów. Sam jeden quad nie zastępuje
+nadzoru zasilającego maski. Przed oznaczeniem R3 jako complete dodatnia
+ekspozycja głowicy do bestStep jest obowiązkowa niezależnie od zwycięskiego ramienia.
+Pomocnicza head współdzieli FPN, adaptive pool3×5 i1×1 conv9: 15 pełnych obwiedni po4punkty
+XY oraz15 lokalnych visibility logits. Ma rzeczywisty loss/maski/gradient,
+bez klas symboli i bez heurystycznego przesuwania gridu. Istniejący board forward
+zachowuje tuple3; auxiliary export jest osobnym content.onnx, nie sztucznym15
+wyjściem ani zmianą starego ONNX. Proof opisuje rzeczywistą ekspozycję do bestStep.
+
+Ranking `production-content-a-rank-v1` jest wyłącznie A, z równą wagą gier:
+pierwszy pojedynczy składnik to średnia równoważnych gier z
+newDamagedInstances/content.visible. newDamagedInstances jest sumą unikalnych
+stałych widocznych komórek z nowym pogorszeniem stanu albo nowym wrong-cell,
+tie, foreign lub board-match ambiguity; bez podwójnego liczenia. Następnie
+więcej usablePhotos, usableBoards, mniejszy NME, prostsze ramię, wcześniejszy krok.
+newClipped/newBorderline pozostają wyłącznie diagnostyczne, bez ukrytego
+pierwszeństwa rodzajów błędu. Obowiązuje gate każdej gry i per-instance brak regresji T3;
+tie/foreign/missing nie można skompensować rankingiem. Nie używa się REG do
+wyboru parametrów, ramienia lub checkpointu.
+
+Jedyny nowy rescue routing ma max1 redetect1280 per zdjęcie współdzielony przez
+plansze oraz max1 crop480×288/.30 per podejrzany fizyczny slot. Niejednoznaczność
+oznacza człowieka. R0/R1 nie mają niewytrenowanego rescue. Wariant, raster/support,
+optimizer exposure, rzeczywista ONNX parity, A i routing SHA muszą być przypięte.
+Receipts istniejącego budżetu rezerwują przed CPU; crash nie odnawia próby.
+Po wyborze A B kalibruje osobne progi wariantu/ścieżki, REG raz je weryfikuje.
+Brak wymaganych30good+30bad rzeczywistych deduplikowanych źródeł w B i REG
+per gra/używana ścieżka daje unqualified, bez dobierania rosteru po wyniku.
+
+Zapis używa istniejących job/spec/checkpoint JSON i rejestru modeli; brak nowego
+trenera, kolejki, serwisu i tabeli ról. Nowe API wymaga pełnego OpenAPI/SDK/wrapper/
+request pionu. Implementacja nie uruchamia GPU/operator danych, usług, defaultu,
+aktywacji, importu691 ani merge/push. T3 P2-1 koszt replayu pozostaje accepted;
+T4 naprawia oddzielny P2-6:96MiB bound przed odczytem i końcowy hash-only pass.
+
+W nowym eksperymencie nonfinite loss lub GradScaler skip zatrzymuje ramię
+jako incomplete na poprzednim completed checkpoint; nie potwierdza kroku
+ani ekspozycji i nie odnawia zużytego budżetu. Ocena na1200 jest szóstą
+oceną co200, bez dodatkowego siódmego przebiegu. API nie wymyśla throughput
+R2/R3: pending EXPERIMENT_ARM_FEASIBILITY i costnull do czasu rzeczywistego
+preflight workera obejmującego start, walidację i eksport przed optymalizacją.
+Sprawdzenie środowiska i dostępnej rezerwy poprzedza alokację GPU. Rzeczywisty
+pomiar GPU wymaga kerneli GPU: odbywa się dopiero w przyszłym autoryzowanym
+uruchomieniu operatora, w tej samej dzierżawie, przed pierwszym optimizer step.
+Czas preflight wchodzi do globalnego budżetu; nie stanowi ekspozycji uczenia.
+Po nim ramię odtwarza przypięte wagi, bufory i RNG. Końcowy eksport/parity
+dotyczy rzeczywistych wag wybranego best checkpoint, nie plików preflight bazy.
+CPU fixture nie dowodzi throughput ani wykonalności na GPU operatora.
+W nowym v2 obowiązuje jeden limit16MiB dla bundle JSON, sprawdzany przed
+odczytem/parsingiem oraz przy eksporcie i instalacji. Odczytane zweryfikowane
+bajty są przekazywane do silnika, bez ponownego odczytu niezwiązanej ścieżki.
+Nadmierny rozmiar daje jawny błąd, bez cichego usuwania źródeł banku.
+
+Wspólny reader kohort dopuszcza częściowe A tylko dla jawnego purpose SELECTION,
+snapshotv4/policyv4 i full-symbol-content-sampling-v1. Ten sam opt-in obejmuje
+wybór checkpointu, parity, produkcyjną ocenę i przygotowanie kalibracji. Nie
+zmienia wymagań TRAIN, B ani historycznego screen+grid bez tej polityki.
+Podzbiór realnie zatwierdzonych TRAIN content labels jest maskowany bez
+fikcyjnej geometrii unknown; brak rzeczywistych ważnych etykiet blokujeR3.
+
+
+Domknięcie AC8 zatwierdzone przez operatora 2026-11-08, wraz z dodatkowym
+kosztem2–3h i audytem do30min: finalny routing combined zwraca BASE320 bez
+udanej podmiany i WIDE480 wyłącznie po udanym recrop. Dlatego nowy jawny
+content-experiment/reportv6 stosuje `full-board-calibration-qualification-v3`
+i `full-board-auto-profile-v3`, z osobnymi planami/seal/result v2 dla każdego
+rzeczywistego wariantu. Wspólny routing SHA nie zastępuje osobnych progów.
+Operation pin zachowuje `neural-grid-operation-pin-v3`, z policy qualificationv3;
+`full-board-result-evidence-v3` wiąże parent profile SHA, variant key i child
+profile SHA. Historyczne v1/v2, standalone reportv5 i SQL report/gate pair
+zachowują znaczenie; nowy envelope wymaga jawnego contentv6 dispatch.
+
+Wariant wiąże model i zamrożony routing oraz rzeczywisty kontrakt screen/board
+wejścia (canvas, margin, preprocessing), nie identyfikator zdjęcia ani samą
+liczbę prób. Witness wiąże finalne nodes/screenQuad, źródło i fizyczny slot
+z odtworzonym rzeczywistym input evidence. Sam attempt lub niewiarygodny
+wynik nie dowodzi WIDE. API niezależnie odtwarza ten sam podział ze źródeł
+i frozen details; nie ufa wyłącznie hashom workera. Allowed: NONE→BASE,
+combined→BASE+WIDE. Used to suma faktycznie zwróconych wariantów A/B/REG.
+Każdy zamrożony target pozostaje w dowodzie. Null/missing/ambiguous nie
+liczy się do minimum i daje blokadę kwalifikacji, a nie usunięcie błędu.
+
+Wszystkie menu wariantów pochodzą wyłącznie z A i są zamrożone przed pierwszym
+B. Wspólne rostery B/REG nie zmieniają się; ich obserwacje są rozłącznie
+partycjonowane po actual variant, z pełnym zachowaniem unresolved. Maksimum
+wynosi256 konfiguracji per child,512 per gra dla dwóch wariantów w nowym
+envelope; to wyłącznie sweep liczbowy bez dodatkowej inferencji. Legacy
+zachowuje256 per gra. Każdy używany wariant wymaga własnych30 rzeczywistych
+good i30bad źródeł po scaleniu kopii w B i REG. Agregowanie tych minimów
+między wariantami jest niedozwolone. Nieobserwowany allowed wariant nie
+wymusza brakujących etykiet, ale nigdy nie dziedziczy progu ani automatu
+innego wariantu. Brak kwalifikacji któregokolwiek używanego wariantu blokuje
+kwalifikację całej gry. Runtime wybiera tylko dokładny child key/profile;
+nieznany, stale lub zmieniony raster/model/routing oznacza ręczną akceptację.
+Nie dodaje się trybu partial-auto ani nowego trenera.
+
+
+Zamknięte nazwy envelope: `full-board-final-variant-v1`,
+`full-board-final-variant-witness-v1`,
+`full-board-variant-calibration-plan-v1`,
+`full-board-variant-calibration-sealed-v1` oraz
+`full-board-variant-calibration-result-v1`. Variant key jest SHA kontekstu
+model/routing/path/stage i pełnych screen/board preset+geometry z kontraktem
+`neural-grid-content-preprocessing-v1`; source-specific transform/raster i24
+finalne punkty są osobnym witness, nie tworzą wariantu per zdjęcie. Parent
+profile zawiera wyłącznie używane zakwalifikowane childprofilev2; top DTO
+przekazuje odrębne liczniki B/REG per wariant, bez mylącej sumy źródeł. Brak
+A daje nieustalony próg, nie wspólne zastępstwo. Nowe małe domain moduły
+`full_board_variant_context` oraz `full_board_variant_calibration` współdzielą
+czyste walidatory; odtworzenie fizycznych dowodów pozostaje niezależnym
+storage readerem. SQL migracja nie jest potrzebna przy niezmienionej parze
+reportv6/gate i ścisłym opt-in; wykryta potrzeba zmiany wraca do root.
+
+
+Wyłącznie adapterv3 traktuje oś faktycznie nieapplicable w całym wariancie
+(np. rescueDisagreement dla NONE) jako N/A, zachowując brak progu i
+manualWhenApplicable zamiast wymyślonej wartości0. Dowolna applicability
+w A/B/REG bez odpowiedniej referencji A nadal blokuje kwalifikację; runtime
+applicable bez progu pozostaje manual również dla wcześniej nieużytej osi.
+Domyślne reguły legacy seal_b/v1/v2 pozostają niezmienione. Pozytywny NONE
+i negatywny unexpected-applicable są wymaganymi testami tego rozróżnienia.
+
+
+Końcowy runtime ma osobną kotwę wejścia w checksummed immutable proposal:
+opcjonalne `detection.inputVariant` z kontraktem `full-board-input-variant-v1`.
+Pola to variantKey, sourceSha256, modelManifestSha256, operationPinSha256,
+detectionId, nodesSha256, screenQuad, boardInputSupport, availableSourceBox
+oraz sha256. Variant key wiąże pełny kontekst konfiguracji rastra; nie nazywa
+się go pomiarem SHA pikseli ani poświadczeniem kryptograficznym. Stempel
+powstaje z actual resolver/support przed doborem progu. Result-evidencev3
+ma obowiązkowe `inputVariantSha256`. API sprawdza zgodność stempla z
+proposal/source/model/pin/nodes, kontekstem child i rzeczywistym support oraz
+dowiązanie evidence do stempla. Node-identical BASE/WIDE nie mogą wzajemnie
+odtwarzać starego evidence. Proposal tworzony jest po dodaniu stempla.
+Pole pomijane dla None, historyczne serialized v1/v2 bez zmian. Nie dodaje
+się NN rerunu, nowego ledgera ani twierdzenia, że API odtworzyło NN outputs.
+
+
+API dla stampv1 odtwarza produkcyjny float32 rectifier/inverse i porównuje
+boardInputSupport z tolerancją1e-6; quad jest skończony, wypukły i niepusty.
+Dwa rzeczywiste callery API porównują availableSourceBox z aktualnymi
+metadanymi istniejących cropów źródła, także po usunięciu oryginału.
+Niespójne lub nierozstrzygnięte pochodzenie nie staje się pełnym support.
+Brak wiersza cropu sam nie dowodzi pełnego obrazu: istniejący
+CanonicalSourceLoader sprawdza actual path z SourceImageModel, byte/pixel SHA,
+wymiary oraz rzeczywisty obraz. Usunięty target bez validcrop jest blokowany;
+legalna żywa kopia po usunięciu origin pozostaje rozpatrywana po własnym
+fizycznym dowodzie, zgodnie z D591.
+Odczyt jest jawnie ograniczony do nowej kwalifikacjiv3; legacy nie dostaje
+nowego query ani nowych nullpól. Nowa granica odczytu ma osobny targeted
+PostgreSQL test; nie wymaga zmiany schematu ani migracji operatora.
+
 ## D-591 — Ocena zawartości produkcyjnych wycinków z niezależnym odniesieniem
 
 Status: accepted — wykonanie FULL_SYMBOL_CROPS_PLAN_20261108, T3.

@@ -14,7 +14,7 @@ from game_predictor_api.domain.grid_training_cohorts import digest
 from game_predictor_api.domain.production_cell_geometry import assess_content, intersect_support
 
 from ..geometry_core.preprocessing import board_rectifier, crop_board
-from ..geometry_core.rescue import BoardCropGeometryV1
+from ..geometry_core.rescue import BoardCropGeometryV1, BoardCropGeometryV2
 from ..geometry_core.settings import BoardPreset
 from .full_board_completeness import calibration_routing_sha
 from .grid_cell_content_reference import frozen_content_reference
@@ -58,6 +58,17 @@ def manifest_input_context(root: Any, manifest: Mapping[str, Any]) -> dict[str, 
         "path": None,
         "variant": None,
     }
+    if "contentRescue" in bundle:
+        from game_predictor_api.domain.grid_content_experiment_evidence import (
+            require_content_experiment_evidence,
+        )
+
+        require_content_experiment_evidence(bundle)
+        rescue = bundle["contentRescue"]
+        context.update(
+            path=rescue["selectedPath"], routing=rescue["routing"], variant=rescue["variant"]
+        )
+        return context
     if "rescue" in bundle:
         proof = require_rescue_evidence(bundle)
         selected = proof["selection"]["selectedPath"]
@@ -88,13 +99,13 @@ def _input(
     frame: Any, reference: Any, quad: Any, board: BoardPreset, geometry: Any
 ) -> dict[str, Any]:
     matrix = board_rectifier(np.asarray(quad, dtype=np.float64), board, geometry=geometry)
-    width, height = board.canvas
+    width, height = geometry.canvas if isinstance(geometry, BoardCropGeometryV2) else board.canvas
     support = cv2.perspectiveTransform(
         np.asarray([[[0, 0], [width, 0], [width, height], [0, height]]], dtype=np.float64),
         np.linalg.inv(matrix),
     )[0].tolist()
     actual = intersect_support(support, real_source_support(frame))
-    raster = crop_board(frame.rgb, matrix, board)
+    raster = crop_board(frame.rgb, matrix, board, geometry=geometry)
     states = [
         None if cell.state != "visible" else assess_content(cell.quad, actual, 0.0)["state"]
         for cell in reference.cells
@@ -254,7 +265,13 @@ def verify_input(
         raise ValueError("INPUT_CONTENT_REFERENCE_CHANGED")
     board = BoardPreset.model_validate(proof["boardPreset"])
     geometry = (
-        None if proof["geometry"] is None else BoardCropGeometryV1.model_validate(proof["geometry"])
+        None
+        if proof["geometry"] is None
+        else (
+            BoardCropGeometryV2.model_validate(proof["geometry"])
+            if "canvas" in proof["geometry"]
+            else BoardCropGeometryV1.model_validate(proof["geometry"])
+        )
     )
     actual = _input(frame, reference, proof["screenQuad"], board, geometry)
     if any(proof[key] != value for key, value in actual.items()):

@@ -150,17 +150,20 @@ class ChildControl:
 
     def before_step(self, step: int) -> None:
         self.counter["step"] = step  # steps completed before this one
+        self.check()
+        if step - self.start_step >= self.remaining_steps:
+            raise TrainingInterrupted("RUN_BUDGET_EXHAUSTED")
+        if step >= self.allowance:
+            self._wait_for_allowance(step)
+
+    def check(self) -> None:
+        """Charge-free heartbeat during validation; never reserves another optimizer step."""
         if (self.run_dir / "cancel.intent").exists():
             raise TrainingInterrupted("RUN_CANCELLED")
-        if (
-            time.monotonic() - self.started >= self.limit
-            or step - self.start_step >= self.remaining_steps
-        ):
+        if time.monotonic() - self.started >= self.limit:
             raise TrainingInterrupted("RUN_BUDGET_EXHAUSTED")
         if not self._supervisor_alive():
             raise TrainingInterrupted("RUN_SUPERVISOR_LOST")
-        if step >= self.allowance:
-            self._wait_for_allowance(step)
         if time.monotonic() - self.last_renew >= LEASE_RENEW_SECONDS:
             try:
                 self.record = self.lease.renew(self.record)
@@ -363,6 +366,10 @@ def _train(
     record: Any,
     counter: dict[str, int],
 ) -> dict[str, Any]:
+    if spec.get("contentExperiment") is not None:
+        from .grid_content_experiment_run import run_experiment
+
+        return run_experiment(spec, run_dir, artifact_root, lease, record, counter)
     import torch
 
     from ..training_core.grid_training import (
@@ -487,7 +494,7 @@ def _train(
             int(spec["seed"]),
             workers,
             strata,
-            **({"variant": variant} if screen_corrections else {}),
+            variant=variant if screen_corrections else None,
             output_contract=output_contract,
         )
         evaluate = macro_evaluator([photo_evaluator(item, recipe, device) for item in validations])
@@ -619,9 +626,13 @@ def _export(
     *,
     screen_evaluator: Any = None,
     selection_binding: Any = None,
+    content_experiment: Any = None,
+    content_finalize: Any = None,
 ) -> dict[str, Any]:
     """Immutable export directory named by the final checkpoint; re-use an identical one."""
     import torch
+    from game_predictor_api.domain.grid_content_bundle import require_content_bundle_size
+    from game_predictor_api.storage.grid_content_bundle import read_content_bundle
 
     from ..training_core.grid_training import (
         bundle_document,
@@ -632,9 +643,16 @@ def _export(
     )
     from .grid_training_data import parity_inputs
 
+    if content_experiment is not None:
+        require_content_bundle_size({"provenance": {"contentExperiment": content_experiment}})
+
     destination = run_dir / f"{EXPORT_PREFIX}{result.checkpoint_sha256[:16]}"
     if (destination / "bundle.json").exists():
-        existing = json.loads((destination / "bundle.json").read_text(encoding="utf-8"))
+        existing = (
+            read_content_bundle(destination / "bundle.json")
+            if content_experiment is not None
+            else json.loads((destination / "bundle.json").read_text(encoding="utf-8"))
+        )
         if existing["provenance"]["checkpointSha256"] != result.checkpoint_sha256:
             raise ChildError("GRID_TRAINING_EXPORT_CONFLICT")
         _verify_recovered(destination, existing, preset_bytes, result.checkpoint_path)
@@ -657,13 +675,28 @@ def _export(
                 or existing["provenance"].get("checkpointSelection") != result.checkpoint_selection
             ):
                 raise ChildError("GRID_TRAINING_EXPORT_CORRUPT")
+        if content_experiment is not None:
+            from game_predictor_api.domain.grid_content_experiment_evidence import (
+                require_content_experiment_evidence,
+            )
+
+            actual = require_content_experiment_evidence(existing)
+            if actual != content_experiment:
+                raise ChildError("CONTENT_EXPERIMENT_EXPORT_CHANGED")
         return _export_view(destination, existing)
     staging = Path(tempfile.mkdtemp(prefix=".export-", dir=run_dir))
     try:
         network = network.cpu().eval()
         weights = weights_bytes(network.state_dict())
         (staging / "weights.pt").write_bytes(weights)
-        export_graphs(network, recipe, staging)
+        arm = None if content_experiment is None else content_experiment["selectedArm"]
+        export_graphs(
+            network,
+            recipe,
+            staging,
+            dynamic_board=arm in ("R2", "R3"),
+            content_auxiliary=arm == "R3",
+        )
         shutil.copyfile(result.checkpoint_path, staging / "checkpoint.pt")
         (staging / "preset.json").write_bytes(preset_bytes)
         crops, photos = parity_source
@@ -675,7 +708,12 @@ def _export(
             raise ChildError("GRID_TRAINING_ONNX_PARITY_FAILED")
         files = {
             name: sha256_file(staging / name)
-            for name in ("screen.onnx", "board.onnx", "weights.pt")
+            for name in (
+                "screen.onnx",
+                "board.onnx",
+                "weights.pt",
+                *(("content.onnx",) if arm == "R3" else ()),
+            )
         }
         provenance = {
             "runId": spec["jobId"],
@@ -748,6 +786,43 @@ def _export(
                 "snapshotId": provenance["snapshotId"],
             }
             bundle["rescue"] = {**rescue, "sha256": digest(rescue)}
+        if content_experiment is not None:
+            from ..geometry_core.rescue import GridRescueVariantV2
+            from .grid_content_experiment_export import content_parity
+            from .grid_rescue_strategy import completeness_routing
+
+            runtime_parity = content_parity(network, staging, photos, recipe, cast(str, arm))
+            variant = GridRescueVariantV2() if arm in ("R2", "R3") else None
+            routing = (
+                None
+                if variant is None
+                else completeness_routing(
+                    {
+                        "policy": "validation-purpose-a-v1",
+                        "sha256": content_experiment["plan"]["selectionRosterSha256"],
+                    },
+                    recipe.board,
+                )
+            )
+            rescue = {
+                "schemaVersion": "content-rescue-evidence-v1",
+                "planSha256": content_experiment["plan"]["sha256"],
+                "selectedArm": arm,
+                "bestStep": result.best_step,
+                "variant": None if variant is None else variant.model_dump(mode="json"),
+                "selectedPath": None if variant is None else "combined",
+                "routing": routing,
+                "parity": runtime_parity,
+            }
+            bundle["contentRescue"] = {**rescue, "sha256": digest(rescue)}
+            bundle["provenance"]["contentExperiment"] = content_finalize(content_experiment)
+            from game_predictor_api.domain.grid_content_experiment_evidence import (
+                require_content_experiment_evidence,
+            )
+
+            require_content_experiment_evidence(bundle)
+        if content_experiment is not None:
+            require_content_bundle_size(bundle)
         write_json_atomic(staging / "bundle.json", bundle)
         for path in staging.iterdir():
             with path.open("r+b") as stream:  # Windows fsync needs a writable handle
@@ -783,6 +858,7 @@ def _export_view(destination: Path, bundle: Mapping[str, Any]) -> dict[str, Any]
         "checkpoint.pt",
         "preset.json",
         "bundle.json",
+        *(("content.onnx",) if "content.onnx" in bundle["files"] else ()),
     )
     return {
         "directory": destination.name,

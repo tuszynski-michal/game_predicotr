@@ -108,11 +108,7 @@ def make_operation_pin(
     if automatic_qualification is not None:
         pin["contractVersion"] = CALIBRATED_PIN_VERSION
         profile = automatic_qualification.get("profile")
-        pin["qualificationPolicyVersion"] = (
-            "full-board-calibration-qualification-v2"
-            if isinstance(profile, dict) and profile.get("version") == "full-board-auto-profile-v2"
-            else "full-board-calibration-qualification-v1"
-        )
+        pin["qualificationPolicyVersion"] = _calibration_policy(profile)
         pin["automaticQualification"] = automatic_qualification
         pin["rescue"] = rescue
     pin["pinSha256"] = descriptor_sha256(pin)
@@ -178,11 +174,8 @@ def require_operation_pin(
             or pin["qualificationPolicyVersion"]
             != (
                 (
-                    "full-board-calibration-qualification-v2"
+                    _calibration_policy(pin["automaticQualification"].get("profile"))
                     if isinstance(pin.get("automaticQualification"), dict)
-                    and isinstance(pin["automaticQualification"].get("profile"), dict)
-                    and pin["automaticQualification"]["profile"].get("version")
-                    == "full-board-auto-profile-v2"
                     else "full-board-calibration-qualification-v1"
                 )
                 if is_calibrated
@@ -263,6 +256,15 @@ def operation_pin_blockers(
     return ()
 
 
+def _calibration_policy(profile: object) -> str:
+    if isinstance(profile, dict):
+        if profile.get("version") == "full-board-auto-profile-v3":
+            return "full-board-calibration-qualification-v3"
+        if profile.get("version") == "full-board-auto-profile-v2":
+            return "full-board-calibration-qualification-v2"
+    return "full-board-calibration-qualification-v1"
+
+
 def require_automatic_qualification(
     value: object, *, game_id: str, manifest_sha: str
 ) -> dict[str, Any]:
@@ -286,6 +288,13 @@ def require_automatic_qualification(
     ):
         raise ValueError("NEURAL_GRID_CALIBRATION_PIN_INVALID")
     profile = value["profile"]
+    if isinstance(profile, dict) and profile.get("version") == "full-board-auto-profile-v3":
+        from .full_board_variant_calibration_types import VariantAutomaticProfile
+
+        parsed = VariantAutomaticProfile.model_validate(profile)
+        if str(parsed.gameId) != game_id or parsed.candidateManifestSha256 != manifest_sha:
+            raise ValueError("NEURAL_GRID_CALIBRATION_PROFILE_INVALID")
+        return value
     if not isinstance(profile, dict) or profile.keys() != {
         "version",
         "gameId",

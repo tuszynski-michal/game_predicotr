@@ -290,7 +290,17 @@ def require_scope(value: object) -> tuple[dict[str, Any], list[str]]:
     return scope, required
 
 
-def require_checkpoint_selection(value: object, *, screen: bool = False) -> dict[str, Any]:
+def require_checkpoint_selection(
+    value: object, *, screen: bool = False, allow_content_selection: bool = False
+) -> dict[str, Any]:
+    if (
+        allow_content_selection
+        and isinstance(value, dict)
+        and value.get("schemaVersion") == "production-content-a-rank-v1"
+    ):
+        from game_predictor_worker.training_core.grid_content_experiment import require_selection
+
+        return require_selection(value)
     keys = {"rule", "role", "step", "metrics", "earlyStopping"}
     if screen:
         keys |= {"selectionInputSha256", "metricStateVersion"}
@@ -389,9 +399,16 @@ def build_report(
     measured: Mapping[str, Mapping[str, Any]],
     scope: Mapping[str, Any],
     checkpoint_selection: Mapping[str, Any],
+    allow_content_selection: bool = False,
 ) -> dict[str, Any]:
-    screen = checkpoint_selection.get("rule") == SCREEN_CHECKPOINT_RULE
-    require_checkpoint_selection(dict(checkpoint_selection), screen=screen)
+    content = (
+        allow_content_selection
+        and checkpoint_selection.get("schemaVersion") == "production-content-a-rank-v1"
+    )
+    screen = content or checkpoint_selection.get("rule") == SCREEN_CHECKPOINT_RULE
+    require_checkpoint_selection(
+        dict(checkpoint_selection), screen=screen, allow_content_selection=allow_content_selection
+    )
     scope_value, required = require_scope(dict(scope))
     ordered = sorted(
         (
@@ -442,12 +459,19 @@ def build_report(
         "checkpointSelection": dict(checkpoint_selection),
     }
     return require_report(
-        canonical_json(report), manifest=manifest, base_sha256=base_manifest_sha256
+        canonical_json(report),
+        manifest=manifest,
+        base_sha256=base_manifest_sha256,
+        allow_content_selection=allow_content_selection,
     )
 
 
 def require_report(
-    report_json: str, *, manifest: Mapping[str, Any], base_sha256: str
+    report_json: str,
+    *,
+    manifest: Mapping[str, Any],
+    base_sha256: str,
+    allow_content_selection: bool = False,
 ) -> dict[str, Any]:
     """Recompute scope and decisions; reject any unsigned interpretation or unknown field."""
     try:
@@ -482,7 +506,17 @@ def require_report(
             or report["requiredGameIds"] != required
         ):
             raise GridEvaluationReportError("Report scope differs from its required games.")
-        require_checkpoint_selection(report["checkpointSelection"], screen=screen)
+        require_checkpoint_selection(
+            report["checkpointSelection"],
+            screen=screen,
+            allow_content_selection=allow_content_selection,
+        )
+        selection = report["checkpointSelection"]
+        if (
+            selection.get("schemaVersion") == "production-content-a-rank-v1"
+            and [item["gameId"] for item in selection["games"]] != required
+        ):
+            raise GridEvaluationReportError("Content checkpoint game scope differs.")
         parity = _closed(report["parity"], {"passed", "bundleSha256"}, "Parity")
         if type(parity["passed"]) is not bool:
             raise GridEvaluationReportError("Parity requires a boolean result.")

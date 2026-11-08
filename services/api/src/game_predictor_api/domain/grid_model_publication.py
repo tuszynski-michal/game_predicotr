@@ -44,6 +44,7 @@ def require_evaluation_evidence(
     manifest: dict[str, Any],
     base_sha256: str,
     game_id: UUID | None,
+    allow_variant_calibration: bool = False,
 ) -> GridEvaluationEvidence:
     """Check a persisted trusted read model, its complete scope and immutable pins.
 
@@ -70,6 +71,7 @@ def require_evaluation_evidence(
                 manifest=manifest,
                 base_sha256=base_sha256,
                 game_id=game_id,
+                allow_variant_calibration=allow_variant_calibration,
             )
         if (
             producer != EVALUATION_PRODUCER
@@ -146,6 +148,7 @@ def _require_v2(
     manifest: dict[str, Any],
     base_sha256: str,
     game_id: UUID | None,
+    allow_variant_calibration: bool = False,
 ) -> GridEvaluationEvidence:
     """Only a measured PASS of every required game is publication evidence."""
     if (
@@ -174,7 +177,16 @@ def _require_v2(
             from .production_cell_evaluation import require_report as content_report
 
             reader = content_report
-        report = reader(report_json, manifest=manifest, base_sha256=base_sha256)
+        report = reader(
+            report_json,
+            manifest=manifest,
+            base_sha256=base_sha256,
+            **(
+                {"allow_variant_calibration": allow_variant_calibration}
+                if json.loads(report_json).get("schemaVersion") == "grid-model-evaluation-read-v6"
+                else {}
+            ),
+        )
     except GridEvaluationReportError as error:
         raise ValueError(str(error)) from error
     if report["verdict"] != "PASS":

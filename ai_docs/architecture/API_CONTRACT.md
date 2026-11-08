@@ -1,10 +1,49 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-11-01
+last_updated: 2026-11-08
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Eksperyment pełnych symboli (TASK-1167, D-592)
+
+Istniejące preview/start `grid-correction-learning` przyjmują opcjonalny
+`contentExperiment=full-symbol-content-experiment-v1`, wyłącznie z jawnym
+screen+grid/v4/A-B, bez legacy rescue override. Klient nie przekazuje dowodów
+ani prywatnego planu. Brak pola zachowuje poprzednią serializację i workflow.
+
+Preview dodaje `contentExperimentReadiness`: `metadata_ready|blocked`, reasonCodes,
+games z bankEligiblePhotos/excludedPhotos, inputsSha256 oraz stałe
+seed20261108/maxSteps4800/maxSeconds7200/armReserveSeconds1500,1500,2100,2100.
+`bankMeasurement=pending_worker` i `automaticQualification=not_evaluated`
+nie są pomiarem ani kwalifikacją. Cost pozostaje null do pomiaru workera;
+`EXPERIMENT_ARM_FEASIBILITY` wskazuje wymagany preflight. View przypina
+`contentExperimentPlanSha256`. Exact retry porównuje to samo polecenie/piny.
+
+Serwer sam buduje prywatne `content_experiment` i `content_experiment_inputs`
+z zamrożonych kohort. Dowód rozróżnia trainingSourceIds (legalny TRAIN, również
+rehearsal) od bank subset ancestor-unseen. Zasady publikacji i inspektor weryfikują
+wersjonowany eksport/selected checkpoint, rzeczywiste grafy i zakres gier.
+`content.onnx` jest dozwolone tylko w nowym deskryptorze z poprawnym R3 proof.
+Kandydat AFAIL pozostaje informacyjny i dostaje jawny blocker publikacji/defaultu.
+OpenAPI i wygenerowany klient są źródłem publicznych typów, nie opis ręczny UI.
+
+
+Dla jawnego content reportv6 automaticCalibration ma dodatkowy zamknięty
+wariant `full-board-calibration-qualification-v3`. Przekazuje allowedVariants,
+usedVariantKeys i osobne stany/liczniki B/REG/profil każdego wariantu; nie
+sumuje źródeł w mylący agregat. `full-board-auto-profile-v3` wiąże childprofilev2,
+model i routing. Operationpinv3 ma nową qualificationPolicyVersionv3,
+a `full-board-result-evidence-v3` wskazuje parentprofileSHA, variantKey oraz
+variantProfileSha256 oraz inputVariantSha256. Opcjonalne detection.inputVariant
+(`full-board-input-variant-v1`) jest osobną kotwą actual source/model/pin/nodes,
+konfiguracji wejścia i support. API odtwarza support oraz sprawdza aktualny
+fizyczny plik/crop; nie porównuje wyłącznie known variantKey. Pole pomijane
+dla None zachowuje starsze serialized proposals. Brak zgodnego childproof
+lub stempla blokuje automat. Starsze
+standalone reportv5 i profilev1/v2 zachowują serializację. Serwer sam odtwarza
+fizyczne dowody, full roster i podział A/B/REG; klient nie dostarcza kwalifikacji.
 
 ## Ocena zachowania treści symboli (TASK-1166, D-591)
 

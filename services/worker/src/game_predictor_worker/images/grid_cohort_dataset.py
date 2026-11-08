@@ -512,7 +512,19 @@ class GridBoardDataset:
         )
 
     def _partial_assessment(self) -> bool:
-        return False
+        # The content experiment deliberately admits independently labelled A
+        # targets without turning partial photos into full detector supervision.
+        # Every A consumer (training selection, renderer and calibration) uses
+        # this same opt-in boundary; B and TRAIN retain their existing adapters.
+        manifest = self.snapshot.manifest
+        return (
+            self.role == "VALIDATION"
+            and self.validation_purpose == "A"
+            and manifest.get("schemaVersion") == "application-grid-snapshot-v4"
+            and manifest.get("policyVersion") == "application-grid-corrections-v4"
+            and manifest.get("photoSplit", {}).get("contentSampling", {}).get("policy")
+            == "full-symbol-content-sampling-v1"
+        )
 
     def _sources(self) -> Iterator[dict[str, Any]]:
         for source in self.snapshot.sources():

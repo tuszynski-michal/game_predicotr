@@ -84,7 +84,32 @@ class GridTrainingRunService:
         command: Mapping[str, Any],
         *,
         correction_recipe: Mapping[str, Any] | None = None,
+        content_experiment: Mapping[str, Any] | None = None,
+        content_experiment_inputs: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        if content_experiment is not None:
+            from game_predictor_worker.training_core.grid_content_experiment import require_plan
+
+            from game_predictor_api.domain.grid_content_experiment_inputs import require_inputs
+
+            if (
+                content_experiment_inputs is None
+                or correction_recipe is not None
+                or command["presetId"] != "screen-grid-corrections-v1"
+            ):
+                raise _error(
+                    "CONTENT_EXPERIMENT_MODE_INVALID",
+                    "Content experiments require their server-owned inputs.",
+                )
+            try:
+                require_plan(content_experiment)
+                require_inputs(content_experiment_inputs, content_experiment)
+            except (ValueError, KeyError, TypeError) as error:
+                raise _error("CONTENT_EXPERIMENT_INPUT_INVALID", str(error)) from error
+        elif content_experiment_inputs is not None:
+            raise _error(
+                "CONTENT_EXPERIMENT_PLAN_REQUIRED", "Inputs require an immutable experiment plan."
+            )
         if correction_recipe is not None and command["presetId"] != "screen-grid-corrections-v1":
             raise _error("GRID_RUN_RESCUE_POLICY_INVALID", "Rescue requires screen corrections.")
         key = UUID(str(command["idempotencyKey"]))
@@ -109,11 +134,16 @@ class GridTrainingRunService:
                 or existing.input_payload.get("preset_fingerprint") != command["presetFingerprint"]
                 or pinned != {(str(other), str(cohort_id)) for other, cohort_id in others}
                 or existing.input_payload.get("rescue_recipe") != correction_recipe
+                or existing.input_payload.get("content_experiment") != content_experiment
+                or existing.input_payload.get("content_experiment_inputs")
+                != content_experiment_inputs
             ):
                 raise _error("GRID_RUN_IDEMPOTENCY_CONFLICT", "The key was used for another run.")
             return self.view(existing)
         preview = self.cohorts.run_preview(game, cohort)
         blockers = [code for code in preview["apiBlockers"] if code not in _QUEUE_BLOCKERS_IGNORED]
+        if content_experiment is not None:
+            blockers = [code for code in blockers if code != "GRID_RUN_COHORT_COST_EXCEEDS_BUDGET"]
         if blockers:
             raise _error(blockers[0], "The cohort cannot start a training run.")
         if (
@@ -130,7 +160,9 @@ class GridTrainingRunService:
         ):
             raise _error("GRID_RUN_PRESET_NOT_APPROVED", "Choose the approved preset of the mode.")
         header = self.cohorts.get(game, cohort)
-        planned_steps = int(preview["cost"]["plannedSteps"])
+        planned_steps = (
+            4800 if content_experiment is not None else int(preview["cost"]["plannedSteps"])
+        )
         shared: dict[str, Any] | None = None
         if others:
             if self.shared is None:
@@ -142,11 +174,12 @@ class GridTrainingRunService:
 
             shared = self.shared.prepare(game, cohort, others)
             cost = estimate_cohort_cost(PRESETS[str(command["presetId"])], shared["counts"])
-            if not cost.within_budget or cost.planned_steps < 1:
+            if content_experiment is None and (not cost.within_budget or cost.planned_steps < 1):
                 raise _error(
                     "GRID_RUN_COHORT_COST_EXCEEDS_BUDGET", "The shared cohorts exceed the budget."
                 )
-            planned_steps = cost.planned_steps
+            if content_experiment is None:
+                planned_steps = cost.planned_steps
         payload: dict[str, object] = {
             "schema_version": 1,
             "training_kind": TRAINING_KIND if shared is None else SHARED_TRAINING_KIND,
@@ -166,6 +199,52 @@ class GridTrainingRunService:
         if shared is not None:
             payload["shared_cohorts"] = shared["pins"]
             payload["joint_sha256"] = shared["plan"]["sha256"]
+        if content_experiment is not None:
+            expected_cohorts = [
+                {
+                    "gameId": str(game),
+                    "cohortId": str(cohort),
+                    "manifestSha256": header["manifestSha256"],
+                }
+            ]
+            expected_cohorts.extend(
+                {
+                    "gameId": p["game_id"],
+                    "cohortId": p["cohort_id"],
+                    "manifestSha256": p["manifest_sha256"],
+                }
+                for p in ([] if shared is None else shared["pins"])
+            )
+            row = self.cohorts.repository.cohort(game, cohort)
+            frozen_base = row.document["base"]
+            weights = next(
+                (
+                    a["sha256"]
+                    for a in frozen_base["manifest"].get("trainingArtifacts", [])
+                    if a["name"] == "weights.pt"
+                ),
+                None,
+            )
+            if (
+                header["mode"] != "screen+grid"
+                or header.get("policyVersion") != "application-grid-corrections-v4"
+                or row.document.get("photoSplit", {}).get("contentSampling", {}).get("policy")
+                != "full-symbol-content-sampling-v1"
+                or content_experiment["cohorts"]
+                != sorted(expected_cohorts, key=lambda p: p["gameId"])
+                or content_experiment["baseVersionId"] != str(header["baseVersionId"])
+                or content_experiment["baseManifestSha256"] != frozen_base["manifestSha256"]
+                or content_experiment["baseWeightsSha256"] != weights
+            ):
+                raise _error(
+                    "CONTENT_EXPERIMENT_COHORT_CHANGED",
+                    "The closed experiment differs from frozen inputs.",
+                )
+            payload.update(
+                content_experiment=dict(content_experiment),
+                content_experiment_inputs=dict(content_experiment_inputs or {}),
+                seed=content_experiment["seed"],
+            )
         if correction_recipe is not None:
             from game_predictor_worker.training_core.grid_training_admission import (
                 PRESETS,
@@ -221,11 +300,13 @@ class GridTrainingRunService:
         cohort = UUID(str(job.input_payload["cohort_id"]))
         preview = self.cohorts.run_preview(game, cohort)
         blockers = [code for code in preview["apiBlockers"] if code not in _QUEUE_BLOCKERS_IGNORED]
+        if job.input_payload.get("content_experiment") is not None:
+            blockers = [code for code in blockers if code != "GRID_RUN_COHORT_COST_EXCEEDS_BUDGET"]
         if blockers:
             raise _error(blockers[0], "The cohort cannot resume a training run.")
         others = [
             (UUID(str(pin["game_id"])), UUID(str(pin["cohort_id"])))
-            for pin in job.input_payload.get("shared_cohorts") or []
+            for pin in cast(list[dict[str, str]], job.input_payload.get("shared_cohorts") or [])
         ]
         if others:
             if self.shared is None:

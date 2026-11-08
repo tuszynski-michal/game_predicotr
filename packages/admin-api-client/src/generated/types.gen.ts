@@ -7134,6 +7134,160 @@ export type GridCohortSummary = {
 };
 
 /**
+ * GridContentCalibratedEvaluationReport
+ */
+export type GridContentCalibratedEvaluationReport = {
+  /**
+   * Automaticcalibration
+   */
+  automaticCalibration: Array<
+    AutomaticCalibration | VariantAutomaticCalibration
+  >;
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Checkpointselection
+   */
+  checkpointSelection:
+    GridCorrectionCheckpointSelection | GridScreenCorrectionCheckpointSelection;
+  /**
+   * Cohorts
+   */
+  cohorts: Array<GridModelEvaluationCohortPin>;
+  /**
+   * Evidencelevel
+   */
+  evidenceLevel: 'photo-only';
+  /**
+   * Familyid
+   */
+  familyId: string;
+  /**
+   * Games
+   */
+  games: Array<
+    GridCorrectionEvaluationGame | GridScreenCorrectionEvaluationGame
+  >;
+  /**
+   * Limitations
+   */
+  limitations: Array<string>;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  parity: GridModelEvaluationParity;
+  /**
+   * Policy
+   */
+  policy: GridCorrectionEvaluationPolicy | GridScreenCorrectionEvaluationPolicy;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'grid-model-per-game-gate-v2' | 'grid-model-per-game-gate-v3';
+  /**
+   * Producer
+   */
+  producer: 'server:grid-model-evaluator-v1';
+  /**
+   * Rawqualityschemaversion
+   */
+  rawQualitySchemaVersion:
+    'grid-model-evaluation-read-v3' | 'grid-model-evaluation-read-v4';
+  /**
+   * Requiredgameids
+   */
+  requiredGameIds: Array<string>;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-model-evaluation-read-v5';
+  scope: GridCorrectionEvaluationScope;
+  /**
+   * Traininggameid
+   */
+  trainingGameId: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE';
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
+ * GridContentExperimentGameReadiness
+ */
+export type GridContentExperimentGameReadiness = {
+  /**
+   * Bankeligiblephotos
+   */
+  bankEligiblePhotos: number;
+  /**
+   * Excludedphotos
+   */
+  excludedPhotos: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+};
+
+/**
+ * GridContentExperimentReadiness
+ */
+export type GridContentExperimentReadiness = {
+  /**
+   * Armreserveseconds
+   */
+  armReserveSeconds?: [1500, 1500, 2100, 2100];
+  /**
+   * Automaticqualification
+   */
+  automaticQualification?: 'not_evaluated';
+  /**
+   * Bankmeasurement
+   */
+  bankMeasurement?: 'pending_worker';
+  /**
+   * Games
+   */
+  games: Array<GridContentExperimentGameReadiness>;
+  /**
+   * Inputssha256
+   */
+  inputsSha256: string | null;
+  /**
+   * Maxseconds
+   */
+  maxSeconds?: 7200;
+  /**
+   * Maxsteps
+   */
+  maxSteps?: 4800;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Seed
+   */
+  seed?: 20261108;
+  /**
+   * State
+   */
+  state: 'metadata_ready' | 'blocked';
+};
+
+/**
  * GridCorrectionApplyJobPayload
  *
  * Separate server-owned closed payload for applying a completed learning.
@@ -7939,6 +8093,11 @@ export type GridCorrectionLearningPreview = {
    * Canstart
    */
   canStart: boolean;
+  /**
+   * Contentexperiment
+   */
+  contentExperiment?: 'full-symbol-content-experiment-v1' | null;
+  contentExperimentReadiness?: GridContentExperimentReadiness | null;
   cost: GridTrainingRunCost | null;
   dataAvailability: GridCorrectionDataAvailability | null;
   /**
@@ -8039,6 +8198,10 @@ export type GridCorrectionLearningPreview = {
  */
 export type GridCorrectionLearningPreviewCommand = {
   /**
+   * Contentexperiment
+   */
+  contentExperiment?: 'full-symbol-content-experiment-v1' | null;
+  /**
    * Exclusions
    */
   exclusions?: Array<GridCorrectionLearningExclusion>;
@@ -8112,6 +8275,10 @@ export type GridCorrectionLearningRoleCount = {
  */
 export type GridCorrectionLearningStartCommand = {
   /**
+   * Contentexperiment
+   */
+  contentExperiment?: 'full-symbol-content-experiment-v1' | null;
+  /**
    * Exclusions
    */
   exclusions?: Array<GridCorrectionLearningExclusion>;
@@ -8168,6 +8335,14 @@ export type GridCorrectionLearningView = {
    * Cohortid
    */
   cohortId: string | null;
+  /**
+   * Contentexperiment
+   */
+  contentExperiment?: 'full-symbol-content-experiment-v1' | null;
+  /**
+   * Contentexperimentplansha256
+   */
+  contentExperimentPlanSha256?: string | null;
   /**
    * Createdat
    */
@@ -8653,12 +8828,7 @@ export type GridInferenceManifest = {
   /**
    * Files
    */
-  files: [
-    GridModelArtifact,
-    GridModelArtifact,
-    GridModelArtifact,
-    GridModelArtifact,
-  ];
+  files: Array<GridModelArtifact>;
   /**
    * Frozenon
    */
@@ -9553,12 +9723,7 @@ export type GridModelManifest = {
   /**
    * Files
    */
-  files: [
-    GridModelArtifact,
-    GridModelArtifact,
-    GridModelArtifact,
-    GridModelArtifact,
-  ];
+  files: Array<GridModelArtifact>;
   /**
    * Historicalreports
    */
@@ -9859,7 +10024,9 @@ export type GridProductionCellEvaluationReport = {
   /**
    * Automaticcalibration
    */
-  automaticCalibration?: Array<AutomaticCalibration> | null;
+  automaticCalibration?: Array<
+    AutomaticCalibration | VariantAutomaticCalibration
+  > | null;
   /**
    * Basemanifestsha256
    */
@@ -9923,7 +10090,7 @@ export type GridProductionCellEvaluationReport = {
       } & GridScreenCorrectionEvaluationReport)
     | ({
         schemaVersion: 'grid-model-evaluation-read-v5';
-      } & GridCalibratedEvaluationReport);
+      } & GridContentCalibratedEvaluationReport);
   /**
    * Rawqualityschemaversion
    */
@@ -11445,6 +11612,18 @@ export type GridTrainingJobPayload = {
    * Cohortmanifestsha256
    */
   cohortManifestSha256: string;
+  /**
+   * Contentexperiment
+   */
+  contentExperiment?: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Contentexperimentinputs
+   */
+  contentExperimentInputs?: {
+    [key: string]: unknown;
+  } | null;
   /**
    * Familyid
    */
@@ -15384,6 +15563,66 @@ export type IncompleteGeometryImageResponse = {
 };
 
 /**
+ * InputVariant
+ */
+export type InputVariant = {
+  /**
+   * Availablesourcebox
+   */
+  availableSourceBox: [number, number, number, number];
+  /**
+   * Boardinputsupport
+   */
+  boardInputSupport: [
+    [number, number],
+    [number, number],
+    [number, number],
+    [number, number],
+  ];
+  /**
+   * Detectionid
+   */
+  detectionId: string;
+  /**
+   * Modelmanifestsha256
+   */
+  modelManifestSha256: string;
+  /**
+   * Nodessha256
+   */
+  nodesSha256: string;
+  /**
+   * Operationpinsha256
+   */
+  operationPinSha256: string;
+  /**
+   * Screenquad
+   */
+  screenQuad: [
+    [number, number],
+    [number, number],
+    [number, number],
+    [number, number],
+  ];
+  /**
+   * Sha256
+   */
+  sha256: string;
+  /**
+   * Sourcesha256
+   */
+  sourceSha256: string;
+  /**
+   * Variantkey
+   */
+  variantKey: string;
+  /**
+   * Version
+   */
+  version: 'full-board-input-variant-v1';
+};
+
+/**
  * JobErrorResponse
  */
 export type JobErrorResponse = {
@@ -17512,6 +17751,7 @@ export type NeuralDetectionPayload = {
    * Detectionid
    */
   detectionId: string;
+  inputVariant?: InputVariant | null;
   /**
    * Latticenodes
    */
@@ -27754,6 +27994,214 @@ export type ValidationError = {
    * Error Type
    */
   type: string;
+};
+
+/**
+ * VariantAutomaticCalibration
+ */
+export type VariantAutomaticCalibration = {
+  /**
+   * Allowedvariants
+   */
+  allowedVariants: Array<VariantContext>;
+  evidence: CalibrationArtifact | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Limitations
+   */
+  limitations: Array<string>;
+  /**
+   * Plannedcomparisons
+   */
+  plannedComparisons: number;
+  /**
+   * Plannedconfigurations
+   */
+  plannedConfigurations: number;
+  profile: VariantAutomaticProfile | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Roleproofsha256
+   */
+  roleProofSha256: string;
+  /**
+   * State
+   */
+  state: 'qualified' | 'unqualified';
+  /**
+   * Usedvariantkeys
+   */
+  usedVariantKeys: Array<string>;
+  /**
+   * Variants
+   */
+  variants: Array<VariantQualificationChild>;
+  /**
+   * Version
+   */
+  version: 'full-board-calibration-qualification-v3';
+};
+
+/**
+ * VariantAutomaticProfile
+ */
+export type VariantAutomaticProfile = {
+  /**
+   * Allowedvariants
+   */
+  allowedVariants: Array<VariantContext>;
+  /**
+   * Assessmentscope
+   */
+  assessmentScope: 'labelled_targets';
+  /**
+   * Candidatemanifestsha256
+   */
+  candidateManifestSha256: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Routingsha256
+   */
+  routingSha256: string;
+  /**
+   * Sha256
+   */
+  sha256: string;
+  /**
+   * Usedvariantkeys
+   */
+  usedVariantKeys: Array<string>;
+  /**
+   * Variantplansha256
+   */
+  variantPlanSha256: string;
+  /**
+   * Variants
+   */
+  variants: Array<VariantProfileChild>;
+  /**
+   * Version
+   */
+  version: 'full-board-auto-profile-v3';
+};
+
+/**
+ * VariantContext
+ */
+export type VariantContext = {
+  /**
+   * Boardgeometry
+   */
+  boardGeometry: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Boardpreset
+   */
+  boardPreset: {
+    [key: string]: unknown;
+  };
+  /**
+   * Candidatemanifestsha256
+   */
+  candidateManifestSha256: string;
+  /**
+   * Preprocessingcontract
+   */
+  preprocessingContract?: 'neural-grid-content-preprocessing-v1';
+  /**
+   * Routingsha256
+   */
+  routingSha256: string;
+  /**
+   * Screengeometry
+   */
+  screenGeometry: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Screenpreset
+   */
+  screenPreset: {
+    [key: string]: unknown;
+  };
+  /**
+   * Selectedpath
+   */
+  selectedPath: 'combined' | null;
+  /**
+   * Sha256
+   */
+  sha256: string;
+  /**
+   * Stage
+   */
+  stage: 'baseline' | 'wide';
+  /**
+   * Version
+   */
+  version?: 'full-board-final-variant-v1';
+};
+
+/**
+ * VariantProfileChild
+ */
+export type VariantProfileChild = {
+  profile: AutomaticProfile;
+  /**
+   * Variantkey
+   */
+  variantKey: string;
+};
+
+/**
+ * VariantQualificationChild
+ */
+export type VariantQualificationChild = {
+  b: CalibrationCounts | null;
+  /**
+   * Plansha256
+   */
+  planSha256: string;
+  /**
+   * Plannedcomparisons
+   */
+  plannedComparisons: number;
+  /**
+   * Plannedconfigurations
+   */
+  plannedConfigurations: number;
+  profile: AutomaticProfile | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  regression: CalibrationCounts | null;
+  /**
+   * Resultsha256
+   */
+  resultSha256: string;
+  /**
+   * Sealedsha256
+   */
+  sealedSha256: string;
+  /**
+   * State
+   */
+  state: 'qualified' | 'unqualified';
+  /**
+   * Variantkey
+   */
+  variantKey: string;
 };
 
 /**

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import Field
 
+from game_predictor_api.domain.full_board_input_variant import InputVariant
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.grid_model_registry import GridModelManifest
 from game_predictor_api.schemas.source_lattice_geometry import (
@@ -87,6 +88,7 @@ class NeuralDetectionPayload(ApiModel):
     )
     structurally_valid: Annotated[bool, Field(strict=True)]
     reason_codes: tuple[str, ...]
+    input_variant: InputVariant | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class NeuralSourceProposalPayload(ApiModel):

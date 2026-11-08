@@ -41,7 +41,6 @@ from game_predictor_api.domain.grid_model_registry import (
 )
 from game_predictor_api.domain.jobs import Job, JobType
 
-from ..geometry_core.inference import onnx_engine
 from ..jobs.runtime import JobExecutionContext, JobHandlerError
 from ..training_core.grid_correction_metrics import CorrectionControlPhoto
 from ..training_core.grid_correction_metrics import measure_role as measure_corrections
@@ -57,6 +56,7 @@ from .grid_cohort_dataset import (
 
 STAGE = "grid_model_evaluation"
 DETAIL_SCHEMA = "grid-model-evaluation-detail-v1"
+DETAIL_MAX_BYTES = 96 * 1024 * 1024
 _PAYLOAD_KEYS = frozenset(
     {
         "schema_version",
@@ -151,13 +151,11 @@ class GridModelEvaluationJobHandler:
         threads: int = 4,
         engine_factory: Any = None,
     ) -> None:
-        from .grid_rescue_assessment import assessment_engine
+        from .grid_rescue_assessment import load_assessment_engine
 
         self.store, self.artifact_root, self.threads = store, artifact_root.resolve(), threads
         self.engine_factory = engine_factory or (
-            lambda directory, sha: assessment_engine(
-                onnx_engine(directory, self.threads, expected_bundle_sha256=sha), directory, sha
-            )
+            lambda directory, sha: load_assessment_engine(directory, sha, self.threads)
         )
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
@@ -357,17 +355,44 @@ class GridModelEvaluationJobHandler:
         }
 
     def _verify_details(
-        self, job: Job, state: Mapping[str, Any], cohorts: list[dict[str, str]]
+        self,
+        job: Job,
+        state: Mapping[str, Any],
+        cohorts: list[dict[str, str]],
+        *,
+        load_documents: bool = False,
     ) -> dict[str, dict[str, Any]]:
-        """A reused unit (also after a restart) must still pin its exact detail file."""
+        """Bound each file before reading; final all-game verification retains no documents."""
         documents = {}
         for entry in cohorts:
             for role in ROLES:
                 detail = state["units"][f"{entry['game_id']}:{role}"]["detail"]
                 path = self.artifact_root / detail_path(job.id, entry["game_id"], role)
                 try:
-                    payload = path.read_bytes()
-                    actual = hashlib.sha256(payload).hexdigest()
+                    with path.open("rb") as stream:
+                        if os.fstat(stream.fileno()).st_size > DETAIL_MAX_BYTES:
+                            raise JobHandlerError(
+                                "GRID_EVALUATION_DETAIL_TOO_LARGE",
+                                "A per-photo result exceeds the bounded detail size.",
+                            )
+                        if load_documents:
+                            payload = stream.read(DETAIL_MAX_BYTES + 1)
+                            size = len(payload)
+                            actual = hashlib.sha256(payload).hexdigest()
+                        else:
+                            size = 0
+                            checksum = hashlib.sha256()
+                            while chunk := stream.read(min(65536, DETAIL_MAX_BYTES + 1 - size)):
+                                size += len(chunk)
+                                checksum.update(chunk)
+                                if size > DETAIL_MAX_BYTES:
+                                    break
+                            actual = checksum.hexdigest()
+                        if size > DETAIL_MAX_BYTES:
+                            raise JobHandlerError(
+                                "GRID_EVALUATION_DETAIL_TOO_LARGE",
+                                "A per-photo result grew beyond the bounded detail size.",
+                            )
                 except OSError as error:
                     raise JobHandlerError(
                         "GRID_EVALUATION_DETAIL_CHANGED",
@@ -381,7 +406,8 @@ class GridModelEvaluationJobHandler:
                         "GRID_EVALUATION_DETAIL_CHANGED",
                         "A per-photo result file is missing or differs; evaluate again.",
                     )
-                documents[f"{entry['game_id']}:{role}"] = json.loads(payload)
+                if load_documents:
+                    documents[f"{entry['game_id']}:{role}"] = json.loads(payload)
         return documents
 
     # -- run -----------------------------------------------------------------------------
@@ -407,12 +433,24 @@ class GridModelEvaluationJobHandler:
             raise JobHandlerError("GRID_EVALUATION_MODEL_CHANGED", "Pinned models differ.")
         parity = candidate_parity(self.artifact_root, manifest)
         correction = payload["evaluation_kind"] == CORRECTION_EVALUATION
+        content_selection = False
         if correction:
             import json
 
-            bundle = json.loads(
-                (self.artifact_root / manifest["managedDirectory"] / "bundle.json").read_bytes()
-            )
+            bundle_path = self.artifact_root / manifest["managedDirectory"] / "bundle.json"
+            if manifest["modelVersion"] == "neural-grid-v2":
+                from game_predictor_api.storage.grid_content_bundle import read_content_bundle
+
+                bundle = read_content_bundle(bundle_path)
+            else:
+                bundle = json.loads(bundle_path.read_bytes())
+            if "contentExperiment" in bundle.get("provenance", {}):
+                from game_predictor_api.domain.grid_content_experiment_evidence import (
+                    require_content_experiment_evidence,
+                )
+
+                require_content_experiment_evidence(bundle)
+                content_selection = True
             if (
                 bundle.get("provenance", {}).get("checkpointSelection")
                 != payload["checkpoint_selection"]
@@ -447,8 +485,12 @@ class GridModelEvaluationJobHandler:
                 and snapshot.manifest["policyVersion"] == "application-grid-corrections-v4"
             ):
                 from .full_board_calibration_run import FullBoardCalibrationRun
+                from .full_board_variant_calibration_run import VariantCalibrationRun
 
-                calibration = FullBoardCalibrationRun(
+                calibration_class = (
+                    VariantCalibrationRun if content_selection else FullBoardCalibrationRun
+                )
+                calibration = calibration_class(
                     root=self.artifact_root,
                     job_id=job.id,
                     snapshot=snapshot,
@@ -475,7 +517,7 @@ class GridModelEvaluationJobHandler:
                 )
                 self._persist(context, state, len(cohorts))
             if production_content is not None:
-                verified = self._verify_details(job, state, [entry])
+                verified = self._verify_details(job, state, [entry], load_documents=True)
                 content_results[entry["game_id"]] = production_content.finish(
                     self.artifact_root,
                     job.id,
@@ -497,6 +539,7 @@ class GridModelEvaluationJobHandler:
                 snapshot_assessment_references,
             )
 
+            from .full_board_variant_context import manifest_variant_contexts
             from .production_cell_input import manifest_input_context
             from .production_cell_run import content_enabled
 
@@ -520,6 +563,11 @@ class GridModelEvaluationJobHandler:
                         input_context=(
                             manifest_input_context(self.artifact_root, manifest)
                             if content_enabled(frozen)
+                            else None
+                        ),
+                        variant_contexts=(
+                            manifest_variant_contexts(self.artifact_root, manifest)
+                            if content_selection
                             else None
                         ),
                     ),
@@ -561,6 +609,7 @@ class GridModelEvaluationJobHandler:
                 **arguments,
                 scope=payload["scope"],
                 checkpoint_selection=payload["checkpoint_selection"],
+                allow_content_selection=content_selection,
             )
         else:
             report = build_report(**arguments)
@@ -577,6 +626,7 @@ class GridModelEvaluationJobHandler:
                     or unqualified(game, "CALIBRATION_PURPOSE_COHORT_REQUIRED")
                     for game in report["requiredGameIds"]
                 ],
+                allow_variant_calibration=content_selection,
             )
         if correction and content_results:
             from game_predictor_api.domain.production_cell_evaluation import attach_content

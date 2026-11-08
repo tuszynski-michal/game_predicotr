@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import Table, Uuid, column, func, select, table, text
 from sqlalchemy.orm import Session
 
+from game_predictor_api.domain.grid_content_bundle import ContentBundleTooLarge
 from game_predictor_api.domain.grid_model_registry import (
     GridModelRegistryError,
     canonical_json,
@@ -24,6 +25,7 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageRouter,
     current_game_storage_scope,
 )
+from game_predictor_api.storage.grid_content_bundle import read_content_bundle
 from game_predictor_api.storage.grid_engine_model_store import file_sha256, receipt_bytes
 from game_predictor_api.storage.grid_model_registry_models import (
     GameGridModelAssignmentEventModel,
@@ -118,9 +120,48 @@ class GridModelArtifactInspector:
                     or file_sha256(target) != file["sha256"]
                 ):
                     return False, "GRID_MODEL_ARTIFACT_MISMATCH"
+            if payload.get("modelVersion") == "neural-grid-v2" or any(
+                file["name"] == "content.onnx" for file in payload["files"]
+            ):
+                bundle_path = directory / "bundle.json"
+                bundle = read_content_bundle(bundle_path)
+                if bundle.get("provenance", {}).get("contentExperiment") is not None:
+                    from .grid_content_experiment_evidence import inspect_content_experiment
+
+                    if (payload["modelVersion"], payload["bundleFormat"]) != (
+                        "neural-grid-v2",
+                        "neural-grid-bundle-v2",
+                    ):
+                        return False, "CONTENT_EXPERIMENT_MODEL_CONTRACT_INVALID"
+                    inspect_content_experiment(self.root, payload, bundle)
+                elif any(file["name"] == "content.onnx" for file in payload["files"]):
+                    return False, "CONTENT_EXPERIMENT_HEAD_PROOF_REQUIRED"
+        except ContentBundleTooLarge as error:
+            return False, error.code
         except (OSError, UnicodeError, ValueError, KeyError, TypeError):
             return False, "GRID_MODEL_ARTIFACT_UNREADABLE"
         return True, "GRID_MODEL_ARTIFACT_AVAILABLE"
+
+    def require_content_publication(self, payload: dict[str, Any]) -> None:
+        """An inspectable proposal-only export never grants publication or activation."""
+        if payload["modelVersion"] != "neural-grid-v2":
+            return
+        if self.root is None:
+            raise GridModelRegistryError("GRID_MODEL_ARTIFACT_UNAVAILABLE", "Store unavailable.")
+        from game_predictor_api.domain.grid_content_experiment_evidence import (
+            require_content_experiment_evidence,
+        )
+
+        from .grid_content_experiment_evidence import read_json
+
+        bundle = read_json(self.root, self.root / payload["managedDirectory"] / "bundle.json")
+        if bundle.get("provenance", {}).get("contentExperiment") is None:
+            return
+        proof = require_content_experiment_evidence(bundle)
+        if proof["state"]["arms"][proof["selectedArm"]]["selection"]["gatePassed"] is not True:
+            raise GridModelRegistryError(
+                "CONTENT_EXPERIMENT_PROPOSAL_ONLY", "The selected arm did not pass its A gate."
+            )
 
     def inspect_rescue(
         self, payload: dict[str, Any], *, game_id: str, publication_evidence: Mapping[str, Any]
@@ -141,7 +182,18 @@ class GridModelArtifactInspector:
             return json.loads(path.read_text(encoding="utf-8"))
 
         try:
-            bundle = read(directory / "bundle.json")
+            bundle = (
+                read_content_bundle(directory / "bundle.json")
+                if payload.get("modelVersion") == "neural-grid-v2"
+                else read(directory / "bundle.json")
+            )
+            if bundle.get("provenance", {}).get("contentExperiment") is not None:
+                from .grid_content_experiment_evidence import content_rescue_pin
+
+                pin = content_rescue_pin(
+                    payload, bundle, game_id=game_id, publication_evidence=publication_evidence
+                )
+                return pin, "GRID_RESCUE_PATH_AVAILABLE" if pin else "GRID_RESCUE_NO_IMPROVING_PATH"
             if "rescue" not in bundle:
                 return None, "GRID_RESCUE_PROOF_MISSING"
             proof = require_rescue_evidence(bundle)

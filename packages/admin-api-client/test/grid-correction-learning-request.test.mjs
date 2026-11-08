@@ -2,6 +2,53 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('content experiment exact preview/start retry keeps server pending checks separate', async () => {
+  const calls = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      const body = JSON.parse(await request.text());
+      calls.push(body);
+      return Response.json({
+        contentExperiment: body.contentExperiment,
+        cost: null,
+        pendingWorkerChecks: [
+          'CONTENT_BANK_MEASUREMENT',
+          'EXPERIMENT_ARM_FEASIBILITY',
+        ],
+        contentExperimentReadiness: {
+          state: 'metadata_ready',
+          automaticQualification: 'not_evaluated',
+        },
+      });
+    },
+  });
+  const game = '11111111-1111-4111-8111-111111111111';
+  const preview = {
+    trainingMode: 'screen+grid',
+    policyVersion: 'application-grid-corrections-v4',
+    validationAssignments: {},
+    contentExperiment: 'full-symbol-content-experiment-v1',
+  };
+  const result = await client.previewGridCorrectionLearning(game, preview);
+  assert.equal(result.data.cost, null);
+  assert.equal(
+    result.data.contentExperimentReadiness.automaticQualification,
+    'not_evaluated',
+  );
+  const command = {
+    ...preview,
+    idempotencyKey: game,
+    previewSha256: 'a'.repeat(64),
+  };
+  await client.startGridCorrectionLearning(game, command);
+  await client.startGridCorrectionLearning(
+    game,
+    JSON.parse(JSON.stringify(command)),
+  );
+  assert.deepEqual(calls, [preview, command, command]);
+});
+
 test('explicit v4 purposes survive preview and exact start while legacy sends no new defaults', async () => {
   const calls = [];
   const client = createAdminApiClient({

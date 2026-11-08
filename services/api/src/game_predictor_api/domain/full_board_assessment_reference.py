@@ -28,6 +28,9 @@ class FrozenAssessmentReferences:
     input_content_verifier: Callable[[Mapping[str, Any]], "FrozenAssessmentReferences"] | None = (
         field(default=None, compare=False, repr=False)
     )
+    variant_observation_verifier: (
+        Callable[[str, Mapping[str, Any], Sequence[Mapping[str, Any]]], None] | None
+    ) = field(default=None, compare=False, repr=False)
 
     @classmethod
     def from_sources(

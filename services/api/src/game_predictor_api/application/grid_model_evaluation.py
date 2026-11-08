@@ -341,13 +341,32 @@ class GridModelEvaluationService:
             )
             from game_predictor_api.domain.grid_correction_policy import CORRECTION_EVALUATION
 
-            bundle = json.loads(
-                (self.artifact_root / manifest["managedDirectory"] / "bundle.json").read_bytes()
-            )
+            content_plan = None if run is None else run.input_payload.get("content_experiment")
+            bundle_path = self.artifact_root / manifest["managedDirectory"] / "bundle.json"
+            if content_plan is not None:
+                from game_predictor_api.storage.grid_content_bundle import read_content_bundle
+
+                bundle = read_content_bundle(bundle_path)
+            else:
+                bundle = json.loads(bundle_path.read_bytes())
+            if content_plan is not None:
+                assert run is not None
+                from game_predictor_api.domain.grid_content_experiment_evidence import (
+                    require_content_experiment_evidence,
+                )
+
+                content = require_content_experiment_evidence(bundle)
+                if content["plan"] != content_plan or content["inputs"] != run.input_payload.get(
+                    "content_experiment_inputs"
+                ):
+                    raise _error(
+                        "CONTENT_EXPERIMENT_INPUT_CHANGED", "Candidate differs from its closed run."
+                    )
             selection = require_checkpoint_selection(
                 bundle.get("provenance", {}).get("checkpointSelection"),
                 screen=run is not None
                 and run.input_payload.get("preset_id") == "screen-grid-corrections-v1",
+                allow_content_selection=content_plan is not None,
             )
             payload.update(
                 evaluation_kind=CORRECTION_EVALUATION, scope=scope, checkpoint_selection=selection
@@ -603,10 +622,20 @@ class GridModelEvaluationService:
                 from game_predictor_api.domain.production_cell_evaluation import (
                     require_report as content_report,
                 )
+                from game_predictor_api.storage.full_board_variant_calibration_evidence import (
+                    variant_report_allowed,
+                )
 
-                reader = content_report
+                return content_report(
+                    row.report_json,
+                    manifest=manifest,
+                    base_sha256=base.manifest_sha256,
+                    allow_variant_calibration=variant_report_allowed(
+                        self.artifact_root, manifest, json.loads(row.report_json)
+                    ),
+                )
             return reader(row.report_json, manifest=manifest, base_sha256=base.manifest_sha256)
-        except GridEvaluationReportError as error:
+        except (GridEvaluationReportError, ValueError) as error:
             raise _error("GRID_MODEL_REGISTRY_CORRUPT", str(error)) from error
 
     def verify_currentness(self, report_id: UUID, actor: str) -> dict[str, Any]:

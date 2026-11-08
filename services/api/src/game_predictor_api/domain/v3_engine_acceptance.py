@@ -104,6 +104,7 @@ def qualify_v3_engine_acceptance(
     source_current: bool,
     operation_pin: object = None,
     qualification_blockers: tuple[str, ...] | None = None,
+    available_source_box: Sequence[int] | None = None,
 ) -> tuple[str, ...]:
     """Return stable blockers; empty means a complete, bound engine result.
 
@@ -198,6 +199,7 @@ def qualify_v3_engine_acceptance(
                         pin=operation_pin,
                         proposal=source,
                         detection=detection,
+                        available_source_box=available_source_box,
                     )
                 )
             if geometry.get("neuralAcceptanceEvidence") != neural_auto_crop_evidence(detection):

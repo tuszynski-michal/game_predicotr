@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .full_board_calibration import FeatureVector, acceptance_reasons
@@ -15,6 +15,7 @@ def calibrated_result_blockers(
     pin: object,
     proposal: Mapping[str, Any],
     detection: Mapping[str, Any] | None,
+    available_source_box: Sequence[int] | None = None,
 ) -> tuple[str, ...]:
     if not isinstance(pin, Mapping) or pin.get("contractVersion") != "neural-grid-operation-pin-v3":
         return ("NEURAL_GRID_OPERATION_POLICY_MISMATCH",)
@@ -35,11 +36,16 @@ def calibrated_result_blockers(
         "features",
         "sha256",
     }
+    variant = profile["version"] == "full-board-auto-profile-v3"
+    if variant:
+        expected |= {"variantKey", "variantProfileSha256", "inputVariantSha256"}
     if (
         evidence.keys() != expected
         or evidence["version"]
         != (
-            "full-board-result-evidence-v2"
+            "full-board-result-evidence-v3"
+            if variant
+            else "full-board-result-evidence-v2"
             if profile["version"] == "full-board-auto-profile-v2"
             else "full-board-result-evidence-v1"
         )
@@ -53,8 +59,30 @@ def calibrated_result_blockers(
     ):
         return ("COMPLETENESS_EVIDENCE_MISMATCH",)
     try:
-        return acceptance_reasons(
-            FeatureVector.model_validate(evidence["features"]), profile["configuration"]
-        )
+        configuration = profile.get("configuration")
+        if variant:
+            from .full_board_input_variant import require_runtime_input_variant
+            from .full_board_variant_calibration_types import VariantAutomaticProfile
+
+            stamp = require_runtime_input_variant(
+                detection.get("inputVariant"),
+                pin=pin,
+                proposal=proposal,
+                detection=detection,
+                available_source_box=available_source_box,
+            )
+            if (
+                stamp.sha256 != evidence["inputVariantSha256"]
+                or stamp.variantKey != evidence["variantKey"]
+            ):
+                return ("COMPLETENESS_INPUT_VARIANT_CHANGED",)
+            parsed = VariantAutomaticProfile.model_validate(profile)
+            matches = [p for p in parsed.variants if p.variantKey == evidence["variantKey"]]
+            if len(matches) != 1:
+                return ("COMPLETENESS_VARIANT_UNQUALIFIED",)
+            if matches[0].profile.sha256 != evidence["variantProfileSha256"]:
+                return ("COMPLETENESS_VARIANT_PROFILE_CHANGED",)
+            configuration = matches[0].profile.configuration
+        return acceptance_reasons(FeatureVector.model_validate(evidence["features"]), configuration)
     except (KeyError, TypeError, ValueError):
         return ("COMPLETENESS_EVIDENCE_INVALID",)

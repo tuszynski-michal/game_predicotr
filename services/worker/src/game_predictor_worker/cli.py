@@ -194,7 +194,11 @@ def _grid_model_evaluation_handler(
 
 
 def _grid_correction_learning_handler(
-    session_factory: Any, engine: Any, artifact_root: Path
+    session_factory: Any,
+    engine: Any,
+    artifact_root: Path,
+    *,
+    provider_index_sha256: str | None = None,
 ) -> Any:
     from game_predictor_api.application.grid_correction_apply import GridCorrectionApplyService
     from game_predictor_api.application.grid_correction_learning import (
@@ -213,7 +217,12 @@ def _grid_correction_learning_handler(
 
     return GridCorrectionWorkflowJobHandler(
         GridCorrectionLearningJobHandler(
-            GridCorrectionLearningService(engine, session_factory, artifact_root),
+            GridCorrectionLearningService(
+                engine,
+                session_factory,
+                artifact_root,
+                provider_index_sha256=provider_index_sha256,
+            ),
             _grid_training_handler(session_factory, engine, artifact_root).probe,
         ),
         GridCorrectionApplyJobHandler(
@@ -617,7 +626,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 session_factory, engine, artifact_root, thread_budget
             ),
             JobType.GRID_CORRECTION_LEARNING: _grid_correction_learning_handler(
-                session_factory, engine, artifact_root
+                session_factory,
+                engine,
+                artifact_root,
+                provider_index_sha256=settings.recording_provider_index_sha256,
             ),
         }
         execution_slot = JobExecutionSlot.GENERAL

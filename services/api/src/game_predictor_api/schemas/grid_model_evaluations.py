@@ -12,6 +12,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 from game_predictor_api.domain.full_board_calibration_report import AutomaticCalibration
+from game_predictor_api.domain.full_board_variant_calibration_types import (
+    VariantAutomaticCalibration,
+)
 from game_predictor_api.domain.production_cell_evaluation import ContentGameEvidence
 
 _SHA = r"^[0-9a-f]{64}$"
@@ -331,7 +334,7 @@ class GridScreenCorrectionEvaluationReport(EvaluationClosedModel):
     checkpointSelection: GridScreenCorrectionCheckpointSelection
 
 
-class GridCalibratedEvaluationReport(EvaluationClosedModel):
+class GridCalibratedEvaluationFields(EvaluationClosedModel):
     schemaVersion: Literal["grid-model-evaluation-read-v5"]
     rawQualitySchemaVersion: Literal[
         "grid-model-evaluation-read-v3", "grid-model-evaluation-read-v4"
@@ -354,7 +357,14 @@ class GridCalibratedEvaluationReport(EvaluationClosedModel):
     evidenceLevel: Literal["photo-only"]
     limitations: list[str]
     checkpointSelection: GridCorrectionCheckpointSelection | GridScreenCorrectionCheckpointSelection
+
+
+class GridCalibratedEvaluationReport(GridCalibratedEvaluationFields):
     automaticCalibration: list[AutomaticCalibration]
+
+
+class GridContentCalibratedEvaluationReport(GridCalibratedEvaluationFields):
+    automaticCalibration: list[AutomaticCalibration | VariantAutomaticCalibration]
 
 
 class GridProductionCellEvaluationPolicy(EvaluationClosedModel):
@@ -401,14 +411,14 @@ class GridProductionCellEvaluationReport(EvaluationClosedModel):
     rawQuality: Annotated[
         GridCorrectionEvaluationReport
         | GridScreenCorrectionEvaluationReport
-        | GridCalibratedEvaluationReport,
+        | GridContentCalibratedEvaluationReport,
         Field(discriminator="schemaVersion"),
     ]
     contentEvaluation: list[ContentGameEvidence]
     rawQualitySchemaVersion: (
         Literal["grid-model-evaluation-read-v3", "grid-model-evaluation-read-v4"] | None
     ) = Field(default=None, exclude_if=lambda value: value is None)
-    automaticCalibration: list[AutomaticCalibration] | None = Field(
+    automaticCalibration: list[AutomaticCalibration | VariantAutomaticCalibration] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 

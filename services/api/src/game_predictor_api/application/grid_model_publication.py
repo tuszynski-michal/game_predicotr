@@ -72,6 +72,9 @@ class GridModelPublicationService:
         setting_default: bool = False,
     ) -> dict[str, Any]:
         manifest = view["manifest"]
+        guard = getattr(self.registry.inspector, "require_content_publication", None)
+        if guard is not None:
+            guard(manifest)
         if manifest["admission"] == "historical_baseline":
             if evaluation_id is not None:
                 raise GridModelRegistryError(
@@ -99,6 +102,21 @@ class GridModelPublicationService:
             or canonical_json(base_payload) != base.manifest_json
         ):
             raise GridModelRegistryError("GRID_MODEL_REGISTRY_CORRUPT", "Base descriptor differs.")
+        from game_predictor_api.storage.full_board_variant_calibration_evidence import (
+            variant_report_allowed,
+        )
+
+        try:
+            allow_variants = variant_report_allowed(
+                getattr(self.registry.inspector, "root", None),
+                manifest,
+                json.loads(report.report_json),
+            )
+        except (ValueError, KeyError, TypeError) as context_error:
+            raise GridModelRegistryError(
+                "GRID_MODEL_EVALUATION_STALE",
+                "The final-variant calibration context is unavailable.",
+            ) from context_error
         evidence = require_evaluation_evidence(
             report_id=evaluation_id,
             report_json=report.report_json,
@@ -108,6 +126,7 @@ class GridModelPublicationService:
             manifest=manifest,
             base_sha256=base.manifest_sha256,
             game_id=game_id,
+            allow_variant_calibration=allow_variants,
         )
         parsed_report = json.loads(report.report_json)
         if parsed_report.get("schemaVersion") == "grid-model-evaluation-read-v6":

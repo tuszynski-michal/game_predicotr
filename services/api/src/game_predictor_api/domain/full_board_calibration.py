@@ -341,7 +341,12 @@ def qualification_reasons(measured: Mapping[str, Any]) -> list[str]:
     return reasons
 
 
-def seal_b(plan: CalibrationPlan, targets: Sequence[AssessedTarget]) -> dict[str, Any]:
+def seal_b(
+    plan: CalibrationPlan,
+    targets: Sequence[AssessedTarget],
+    *,
+    inactive_reference_axes: frozenset[str] = frozenset(),
+) -> dict[str, Any]:
     """One numeric sweep after B observations, no model calls or REG access."""
     candidates = []
     for index, config in enumerate(plan.menu):
@@ -375,15 +380,31 @@ def seal_b(plan: CalibrationPlan, targets: Sequence[AssessedTarget]) -> dict[str
         "comparisons": len(plan.menu),
     }
     if plan.version.endswith("-v2"):
+        if not inactive_reference_axes <= set(plan.manualWhenApplicable) or any(
+            axis not in item.candidateFeatures.notApplicable
+            for axis in inactive_reference_axes
+            for item in targets
+        ):
+            raise ValueError("CALIBRATION_INACTIVE_AXIS_APPLICABLE")
         payload["reasonCodes"] = sorted(
             set(payload["reasonCodes"])
-            | {"COMPLETENESS_REFERENCE_MISSING:" + axis for axis in plan.manualWhenApplicable}
+            | {
+                "COMPLETENESS_REFERENCE_MISSING:" + axis
+                for axis in plan.manualWhenApplicable
+                if axis not in inactive_reference_axes
+            }
         )
+    elif inactive_reference_axes:
+        raise ValueError("CALIBRATION_INACTIVE_AXIS_VERSION")
     return {**payload, "sha256": digest(payload)}
 
 
 def assess_regression(
-    plan: CalibrationPlan, sealed: dict[str, Any], targets: Sequence[AssessedTarget]
+    plan: CalibrationPlan,
+    sealed: dict[str, Any],
+    targets: Sequence[AssessedTarget],
+    *,
+    inactive_reference_axes: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     if (
         sealed.get("sha256")
@@ -405,6 +426,16 @@ def assess_regression(
             raise ValueError("CALIBRATION_SEALED_CONFIGURATION")
         measured = measure_targets(plan, targets, plan.menu[index])
         reasons = list(sealed["reasonCodes"]) + qualification_reasons(measured)
+    if inactive_reference_axes:
+        if not plan.version.endswith("-v2") or not inactive_reference_axes <= set(
+            plan.manualWhenApplicable
+        ):
+            raise ValueError("CALIBRATION_INACTIVE_AXIS_VERSION")
+        reasons.extend(
+            "COMPLETENESS_REFERENCE_MISSING:" + axis
+            for axis in inactive_reference_axes
+            if any(axis not in item.candidateFeatures.notApplicable for item in targets)
+        )
     payload: dict[str, Any] = {
         "version": "full-board-calibration-v2"
         if plan.version.endswith("-v2")

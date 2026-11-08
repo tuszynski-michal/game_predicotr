@@ -23,6 +23,57 @@ const body = {
   expectedProposalChecksumSha256: 'b'.repeat(64),
 };
 
+test('source review request preserves a separate input variant stamp', async () => {
+  const inputVariant = {
+    version: 'full-board-input-variant-v1',
+    variantKey: '1'.repeat(64),
+    sourceSha256: '2'.repeat(64),
+    modelManifestSha256: '3'.repeat(64),
+    operationPinSha256: '4'.repeat(64),
+    detectionId: 'det-1',
+    nodesSha256: '5'.repeat(64),
+    screenQuad: [
+      [1, 1],
+      [101, 1],
+      [101, 61],
+      [1, 61],
+    ],
+    boardInputSupport: [
+      [0, 0],
+      [120, 0],
+      [120, 80],
+      [0, 80],
+    ],
+    availableSourceBox: [0, 0, 500, 300],
+    sha256: '6'.repeat(64),
+  };
+  const document = {
+    sources: [
+      {
+        neuralProposal: {
+          detections: [{ detectionId: 'det-1', inputVariant }],
+        },
+      },
+    ],
+  };
+  const requests = [];
+  const api = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push([request.method, new URL(request.url)]);
+      return Response.json(document);
+    },
+  });
+  assert.deepEqual(
+    (await api.listBrowserPageGeometryReviewSources(itemId, itemId, gameId))
+      .data,
+    document,
+  );
+  assert.equal(requests[0][0], 'GET');
+  assert.equal(requests[0][1].searchParams.get('game_id'), gameId);
+  assert.ok(requests[0][1].pathname.includes(itemId));
+});
+
 test('existing geometry wrappers transmit exact floating24 nodes and proposal CAS pin', async () => {
   const requests = [];
   const api = createAdminApiClient({

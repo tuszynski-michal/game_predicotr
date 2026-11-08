@@ -22,7 +22,14 @@ import numpy as np
 import torch
 from torch import nn
 
-from .checkpoint import load_checkpoint, make_checkpoint, restore_checkpoint, write_checkpoint
+from .checkpoint import (
+    capture_rng,
+    load_checkpoint,
+    make_checkpoint,
+    restore_checkpoint,
+    restore_rng,
+    write_checkpoint,
+)
 from .grid_rescue_training import TrainingExposure
 from .grid_training_admission import GridTrainingPreset, digest
 from .neural_grid_network import NeuralGridNetwork
@@ -129,7 +136,7 @@ def learning_rate(preset: GridTrainingPreset, progress: float) -> float:
 
 def apply_freeze(network: nn.Module, frozen: Sequence[str]) -> None:
     """Freeze the detector and/or every BatchNorm; re-apply after each ``train()``."""
-    unknown = set(frozen) - {"detector", "batchnorm"}
+    unknown = set(frozen) - {"detector", "batchnorm", "batchnorm_stats"}
     if unknown:
         raise ValueError("GRID_TRAINING_FREEZE_UNKNOWN")
     if "detector" in frozen:
@@ -138,11 +145,12 @@ def apply_freeze(network: nn.Module, frozen: Sequence[str]) -> None:
             raise ValueError("GRID_TRAINING_FREEZE_UNKNOWN")
         screen.eval()
         screen.requires_grad_(False)
-    if "batchnorm" in frozen:
+    if "batchnorm" in frozen or "batchnorm_stats" in frozen:
         for module in network.modules():
             if isinstance(module, nn.modules.batchnorm._BatchNorm):
                 module.eval()
-                module.requires_grad_(False)
+                if "batchnorm" in frozen:
+                    module.requires_grad_(False)
 
 
 def train_mode(network: nn.Module, frozen: Sequence[str]) -> None:
@@ -258,6 +266,47 @@ def board_only_losses(
     return losses
 
 
+def content_auxiliary_losses(
+    quads: torch.Tensor,
+    local_visibility: torch.Tensor,
+    batch: Mapping[str, torch.Tensor],
+    weights: torch.Tensor,
+    canvas: tuple[int, int],
+    device: str,
+) -> dict[str, torch.Tensor]:
+    """Only explicit human quad targets; unknown/occluded geometry is masked before math."""
+    target = batch["content_quads"].to(device).reshape(-1, 15, 4, 2).float()
+    mask = batch["content_quad_mask"].to(device).reshape(-1, 15).float()
+    visible = batch["visibility_targets"].to(device).reshape(-1, 15).float()
+    visible_mask = batch["visibility_mask"].to(device).reshape(-1, 15).float()
+    if target.shape != quads.shape or local_visibility.shape != visible.shape:
+        raise ValueError("CONTENT_HEAD_TARGET_SHAPE_INVALID")
+    for value in (mask, visible_mask):
+        if not torch.isfinite(value).all() or ((value < 0) | (value > 1)).any():
+            raise ValueError("CONTENT_HEAD_MASK_INVALID")
+    effective, local_weight = mask * weights[:, None], visible_mask * weights[:, None]
+    target = torch.where(effective[..., None, None] > 0, target, torch.zeros_like(target))
+    visible = torch.where(local_weight > 0, visible, torch.zeros_like(visible))
+    if (
+        not torch.isfinite(target).all()
+        or not torch.isfinite(visible).all()
+        or ((visible < 0) | (visible > 1)).any()
+    ):
+        raise ValueError("CONTENT_HEAD_TARGET_INVALID")
+    scale = torch.tensor(canvas, device=device, dtype=torch.float32)
+    quad_loss = torch.nn.functional.smooth_l1_loss(
+        quads.float() / scale, target / scale, beta=0.01, reduction="none"
+    ).mean(dim=(-1, -2))
+    local_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+        local_visibility.float(), visible, reduction="none"
+    )
+    return {
+        "content_quads": _weighted_mean(quad_loss, effective),
+        "local_visibility": _weighted_mean(local_loss, local_weight),
+        "valid_content_quads": (effective > 0).sum().float().detach(),
+    }
+
+
 def screen_grid_losses(
     network: NeuralGridNetwork, batch: Mapping[str, torch.Tensor], recipe: Any, device: str
 ) -> dict[str, torch.Tensor]:
@@ -271,21 +320,121 @@ def screen_grid_losses(
     crops = batch["crops"].to(device, non_blocking=True).flatten(0, 1).float()
     nodes = batch["nodes"].to(device, non_blocking=True).flatten(0, 1)
     weights = batch["weights"].to(device, non_blocking=True).flatten(0, 1).float()
+    board_batch = batch
+    skipped_rows = 0
+    skip_board = False
+    if "crop_skipped" in batch:
+        # Filter before the forward, not just the loss: an ignored grey crop
+        # would otherwise change R0 BatchNorm statistics and valid-row gradients.
+        if not torch.isfinite(weights).all() or (weights < 0).any():
+            raise ValueError("CONTENT_CROP_WEIGHTS_INVALID")
+        keep = torch.zeros(weights.numel(), dtype=torch.bool, device=device)
+        for key in ("node_weights", "visibility_mask", "content_quad_mask"):
+            if key in batch:
+                mask = batch[key].to(device).reshape(weights.numel(), -1)
+                if (
+                    not torch.isfinite(mask).all()
+                    or (mask < 0).any()
+                    or (key != "node_weights" and (mask > 1).any())
+                ):
+                    raise ValueError("CONTENT_CROP_MASK_INVALID")
+                keep |= ((mask * weights[:, None]) > 0).any(dim=1)
+        skipped = batch["crop_skipped"].to(device).reshape(-1)
+        if (
+            skipped.shape != keep.shape
+            or not torch.isfinite(skipped).all()
+            or ((skipped != 0) & (skipped != 1)).any()
+        ):
+            raise ValueError("CONTENT_CROP_SKIP_INVALID")
+        if (keep & (skipped != 0)).any():
+            raise ValueError("CONTENT_SKIPPED_CROP_SUPERVISION_INVALID")
+        skipped_rows = int((~keep).sum())
+        skip_board = not bool(keep.any())
+        if skipped_rows and not skip_board:
+            crops, nodes, weights = crops[keep], nodes[keep], weights[keep]
+            # Keep the original batch and its photo/source indices intact for
+            # optimizer exposure; only the local loss view is compacted.
+            board_batch = {
+                **batch,
+                **{
+                    key: batch[key].to(device).flatten(0, 1)[keep]
+                    for key in (
+                        "node_weights",
+                        "visibility_targets",
+                        "visibility_mask",
+                        "content_quads",
+                        "content_quad_mask",
+                    )
+                    if key in batch
+                },
+            }
     with torch.autocast("cuda", dtype=torch.float16, enabled=device.startswith("cuda")):
         heat_logits, predicted_offsets = network.screen(images)
-        node_logits, predicted, visibility = network.board(crops)
+        if skip_board:
+            # No forward means no hidden BatchNorm-stat update in R0 either.
+            heat_loss = focal_loss(heat_logits, heat)
+            offsets_loss = (
+                offset_loss(predicted_offsets, offsets, offset_weight)
+                * recipe.screen.offset_loss_weight
+            )
+            zero = torch.zeros((), device=device)
+            return {
+                "heat": heat_loss,
+                "offsets": offsets_loss,
+                "total": heat_loss + offsets_loss,
+                "nodes": zero,
+                "node_heatmap": zero,
+                "visibility": zero,
+                "valid_nodes": zero,
+                "valid_visibility": zero,
+                "positive_visibility": zero,
+                "negative_visibility": zero,
+                "valid_content_quads": zero,
+                "skipped_board_crops": torch.tensor(weights.numel(), device=device).float(),
+            }
+        if getattr(network.board, "content_head", None) is not None:
+            node_logits, predicted, visibility, content_quads, local_visibility = (
+                network.board.forward_with_content(crops)
+            )
+        else:
+            node_logits, predicted, visibility = network.board(crops)
     losses = {
         "heat": focal_loss(heat_logits, heat),
         "offsets": offset_loss(predicted_offsets, offsets, offset_weight)
         * recipe.screen.offset_loss_weight,
         **_supervised_losses(
-            node_logits, predicted, visibility, nodes, weights, batch, recipe.board, device
+            node_logits, predicted, visibility, nodes, weights, board_batch, recipe.board, device
         ),
     }
+    if getattr(network.board, "content_head", None) is not None:
+        losses.update(
+            content_auxiliary_losses(
+                content_quads,
+                local_visibility,
+                board_batch,
+                weights,
+                (crops.shape[-1], crops.shape[-2]),
+                device,
+            )
+        )
+    if "crop_skipped" in batch:
+        losses["skipped_board_crops"] = torch.tensor(skipped_rows, device=device).float()
+        if "masked_nodes" in losses:
+            losses["masked_nodes"] += skipped_rows * 24
+        if "masked_visibility" in losses:
+            losses["masked_visibility"] += skipped_rows * 15
     losses["total"] = sum(
         (
             losses[key]
-            for key in ("heat", "offsets", "nodes", "node_heatmap", "visibility")
+            for key in (
+                "heat",
+                "offsets",
+                "nodes",
+                "node_heatmap",
+                "visibility",
+                "content_quads",
+                "local_visibility",
+            )
             if key in losses
         ),
         torch.zeros((), device=device),
@@ -446,13 +595,35 @@ class TrainingPlan:
     ) -> TrainingPlan:
         if planned_steps < 1:
             raise ValueError("GRID_TRAINING_EMPTY_PLAN")
+        content = binding.get("contentExperiment")
+        if content is not None:
+            from .grid_content_experiment import (
+                ARM_STEPS,
+                EVALUATION_STEPS,
+                RANK_VERSION,
+                arm_preset,
+            )
+
+            if (
+                not isinstance(content, Mapping)
+                or set(content) != {"planSha256", "bankSha256", "arm", "rankVersion"}
+                or content["rankVersion"] != RANK_VERSION
+                or preset.fingerprint != arm_preset(content["arm"]).fingerprint
+                or planned_steps != ARM_STEPS
+                or seed != 20261108
+            ):
+                raise ValueError("CONTENT_TRAINING_PLAN_INVALID")
+            from .grid_content_experiment import _sha
+
+            _sha(content["planSha256"])
+            _sha(content["bankSha256"])
         interval = preset.early_stopping.evaluation_interval_seconds
         evaluation_steps = max(1, round(interval * preset.steps_per_second_estimate))
         return cls(
             run_id=run_id,
             seed=seed,
             total_steps=min(planned_steps, preset.max_steps),
-            evaluation_steps=evaluation_steps,
+            evaluation_steps=EVALUATION_STEPS if content is not None else evaluation_steps,
             frozen_modules=tuple(preset.frozen_modules),
             binding={
                 "policy": "grid-training-checkpoint-v3"
@@ -480,6 +651,7 @@ class TrainingResult:
     checkpoint_selection: dict[str, Any] | None = None
     exposure: dict[str, Any] | None = None
     visibility_exposure: dict[str, int] | None = None
+    content_head_exposure: dict[str, int] | None = None
 
 
 class _ScalerSlot:
@@ -497,7 +669,7 @@ class _ScalerSlot:
 
 BatchSource = Callable[[int], Mapping[str, torch.Tensor]]
 LossFunction = Callable[[nn.Module, Mapping[str, torch.Tensor]], dict[str, torch.Tensor]]
-Evaluator = Callable[[nn.Module], float | dict[str, float]]
+Evaluator = Callable[[nn.Module], float | dict[str, Any]]
 
 
 def train(
@@ -514,11 +686,29 @@ def train(
     device: str = "cpu",
     exposure: TrainingExposure | None = None,
     exposure_members: Callable[[int], Sequence[Mapping[str, str]]] | None = None,
+    content_exposure: Any = None,
+    content_exposure_members: Callable[
+        [int, Mapping[str, torch.Tensor], Mapping[str, torch.Tensor]],
+        Mapping[str, Sequence[Mapping[str, str]]],
+    ]
+    | None = None,
 ) -> TrainingResult:
     """Step-deterministic loop with an evaluation and a checkpoint every ``evaluation_steps``."""
     from torch.amp.grad_scaler import GradScaler
 
     network.to(device)
+    content_binding = plan.binding.get("contentExperiment")
+    content_mode = content_binding is not None
+    if content_mode:
+        from .grid_content_experiment import (
+            ARM_STEPS,
+            EVALUATION_STEPS,
+            require_selection,
+            selection_key,
+        )
+
+        if plan.total_steps != ARM_STEPS or plan.evaluation_steps != EVALUATION_STEPS:
+            raise ValueError("CONTENT_TRAINING_PLAN_INVALID")
     train_mode(network, plan.frozen_modules)
     optimizer = torch.optim.AdamW(
         trainable_parameters(network), lr=preset.learning_rate, weight_decay=preset.weight_decay
@@ -541,6 +731,14 @@ def train(
     step = 0
     last: tuple[Path, str] | None = None
     visibility_exposure = {"positiveTargets": 0, "negativeTargets": 0, "optimizerSteps": 0}
+    content_head_exposure = {"quadTargets": 0, "localVisibilityTargets": 0, "optimizerSteps": 0}
+    content_head_enabled = content_binding is not None and content_binding["arm"] == "R3"
+    if (
+        content_mode
+        and isinstance(getattr(getattr(network, "board", None), "content_head", None), nn.Module)
+        != content_head_enabled
+    ):
+        raise ValueError("CONTENT_EXPERIMENT_HEAD_MISMATCH")
     visibility_enabled = "gridOutputContract" in plan.binding
     if resume is not None:
         value = load_checkpoint(resume[0], resume[1], expected_binding=plan.binding)
@@ -552,13 +750,19 @@ def train(
         stopping.restore(stored["early"])
         if visibility_enabled:
             visibility_exposure = dict(stored["visibilityExposureCurrent"])
+        if content_head_enabled:
+            content_head_exposure = dict(stored["contentHeadExposureCurrent"])
         if exposure is not None:
             exposure.restore(stored["exposureCurrent"], step)
+        if content_exposure is not None:
+            content_exposure.restore(stored["contentExposureCurrent"], step)
         # An interruption before the first evaluation stores no best model yet.
         best_state = stored if stored.get("model") is not None else None
         last = resume
-        if best_state is not None and (stopping.stop or step >= plan.total_steps):
-            return _result(stopping, best_state, step, last, history)
+        if best_state is not None and (
+            (stopping.stop and not content_mode) or step >= plan.total_steps
+        ):
+            return _result(stopping, best_state, step, last, history, content_mode=content_mode)
 
     def publish() -> tuple[Path, str]:
         state = (
@@ -582,6 +786,16 @@ def train(
                     else {}
                 ),
                 **({"exposureCurrent": exposure.state()} if exposure is not None else {}),
+                **(
+                    {"contentExposureCurrent": content_exposure.state()}
+                    if content_exposure is not None
+                    else {}
+                ),
+                **(
+                    {"contentHeadExposureCurrent": dict(content_head_exposure)}
+                    if content_head_enabled
+                    else {}
+                ),
             },
         )
         path, sha = write_checkpoint(checkpoint_directory, checkpoint)
@@ -603,9 +817,16 @@ def train(
         for group in optimizer.param_groups:
             group["lr"] = rate
         train_mode(network, plan.frozen_modules)
+        before_buffers = (
+            {name: value.detach().clone() for name, value in network.named_buffers()}
+            if content_mode
+            else {}
+        )
+        before_rng = capture_rng(generator) if content_mode else None
         batch = batches(step)
         values = losses(network, batch)
         optimizer.zero_grad(set_to_none=True)
+        optimizer_completed = False
         if not torch.isfinite(values["total"]):
             nonfinite += 1
             if nonfinite > NONFINITE_LIMIT:
@@ -617,11 +838,35 @@ def train(
         ):
             nonfinite = 0
             scaler.scaler.scale(values["total"]).backward()
+            if (
+                content_mode
+                and "valid_nodes" in values
+                and sum(
+                    float(values.get(k, torch.zeros(())))
+                    for k in ("valid_nodes", "valid_visibility", "valid_content_quads")
+                )
+                == 0
+            ):
+                # AdamW decays even a zero gradient. An entirely skipped board
+                # component must not receive an optimizer update through the screen.
+                board_module = getattr(network, "board", None)
+                if not isinstance(board_module, nn.Module):
+                    raise ValueError("CONTENT_BOARD_MODULE_REQUIRED")
+                for parameter in board_module.parameters():
+                    parameter.grad = None
             scaler.scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(trainable_parameters(network), preset.gradient_clip)
             scale_before = scaler.scaler.get_scale()
             scaler.scaler.step(optimizer)
             scaler.scaler.update()
+            optimizer_completed = scaler.scaler.get_scale() >= scale_before
+            if content_head_enabled and optimizer_completed:
+                quads = int(values.get("valid_content_quads", torch.zeros(())))
+                local = int(values.get("valid_visibility", torch.zeros(())))
+                if quads + local:
+                    content_head_exposure["quadTargets"] += quads
+                    content_head_exposure["localVisibilityTargets"] += local
+                    content_head_exposure["optimizerSteps"] += 1
             if (
                 visibility_enabled
                 and scaler.scaler.get_scale() >= scale_before
@@ -637,6 +882,38 @@ def train(
                 if exposure_members is None:
                     raise ValueError("GRID_RESCUE_EXPOSURE_MEMBERS_REQUIRED")
                 exposure.confirm(step + 1, exposure_members(step))
+            if content_exposure is not None and optimizer_completed:
+                if content_exposure_members is None:
+                    raise ValueError("CONTENT_EXPOSURE_MEMBERS_REQUIRED")
+                members = content_exposure_members(step, batch, values)
+                board_valid = (
+                    sum(
+                        float(values.get(k, torch.zeros(())))
+                        for k in ("valid_nodes", "valid_visibility", "valid_content_quads")
+                    )
+                    > 0
+                )
+                content_exposure.confirm_components(
+                    step + 1,
+                    screen_members=members.get("screen", ()) if "heat" in values else (),
+                    board_members=members.get("board", ()) if board_valid else (),
+                    screen_canvas=tuple(reversed(batch["image"].shape[-2:]))
+                    if "image" in batch
+                    else None,
+                    board_canvas=tuple(reversed(batch["crops"].shape[-2:]))
+                    if "crops" in batch
+                    else None,
+                )
+        if content_mode and not optimizer_completed:
+            # Failed forward/scaler attempts must not smuggle R0 BatchNorm or RNG
+            # changes across the last completed logical boundary.
+            with torch.no_grad():
+                for name, buffer in network.named_buffers():
+                    buffer.copy_(before_buffers[name])
+            assert before_rng is not None
+            restore_rng(before_rng, generator)
+            publish()
+            raise TrainingInterrupted("CONTENT_OPTIMIZER_STEP_SKIPPED")
         step += 1
         control.progress(step, plan.total_steps, {k: float(v.detach()) for k, v in values.items()})
         if step % plan.evaluation_steps and step < plan.total_steps:
@@ -645,7 +922,19 @@ def train(
         with torch.no_grad():
             measured = evaluate(network)
         board_rate = None
-        if stopping.selection_rule:
+        content_selection = None
+        if content_mode:
+            if not isinstance(measured, dict):
+                raise ValueError("CONTENT_SELECTION_REQUIRED")
+            content_selection = require_selection(measured)
+            assert content_binding is not None
+            if (
+                content_selection["arm"] != content_binding["arm"]
+                or content_selection["step"] != step
+            ):
+                raise ValueError("CONTENT_SELECTION_SCOPE_INVALID")
+            metric, error = -float(content_selection["rank"][0]), None
+        elif stopping.selection_rule:
             expected = {
                 "boardCorrectRate",
                 "normalizedError",
@@ -668,13 +957,24 @@ def train(
             if isinstance(measured, dict):
                 raise ValueError("GRID_TRAINING_SELECTION_INVALID")
             metric, error = float(measured), None
-        improved = stopping.update(metric, step, error, board_rate)
+        if content_mode:
+            assert content_selection is not None
+            improved = best_state is None or selection_key(content_selection) < selection_key(
+                best_state["contentSelection"]
+            )
+            stopping.evaluations += 1
+            stopping.stale = 0 if improved else stopping.stale + 1
+            if improved:
+                stopping.best, stopping.best_step = metric, step
+        else:
+            improved = stopping.update(metric, step, error, board_rate)
         history.append(
             {
                 "step": step,
                 "metric": metric,
                 "improved": improved,
                 **({"selectionMetrics": measured} if stopping.selection_rule else {}),
+                **({"contentSelection": content_selection} if content_mode else {}),
             }
         )
         if improved or best_state is None:
@@ -688,14 +988,25 @@ def train(
                     else {}
                 ),
                 **({"exposureAtBest": exposure.state()} if exposure is not None else {}),
+                **(
+                    {"contentExposureAtBest": content_exposure.state()}
+                    if content_exposure is not None
+                    else {}
+                ),
+                **({"contentSelection": content_selection} if content_mode else {}),
+                **(
+                    {"contentHeadExposureAtBest": dict(content_head_exposure)}
+                    if content_head_enabled
+                    else {}
+                ),
             }
         last = publish()
         last_step = step
-        if stopping.stop:
+        if stopping.stop and not content_mode:
             break
     if last is None or best_state is None:
         raise ValueError("GRID_TRAINING_NO_CHECKPOINT")
-    return _result(stopping, best_state, step, last, history)
+    return _result(stopping, best_state, step, last, history, content_mode=content_mode)
 
 
 def _result(
@@ -704,18 +1015,23 @@ def _result(
     step: int,
     last: tuple[Path, str],
     history: list[dict[str, Any]],
+    *,
+    content_mode: bool = False,
 ) -> TrainingResult:
     return TrainingResult(
-        stop_reason="early_stopping" if stopping.stop else "completed",
+        stop_reason="early_stopping" if stopping.stop and not content_mode else "completed",
         steps=step,
         best_step=int(best_state["step"]),
         best_metric=float(best_state["metric"]),
         checkpoint_path=last[0],
         checkpoint_sha256=last[1],
         history=list(history),
-        exposure=best_state.get("exposureAtBest"),
+        exposure=best_state.get("contentExposureAtBest", best_state.get("exposureAtBest")),
         visibility_exposure=best_state.get("visibilityExposureAtBest"),
-        checkpoint_selection={
+        content_head_exposure=best_state.get("contentHeadExposureAtBest"),
+        checkpoint_selection=best_state.get("contentSelection")
+        if content_mode
+        else {
             "rule": stopping.selection_rule,
             "role": "VALIDATION",
             "step": stopping.best_step,
@@ -736,7 +1052,7 @@ def _result(
                 "stopped": stopping.stop,
             },
         }
-        if stopping.selection_rule
+        if stopping.selection_rule or content_mode
         else None,
     )
 
@@ -842,9 +1158,16 @@ def parity_verdict(
     }
 
 
-def export_graphs(network: NeuralGridNetwork, preset: Any, directory: Path) -> None:
+def export_graphs(
+    network: NeuralGridNetwork,
+    preset: Any,
+    directory: Path,
+    *,
+    dynamic_board: bool = False,
+    content_auxiliary: bool = False,
+) -> None:
     """ONNX graphs of both stages (moved unchanged from the laboratory, duck-typed preset)."""
-    from .neural_grid_network import BoardExport, ScreenExport
+    from .neural_grid_network import BoardExport, ContentExport, ScreenExport
 
     network = network.cpu().eval()
     canvas_w, canvas_h = preset.screen.train_canvas
@@ -874,8 +1197,38 @@ def export_graphs(network: NeuralGridNetwork, preset: Any, directory: Path) -> N
         dynamo=True,
         verbose=False,
         external_data=False,
-        dynamic_shapes=({0: torch.export.Dim("crops", min=1, max=64)},),
+        dynamic_shapes=(
+            {
+                0: torch.export.Dim("crops", min=1, max=64),
+                **({2: 32 * height, 3: 32 * width} if dynamic_board else {}),
+            },
+        ),
     )
+    if content_auxiliary:
+        torch.onnx.export(
+            ContentExport(network.board).eval(),
+            (torch.zeros((2, 3, board_h, board_w)),),
+            str(directory / "content.onnx"),
+            input_names=["crops"],
+            output_names=["content_quads", "local_visibility"],
+            opset_version=OPSET,
+            dynamo=True,
+            verbose=False,
+            external_data=False,
+            dynamic_shapes=(
+                {
+                    0: torch.export.Dim("crops", min=1, max=64),
+                    **(
+                        {
+                            2: 96 * torch.export.Dim("content_h96", min=2, max=3),
+                            3: 160 * torch.export.Dim("content_w160", min=2, max=3),
+                        }
+                        if dynamic_board
+                        else {}
+                    ),
+                },
+            ),
+        )
 
 
 def raw_parity(
@@ -883,11 +1236,13 @@ def raw_parity(
     directory: Path,
     crops: np.ndarray,
     pixels: np.ndarray | None,
+    *,
+    content_auxiliary: bool = False,
 ) -> dict[str, Any]:
     """Max raw delta between fp32 torch and ONNX Runtime CPU on the given inputs."""
     import onnxruntime  # type: ignore[import-untyped]
 
-    from .neural_grid_network import BoardExport, ScreenExport
+    from .neural_grid_network import BoardExport, ContentExport, ScreenExport
 
     network = network.cpu().eval()
     outputs: list[tuple[str, np.ndarray, np.ndarray]] = []
@@ -899,6 +1254,17 @@ def raw_parity(
     actual = session.run(None, {"crops": crops})
     for name, left, right in zip(("nodes", "peak", "visibility"), expected, actual, strict=True):
         outputs.append((f"board.{name}", left, right))
+    if content_auxiliary:
+        session = onnxruntime.InferenceSession(
+            str(directory / "content.onnx"), providers=["CPUExecutionProvider"]
+        )
+        with torch.no_grad():
+            expected = [t.numpy() for t in ContentExport(network.board)(torch.from_numpy(crops))]
+        actual = session.run(None, {"crops": crops})
+        for name, left, right in zip(
+            ("content_quads", "local_visibility"), expected, actual, strict=True
+        ):
+            outputs.append((f"content.{name}", left, right))
     if pixels is not None:
         session = onnxruntime.InferenceSession(
             str(directory / "screen.onnx"), providers=["CPUExecutionProvider"]

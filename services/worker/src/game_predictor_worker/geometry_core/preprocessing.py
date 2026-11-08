@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-from .rescue import BoardCropGeometryV1, ScreenInputGeometryV1
+from .rescue import BoardCropGeometryV1, BoardCropGeometryV2, ScreenInputGeometryV1
 from .settings import BoardPreset, ScreenPreset
 
 FloatArray = NDArray[np.float32]
@@ -95,11 +95,14 @@ def screen_input(
 
 
 def board_rectifier(
-    quad: FloatArray, board: BoardPreset, *, geometry: BoardCropGeometryV1 | None = None
+    quad: FloatArray,
+    board: BoardPreset,
+    *,
+    geometry: BoardCropGeometryV1 | BoardCropGeometryV2 | None = None,
 ) -> NDArray[np.float64]:
     """Homography source -> crop; the quad lands on the inner rectangle (margin per side)."""
 
-    width, height = board.canvas
+    width, height = geometry.canvas if isinstance(geometry, BoardCropGeometryV2) else board.canvas
     margin = board.margin if geometry is None else geometry.margin
     left = width * margin / (1 + 2 * margin)
     top = height * margin / (1 + 2 * margin)
@@ -112,12 +115,18 @@ def board_rectifier(
     )
 
 
-def crop_board(rgb: ByteImage, matrix: NDArray[np.float64], board: BoardPreset) -> ByteImage:
+def crop_board(
+    rgb: ByteImage,
+    matrix: NDArray[np.float64],
+    board: BoardPreset,
+    *,
+    geometry: BoardCropGeometryV1 | BoardCropGeometryV2 | None = None,
+) -> ByteImage:
     return np.asarray(
         cv2.warpPerspective(
             rgb,
             matrix,
-            tuple(board.canvas),
+            geometry.canvas if isinstance(geometry, BoardCropGeometryV2) else tuple(board.canvas),
             flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_CONSTANT,
             borderValue=(PAD_VALUE, PAD_VALUE, PAD_VALUE),

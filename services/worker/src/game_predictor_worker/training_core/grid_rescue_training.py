@@ -10,6 +10,139 @@ from ..geometry_core.rescue import GridRescueVariantV1
 from .grid_training_admission import digest
 
 
+class ContentTrainingExposure:
+    """Per-component receipts from completed optimizer steps and actual raster sizes."""
+
+    def __init__(self, plan: Mapping[str, Any], arm: str) -> None:
+        from .grid_content_experiment import arm_spec, require_plan
+
+        self.plan = require_plan(plan)
+        self.spec = arm_spec(plan, arm)
+        self.value: dict[str, Any] = {
+            "contract": "content-stage-exposure-v1",
+            "planSha256": self.plan["sha256"],
+            "arm": arm,
+            "lastStep": 0,
+            "confirmedSteps": 0,
+            "chainSha256": digest([]),
+            "games": {},
+        }
+
+    def confirm_components(
+        self,
+        step: int,
+        *,
+        screen_members: Sequence[Mapping[str, str]],
+        board_members: Sequence[Mapping[str, str]],
+        screen_canvas: tuple[int, int] | None,
+        board_canvas: tuple[int, int] | None,
+    ) -> None:
+        if type(step) is not int or not self.value["lastStep"] < step <= 1200:
+            raise ValueError("CONTENT_EXPOSURE_STEP_INVALID")
+        variant = self.spec["multiscale"] and (step - 1) % 2 == 1
+        expected = {
+            "screen": (1280, 960) if variant else (768, 576),
+            "board": (480, 288) if variant else (320, 192),
+        }
+        receipt: dict[str, Any] = {}
+        updated = copy.deepcopy(self.value)
+        for stage, members, canvas in (
+            ("screen", screen_members, screen_canvas),
+            ("board", board_members, board_canvas),
+        ):
+            if not members:
+                continue
+            if canvas != expected[stage]:
+                raise ValueError("CONTENT_EXPOSURE_RASTER_INVALID")
+            mode = "variant" if variant else "baseline"
+            for member in members:
+                if set(member) != {"gameId", "sourceId", "sourceSha256", "cohortSha256"} or member[
+                    "gameId"
+                ] not in {c["gameId"] for c in self.plan["cohorts"]}:
+                    raise ValueError("CONTENT_EXPOSURE_MEMBER_INVALID")
+                from .grid_content_experiment import _sha
+
+                _sha(member["sourceSha256"])
+                _sha(member["cohortSha256"])
+                if not member["sourceId"] or member["cohortSha256"] != next(
+                    c["manifestSha256"]
+                    for c in self.plan["cohorts"]
+                    if c["gameId"] == member["gameId"]
+                ):
+                    raise ValueError("CONTENT_EXPOSURE_MEMBER_INVALID")
+                game = updated["games"].setdefault(member["gameId"], {})
+                key = stage + ":" + mode
+                item = game.setdefault(
+                    key, {"canvas": list(canvas), "confirmedItems": 0, "maxStep": 0, "sources": {}}
+                )
+                item["confirmedItems"] += 1
+                item["maxStep"] = step
+                item["sources"][digest(dict(member))] = dict(member)
+            receipt[stage] = {"canvas": list(canvas), "members": [dict(m) for m in members]}
+        if not receipt:
+            raise ValueError("CONTENT_EXPOSURE_EMPTY")
+        updated["chainSha256"] = digest(
+            {"previous": self.value["chainSha256"], "step": step, "components": receipt}
+        )
+        updated["lastStep"] = step
+        updated["confirmedSteps"] += 1
+        self.value = updated
+
+    def state(self) -> dict[str, Any]:
+        value = copy.deepcopy(self.value)
+        return {**value, "sha256": digest(value)}
+
+    def restore(self, value: Mapping[str, Any], step: int) -> None:
+        body = {k: copy.deepcopy(v) for k, v in value.items() if k != "sha256"}
+        if (
+            value.get("sha256") != digest(body)
+            or set(body) != set(self.value)
+            or body.get("contract") != self.value["contract"]
+            or body.get("planSha256") != self.plan["sha256"]
+            or body.get("arm") != self.spec["arm"]
+            or not 0 <= body["confirmedSteps"] <= body["lastStep"] <= step <= 1200
+        ):
+            raise ValueError("CONTENT_EXPOSURE_STATE_INVALID")
+        from .grid_content_experiment import _count, _sha
+
+        _count(body["confirmedSteps"], step)
+        _count(body["lastStep"], step)
+        _sha(body["chainSha256"])
+        cohorts = {c["gameId"]: c["manifestSha256"] for c in self.plan["cohorts"]}
+        for game_id, stages in body["games"].items():
+            if game_id not in cohorts or not stages:
+                raise ValueError("CONTENT_EXPOSURE_STATE_INVALID")
+            for key, row in stages.items():
+                allowed = {"screen:baseline": [768, 576], "board:baseline": [320, 192]}
+                if self.spec["multiscale"]:
+                    allowed.update({"screen:variant": [1280, 960], "board:variant": [480, 288]})
+                if (
+                    key not in allowed
+                    or set(row) != {"canvas", "confirmedItems", "maxStep", "sources"}
+                    or row["canvas"] != allowed[key]
+                    or not row["sources"]
+                ):
+                    raise ValueError("CONTENT_EXPOSURE_STATE_INVALID")
+                if (
+                    _count(row["confirmedItems"]) < len(row["sources"])
+                    or not _count(row["maxStep"], body["lastStep"]) >= 1
+                ):
+                    raise ValueError("CONTENT_EXPOSURE_STATE_INVALID")
+                for sha, member in row["sources"].items():
+                    if (
+                        set(member) != {"gameId", "sourceId", "sourceSha256", "cohortSha256"}
+                        or digest(member) != sha
+                        or member["gameId"] != game_id
+                        or member["cohortSha256"] != cohorts[game_id]
+                        or not member["sourceId"]
+                    ):
+                        raise ValueError("CONTENT_EXPOSURE_STATE_INVALID")
+                    _sha(member["sourceSha256"])
+        if bool(body["games"]) != bool(body["confirmedSteps"]):
+            raise ValueError("CONTENT_EXPOSURE_STATE_INVALID")
+        self.value = body
+
+
 def selection_input(parts: Sequence[tuple[str, Mapping[str, Any]]]) -> dict[str, Any]:
     games = []
     purpose_aware = bool(parts) and all(

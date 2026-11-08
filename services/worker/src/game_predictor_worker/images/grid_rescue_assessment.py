@@ -6,9 +6,24 @@ from pathlib import Path
 from typing import Any
 
 from game_predictor_api.domain.grid_rescue_policy import require_rescue_evidence
+from game_predictor_api.storage.grid_content_bundle import read_content_bundle_bytes
 
 from ..geometry_core.rescue import GridRescueVariantV1
 from .grid_rescue_strategy import RescueResult, execute_path
+
+
+def load_assessment_engine(directory: Path, expected_sha: str, threads: int) -> Any:
+    """Apply the assessment limit before ONNX construction reads the bundle."""
+    from ..geometry_core.inference import onnx_engine
+
+    payload = read_content_bundle_bytes(directory / "bundle.json")
+    if hashlib.sha256(payload).hexdigest() != expected_sha:
+        raise ValueError("GRID_RESCUE_BUNDLE_CHANGED")
+    return assessment_engine(
+        onnx_engine(directory, threads, expected_bundle_sha256=expected_sha, bundle_bytes=payload),
+        directory,
+        expected_sha,
+    )
 
 
 class RescueAssessmentEngine:
@@ -41,12 +56,24 @@ class RescueAssessmentEngine:
 
 def assessment_engine(engine: Any, directory: Path, expected_sha: str) -> Any:
     path = directory / "bundle.json"
-    if path.stat().st_size > 16 * 1024 * 1024:
-        raise ValueError("GRID_RESCUE_PROOF_TOO_LARGE")
-    payload = path.read_bytes()
+    payload = read_content_bundle_bytes(path)
     if hashlib.sha256(payload).hexdigest() != expected_sha:
         raise ValueError("GRID_RESCUE_BUNDLE_CHANGED")
     bundle = json.loads(payload)
+    if "contentRescue" in bundle:
+        from game_predictor_api.domain.grid_content_experiment_evidence import (
+            require_content_experiment_evidence,
+        )
+
+        from .grid_content_experiment_data import ContentAssessmentEngine
+
+        require_content_experiment_evidence(bundle)
+        rescue = bundle["contentRescue"]
+        return (
+            engine
+            if rescue["selectedPath"] is None
+            else ContentAssessmentEngine(engine, rescue["routing"])
+        )
     if "rescue" not in bundle:
         return engine
     proof = require_rescue_evidence(bundle)

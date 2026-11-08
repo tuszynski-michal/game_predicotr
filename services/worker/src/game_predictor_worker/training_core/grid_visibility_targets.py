@@ -14,7 +14,7 @@ from ..geometry_core.preprocessing import (
     quad_is_usable,
     transform_points,
 )
-from ..geometry_core.rescue import BoardCropGeometryV1
+from ..geometry_core.rescue import BoardCropGeometryV1, BoardCropGeometryV2
 from .neural_grid_augmentation import perturb_quad, photometric
 
 
@@ -88,7 +88,9 @@ def supervised_board_crop(
     reference: Any,
     supervision: Any,
     source_support: np.ndarray,
-    geometry: BoardCropGeometryV1 | None = None,
+    geometry: BoardCropGeometryV1 | BoardCropGeometryV2 | None = None,
+    content_auxiliary: bool = False,
+    explicit_skip: bool = False,
 ) -> dict[str, np.ndarray]:
     """At most three jitter draws; an invalid draw never becomes an ideal GT crop."""
     if (
@@ -104,7 +106,7 @@ def supervised_board_crop(
         if quad_is_usable(proposed):
             quad = proposed
             break
-    width, height = board.canvas
+    width, height = geometry.canvas if isinstance(geometry, BoardCropGeometryV2) else board.canvas
     if quad is None:
         return {
             "crop": np.full((height, width, 3), 114, np.uint8),
@@ -112,6 +114,15 @@ def supervised_board_crop(
             "node_weights": np.zeros(24, np.float32),
             "visibility_targets": np.zeros(15, np.float32),
             "visibility_mask": np.zeros(15, np.float32),
+            **({"crop_skipped": np.asarray(1, np.float32)} if explicit_skip else {}),
+            **(
+                {
+                    "content_quads": np.zeros((15, 4, 2), np.float32),
+                    "content_quad_mask": np.zeros(15, np.float32),
+                }
+                if content_auxiliary
+                else {}
+            ),
         }
     matrix = board_rectifier(quad, board, geometry=geometry)
     support = cv2.warpPerspective(
@@ -124,14 +135,29 @@ def supervised_board_crop(
     )
     content_support = np.asarray(support, dtype=np.float32).copy()
     crop = photometric(
-        crop_board(rgb, matrix, board), augmentation, rng, content_support=content_support
+        crop_board(rgb, matrix, board, geometry=geometry),
+        augmentation,
+        rng,
+        content_support=content_support,
     )
     nodes = transform_points(label_nodes, matrix)
     targets, mask = content_targets(reference, matrix, content_support, supervision)
-    return {
+    result: dict[str, np.ndarray] = {
         "crop": crop,
         "nodes": nodes,
         "node_weights": node_support_weights(nodes, support, board.stride),
         "visibility_targets": targets,
         "visibility_mask": mask,
+        **({"crop_skipped": np.asarray(0, np.float32)} if explicit_skip else {}),
     }
+    if content_auxiliary:
+        quads, quad_mask = np.zeros((15, 4, 2), np.float32), np.zeros(15, np.float32)
+        if reference is not None and reference.humanApproved and supervision.qualified:
+            for i, cell in enumerate(reference.cells):
+                # Geometry is supervised only where the full labelled content survives
+                # the actual warp and occlusion; hidden quads are not invented.
+                if cell.state == "visible" and targets[i] == 1 and mask[i] == 1:
+                    quads[i] = transform_points(np.asarray(cell.quad, np.float32), matrix)
+                    quad_mask[i] = 1
+        result.update(content_quads=quads, content_quad_mask=quad_mask)
+    return result

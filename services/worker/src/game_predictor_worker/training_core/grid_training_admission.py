@@ -18,6 +18,7 @@ ADMISSION_POLICY = "grid-training-admission-v1"
 BUDGET_FORMAT = "grid-training-budget-v1"
 LEGACY_LIMIT_POLICY = "preset-v1"
 TRAIN_LIMIT_POLICY = "grid-training-limits-v2"
+CONTENT_LIMIT_POLICY = "full-symbol-content-budget-v1"
 TRAIN_MAX_STEPS = 8000
 TRAIN_MAX_SECONDS = 7200.0
 
@@ -46,6 +47,7 @@ REASONS = (
     "GRID_RUN_LEASE_UNKNOWN",
     "GRID_RUN_BUDGET_PRESET_MISMATCH",
     "GRID_RUN_BUDGET_EXHAUSTED",
+    "CONTENT_EXPERIMENT_INVALID",
 )
 WORKER_CHECKS = (
     "GPU_AVAILABLE",
@@ -459,9 +461,30 @@ class RunBudget:
     used_seconds: float = 0.0
     attempts: int = 0
     limit_policy: str = LEGACY_LIMIT_POLICY
+    logical_completed_steps: int = 0
 
     @classmethod
-    def for_preset(cls, preset: GridTrainingPreset, purpose: Purpose) -> RunBudget:
+    def for_preset(
+        cls,
+        preset: GridTrainingPreset,
+        purpose: Purpose,
+        *,
+        content_experiment: Mapping[str, Any] | None = None,
+    ) -> RunBudget:
+        if content_experiment is not None:
+            from .grid_content_experiment import require_plan
+
+            require_plan(content_experiment)
+            if purpose != "train" or preset.fingerprint != SCREEN_GRID_CORRECTIONS_V1.fingerprint:
+                raise GridRunBudgetError("CONTENT_EXPERIMENT_INVALID")
+            return cls(
+                preset.preset_id,
+                preset.fingerprint,
+                purpose,
+                4800,
+                7200.0,
+                limit_policy=CONTENT_LIMIT_POLICY,
+            )
         if purpose == "smoke":
             steps, seconds = SMOKE_MAX_STEPS, SMOKE_MAX_SECONDS
         else:
@@ -492,7 +515,12 @@ class RunBudget:
 
     @property
     def remaining_steps(self) -> int:
-        return max(0, self.max_steps - self.reserved_steps)
+        consumed = (
+            self.logical_completed_steps
+            if self.limit_policy == CONTENT_LIMIT_POLICY
+            else self.reserved_steps
+        )
+        return max(0, self.max_steps - consumed)
 
     @property
     def remaining_seconds(self) -> float:
@@ -500,7 +528,10 @@ class RunBudget:
 
     @property
     def exhausted(self) -> bool:
-        return self.remaining_steps == 0 or self.remaining_seconds <= 0.0
+        # A completed content experiment may still owe its one final export.
+        return self.remaining_seconds <= 0.0 or (
+            self.limit_policy != CONTENT_LIMIT_POLICY and self.remaining_steps == 0
+        )
 
     def start_attempt(self) -> RunBudget:
         if self.exhausted:
@@ -508,8 +539,12 @@ class RunBudget:
         return replace(self, attempts=self.attempts + 1)
 
     def reserve_step(self) -> RunBudget:
-        if self.exhausted:
+        if self.exhausted or self.remaining_steps == 0:
             raise GridRunBudgetError("GRID_RUN_BUDGET_EXHAUSTED")
+        if self.limit_policy == CONTENT_LIMIT_POLICY:
+            return replace(
+                self, reserved_steps=max(self.reserved_steps, self.logical_completed_steps + 1)
+            )
         return replace(self, reserved_steps=self.reserved_steps + 1)
 
     def charge(self, seconds: float) -> RunBudget:
@@ -520,6 +555,8 @@ class RunBudget:
 
     def to_payload(self) -> dict[str, Any]:
         body = {"format": BUDGET_FORMAT, **asdict(self)}
+        if self.limit_policy != CONTENT_LIMIT_POLICY:
+            body.pop("logical_completed_steps")  # Preserve exact legacy receipt identity.
         return {"payload": body, "sha256": digest(body)}
 
     @classmethod
@@ -536,9 +573,24 @@ class RunBudget:
             raise GridRunBudgetError("GRID_RUN_BUDGET_CORRUPT") from error
         if (
             budget.purpose not in ("train", "smoke")
-            or budget.limit_policy not in (LEGACY_LIMIT_POLICY, TRAIN_LIMIT_POLICY)
+            or budget.limit_policy
+            not in (LEGACY_LIMIT_POLICY, TRAIN_LIMIT_POLICY, CONTENT_LIMIT_POLICY)
             or budget.reserved_steps < 0
+            or type(budget.logical_completed_steps) is not int
+            or budget.logical_completed_steps < 0
+            or budget.limit_policy != CONTENT_LIMIT_POLICY
+            and budget.logical_completed_steps != 0
             or budget.used_seconds < 0
+            or not math.isfinite(budget.used_seconds)
+            or budget.limit_policy == CONTENT_LIMIT_POLICY
+            and (
+                budget.max_steps != 4800
+                or budget.max_seconds != 7200.0
+                or budget.purpose != "train"
+                or budget.reserved_steps > 4800
+                or budget.logical_completed_steps > 4800
+                or budget.used_seconds > 7200.0
+            )
         ):
             raise GridRunBudgetError("GRID_RUN_BUDGET_CORRUPT")
         return budget
@@ -567,9 +619,23 @@ def evaluate_admission(
     stored_budget: RunBudget | None = None,
     presets: Mapping[str, GridTrainingPreset] = PRESETS,
     rescue_variant: Any = None,
+    content_experiment: Mapping[str, Any] | None = None,
 ) -> AdmissionDecision:
     """Pure admission of one new or resumed run. Missing facts block; nothing is assumed."""
     found: set[str] = set()
+    if content_experiment is not None:
+        from .grid_content_experiment import require_plan
+
+        try:
+            require_plan(content_experiment)
+            if (
+                purpose != "train"
+                or preset_id != SCREEN_GRID_CORRECTIONS_V1.preset_id
+                or rescue_variant is not None
+            ):
+                raise ValueError("CONTENT_EXPERIMENT_INVALID")
+        except (ValueError, TypeError, KeyError):
+            found.add("CONTENT_EXPERIMENT_INVALID")
     preset = presets.get(preset_id)
     unknown = preset is None or preset.fingerprint != preset_fingerprint
     if unknown or (purpose == "train" and preset is not None and not preset.approved):
@@ -584,8 +650,12 @@ def evaluate_admission(
             cost = estimate_cohort_cost(preset, counts, rescue_variant=rescue_variant)
             if cost.train_items == 0:
                 found.add("GRID_RUN_COHORT_EMPTY")
-            if not cost.within_budget:
+            if not cost.within_budget and content_experiment is None:
                 found.add("GRID_RUN_COHORT_COST_EXCEEDS_BUDGET")
+            if content_experiment is not None:
+                # Legacy throughput does not estimate the new raster/head. The worker
+                # must supply a measured arm feasibility proof before optimization.
+                cost = None
     if runtime is None or not runtime.cuda_available:
         found.add("GRID_RUN_GPU_UNAVAILABLE")
     else:
@@ -610,13 +680,15 @@ def evaluate_admission(
     elif lease_state not in ("free", "stale"):
         found.add("GRID_RUN_LEASE_UNKNOWN")
     budget = None
-    if preset is not None:
+    if preset is not None and "CONTENT_EXPERIMENT_INVALID" not in found:
         if stored_budget is None:
-            budget = RunBudget.for_preset(preset, purpose)
+            budget = RunBudget.for_preset(preset, purpose, content_experiment=content_experiment)
         elif (
             stored_budget.preset_id != preset.preset_id
             or stored_budget.preset_fingerprint != preset.fingerprint
             or stored_budget.purpose != purpose
+            or (stored_budget.limit_policy == CONTENT_LIMIT_POLICY)
+            != (content_experiment is not None)
         ):
             found.add("GRID_RUN_BUDGET_PRESET_MISMATCH")
         else:

@@ -23,7 +23,9 @@ def content_enabled(snapshot: Any) -> bool:
 
 
 class ProductionContentRun:
-    def __init__(self, snapshot: Any) -> None:
+    def __init__(
+        self, snapshot: Any, *, roles: tuple[str, ...] = ("VALIDATION", "REGRESSION")
+    ) -> None:
         self.snapshot = snapshot
         self.game = snapshot.manifest["gameId"]
         self.reasons: set[str] = set()
@@ -33,7 +35,9 @@ class ProductionContentRun:
         self.classifiers: set[str] = set()
         self.configurations: set[str] = set()
         reports = {}
-        for role in ("VALIDATION", "REGRESSION"):
+        if not roles or any(role not in ("VALIDATION", "REGRESSION") for role in roles):
+            raise ValueError("CONTENT_REFERENCE_ROLE_INVALID")
+        for role in roles:
             dataset = (
                 GridBoardDataset(snapshot, role)
                 if role == "VALIDATION"

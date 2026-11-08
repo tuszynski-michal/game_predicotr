@@ -6,10 +6,27 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1167 — Kontrolowane warianty treningu zawartości i ratunku (done)
+
+- Plik: tasks/completed/1167-bounded-content-training.md.
+- Commit: **v1.7.576** (hash dopisuje kolejny commit).
+- Jeden child R0–R3, ancestor-unseen bank TRAIN, wspólny logiczny4800/7200,
+  właściwy nadzór/ekspozycja R3, PASS-first A, rzeczywiste ONNX i restart/eksport.
+- BASE/WIDE: osobne progi i30+30, pełne rostery, independent physical API replay,
+  przypięty profil/stamp i current source/crop support w obu finalizerach.
+- Właściwe worker/API/SDK/Admin testy, ONNX, owned PostgreSQL/cold/cleanup oraz
+  scoped lint/typy opisane w quality/TASK-1167_VERIFICATION.md; docs/map PASS.
+  Historyczny Row-vs-tuple odtworzony na HEAD, brak globalnego mypy PASS.
+- Terminal Claude Code Opus5.5/high R2 PASS0P0/0P1 po jednej rundzie poprawek;
+  pierwszy429 zachowany, ten sam pakiet wznowiony po resecie jako transport2.
+- P2-1 performance zaakceptowany; P2-4/5/6 przekazane do osobnego odbioru T5.
+- Bez treningu/GPU/operator DB/usług/default/importu691/merge/push. T5 jest
+  osobną trwającą deltą, wyłączoną z kodu tego commita przez frozen tree.
+
 ### TASK-1166 — Ocena produkcyjnych wycinków (done)
 
 - Plik: `tasks/completed/1166-production-cell-evaluation.md`.
-- Commit: **v1.7.575** (hash dopisuje kolejny commit).
+- Commit: **v1.7.575 / `ac724d297448785bdcb98b17dc6a3d5e3fc104e5`** (hash dopisuje kolejny commit).
 - Realny renderer, niezależna zawartość15pól, fixed denominators i brak kompensacji; v6/SQL0183/API/SDK, replay/freshness bez nadpisania historii.
 - Testy domeny/worker/cold replay,3disposablePGpiony, scopedlint/types,SDK/docs/map; jawne baseline i incydent helperDB w Verification.
 - Opus terminal R1REVISE→jednarundapoprawek→R2PASS0P0/0P1; raport/receipts w quality. Limit1800s na jawne polecenie operatora.

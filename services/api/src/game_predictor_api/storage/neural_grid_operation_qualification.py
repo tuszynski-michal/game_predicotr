@@ -193,11 +193,16 @@ def _automatic_evidence(
     if document.get("schemaVersion") == "grid-model-evaluation-read-v6":
         from game_predictor_api.domain.production_cell_evaluation import require_report
 
+        from .full_board_variant_calibration_evidence import variant_report_allowed
+
         try:
             require_report(
                 report.report_json,
                 manifest=snapshot_descriptor(snapshot),
                 base_sha256=document["baseManifestSha256"],
+                allow_variant_calibration=variant_report_allowed(
+                    root, snapshot_descriptor(snapshot), document
+                ),
             )
         except (KeyError, ValueError, TypeError):
             return unqualified

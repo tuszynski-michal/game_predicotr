@@ -15,7 +15,7 @@ from game_predictor_api.domain.grid_visibility_contract import GridOutputContrac
 from ..geometry_core.inference import BoardDetection
 from ..geometry_core.metrics import quad_iou
 from ..geometry_core.preprocessing import board_rectifier, quad_is_usable, transform_points
-from ..geometry_core.rescue import BoardCropGeometryV1
+from ..geometry_core.rescue import BoardCropGeometryV1, BoardCropGeometryV2
 from ..geometry_core.settings import BoardPreset
 
 CORNERS = [0, 5, 23, 18]
@@ -28,7 +28,7 @@ def input_edge_clearance(
     width: int,
     height: int,
     available_source_support: np.ndarray | None = None,
-    geometry: BoardCropGeometryV1 | None = None,
+    geometry: BoardCropGeometryV1 | BoardCropGeometryV2 | None = None,
 ) -> float | None:
     """Signed raw-node distance in nominal-cell units to the real input boundary."""
     raw = detection.raw_nodes
@@ -42,7 +42,9 @@ def input_edge_clearance(
     ):
         return None
     matrix = board_rectifier(detection.screen_quad, board, geometry=geometry)
-    canvas_w, canvas_h = board.canvas
+    canvas_w, canvas_h = (
+        geometry.canvas if isinstance(geometry, BoardCropGeometryV2) else board.canvas
+    )
     margin = board.margin if geometry is None else geometry.margin
     nominal = np.array([canvas_w / (5 * (1 + 2 * margin)), canvas_h / (3 * (1 + 2 * margin))])
     support = (
@@ -128,10 +130,12 @@ def missing_cell_area(
 
 
 def input_support(
-    quad: np.ndarray, board: BoardPreset, geometry: BoardCropGeometryV1 | None = None
+    quad: np.ndarray,
+    board: BoardPreset,
+    geometry: BoardCropGeometryV1 | BoardCropGeometryV2 | None = None,
 ) -> np.ndarray:
     matrix = board_rectifier(quad, board, geometry=geometry)
-    width, height = board.canvas
+    width, height = geometry.canvas if isinstance(geometry, BoardCropGeometryV2) else board.canvas
     return transform_points(
         np.array([[0, 0], [width, 0], [width, height], [0, height]], np.float32),
         np.asarray(np.linalg.inv(matrix), dtype=np.float64),
@@ -226,7 +230,7 @@ def features(
     available_source_support: np.ndarray | None = None,
     output_contract: GridOutputContract | None = None,
     board: BoardPreset | None = None,
-    geometry: BoardCropGeometryV1 | None = None,
+    geometry: BoardCropGeometryV1 | BoardCropGeometryV2 | None = None,
 ) -> FeatureVector:
     values: dict[str, float | None] = dict.fromkeys(AXES)
     if output_contract is not None:

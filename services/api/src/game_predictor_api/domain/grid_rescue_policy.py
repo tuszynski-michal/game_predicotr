@@ -339,6 +339,10 @@ def _require_selection_choice(
 
 
 def require_rescue_pin(value: object, *, bundle_sha: str) -> dict[str, Any]:
+    if isinstance(value, dict) and value.get("policyVersion") == "grid-content-rescue-policy-v1":
+        from .grid_content_experiment_evidence import require_content_rescue_pin
+
+        return require_content_rescue_pin(value, bundle_sha=bundle_sha)
     if not isinstance(value, dict) or set(value) != {
         "policyVersion",
         "variantId",

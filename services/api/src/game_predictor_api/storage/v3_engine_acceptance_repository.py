@@ -233,6 +233,8 @@ def finalize_v3_engine_acceptance(
                     grid_issue=board.id in issues,
                 )
             )
+        from .full_board_input_variant import current_variant_source_box
+
         blockers = qualify_v3_engine_acceptance(
             operation_pin=operation_pin,
             qualification_blockers=qualification_blockers,
@@ -244,6 +246,16 @@ def finalize_v3_engine_acceptance(
             source_checksum_sha256=source.checksum_sha256,
             width=cast(int, source.oriented_width),
             height=cast(int, source.oriented_height),
+            available_source_box=current_variant_source_box(
+                session,
+                pin=operation_pin,
+                source_sha256=source.checksum_sha256,
+                width=cast(int, source.oriented_width),
+                height=cast(int, source.oriented_height),
+                artifact_root=artifact_root,
+                source_relative_path=source.relative_path,
+                normalized_pixel_sha256=source.normalized_pixel_checksum_sha256,
+            ),
             active_slots=revision.active_board_slots,
             sequence_start=revision.sequence_range_start,
             sequence_end=revision.sequence_range_end,

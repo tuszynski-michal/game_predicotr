@@ -227,7 +227,7 @@ P0/P1, dokładne wyniki w `ai_docs/quality/TASK-1166_VERIFICATION.md`.
 
 ## Outcome
 
-Commit: v1.7.575 (hash dopisuje kolejny commit).
+Commit: v1.7.575 / `ac724d297448785bdcb98b17dc6a3d5e3fc104e5`.
 
 Pion implementacji obejmuje realny renderer, niezmieniony padding i pełny
 backend-owned snapshot, czystą geometrię/niepewność, per-instance/source-wide

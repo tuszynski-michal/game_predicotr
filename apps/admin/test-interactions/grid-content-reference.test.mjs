@@ -1685,6 +1685,56 @@ test('ordinary overlays preserve all saved points and keep grid, content and pro
     assert.equal(document.querySelectorAll('.gridContentHandle').length, 0);
     assert.deepEqual(changes.at(-1)[0], cells);
     assert.equal(changes.at(-1)[1], null);
+    const previousChanges = changes.length;
+    const removeOutline = [...document.querySelectorAll('button')].find((b) =>
+      b.textContent.includes('Usuń obwiednię'),
+    );
+    assert.equal(removeOutline.disabled, true);
+    assert.equal(
+      document.querySelector('[aria-label="Róg obwiedni"]').disabled,
+      true,
+    );
+    assert.equal(
+      document.querySelector('[aria-label="Obwiednia X"]').disabled,
+      true,
+    );
+    assert.equal(
+      document.querySelector('[aria-label="Obwiednia Y"]').disabled,
+      true,
+    );
+    await act(async () => removeOutline.click());
+    assert.equal(changes.length, previousChanges);
+    for (const p of [
+      [40, 40],
+      [55, 40],
+      [55, 55],
+      [40, 55],
+    ])
+      await point(...p);
+    assert.equal(changes.length, previousChanges);
+    assert.match(
+      document.body.textContent,
+      /Włącz obrysy grafik, aby je zmieniać/,
+    );
+    await toggle('Obrysy grafik');
+    assert.equal(removeOutline.disabled, false);
+    assert.equal(
+      document.querySelector('[aria-label="Obwiednia X"]').disabled,
+      false,
+    );
+    for (const p of [
+      [40, 40],
+      [55, 40],
+      [55, 55],
+      [40, 55],
+    ])
+      await point(...p);
+    assert.deepEqual(changes.at(-1)[0][0].quad, [
+      [40, 40],
+      [55, 40],
+      [55, 55],
+      [40, 55],
+    ]);
   } finally {
     await m.cleanup();
   }

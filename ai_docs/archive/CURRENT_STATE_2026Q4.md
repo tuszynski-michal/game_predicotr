@@ -6,10 +6,22 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1173 — HTML i końcowy odbiór pełnych wycinków (done)
+
+- Plik: `tasks/completed/1173-crop-preview-acceptance.md`.
+- Commit: **v1.7.585** (hash dopisuje kolejny commit).
+- Nowy jawny tryb istniejącego CLI tworzy lokalny HTML rzeczywistych wycinków 8%/0%, bez zmiany legacy. Oryginał/24punkty/approved content lub brak/actual wejścia NN/15par human i model są rozdzielone. TRAIN+visualExportAllowed przed pikselem/public JSON, bez ujawniania A ani mieszania indeksów detekcji.
+- Raport v4 w root artifacts/grid-symbol-crop-preview-20261109-t4-v4/index.html: 9plansz,540cropów+10inputów+oryginał=551PNG; cold CLI exit0 i niezmienność552wejść/553wyjść/SHA/pikseli/wymiarów. Podgląd jest diagnostyką, bez dowodu jakości operatorowego modelu (brak approved GT).
+- Domknięto T1: ukryty obrys nie przyjmuje niewidocznej edycji, TRAIN bez nodes zachowuje ordinary obraz/adnotację. Instrukcja pełnej grafiki obejmuje ozdobne obramowanie. LF checksum-bound auditów potwierdzony w świeżym checkout.
+- R1: rzeczywista geometryMetrics.matches i ordinal etykiet, błędna/partial geometria oraz fałszywe/zdublowane detekcje jawne; executed DOM clipping/sąsiad/fragmenty/brak klasyfikatora. Marginesy sprawdzane dokładnie, ukryte kontrolki quadu blokują edycję. Ochrona HTML jest na moment capture, nie przyszłych sesji.
+- Końcowe Worker16/Canvas28 i wcześniejsze export8/legacy39+3/PG/DOM/lint/types PASS, standalone Worker collection3639 (nie wykonanie); root standard Admin build exit0/28.64s. Pełny Admin427PASS/11FAIL:10udowodnionych baseline i przejściowy picker; sam picker2PASS. PG coldRead/15footprint/readOnly/alias/cleanup0 PASS. Szczegóły quality/TASK-1173_VERIFICATION.md i zbiorczy odbiór.
+- Audyt Opus5.5/high terminal R2 PASS0P0/0P1 (243,62s); receipt/model/payload/reportSHA zweryfikowane. R1 P1 zamknięte, P2-8/9 opisów missing/borderline przyjęte w Outcome bez fałszywej oceny pozytywnej. T1–T3 wcześniejsze Opus PASS i osobne commity.
+- Ograniczenia: brak ręcznego browser screenshot PASS (CUA file://), długi training workflow T3 bez PASS i jawne P2 T1–T3 w zbiorczym odbiorze. Bez zmian operatorowego modelu/marginesu/defaultu, etykiet, importu691, treningu/GPU, usług/migracji/deploy i merge/push. Implementacja planu T1–T4 zakończona, po odbiorze wymaga osobnej zgody na integrację.
+
 ### TASK-1172 — Powiązanie renderowania i danych z uczeniem (done)
 
 - Plik: `tasks/completed/1172-content-render-training-binding.md`.
-- Commit: **v1.7.584** (hash dopisuje kolejny commit).
+- Commit: **v1.7.584 / `aeae60128e954338cdd257c517c48933e0f25846`** (hash dopisuje kolejny commit).
 - D-596: jawny opt-in aktualnego renderu w nowej sesji, pełny API/OpenAPI/SDK/wrapper/Admin; oddzielny import/evaluation pin przez oracle/freeze/parent/child/R0–R3 i świeżość, bez retargetu historii. Legacy/v1 i etykiety poza A zachowane.
 - D-597: rzeczywiste oracle z clipping i poprawne u/δ mogą służyć wyłącznie diagnostyce marginesów; strict trening/publikacja/default bez poluzowania. Jawny blocked stan, pierwszeństwo unique ready, diagnostyczne None wiąże aktualny kontrakt A.
 - Weryfikacja po jednej rundzie poprawek: selector/preflight29 PASS i regresje73 PASS; mały PostgreSQL actual advance/JSONB1 PASS29.87s, wcześniejszy pełny PG freeze/one-child proof1 PASS102.77s. Oba cleanup w nowym procesie:0 DB/0 ról. API/Admin/SDK/Ruff/mypy19/types PASS, docs/map PASS; cold receipt replay bez ponownego resolvera.

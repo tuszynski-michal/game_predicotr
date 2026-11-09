@@ -50,6 +50,7 @@ export function GridContentCanvas({
   const [zoom, setZoom] = useState(1);
   const [showGrid, setShowGrid] = useState(true);
   const [showOutlines, setShowOutlines] = useState(true);
+  const contentHidden = !measureGeometry && !showOutlines;
   const [showCrops, setShowCrops] = useState(false);
   const [panning, setPanning] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -98,6 +99,10 @@ export function GridContentCanvas({
   }
   function place(p: ContentPoint) {
     if (disabled || !loaded || panning) return;
+    if (tool === 'content' && !showOutlines) {
+      setError('Włącz obrysy grafik, aby je zmieniać.');
+      return;
+    }
     setError('');
     if (tool === 'geometry') {
       if (nodes !== null) {
@@ -153,8 +158,9 @@ export function GridContentCanvas({
   return (
     <section className="gridContentCanvas" aria-label="Edytor zawartości pól">
       <p>
-        Zaznacz pełną widoczną grafikę bez tła pola. „10” to jeden symbol.
-        Obwiednie i siatka są niezależne.
+        {measureGeometry
+          ? 'Zaznacz pełną widoczną grafikę bez tła pola. „10” to jeden symbol. Obwiednie i siatka są niezależne.'
+          : 'Obrys obejmuje pełną grafikę razem z ozdobnym obramowaniem, bez tła i sąsiedniego symbolu. Pola siatki mają wspólne granice, a obrysy J i 10 mogą mieć różne rozmiary. „10” to jeden symbol.'}
       </p>
       <div className="gridContentActions">
         {!measureGeometry && ordinaryPreview ? (
@@ -302,8 +308,9 @@ export function GridContentCanvas({
           <button
             type="button"
             className="secondaryButton"
-            disabled={disabled}
+            disabled={disabled || contentHidden}
             onClick={() => {
+              if (contentHidden) return;
               updateCell({ state: selected.state });
               setDraft([]);
             }}
@@ -393,7 +400,13 @@ export function GridContentCanvas({
                   panStart.current.top - (event.clientY - panStart.current.y);
                 return;
               }
-              if (!drag || disabled || !loaded) return;
+              if (
+                !drag ||
+                disabled ||
+                !loaded ||
+                (drag.kind === 'quad' && !showOutlines)
+              )
+                return;
               const p = point(event);
               if (drag.kind === 'node' && nodes) {
                 const n = [...nodes] as ContentNodes;
@@ -614,7 +627,7 @@ export function GridContentCanvas({
             <select
               aria-label="Róg obwiedni"
               value={quadIndex}
-              disabled={disabled}
+              disabled={disabled || contentHidden}
               onChange={(e) => setQuadIndex(Number(e.target.value))}
             >
               {[0, 1, 2, 3].map((i) => (
@@ -633,9 +646,10 @@ export function GridContentCanvas({
                 step="any"
                 min={0}
                 max={axis === 0 ? width : height}
-                disabled={disabled}
+                disabled={disabled || contentHidden}
                 value={selected.quad![quadIndex][axis]}
                 onChange={(e) => {
+                  if (contentHidden) return;
                   const v = Number(e.target.value);
                   if (
                     !Number.isFinite(v) ||

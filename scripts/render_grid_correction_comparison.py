@@ -3,12 +3,25 @@
 import argparse
 import html
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
-from game_predictor_worker.images.comparison_input_diagnostics import diagnostic_inputs
-from game_predictor_worker.images.comparison_production_bundle import build_production_package
-from game_predictor_worker.images.comparison_production_cells import ComparisonProductionCells
+
+# A shared editable virtualenv may point to main; the CLI belongs to this checkout.
+ROOT = Path(__file__).resolve().parents[1]
+for source_directory in ("services/api/src", "services/worker/src"):
+    sys.path.insert(0, str(ROOT / source_directory))
+
+from game_predictor_worker.images.comparison_input_diagnostics import (  # noqa: E402
+    diagnostic_inputs,
+)
+from game_predictor_worker.images.comparison_production_bundle import (  # noqa: E402
+    build_production_package,
+)
+from game_predictor_worker.images.comparison_production_cells import (  # noqa: E402
+    ComparisonProductionCells,
+)
 
 
 def render(root: Path, *, artifact_root: Path | None = None) -> Path:
@@ -208,11 +221,17 @@ def render(root: Path, *, artifact_root: Path | None = None) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    modes = parser.add_mutually_exclusive_group(required=True)
+    modes.add_argument(
         "--directory",
         type=Path,
-        required=True,
         help="Saved comparison inputs, inference JSON and photos",
+    )
+    modes.add_argument(
+        "--crop-report", type=Path, help="Sealed diagnostic production-crop-comparison-v1 report"
+    )
+    parser.add_argument(
+        "--output-directory", type=Path, help="New standalone directory for crop diagnostic HTML"
     )
     parser.add_argument(
         "--artifact-root",
@@ -220,7 +239,22 @@ def main() -> None:
         help="Read-only artifact store: package exact read-v6 cohort/detail pins automatically",
     )
     args = parser.parse_args()
-    print(render(args.directory.resolve(), artifact_root=args.artifact_root))
+    if args.crop_report is not None:
+        if args.output_directory is None or args.artifact_root is None:
+            parser.error("--crop-report requires --output-directory and --artifact-root")
+        from game_predictor_worker.images.comparison_production_crop_report import (
+            render_crop_report,
+        )
+
+        print(
+            render_crop_report(
+                args.crop_report, output=args.output_directory, artifact_root=args.artifact_root
+            )
+        )
+    else:
+        if args.output_directory is not None:
+            parser.error("--output-directory applies only to --crop-report")
+        print(render(args.directory.resolve(), artifact_root=args.artifact_root))
 
 
 if __name__ == "__main__":

@@ -1734,3 +1734,25 @@ także przy expectedNone; tylko diagnostic mode może wybrać dokładny kontrakt
 aktualnej sesji i potwierdza go przez document/report/Row.oracle. Globalny pomiar
 T2 preferuje unique ready przed blocked fallback. Awaria techniczna oracle bez
 konfiguracji ma osobny `CONTENT_ORACLE_RENDER_UNAVAILABLE`, bez fałszywego driftu.
+
+## Samodzielny HTML diagnozy marginesów (TASK-1173)
+
+`render_grid_correction_comparison.py --crop-report` wybiera osobny adapter
+`comparison_production_crop_report` i template `production-crop-comparison.html`;
+legacy `--directory` zachowuje poprzedni renderer. Adapter weryfikuje sealed
+report/capture oraz osobno file/pixel SHA, source identity, renderSpec i actual
+NN input witness. TRAIN+visualExportAllowed sprawdza przed pikselem/public JSON.
+Publikuje wyłącznie projekcję dozwolonego TRAIN, nie wewnętrzny report A.
+Output jest immutable; konflikt nie udaje brakującego obrazu. Brak rastra jest
+lokalnym unavailable, bez syntetycznego uzupełniania 15 pól. Found NN indices
+pozostają per źródło/stage, a usable detekcje wiążą tylko produkcyjne rastry.
+Brak approved content/class GT nie staje się oceną pozytywną. Ordinary HTML
+z aktualnych adnotacji zachowuje obraz/obrysy także bez nodes; blind nie dostaje
+nowych warstw ani danych. Moduły nie wymagają nowego API ani schematu DB.
+Projekcja geometryMetrics.matches wiąże label przez pierwotny ordinal targets,
+nie physical positionIndex; correct/valid/nme/max_error są odrębne od usable
+łączącego geometrię i zawartość. Whole-photo None przy partial pozostaje None.
+Plikowy HTML chroni na moment capture i nie sprawdza późniejszych sesji blind;
+przed kolejną galerią należy przygotować świeży capture. Zapisuje tylko agregat
+pominiętych TRAIN, bez identyfikatorów. Stałe etykiety8%/0% wymagają dokładnie
+paddingFraction0.08/0.0; niezgodny wariant dostaje lokalne unavailable.

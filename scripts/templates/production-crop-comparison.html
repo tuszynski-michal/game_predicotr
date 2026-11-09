@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Diagnoza marginesów — 8% i 0%</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0c1914;
+        --panel: #14291f;
+        --line: #365548;
+        --green: #53e2aa;
+        --text: #effaf3;
+        --muted: #b6cdc0;
+        --amber: #ffce73;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.55 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1480px;
+        margin: auto;
+        padding: 32px 28px 70px;
+      }
+      h1 {
+        font-size: 34px;
+        line-height: 1.2;
+        margin: 12px 0;
+      }
+      h2 {
+        font-size: 24px;
+        margin: 8px 0;
+      }
+      h3 {
+        font-size: 19px;
+      }
+      p {
+        max-width: 1050px;
+      }
+      .muted,
+      figcaption {
+        color: var(--muted);
+      }
+      .badge {
+        display: inline-block;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 5px 12px;
+        font-size: 13px;
+        margin: 3px;
+      }
+      .notice {
+        border-left: 4px solid var(--amber);
+        background: #2b291a;
+        padding: 16px 20px;
+        border-radius: 8px;
+        margin: 22px 0;
+        color: #ffe6b3;
+      }
+      .stats {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin: 22px 0;
+      }
+      .stat {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        min-width: 170px;
+        padding: 14px 20px;
+      }
+      .stat b {
+        display: block;
+        font-size: 27px;
+        color: var(--green);
+      }
+      .toolbar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        background: var(--panel);
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin: 24px 0;
+      }
+      button,
+      select {
+        font: inherit;
+        min-height: 46px;
+        border: 1px solid var(--green);
+        border-radius: 8px;
+        padding: 10px 16px;
+        color: var(--green);
+        background: #18382a;
+        cursor: pointer;
+      }
+      button[aria-pressed='true'],
+      button.primary {
+        background: var(--green);
+        color: #082015;
+        font-weight: 650;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible {
+        outline: 3px solid var(--amber);
+        outline-offset: 3px;
+      }
+      label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px;
+      }
+      input {
+        accent-color: var(--green);
+        width: 19px;
+        height: 19px;
+      }
+      .card {
+        padding: 22px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin: 20px 0;
+      }
+      .columns {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 20px;
+      }
+      .columns figure {
+        margin: 0;
+      }
+      svg {
+        display: block;
+        width: 100%;
+        max-height: 75vh;
+        background: #07110c;
+        border-radius: 8px;
+      }
+      .grid-line,
+      .outline,
+      .footprint {
+        vector-effect: non-scaling-stroke;
+        fill: none;
+        stroke-width: 1.5;
+      }
+      .grid-line {
+        stroke: #56c9ff;
+      }
+      .model-line {
+        stroke: #53e2aa;
+        stroke-dasharray: 7 4;
+      }
+      .outline {
+        stroke: #a6f77b;
+        stroke-width: 2;
+      }
+      .outline[data-state='unknown'],
+      .outline[data-state='occluded'],
+      .outline[data-state='out_of_frame'] {
+        stroke: #ffbc69;
+        stroke-dasharray: 7 4;
+      }
+      .footprint {
+        stroke: #ffce73;
+        stroke-dasharray: 3 4;
+      }
+      .pairs {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 14px;
+        margin: 20px 0;
+      }
+      .cell {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px;
+        min-width: 0;
+        background: #10231a;
+      }
+      .cell h3 {
+        font-size: 14px;
+        margin: 0 0 10px;
+      }
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .pair figure {
+        margin: 0;
+        min-width: 0;
+      }
+      .pair img {
+        width: 100%;
+        display: block;
+        border: 1px solid #4d6c59;
+        image-rendering: auto;
+      }
+      .pair figcaption {
+        font-size: 13px;
+        margin-bottom: 7px;
+      }
+      .assessment {
+        font-size: 13px;
+        overflow-wrap: anywhere;
+      }
+      .missing {
+        border: 1px dashed #ad9871;
+        padding: 14px 8px;
+        color: #e0c69c;
+        font-size: 13px;
+      }
+      .proof {
+        font-size: 13px;
+        margin-top: 10px;
+      }
+      details {
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 14px;
+        margin: 16px 0;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--green);
+        font-weight: 600;
+      }
+      pre {
+        font-size: 12px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        max-height: 400px;
+        overflow: auto;
+      }
+      img {
+        max-width: 100%;
+      }
+      .inputs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .inputs figure {
+        margin: 0;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+      }
+      .inputs img {
+        width: 100%;
+        max-height: 400px;
+        object-fit: contain;
+        background: #07110c;
+      }
+      .hidden {
+        display: none;
+      }
+      .section-note {
+        margin: 18px 0;
+      }
+      .legend {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      @media (max-width: 1050px) {
+        .pairs {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .columns {
+          grid-template-columns: 1fr;
+        }
+        .inputs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 620px) {
+        main {
+          padding: 20px 14px;
+        }
+        .pairs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .inputs {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          font-size: 27px;
+        }
+        .card {
+          padding: 15px;
+        }
+        .toolbar {
+          padding: 12px;
+        }
+        .stat {
+          min-width: 130px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="badge"
+        >Przypięty raport diagnostyczny · przykłady treningowe</span
+      >
+      <h1>Co zmienia margines wycinka: 8% i 0%</h1>
+      <p class="muted">
+        Te same zdjęcia, geometria i wagi klasyfikatora. Porównujemy sposób
+        wycinania grafiki; nie jest to nowo wytrenowany model ani zmiana
+        ustawień produkcyjnych.
+      </p>
+      <div class="notice">
+        <strong>Brak etykiety nie oznacza poprawnego wycinka.</strong>
+        Nieoznaczone grafiki są tylko wizualizacją. Pełniejszy wycinek nie
+        dowodzi poprawnej siatki, braku sąsiada ani dobrej klasyfikacji.
+        Zasłonięcia, strzałki i brakujące fragmenty wymagają niezależnych
+        etykiet. Obrys obejmuje pełną grafikę razem z ozdobnym obramowaniem, bez
+        tła i sąsiedniego symbolu. Pola siatki mają wspólne granice, a obrysy J
+        i 10 mogą mieć różne rozmiary.
+      </div>
+      <p class="legend">
+        Przerywane obrysy grafik oznaczają fragmenty lub stan nieznany, nie
+        potwierdzają pełnego symbolu. Ochrona źródeł obowiązuje na moment
+        capture; przed kolejną galerią przygotuj świeży capture, aby uwzględnić
+        nowsze sesje blind.
+      </p>
+      <div id="stats" class="stats"></div>
+      <div class="toolbar">
+        <button id="prev">← Poprzednia</button
+        ><label
+          >Plansza
+          <select id="board" aria-label="Plansza"></select></label
+        ><button id="next">Następna →</button
+        ><button id="human" aria-pressed="true">Geometria człowieka</button
+        ><button id="model" aria-pressed="false">
+          Rzeczywista geometria modelu
+        </button>
+      </div>
+      <section id="overview" class="card"></section>
+      <div class="toolbar">
+        <label><input type="checkbox" id="grid" checked /> Siatka pól</label
+        ><label
+          ><input type="checkbox" id="content" checked /> Zatwierdzone
+          obrysy</label
+        ><label
+          ><input type="checkbox" id="footprints" /> Zakres wycinka 0%</label
+        >
+      </div>
+      <section id="visual" class="card"></section>
+      <section class="card">
+        <h2>15 pól · rzeczywiste rastry produkcyjne</h2>
+        <p class="muted">
+          W każdym polu: margines 8% po lewej, 0% po prawej. To zapisane PNG z
+          produkcyjnego renderera, osobne od wejścia sieci geometrii i szerszego
+          podglądu źródła.
+        </p>
+        <div id="pairs" class="pairs"></div>
+      </section>
+      <section class="card">
+        <h2>Faktyczne wejścia sieci geometrii</h2>
+        <p class="muted">
+          Wspólne dla obu marginesów. Widok pokazuje zapisane wejścia zdjęcia i
+          plansz z dowodem tensora. Numery wejść sieci są odrębne od numerów
+          plansz — nie zgadujemy ich powiązania.
+        </p>
+        <div id="inputs"></div>
+      </section>
+      <details>
+        <summary>Zakres i przypięcie raportu</summary>
+        <p>
+          Brak publikacji, aktywacji, treningu i zmian adnotacji. Galeria
+          zawiera wyłącznie dozwolone przykłady treningowe. LAB RGB, jeżeli
+          istnieje, jest osobną referencją absolutną, nie trzecim strojonym
+          marginesem.
+        </p>
+        <pre id="reportProof"></pre>
+      </details>
+    </main>
+    <script id="crop-data" type="application/json">
+      __CROP_DATA__
+    </script>
+    <script>
+      'use strict';
+      const data = JSON.parse(document.getElementById('crop-data').textContent),
+        $ = (id) => document.getElementById(id);
+      const esc = (v) =>
+        String(v ?? 'brak').replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              '&': '&amp;',
+              '<': '&lt;',
+              '>': '&gt;',
+              '"': '&quot;',
+              "'": '&#39;',
+            })[c],
+        );
+      const boards = data.photos.flatMap((photo) =>
+        photo.boards.map((board) => ({ photo, board })),
+      );
+      let selected = 0,
+        kind = 'human';
+      const states = {
+        preserved: 'Grafika zachowana',
+        clipped: 'Grafika przycięta',
+        missing: 'Brak wycinka',
+        unknown: 'Brak oceny zawartości',
+        visible: 'Widoczna w całości',
+        occluded: 'Zasłonięta',
+        out_of_frame: 'Poza kadrem',
+        not_evaluable: 'Brak danych do oceny',
+        candidate: 'Wariant do dalszej oceny',
+        regression: 'Pogorszenie',
+        no_improvement: 'Brak wykazanej poprawy',
+      };
+      const label = (v) => states[v] ?? v ?? 'Brak danych';
+      function points(a) {
+        return a?.map((p) => (Array.isArray(p) ? p : [p.x, p.y]));
+      }
+      function lattice(n, cls = '') {
+        n = points(n);
+        if (!n || n.length !== 24) return '';
+        return (
+          '<g class="grid-group">' +
+          [
+            ...Array.from({ length: 4 }, (_, r) => n.slice(r * 6, r * 6 + 6)),
+            ...Array.from({ length: 6 }, (_, c) =>
+              [0, 1, 2, 3].map((r) => n[r * 6 + c]),
+            ),
+          ]
+            .map(
+              (p) =>
+                '<polyline class="grid-line ' +
+                cls +
+                '" points="' +
+                p.map((x) => x.join(',')).join(' ') +
+                '"/>',
+            )
+            .join('') +
+          '</g>'
+        );
+      }
+      function frame(n, p) {
+        n = points(n);
+        if (!n?.length) return `0 0 ${p.width} ${p.height}`;
+        const xs = n.map((v) => v[0]),
+          ys = n.map((v) => v[1]),
+          x = Math.min(...xs),
+          y = Math.min(...ys),
+          w = Math.max(...xs) - x,
+          h = Math.max(...ys) - y;
+        return `${x - w * 0.12} ${y - h * 0.12} ${Math.max(1, w * 1.24)} ${Math.max(1, h * 1.24)}`;
+      }
+      function image(asset, title) {
+        return asset?.state === 'available'
+          ? `<img loading="lazy" src="${esc(asset.image)}" alt="${esc(title)}">`
+          : `<p class="missing">Niedostępne: ${esc(asset?.reason ?? 'Brak przypiętego rastra')}</p>`;
+      }
+      function proof(value) {
+        return `<details class="proof"><summary>Szczegóły dowodu</summary><pre>${esc(JSON.stringify(value, null, 2))}</pre></details>`;
+      }
+      function classification(c) {
+        const p = c.classification;
+        if (p?.classReference?.state === 'available' && p.state !== 'available')
+          return (
+            'Klasa człowieka: ' +
+            esc(p.classReference.code) +
+            '; brak dostępnego wyniku klasyfikatora — klasyfikacja nieoceniona.'
+          );
+        if (p?.state !== 'available')
+          return 'Brak aktualnej klasy człowieka — klasyfikacja nieoceniona.';
+        const verdict = (k) =>
+          p[k + 'Correct'] === true
+            ? 'zgodna'
+            : p[k + 'Correct'] === false
+              ? 'błędna'
+              : 'nieoceniona';
+        return (
+          'Klasa człowieka: ' +
+          esc(p.classReference?.code) +
+          '; 8%: ' +
+          esc(p.base?.code) +
+          ' (' +
+          verdict('base') +
+          '); 0%: ' +
+          esc(p.candidate?.code) +
+          ' (' +
+          verdict('candidate') +
+          ')'
+        );
+      }
+      function assessment(c, v) {
+        if (['occluded', 'out_of_frame', 'unknown'].includes(c.contentState))
+          return (
+            esc(label(c.contentState)) + ' — pełności grafiki nie oceniamy.'
+          );
+        const a = c[v]?.assessment;
+        if (!a) return 'Brak zatwierdzonego odniesienia — bez oceny jakości.';
+        return (
+          esc(label(a.finalContentState)) +
+          (a.wrongCell ? ' · obce pole' : '') +
+          (a.tie ? ' · niejednoznaczność' : '') +
+          (a.foreignFullSymbol ? ' · obcy pełny symbol' : '')
+        );
+      }
+      function geometryStatus(g) {
+        const m = g.geometryMetrics ?? {},
+          matches = g.boardMatches ?? {};
+        const board = ['base', 'candidate']
+          .map((v, i) => {
+            const match = matches[v];
+            const verdict =
+              match?.correct === true
+                ? 'zgodna z zapisaną geometrią'
+                : match?.correct === false
+                  ? 'Dopasowana, lecz błędna geometria względem zapisanych punktów (np. przesunięty rząd)'
+                  : 'Brak jednoznacznej oceny zgodności geometrii planszy';
+            return `<p data-geometry-variant="${v}">Margines ${i === 0 ? '8%' : '0%'}: ${verdict}.</p>`;
+          })
+          .join('');
+        const count = (value) =>
+          Number.isInteger(value) ? value : 'brak oceny';
+        const complete =
+          m.complete_correct_strict === true
+            ? 'zgodne'
+            : m.complete_correct_strict === false
+              ? 'niezgodne'
+              : 'brak oceny';
+        return `<div id="geometry-status" class="notice"><strong>Zgodność z zapisaną geometrią — nie niezależna ocena jakości.</strong>${board}<p>Całe zdjęcie: ${complete}. Fałszywe detekcje: ${count(m.false_boards)}; nadmiarowe detekcje (duplikaty): ${count(m.duplicates)}.</p></div>`;
+      }
+      function render() {
+        if (!boards.length) {
+          $('overview').innerHTML =
+            '<h2>Brak dozwolonych zdjęć treningowych</h2><p>Źródła kontrolne i chronione nie są eksportowane do galerii.</p>';
+          return;
+        }
+        const { photo: p, board: b } = boards[selected],
+          g = b.geometry[kind];
+        $('board').value = selected;
+        $('prev').disabled = selected === 0;
+        $('next').disabled = selected === boards.length - 1;
+        $('human').setAttribute('aria-pressed', kind === 'human');
+        $('model').setAttribute('aria-pressed', kind === 'model');
+        const approved = b.content.state === 'available';
+        $('overview').innerHTML =
+          `<h2>Plansza #${esc(b.sequenceNumber)} · pozycja ${b.positionIndex + 1}</h2><p>${kind === 'human' ? 'Zapisana geometria człowieka — diagnoza samego wycinania.' : 'Rzeczywiste wyjście przypiętego modelu — diagnoza geometrii i wycinania.'}</p><p><strong>${approved ? 'Zatwierdzone obrysy zawartości' : 'Brak zatwierdzonych obrysów i oceny widoczności.'}</strong> ${approved ? 'Rewizja ' + esc(b.content.revision) + ', zatwierdził ' + esc(b.content.approvedBy) : 'Nie uznajemy regularnej siatki za dowód trafienia w pełne symbole.'}</p>${kind === 'model' && !g.nodes ? '<p class="notice">Brak jednoznacznej siatki modelu. Niebieska siatka pochodzi wyłącznie z zapisanych punktów człowieka.</p>' : ''}<p>Wynik diagnostyczny: <strong>${esc(label(g.gate?.state))}</strong>. Brak nowych uprawnień do kwalifikacji modelu.</p>${proof({ reasonCodes: g.reasonCodes ?? g.gate?.reasonCodes, measurementQualificationState: p.measurementQualificationState ?? 'brak w historycznym raporcie', measurementUse: p.measurementUse ?? 'brak w historycznym raporcie', labReference: g.labReference })}`;
+        $('overview').innerHTML += geometryStatus(g);
+        let overlays = $('grid').checked ? lattice(b.nodes) : '';
+        if ($('grid').checked && kind === 'model')
+          overlays += lattice(g.nodes, 'model-line');
+        if ($('content').checked && approved)
+          overlays += b.content.cells
+            .filter((c) => c.quad)
+            .map(
+              (c) =>
+                `<polygon class="outline" data-state="${esc(c.state)}" points="${points(
+                  c.quad,
+                )
+                  .map((p) => p.join(','))
+                  .join(' ')}"><title>${esc(label(c.state))}</title></polygon>`,
+            )
+            .join('');
+        if ($('footprints').checked)
+          overlays += g.cells
+            .filter((c) => c.candidate.state === 'available')
+            .map(
+              (c) =>
+                `<polygon class="footprint" points="${points(c.candidate.quad)
+                  .map((p) => p.join(','))
+                  .join(' ')}"/>`,
+            )
+            .join('');
+        $('visual').innerHTML =
+          `<div class="columns"><figure><figcaption>Powiększone otoczenie planszy — bez zmiany perspektywy</figcaption>${p.original.state === 'available' ? `<svg viewBox="${frame(b.nodes ?? g.nodes, p)}" aria-label="Oryginał i zapisane punkty"><image href="${esc(p.original.image)}" width="${p.width}" height="${p.height}"/>${overlays}</svg>` : image(p.original, 'Oryginał')}</figure><div><h3>Jak czytać warstwy</h3><p class="legend">Niebieskie linie: dokładne zapisane 24 punkty. Zielone kreskowane: rzeczywiste punkty modelu. Obrysy: zatwierdzona grafika. Bursztynowy zakres: produkcyjny wycinek 0%.</p><p>Szerszy kadr pokazuje otoczenie. Nie jest wejściem sieci ani wycinkiem klasyfikatora. Zasłonięcia i błędne granice oceniaj na źródle.</p><p>${b.nodes ? 'Zapisana siatka dostępna.' : 'Brak zapisanej siatki — bez zastępczych punktów.'}</p><details><summary>Pokaż całe zdjęcie źródłowe</summary>${image(p.original, 'Całe zdjęcie treningowe')}</details>${proof({ original: p.original, content: approved ? { revision: b.content.revision, sha256: b.content.sha256, origin: b.content.origin, approvedBy: b.content.approvedBy } : b.content })}</div></div>`;
+        $('pairs').innerHTML = g.cells
+          .map(
+            (c) =>
+              `<article class="cell"><h3>Wiersz ${Math.floor(c.cellIndex / 5) + 1} · kolumna ${(c.cellIndex % 5) + 1}</h3><div class="pair">${['base', 'candidate'].map((v, i) => `<figure><figcaption>Margines ${i === 0 ? '8%' : '0%'}</figcaption>${image(c[v], `Pole ${c.cellIndex + 1}, margines ${i === 0 ? '8' : '0'}%`)}<p class="assessment">${assessment(c, v)}</p></figure>`).join('')}</div><p class="assessment">${classification(c)}</p>${proof({ base: c.base, candidate: c.candidate, classification: c.classification })}</article>`,
+          )
+          .join('');
+        const input = p.neuralInput;
+        $('inputs').innerHTML = input.entries
+          ? `<p>${input.state === 'partial' ? 'Część wejść niedostępna — nie zastępujemy ich podglądem.' : 'Dokładne obrazy analizowane przez model — sprawdzone z zapisanym dowodem.'}</p><details><summary>Pokaż ${input.entries.length} rzeczywistych wejść zdjęcia</summary><div class="inputs">${input.entries.map((e) => `<figure><figcaption>${e.stage === 'screen' ? 'Wejście całego zdjęcia' : 'Wejście planszy sieci · numer wejścia ' + (e.originalPredictionIndex + 1) + ' (osobna numeracja)'}</figcaption>${image(e, 'Rzeczywiste wejście NN')}${proof(e)}</figure>`).join('')}</div></details>${proof({ state: input.state, reason: input.reason, context: input.context, unavailablePredictionIndices: input.unavailablePredictionIndices, unavailableScreenStages: input.unavailableScreenStages })}`
+          : image(input, 'Wejście NN');
+      }
+      $('stats').innerHTML =
+        `<div class="stat"><b>${data.photos.length}</b>zdjęcie treningowe</div><div class="stat"><b>${boards.length}</b>plansz</div><div class="stat"><b>${data.photos.reduce((n, p) => n + p.boards.filter((b) => b.content.state === 'available').length, 0)}</b>plansz z zatwierdzonymi obrysami grafik</div>`;
+      $('stats').innerHTML +=
+        `<div class="stat"><b>${data.omittedTrainSources}</b>pominiętych zdjęć treningowych</div>`;
+      boards.forEach(({ board: b }, i) => {
+        const o = document.createElement('option');
+        o.value = i;
+        o.textContent = `#${b.sequenceNumber} · pozycja ${b.positionIndex + 1}`;
+        $('board').append(o);
+      });
+      $('reportProof').textContent = JSON.stringify(
+        {
+          roles: [...new Set(data.photos.map((p) => p.role))],
+          schemaVersion: data.schemaVersion,
+          reportSha256: data.reportSha256,
+          captureSha256: data.captureSha256,
+          diagnosticOnly: data.diagnosticOnly,
+          qualificationAllowed: data.qualificationAllowed,
+        },
+        null,
+        2,
+      );
+      $('board').onchange = () => {
+        selected = Number($('board').value);
+        render();
+      };
+      $('prev').onclick = () => {
+        selected--;
+        render();
+      };
+      $('next').onclick = () => {
+        selected++;
+        render();
+      };
+      ['human', 'model'].forEach(
+        (k) =>
+          ($(k).onclick = () => {
+            kind = k;
+            render();
+          }),
+      );
+      ['grid', 'content', 'footprints'].forEach(
+        (k) => ($(k).onchange = render),
+      );
+      render();
+    </script>
+  </body>
+</html>

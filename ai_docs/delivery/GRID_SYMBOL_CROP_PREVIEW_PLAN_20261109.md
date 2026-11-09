@@ -98,6 +98,21 @@ Nie przewidujemy migracji; używamy istniejących rewizji i konfiguracji.
 Default/margines/model nie zmieniają się przez samo przygotowanie poprawki.
 Inne gry wymagają swoich dowodów jakości. Zdjęcia wystarczają, film zbędny.
 
+## Stan realizacji — 2026-11-09
+
+Cały zakres implementacyjny T1–T4 ukończony z czterema niezależnymi audytami
+Claude Code Opus5.5 przez terminal (High żądane). T4 focused R2 PASS0P0/0P1;
+resztkowe P2 opisów `missing`/`borderline` i wcześniejsze ograniczenia są jawne
+w `ai_docs/quality/GRID_SYMBOL_CROP_PREVIEW_ACCEPTANCE_20261109.md`.
+Finalny HTML: `D:/game_predicotr/artifacts/grid-symbol-crop-preview-20261109-t4-v4/index.html`.
+9plansz i540produkcyjnych wycinków pokazuje działanie narzędzia; brak approved
+obrysów/klas uniemożliwia rekomendację marginesu i jakości nowego modelu.
+Testy zmienionych pionów, PostgreSQL, lint/types/build i docs/map mają dowody;
+pełna Admin geometry i długi starszy workflow treningu nie mają globalnego PASS,
+co raport odbioru precyzuje. Rzeczywisty trening, wdrożenie, aktywacja i merge
+pozostają poza wykonaniem. Historyczny brak osobnego PASS samego planu pozostaje
+faktem; nie zastępujemy go audytami tasków.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

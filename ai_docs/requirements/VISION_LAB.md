@@ -1025,3 +1025,21 @@ unavailable. Only A requires a compatible measurement and oracle on every board.
 New cohort-wide render consistency checks apply only to v2; legacy v1 retains
 its original per-source interpretation. Diagnostics prefer a unique qualified
 measurement before considering the narrowly validated blocked-render fallback.
+
+### Standalone crop comparison (TASK-1173)
+
+The explicit HTML crop-report mode consumes sealed diagnostic artifacts without
+running inference or changing labels. Only TRAIN with visualExportAllowed=true
+may enter public JSON or image export; internal A metadata must never be rendered.
+It shows the exact original, saved shared grid, approved content or its absence,
+actual neural inputs and 15 production raster pairs for 8% and 0% margins.
+Original-found neural input indices remain separate from usable detections.
+Missing or ambiguous evidence stays unavailable; unlabelled pictures are a
+visualization, not evidence of model quality. A content outline includes the
+whole graphic and decorative border, excluding background and neighbouring
+symbols; independent J/10 outlines need not share the grid field dimensions.
+Geometry agreement is measured against the saved points, separately from content
+preservation. Incorrect matched geometry and full-photo false detections must
+remain visible; partial whole-photo metrics stay unavailable. File-only visual
+protection reflects capture time, not later blind sessions. Make a fresh capture
+before exporting another gallery; the HTML renderer performs no current DB lookup.

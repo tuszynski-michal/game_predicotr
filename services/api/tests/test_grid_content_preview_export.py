@@ -43,6 +43,7 @@ def record():
                 "reference": {"positionIndex": 0, "humanApproved": False, "cells": cells},
             },
             "ordinaryPreview": {
+                "version": "grid-content-ordinary-preview-v1",
                 "state": "available",
                 "nodes": nodes,
                 "geometryRevision": 7,
@@ -172,6 +173,37 @@ def test_real_export_rejects_wrong_asset_sha_before_writing_pixels(tmp_path, mon
     with pytest.raises(ValueError, match="frozen pin"):
         exporter.export("http://localhost/api/v1", "game", "cohort", "a" * 64, output, 50, 0)
     assert not list(output.glob("*.jpg"))
+
+
+def test_nonprotected_missing_nodes_still_exports_current_annotation_and_image(
+    tmp_path, monkeypatch
+):
+    item = record()
+    item["target"]["state"] = "ready"
+    item["reference"]["ordinaryPreview"].update(
+        state="unavailable", nodes=None, reasonCodes=["CONTENT_SAVED_NODES_UNAVAILABLE"]
+    )
+    calls = wire_export(monkeypatch, [item])
+    output = tmp_path / "missing-nodes"
+    path = exporter.export("http://localhost/api/v1", "game", "cohort", "a" * 64, output, 50, 0)
+    page = path.read_text(encoding="utf-8")
+    assert len(list(output.glob("*.jpg"))) == 1
+    assert '<polygon data-cell="0"' in page
+    assert "<polyline " not in page
+    assert "Brak zapisanej siatki i produkcyjnych wycinków" in page
+    assert len(json.loads((output / "preview.json").read_bytes())["records"]) == 1
+    assert any("/asset" in url for _, url, _ in calls)
+
+
+def test_legacy_reference_without_preview_protection_cannot_export_pixels(tmp_path, monkeypatch):
+    item = record()
+    item["target"]["state"] = "ready"
+    del item["reference"]["ordinaryPreview"]
+    calls = wire_export(monkeypatch, [item])
+    output = tmp_path / "old-api"
+    exporter.export("http://localhost/api/v1", "game", "cohort", "a" * 64, output, 50, 0)
+    assert not list(output.glob("*.jpg"))
+    assert not any("/asset" in url for _, url, _ in calls)
 
 
 def test_real_export_enforces_byte_and_total_time_limits(tmp_path, monkeypatch):

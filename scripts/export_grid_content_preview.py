@@ -27,11 +27,7 @@ def preview_html(records: list[dict[str, Any]]) -> str:
     for record in records:
         target, reference = record["target"], record["reference"]
         preview = reference.get("ordinaryPreview") or {}
-        if (
-            target["role"] != "TRAIN"
-            or preview.get("state") == "protected"
-            or preview.get("nodes") is None
-        ):
+        if target["role"] != "TRAIN" or preview.get("state") == "protected":
             continue
         source = target["source"]
         annotation = reference.get("annotation")
@@ -97,6 +93,8 @@ def preview_html(records: list[dict[str, Any]]) -> str:
         reasons = " ".join(
             reason_labels.get(code, "Część podglądu jest niedostępna.") for code in codes
         )
+        if nodes is None:
+            reasons = "Brak zapisanej siatki i produkcyjnych wycinków. " + reasons
         details = (
             "<details><summary>Szczegóły podglądu</summary>"
             f"<code>{html.escape('; '.join(codes))}</code></details>"
@@ -137,7 +135,9 @@ Chronione zdjęcia i role kontrolne są pominięte. Brak quadu oznacza brak obry
 <label><input type="checkbox" data-layer="lattice" checked> Siatka pól</label>
 <label><input type="checkbox" data-layer="outlines" checked> Obrysy grafik</label>
 <label><input type="checkbox" data-layer="crops"> Rzeczywiste wycinki</label>
-<p>Siatka: dokładne zapisane24punkty. Obrysy: grafika z aktualnej adnotacji.
+<p>Siatka: dokładne zapisane 24 punkty, ze wspólnymi granicami pól.
+Obrys obejmuje pełną grafikę razem z ozdobnym obramowaniem, bez tła i sąsiedniego
+symbolu. Obrysy J i 10 mogą mieć różne rozmiary.
 Przerywane obrysy to fragmenty lub stan nieznany, nie potwierdzenie pełnego symbolu.
 Kreskowane zakresy: rzeczywisty footprint przypiętego renderu produkcji,
 bez zmiany marginesu. Zdjęcie zawiera otoczenie; zakres wycinka jest osobny.</p>"""
@@ -188,7 +188,19 @@ def export(
             )
         )
         preview = reference.get("ordinaryPreview") or {}
-        if preview.get("state") == "protected" or preview.get("nodes") is None:
+        view_only_codes = {
+            "CONTENT_SAVED_NODES_UNAVAILABLE",
+            "CONTENT_PRODUCTION_MANIFEST_UNAVAILABLE",
+            "CONTENT_PRODUCTION_MANIFEST_CONFLICT",
+            "CONTENT_PRODUCTION_CELL_UNAVAILABLE",
+            "CONTENT_PRODUCTION_CELLS_PARTIAL",
+            "CONTENT_PRODUCTION_FOOTPRINT_OUTSIDE_SOURCE",
+        }
+        if (
+            preview.get("version") != "grid-content-ordinary-preview-v1"
+            or preview.get("state") not in {"available", "unavailable"}
+            or any(code not in view_only_codes for code in preview.get("reasonCodes", []))
+        ):
             skipped.append(
                 {
                     "sourceId": source["sourceId"],

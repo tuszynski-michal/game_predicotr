@@ -164,7 +164,7 @@ Nie deklarować poprawy wytrenowanego modelu bez rzeczywistego eksperymentu.
 
 ## Outcome
 
-Commit: v1.7.584 (hash dopisuje kolejny commit).
+Commit: v1.7.584 / `aeae60128e954338cdd257c517c48933e0f25846`.
 
 D-596 wdrożona jednym pionem API/OpenAPI/SDK/wrapper/Admin: nowa sesja opt-in
 przypina aktywny kompatybilny kontrakt po receipt lookup, oddzielnie od importu.

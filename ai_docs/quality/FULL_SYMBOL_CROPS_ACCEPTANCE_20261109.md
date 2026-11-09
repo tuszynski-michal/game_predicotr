@@ -18,6 +18,11 @@ Wcześniejsze zielone fixture nie dowodzą tych integracji. Jedna runda
 poprawek zakończyła się właściwymi testami i focused R2 PASS0P0/0P1.
 Wynik implementacji jest gotowy do akceptacji operatora; wdrożenia nie wykonano.
 
+Powyższy akapit opisuje stan odbioru przed zgodą. Aktualizacja 2026-11-09:
+operator zaakceptował wdrożenie, które wykonano z migracjami0182/0183 i
+poprawką TASK-1169/Opus PASS. Usługi lokalne działają; nie uruchomiono nowego
+treningu. Szczegóły: [raport wdrożenia i danych](FULL_SYMBOL_CROPS_ROLLOUT_20261109.md).
+
 ## Pokrycie planu
 
 | Część | Implementacja i dowód | Stan |

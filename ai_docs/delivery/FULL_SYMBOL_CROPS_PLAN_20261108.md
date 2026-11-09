@@ -21,6 +21,13 @@ do 15–19 godzin, w tym domknięcie kalibracji BASE/WIDE. Szczegółowy odbiór
 `ai_docs/quality/FULL_SYMBOL_CROPS_ACCEPTANCE_20261109.md`. Historyczny
 werdykt audytu projektu poniżej nie jest przepisywany przez audyty kodu.
 
+Wdrożenie 2026-11-09 wykonano po osobnej zgodzie: merge/push, migracje0182/0183
+i odtworzenie usług. TASK-1169 uszczelnił zgodność głowy schematu, Opus PASS.
+Operator wybrał przygotowanie danych pełnego eksperymentu zamiast legacy
+grid-only oraz dostęp Reviewera wyłącznie lokalny. Zapisano45 niezatwierdzonych
+szkiców TRAIN i pustą sesję50plansz/10zdjęć; trening nadal nie wystartował.
+Wyniki i pozostałe braki: `quality/FULL_SYMBOL_CROPS_ROLLOUT_20261109.md`.
+
 ## Stan i cel
 
 Audyt projektu wykonał Claude Code Opus 5.5/High, tylko do odczytu.

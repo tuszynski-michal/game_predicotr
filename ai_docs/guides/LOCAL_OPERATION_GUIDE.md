@@ -486,6 +486,22 @@ Przejście (cutover). Strażnik `ALEMBIC_HEAD_MISMATCH` działa tylko przy
 potomny, a już działające API i workery nie są sprawdzane po migracji —
 dlatego kroki 1–2 są obowiązkowe:
 
+Przed cutover, z katalogu worktree scalanej gałęzi, sprawdź:
+
+```powershell
+$integrationBranch = git branch --show-current
+.\.venv\Scripts\python.exe scripts/integration_preflight.py $integrationBranch --json
+```
+
+Kod1 również zatrzymuje wdrożenie. Checkout usług na `main` nie jest
+worktree analizowanej gałęzi; nie uruchamiaj tam polecenia bez wskazania jej nazwy.
+`schema_readiness` musi mieć state=matched i blocks_merge=false: stała
+startowa API/workera odpowiada wtedy jedynej głowie migracji zapisanego
+commita gałęzi. To statyczna kontrola kodu, nie dowód stanu bazy. Mismatch
+lub unknown zatrzymuje wdrożenie przed zmianą usług/bazy; kod0 samego
+preflightu nie oznacza zaliczenia tej bramki. Po migracji nadal obowiązuje
+rzeczywisty strażnik startu procesu.
+
 1. Zaczekaj na zakończenie aktywnych jobów (import, backfille, biblioteka
    wzorców) albo zatrzymaj je bezpiecznie.
 2. Zatrzymaj API, workery wszystkich lane'ów i Reviewera we **wszystkich**

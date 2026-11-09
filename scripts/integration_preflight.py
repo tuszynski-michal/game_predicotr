@@ -13,6 +13,8 @@ Reports, without changing anything (no fetch, no checkout, no worktree writes):
 * an informational list of collisions that other unmerged branches have with ``main``
   (not caused by the checked branch, but they will surface when those branches merge);
 * a reminder when the branch adds a migration: merge only after the operator migrated.
+* static startup-head consistency with the branch's sole migration-graph head; mismatch
+  or an unresolvable graph sets ``schema_readiness.blocks_merge`` without database access.
 
 A task, decision or migration is "added" when its file name (or ``D-NNN`` number) is absent
 from the merge-base tree. A collision is the same number with a different file name,
@@ -27,6 +29,7 @@ error (unknown branch, detached HEAD without a branch argument, unrelated histor
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -41,6 +44,8 @@ DEFAULT_ROOT = Path(__file__).resolve().parents[1]
 TASKS_PREFIX = "ai_docs/tasks"
 DECISIONS_PREFIX = "ai_docs/process/decisions"
 MIGRATIONS_PREFIX = "services/api/alembic/versions"
+API_SOURCE_PREFIX = "services/api/src/game_predictor_api"
+SCHEMA_GUARD_PATH = f"{API_SOURCE_PREFIX}/storage/schema_readiness.py"
 
 TASK_RE = re.compile(r"^ai_docs/tasks/(?:.+/)?(\d{4})-[^/]+\.md$")
 DECISION_FILE_RE = re.compile(r"^ai_docs/process/decisions/DECISION_LOG_[^/]+\.md$")
@@ -156,6 +161,111 @@ def left_right(root: Path, left: str, right: str) -> tuple[int, int]:
 def tree_paths(root: Path, ref: str, prefix: str) -> list[str]:
     out = git(root, "ls-tree", "-r", "--name-only", "-z", ref, "--", prefix)
     return [path for path in out.split("\0") if path]
+
+
+def _static_value(module: ast.Module, name: str) -> object:
+    values = []
+    value: ast.expr | None
+    for node in module.body:
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets, value = [node.target], node.value
+        else:
+            continue
+        if value is not None and any(
+            isinstance(target, ast.Name) and target.id == name for target in targets
+        ):
+            values.append(value)
+    if len(values) != 1:
+        raise ValueError(f"{name} requires one literal assignment")
+    result: object = ast.literal_eval(values[0])
+    return result
+
+
+def schema_readiness(root: Path, ref: str) -> dict[str, object]:
+    """Compare committed startup policy and migration graph without importing either."""
+    result: dict[str, object] = {
+        "ref": ref,
+        "state": "unknown",
+        "blocks_merge": True,
+        "expected_alembic_head": None,
+        "migration_heads": [],
+        "reason": "",
+    }
+    source_paths = tree_paths(root, ref, API_SOURCE_PREFIX)
+    if not source_paths:
+        result.update(state="not_applicable", blocks_merge=False, reason="No API runtime sources")
+        return result
+    if SCHEMA_GUARD_PATH not in source_paths:
+        result["reason"] = "API startup schema guard is missing"
+        return result
+    try:
+        module = ast.parse(git(root, "show", f"{ref}:{SCHEMA_GUARD_PATH}"))
+        expected = _static_value(module, "EXPECTED_ALEMBIC_HEAD")
+        if not isinstance(expected, str) or not expected:
+            raise ValueError("EXPECTED_ALEMBIC_HEAD must be a nonempty literal string")
+        result["expected_alembic_head"] = expected
+        paths = [
+            path
+            for path in tree_paths(root, ref, MIGRATIONS_PREFIX)
+            if path.endswith(".py") and not path.endswith("/__init__.py")
+        ]
+        if not paths:
+            raise ValueError("API migration graph is missing")
+        parents: dict[str, tuple[str, ...]] = {}
+        for path in paths:
+            module = ast.parse(git(root, "show", f"{ref}:{path}"))
+            revision = _static_value(module, "revision")
+            down = _static_value(module, "down_revision")
+            if not isinstance(revision, str) or not revision or revision in parents:
+                raise ValueError(f"Invalid or duplicate revision in {path}")
+            previous: tuple[str, ...]
+            if down is None:
+                previous = ()
+            elif isinstance(down, str) and down:
+                previous = (down,)
+            elif isinstance(down, tuple) and down and all(isinstance(p, str) and p for p in down):
+                previous = down
+            else:
+                raise ValueError(f"Nonliteral or invalid down_revision in {path}")
+            parents[revision] = previous
+        referenced = {parent for previous in parents.values() for parent in previous}
+        if referenced - parents.keys():
+            raise ValueError("Migration graph references missing parent revisions")
+        heads = sorted(parents.keys() - referenced)
+        result["migration_heads"] = heads
+        if len(heads) != 1:
+            raise ValueError("Migration graph must have exactly one head")
+        # A disconnected cycle can coexist with a valid head; it is not a valid graph.
+        visited: set[str] = set()
+        active: set[str] = set()
+
+        def visit(revision: str) -> None:
+            if revision in active:
+                raise ValueError("Migration graph contains a cycle")
+            if revision in visited:
+                return
+            active.add(revision)
+            for parent in parents[revision]:
+                visit(parent)
+            active.remove(revision)
+            visited.add(revision)
+
+        visit(heads[0])
+        if visited != parents.keys():
+            raise ValueError("Migration graph contains unreachable revisions")
+        matched = expected == heads[0]
+        result.update(
+            state="matched" if matched else "mismatch",
+            blocks_merge=not matched,
+            reason="Startup head matches migration graph"
+            if matched
+            else f"Startup requires {expected}, migration graph head is {heads[0]}",
+        )
+    except (SyntaxError, ValueError, TypeError, RecursionError) as error:
+        result["reason"] = f"Cannot prove schema readiness: {error}"
+    return result
 
 
 # --------------------------------------------------------------------------- claims
@@ -375,6 +485,7 @@ def analyse(root: Path, branch: str, base: str, remote: str) -> dict[str, object
             "added": migrations_added,
             "needs_operator_migration_before_merge": bool(migrations_added),
         },
+        "schema_readiness": schema_readiness(root, branch_tip),
         "collisions": [asdict(item) for item in collisions],
         "other_branches": others,
         "other_branch_collisions_with_base": [asdict(item) for item in informational],
@@ -391,6 +502,9 @@ def build_warnings(report: dict[str, object]) -> list[str]:
     branch = str(report["branch"])
     base = str(report["base"])
     warnings: list[str] = []
+    schema = _dict(report["schema_readiness"])
+    if schema["blocks_merge"]:
+        warnings.append(f"schema readiness blocks merge ({schema['state']}): {schema['reason']}")
     if history["nothing_to_merge"]:
         warnings.append(f"{branch} has no commits beyond {base}: nothing to merge")
     if not history["fast_forward"]:
@@ -493,6 +607,13 @@ def render_text(report: dict[str, object]) -> str:
         lines.append("  needs operator migration before merge")
     else:
         lines.append("  no migration added")
+    schema = _dict(report["schema_readiness"])
+    lines += [
+        "",
+        "Startup schema readiness",
+        f"  {schema['state']}: {schema['reason']}",
+        f"  blocks merge: {schema['blocks_merge']} (committed ref {schema['ref']})",
+    ]
     collisions = report["collisions"]
     lines += ["", "Number collisions"]
     if isinstance(collisions, list) and collisions:

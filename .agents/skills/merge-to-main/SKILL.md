@@ -92,6 +92,13 @@ worktree gałęzi (`.venv` i `node_modules` w worktree są dowiązaniami do
    wyjścia to 0 także przy kolizjach; ostrzeżenia czytasz z treści. Kod 1 to
    błąd git: napraw przyczynę, nie ignoruj.
 
+   Sprawdź również `schema_readiness`: w tym repo wymagane są
+   `state=matched` i `blocks_merge=false`. Porównanie dotyczy stałej startowej
+   API/workera oraz jedynej głowy grafu migracji przypiętego commita gałęzi,
+   bez odczytu bazy. `mismatch` lub `unknown` blokuje scalenie, nawet gdy
+   komenda zakończyła się kodem0. `not_applicable` nie jest PASS aplikacji.
+   Popraw kod/testy przed cutover; nie omijaj guardu ani nie cofaj bazy.
+
 2. **Pokaż wynik i zapytaj o zgodę** (pomiń pytanie tylko w sytuacji z ostatniego
    akapitu sekcji „Bramki zgody”). Podaj: nazwę gałęzi, zakres commitów
    (`git log --oneline main..<gałąź>`), wyniki testów i audytów, ostrzeżenia
@@ -160,6 +167,8 @@ worktree gałęzi (`.venv` i `node_modules` w worktree są dowiązaniami do
    gałęzi (zasady z `task-close`). Dodaj do indeksu wyłącznie te pliki.
 
 7. **Ponowny preflight tuż przed scaleniem.** Uruchom krok 1 jeszcze raz.
+   Ponownie wymagaj `schema_readiness.state=matched` oraz
+   `schema_readiness.blocks_merge=false`, zgodnie z krokiem1.
    Wymagane: fast-forward możliwy (behind = 0), worktree gałęzi czysty, checkout
    `D:\game_predicotr` na `main` i bez zmian śledzonych, brak nowych kolizji,
    brak migracji wymagającej wykonania. Gdy `main` znów się przesunął, wróć do

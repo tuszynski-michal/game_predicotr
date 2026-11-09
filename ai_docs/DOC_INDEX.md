@@ -202,6 +202,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 ### Proces i jakość
 
 - [Odbiór pełnych symboli i instrukcja operatora](quality/FULL_SYMBOL_CROPS_ACCEPTANCE_20261109.md) — T0–T5, wykonane kontrole, zakres dowodu i przygotowanie wdrożenia.
+- [Zgodność schematu przy cutover](quality/TASK-1169_VERIFICATION.md) — poprawka globalnego strażnika i statyczna bariera przed scaleniem.
 
 - [Wspólna procedura audytu krzyżowego](process/CROSS_AUDIT.md) — terminal, diagnostyka, import Desktop i trwały dowód wykonania.
 - [Zapis przeglądów planu pełnych symboli](quality/FULL_SYMBOL_CROPS_PLAN_REVIEW_20261108.md) — rzeczywiste REVISE i doprecyzowania, bez zastępczego PASS.

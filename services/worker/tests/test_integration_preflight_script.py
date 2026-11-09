@@ -122,6 +122,8 @@ def test_fast_forward_possible(repo: Path) -> None:
     assert data["branch"] == "feat/work"
     assert data["collisions"] == []
     assert data["warnings"] == []
+    assert data["schema_readiness"]["state"] == "not_applicable"
+    assert data["schema_readiness"]["blocks_merge"] is False
 
 
 def test_fast_forward_impossible_when_main_moved(repo: Path) -> None:
@@ -335,6 +337,108 @@ def test_migration_number_collision(repo: Path) -> None:
     commit(repo, "v1.0.3 - their migration", {f"{MIGRATION_DIR}/0002_theirs.py": "# t\n"})
     data = report(repo, "feat/work")
     assert collision_keys(data) == {("migration", "0002", "main")}
+
+
+def schema_files(expected: str = "0001_init") -> dict[str, str]:
+    return {
+        preflight.SCHEMA_GUARD_PATH: f"EXPECTED_ALEMBIC_HEAD: Final = {expected!r}\n"
+        "raise RuntimeError('preflight must not import API')\n",
+        f"{MIGRATION_DIR}/0001_init.py": "revision = '0001_init'\ndown_revision = None\n"
+        "raise RuntimeError('preflight must not execute migrations')\n",
+    }
+
+
+def test_new_migration_without_guard_update_blocks_readiness_then_matching_guard_passes(
+    repo: Path,
+) -> None:
+    commit(repo, "v1.0.2 - initial schema", schema_files())
+    switch(repo, "feat/schema", "main")
+    commit(
+        repo,
+        "v1.0.3 - migration without guard",
+        {
+            f"{MIGRATION_DIR}/0002_next.py": "revision='0002_next'\ndown_revision='0001_init'\n",
+        },
+    )
+    data = report(repo)
+    state = data["schema_readiness"]
+    assert state["state"] == "mismatch" and state["blocks_merge"] is True
+    assert state["expected_alembic_head"] == "0001_init"
+    assert state["migration_heads"] == ["0002_next"]
+    assert any("schema readiness blocks merge" in warning for warning in data["warnings"])
+    commit(
+        repo,
+        "v1.0.4 - align startup guard",
+        {
+            preflight.SCHEMA_GUARD_PATH: "EXPECTED_ALEMBIC_HEAD='0002_next'\n",
+        },
+    )
+    state = report(repo)["schema_readiness"]
+    assert state["state"] == "matched" and state["blocks_merge"] is False
+
+
+def test_schema_readiness_uses_requested_committed_branch_not_dirty_checkout(repo: Path) -> None:
+    commit(repo, "v1.0.2 - initial schema", schema_files())
+    switch(repo, "feat/schema", "main")
+    tip = commit(
+        repo,
+        "v1.0.3 - schema",
+        {
+            preflight.SCHEMA_GUARD_PATH: "EXPECTED_ALEMBIC_HEAD='0002_next'\n",
+            f"{MIGRATION_DIR}/0002_next.py": "revision='0002_next'\ndown_revision='0001_init'\n",
+        },
+    )
+    switch(repo, "main")
+    (repo / preflight.SCHEMA_GUARD_PATH).write_text(
+        "EXPECTED_ALEMBIC_HEAD='wrong'\n", encoding="utf-8"
+    )
+    (repo / MIGRATION_DIR / "9999_dirty.py").write_text("not Python!", encoding="utf-8")
+    state = report(repo, "feat/schema")["schema_readiness"]
+    assert state["ref"] == tip
+    assert state["state"] == "matched" and state["migration_heads"] == ["0002_next"]
+
+
+@pytest.mark.parametrize(
+    "problem",
+    [
+        "guard_missing",
+        "dynamic",
+        "syntax",
+        "parent_missing",
+        "multiple_heads",
+        "cycle",
+        "revision_missing",
+        "graph_missing",
+    ],
+)
+def test_unresolvable_api_schema_is_blocked_not_reported_as_ready(repo: Path, problem: str) -> None:
+    files: dict[str, str | None] = {**schema_files()}
+    if problem == "guard_missing":
+        files.pop(preflight.SCHEMA_GUARD_PATH)
+        files[f"{preflight.API_SOURCE_PREFIX}/main.py"] = "# API runtime exists\n"
+    elif problem == "dynamic":
+        files[preflight.SCHEMA_GUARD_PATH] = "EXPECTED_ALEMBIC_HEAD=calculate()\n"
+    elif problem == "syntax":
+        files[preflight.SCHEMA_GUARD_PATH] = "EXPECTED_ALEMBIC_HEAD = [\n"
+    elif problem == "parent_missing":
+        files[f"{MIGRATION_DIR}/0001_init.py"] = "revision='0001_init'\ndown_revision='absent'\n"
+    elif problem == "multiple_heads":
+        files[f"{MIGRATION_DIR}/0002_other.py"] = "revision='0002_other'\ndown_revision=None\n"
+    elif problem == "cycle":
+        files[f"{MIGRATION_DIR}/0002_other.py"] = (
+            "revision='0002_other'\ndown_revision='0003_cycle'\n"
+        )
+        files[f"{MIGRATION_DIR}/0003_cycle.py"] = (
+            "revision='0003_cycle'\ndown_revision='0002_other'\n"
+        )
+    elif problem == "revision_missing":
+        files[f"{MIGRATION_DIR}/0001_init.py"] = "# metadata absent\n"
+    else:
+        files[f"{MIGRATION_DIR}/0001_init.py"] = None
+    tip = commit(repo, "v1.0.2 - incomplete schema", files)
+    state = preflight.schema_readiness(repo, tip)
+    assert state["state"] == "unknown" and state["blocks_merge"] is True
+    assert state["reason"]
 
 
 # ------------------------------------------------------------------------- origin

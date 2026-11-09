@@ -48,7 +48,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` | T0–T5 wykonane; audyty Opus PASS; gotowe do akceptacji; koszt15–19h zatwierdzony | brak; merge/wdrożenie/trening osobno | `codex/full-symbol-crops` |
+| `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` | T0–T5 i poprawka startu Opus PASS; rollout zatwierdzony, baza0183; trwa dokończenie cutover | restarty i przygotowanie danych do pełnego modelu; brak legacytreningu | `codex/full-symbol-crops` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
 | `delivery/PHOTO_CROP_STORAGE_EXECUTION_PLAN_20261017.md` | accepted, rev. 2; etapy A i B w `main`; rewizja 3 (wariant B, D-563) w `main` | TASK-1050 (pilot) | `claude/photo-crop-pilot` |
@@ -94,6 +94,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1169** — Zgodność schematu przy cutover — v1.7.579 — tasks/completed/1169-schema-head-cutover.md
 - **TASK-1168** — Panel pełnych symboli, HTML i odbiór — v1.7.577 / `f29cd9c2` — tasks/completed/1168-full-symbol-panel-acceptance.md
 - **TASK-1167** — Kontrolowane warianty treningu zawartości i ratunku — v1.7.576 / `a9951e94` — tasks/completed/1167-bounded-content-training.md
 - **TASK-1166** — Ocena produkcyjnych wycinków — v1.7.575 / `ac724d29` — tasks/completed/1166-production-cell-evaluation.md
@@ -103,4 +104,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1162** — Routing rejestracji diagnostyk — v1.7.569 / `08c2fd74` — tasks/completed/1162-diagnostic-registration-routing.md
 - **TASK-1160** — Odbiór pełnego przepływu — v1.7.565 / `f42a31bd` — tasks/completed/1160-full-board-acceptance.md
 - **TASK-1161** — Panel i rzeczywiste wejście — v1.7.564 / `bc00e2a7` — tasks/completed/1161-full-board-panel-diagnostics.md
-- **TASK-1159** — Naturalna komunikacja i oszczędzanie kontekstu — v1.7.558 / `fa5156c9` — tasks/completed/1159-normal-communication-context-economy.md

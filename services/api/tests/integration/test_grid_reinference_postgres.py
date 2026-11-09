@@ -178,7 +178,18 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
 
     with patch("test_v3_engine_acceptance_postgres._factory", application_factory):
         game, factory, seed, candidate, stages = execution(
-            database, tmp_path, missing=scenario == "deferred_stats"
+            database,
+            tmp_path,
+            missing=scenario == "deferred_stats",
+            # This is a historical partially materialized import. V2 now
+            # correctly defers the whole incomplete binding, so pin its actual
+            # legacy policy rather than constructing an impossible V2 fixture.
+            crop_policy="neural-auto-crop-v1"
+            if scenario == "deferred_stats"
+            else "neural-auto-crop-v2",
+            acceptance_policy="v3-engine-acceptance-v1"
+            if scenario == "deferred_stats"
+            else "v3-engine-acceptance-v2",
         )
     root = tmp_path / "artifacts"
     with game_storage_scope(game):
@@ -243,6 +254,7 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
             context,
             *,
             execution_policy="neural-auto-crop-v1",
+            operation_pin=None,
         ):
             self.calls += 1
             source, geometry = source_document["source"], source_document["geometryContext"]
@@ -289,6 +301,26 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                         reasonCodes=["NEURAL_GRID_GATE_UNCALIBRATED"],
                     )
                 )
+            if scenario == "manual_sibling":
+                # Inference sees the entire photo, including the untargeted
+                # protected sibling. The write scope remains only position0.
+                nodes = geometry["board_geometries"][1]["latticeNodes"]
+                quads = lattice_cell_quads(
+                    nodes, width=source["oriented_width"], height=source["oriented_height"]
+                )
+                detections.append(
+                    dict(
+                        detectionId="1",
+                        score=0.9,
+                        latticeNodes=nodes,
+                        cellQuads=[q.to_dict() for q in quads],
+                        cellVisibility=lattice_visibility(
+                            quads, width=source["oriented_width"], height=source["oriented_height"]
+                        ),
+                        structurallyValid=True,
+                        reasonCodes=["NEURAL_GRID_GATE_UNCALIBRATED"],
+                    )
+                )
             proposal = build_neural_source_proposal(
                 game_id=str(game),
                 source_selection_id=str(seed.import_job_id),
@@ -311,6 +343,14 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                     for i, item in enumerate(frozen)
                 ],
             )
+            if scenario == "manual_sibling":
+                binding = build_neural_source_binding(
+                    proposal,
+                    confirmed_range=AttestedSequenceRange(
+                        start=geometry["sequence_range_start"], end=geometry["sequence_range_end"]
+                    ),
+                    assignments=[dict(positionIndex=i, detectionId=str(i)) for i in range(2)],
+                )
             return self.save_checkpoint(
                 operation_id,
                 ordinal,
@@ -319,7 +359,7 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                     binding=binding,
                     **(
                         {"executionPolicy": execution_policy}
-                        if execution_policy == "neural-auto-crop-v2"
+                        if execution_policy in ("neural-auto-crop-v2", "neural-symbol-review-v1")
                         else {}
                     ),
                     byPosition={
@@ -907,7 +947,6 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
             )
         if scenario not in {"source_deleted", "unchanged", "global_source_conflict"}:
             from game_predictor_api.application.grid_reinference import (
-                ACCEPTANCE_POLICY,
                 CONTRACT,
                 digest,
             )
@@ -927,7 +966,7 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
             )
             assert (
                 revision.global_initialization["gridReinference"]["acceptancePolicy"]
-                == ACCEPTANCE_POLICY
+                == before["acceptancePolicy"]
             )
             assert "gridReinferenceAcceptance" not in revision.global_initialization
         boards = list(session.scalars(select(RecognizedBoardModel)))

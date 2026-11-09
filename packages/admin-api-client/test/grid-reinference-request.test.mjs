@@ -6,6 +6,8 @@ for (const policy of [
   'v3-engine-acceptance-v1',
   'v3-engine-acceptance-v2',
   'v3-engine-acceptance-v3',
+  'v3-engine-acceptance-v4',
+  'v3-symbol-review-v1',
 ]) {
   test(`grid reinference wrapper retains server policy ${policy}`, async () => {
     const api = createAdminApiClient({

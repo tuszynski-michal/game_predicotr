@@ -2794,7 +2794,10 @@ export type BrowserImageImportJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?:
-    'neural-auto-crop-v1' | 'neural-auto-crop-v2' | null;
+    | 'neural-auto-crop-v1'
+    | 'neural-auto-crop-v2'
+    | 'neural-symbol-review-v1'
+    | null;
   /**
    * Neuralgridproposal
    */
@@ -10581,7 +10584,8 @@ export type GridReinferenceJobPayload = {
     | 'v3-engine-acceptance-v1'
     | 'v3-engine-acceptance-v2'
     | 'v3-engine-acceptance-v3'
-    | 'v3-engine-acceptance-v4';
+    | 'v3-engine-acceptance-v4'
+    | 'v3-symbol-review-v1';
   /**
    * Inferencekind
    */
@@ -14291,7 +14295,10 @@ export type ImageImportJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?:
-    'neural-auto-crop-v1' | 'neural-auto-crop-v2' | null;
+    | 'neural-auto-crop-v1'
+    | 'neural-auto-crop-v2'
+    | 'neural-symbol-review-v1'
+    | null;
   /**
    * Neuralgridproposal
    */
@@ -19623,7 +19630,10 @@ export type PinnedManagedImageReprocessJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?:
-    'neural-auto-crop-v1' | 'neural-auto-crop-v2' | null;
+    | 'neural-auto-crop-v1'
+    | 'neural-auto-crop-v2'
+    | 'neural-symbol-review-v1'
+    | null;
   /**
    * Neuralgridproposal
    */
@@ -21743,7 +21753,10 @@ export type ResolvedBrowserImageImportJobPayload = {
    * Neuralgridexecutionpolicyversion
    */
   neuralGridExecutionPolicyVersion?:
-    'neural-auto-crop-v1' | 'neural-auto-crop-v2' | null;
+    | 'neural-auto-crop-v1'
+    | 'neural-auto-crop-v2'
+    | 'neural-symbol-review-v1'
+    | null;
   /**
    * Neuralgridproposal
    */

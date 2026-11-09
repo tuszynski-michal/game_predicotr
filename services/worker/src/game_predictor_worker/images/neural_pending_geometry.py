@@ -11,10 +11,14 @@ from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.neural_crop_policy import (
     LEGACY_NEURAL_AUTO_CROP_POLICY,
     NEURAL_AUTO_CROP_POLICY,
+    SYMBOL_REVIEW_CROP_POLICY,
     neural_auto_crop_blockers,
     neural_auto_crop_evidence,
 )
-from game_predictor_api.domain.neural_grid_operation_pin import operation_pin_blockers
+from game_predictor_api.domain.neural_grid_operation_pin import (
+    operation_pin_blockers,
+    symbol_review_qualification_blockers,
+)
 from game_predictor_api.domain.neural_grid_proposal import (
     NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
     NEURAL_GRID_REVIEW_REASON,
@@ -133,9 +137,12 @@ def neural_pending_payload(
                 operation_pin,
                 model_snapshot=proposal["engineSnapshot"],
                 game_id=str(proposal["gameId"]),
+                for_symbol_review=engine_acceptance_policy == "v3-symbol-review-v1",
             )
             blockers += (
-                qualification_blockers
+                symbol_review_qualification_blockers(qualification_blockers)
+                if engine_acceptance_policy == "v3-symbol-review-v1"
+                else qualification_blockers
                 if qualification_blockers is not None
                 else ("NEURAL_GRID_GAME_EVALUATION_UNCHECKED",)
             )
@@ -152,7 +159,10 @@ def neural_pending_payload(
             )
             shared["neuralCalibrationEvidence"] = evidence
         automatic = automatic_crops and not blockers
-        if automatic_crops and execution_policy == NEURAL_AUTO_CROP_POLICY:
+        if automatic_crops and execution_policy in (
+            NEURAL_AUTO_CROP_POLICY,
+            SYMBOL_REVIEW_CROP_POLICY,
+        ):
             reasons.extend(blockers)
             if detection is not None:
                 shared["neuralAcceptanceEvidence"] = neural_auto_crop_evidence(detection)

@@ -79,6 +79,7 @@ class SqlAlchemyJobRepository(JobRepository):
         from game_predictor_api.domain.v3_engine_acceptance import (
             CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY,
             GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+            SYMBOL_REVIEW_ENGINE_POLICY,
             acceptance_for_operation_pin,
         )
 
@@ -114,6 +115,7 @@ LIMIT 2
                     "acceptance": [
                         GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
                         CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY,
+                        SYMBOL_REVIEW_ENGINE_POLICY,
                     ],
                     "preflight": CAPABILITY_PREFLIGHT_POLICY,
                     "derived_keys": sorted(NEURAL_OPERATION_DERIVED_KEYS),

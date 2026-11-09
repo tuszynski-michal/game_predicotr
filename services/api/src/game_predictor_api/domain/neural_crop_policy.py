@@ -16,7 +16,12 @@ from .neural_grid_proposal import lattice_cell_quads, lattice_visibility
 
 LEGACY_NEURAL_AUTO_CROP_POLICY = "neural-auto-crop-v1"
 NEURAL_AUTO_CROP_POLICY = "neural-auto-crop-v2"
-NEURAL_AUTO_CROP_POLICIES = (LEGACY_NEURAL_AUTO_CROP_POLICY, NEURAL_AUTO_CROP_POLICY)
+SYMBOL_REVIEW_CROP_POLICY = "neural-symbol-review-v1"
+NEURAL_AUTO_CROP_POLICIES = (
+    LEGACY_NEURAL_AUTO_CROP_POLICY,
+    NEURAL_AUTO_CROP_POLICY,
+    SYMBOL_REVIEW_CROP_POLICY,
+)
 NEURAL_AUTO_CROP_PAYLOAD_KEY = "neural_grid_execution_policy_version"
 NEURAL_AUTO_CROP_BLOCKING_REASONS = frozenset(
     {
@@ -76,7 +81,12 @@ def neural_auto_crop_blockers(
     if not isinstance(raw_reasons, list) or any(not isinstance(x, str) for x in raw_reasons):
         reasons.append("NEURAL_GRID_EVIDENCE_INVALID")
     else:
-        reasons.extend(code for code in raw_reasons if code in NEURAL_AUTO_CROP_BLOCKING_REASONS)
+        reasons.extend(
+            code
+            for code in raw_reasons
+            if code in NEURAL_AUTO_CROP_BLOCKING_REASONS
+            and not (policy == SYMBOL_REVIEW_CROP_POLICY and code == "NEURAL_GRID_FIT_OUTLIERS")
+        )
     if (rows, columns) != (3, 5):
         reasons.append("NEURAL_GRID_LAYOUT_UNSUPPORTED")
     if not isinstance(binding, Mapping):
@@ -208,7 +218,7 @@ def full_neural_prediction_geometry(
         != 1
     ):
         return False
-    if policy == NEURAL_AUTO_CROP_POLICY:
+    if policy in (NEURAL_AUTO_CROP_POLICY, SYMBOL_REVIEW_CROP_POLICY):
         evidence = geometry.get("neuralAcceptanceEvidence")
         if not isinstance(evidence, Mapping) or neural_auto_crop_blockers(
             policy=policy,

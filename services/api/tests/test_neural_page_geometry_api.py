@@ -514,7 +514,10 @@ def test_managed_source_selection_survives_new_inflight_run_and_new_service(tmp_
     )
 
 
-def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp_path, monkeypatch):
+@pytest.mark.parametrize("symbol_review", [False, True])
+def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(
+    tmp_path, monkeypatch, symbol_review
+):
     from game_predictor_api.application.image_imports import (
         BrowserImageUpload,
         BrowserReadySelection,
@@ -577,9 +580,31 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     )
     repository = MemoryJobRepository(game_id)
     repository.add_job(job)
+
+    def review_pin(**kwargs):
+        from game_predictor_api.domain.neural_grid_operation_pin import make_operation_pin
+        from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+
+        legacy = resolve_unqualified_operation_pin(**kwargs)
+        if not symbol_review:
+            return legacy
+        return make_operation_pin(
+            snapshot=NeuralGridSnapshot.from_payload(kwargs["model_snapshot"]),
+            game_id=str(kwargs["game_id"]),
+            rules_version_id=str(kwargs["rules_version_id"]),
+            rows=kwargs["rows"],
+            columns=kwargs["columns"],
+            qualification=legacy["qualification"],
+            automatic_qualification={
+                "state": "unqualified",
+                "reasonCodes": ["NEURAL_GRID_CALIBRATION_REQUIRED"],
+            },
+            for_symbol_review=True,
+        )
+
     grid = SimpleNamespace(
         uses_neural_grid_pilot=lambda **_: True,
-        resolve_neural_operation_pin=resolve_unqualified_operation_pin,
+        resolve_neural_operation_pin=review_pin,
         neural_grid_profile=lambda **_: "grid_profile_mumie_v1",
         resolve=lambda **_: _baseline_grid_profile_snapshot(),
     )
@@ -598,7 +623,9 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     symbols = SimpleNamespace(
         resolve=unavailable_symbols,
         resolve_unclassified_cold_start=lambda *, game_id: (
-            cold_start_unclassified_symbol_snapshot(("OWN_GAME_FIRST", "OWN_GAME_SECOND"))
+            cold_start_unclassified_symbol_snapshot(
+                ("OWN_GAME_FIRST", "OWN_GAME_SECOND")
+            ).with_full_cell_crops()
             if game_id == expected_game_id
             else None
         ),
@@ -701,8 +728,11 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     assert started.json()["created"] is True
     frozen = repository.get_job(UUID(started.json()["job"]["id"]))
     assert frozen.input_payload["neural_grid_proposal"] == value["engineSnapshot"]
-    assert frozen.input_payload["neural_grid_execution_policy_version"] == "neural-auto-crop-v2"
-    assert frozen.input_payload["v3_engine_acceptance_policy_version"] == "v3-engine-acceptance-v3"
+    execution_policy = "neural-symbol-review-v1" if symbol_review else "neural-auto-crop-v2"
+    assert frozen.input_payload["neural_grid_execution_policy_version"] == execution_policy
+    assert frozen.input_payload["v3_engine_acceptance_policy_version"] == (
+        "v3-symbol-review-v1" if symbol_review else "v3-engine-acceptance-v3"
+    )
     assert (
         frozen.input_payload["neural_grid_operation_pin"]["qualification"]["state"] == "unqualified"
     )
@@ -720,7 +750,7 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
         )
     assert (
         started.json()["job"]["inputPayload"]["neuralGridExecutionPolicyVersion"]
-        == "neural-auto-crop-v2"
+        == execution_policy
     )
     with pytest.raises(JobConflictError) as replay_refused:
         client.post(prefix + "/start", json=command)

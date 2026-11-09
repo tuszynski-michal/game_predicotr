@@ -184,6 +184,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             qualification_blockers = recheck_operation_pin(
                 self._session,
                 pin=operation_pin,
+                for_symbol_review=acceptance_policy == "v3-symbol-review-v1",
                 model_snapshot=model_snapshot,
                 game_id=base.game_id,
                 artifact_root=self._artifact_root,
@@ -193,6 +194,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
         from game_predictor_api.domain.calibrated_neural_evidence import calibrated_result_blockers
         from game_predictor_api.domain.neural_crop_policy import (
             NEURAL_AUTO_CROP_POLICY,
+            SYMBOL_REVIEW_CROP_POLICY,
             full_neural_prediction_geometry,
             neural_auto_crop_blockers,
             neural_auto_crop_evidence,
@@ -208,7 +210,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             raise ImageGridReviewError(
                 "NEURAL_GRID_EXECUTION_POLICY_UNSUPPORTED", "Unknown automatic write policy."
             )
-        if crop_policy == NEURAL_AUTO_CROP_POLICY:
+        if crop_policy in (NEURAL_AUTO_CROP_POLICY, SYMBOL_REVIEW_CROP_POLICY):
             try:
                 checked_binding = validate_neural_source_binding(binding, proposal)
             except NeuralGridProposalError as error:

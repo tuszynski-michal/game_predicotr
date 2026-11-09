@@ -4969,7 +4969,8 @@
               {
                 "enum": [
                   "neural-auto-crop-v1",
-                  "neural-auto-crop-v2"
+                  "neural-auto-crop-v2",
+                  "neural-symbol-review-v1"
                 ],
                 "type": "string"
               },
@@ -19389,7 +19390,8 @@
               "v3-engine-acceptance-v1",
               "v3-engine-acceptance-v2",
               "v3-engine-acceptance-v3",
-              "v3-engine-acceptance-v4"
+              "v3-engine-acceptance-v4",
+              "v3-symbol-review-v1"
             ],
             "title": "Acceptancepolicy",
             "type": "string"
@@ -25767,7 +25769,8 @@
               {
                 "enum": [
                   "neural-auto-crop-v1",
-                  "neural-auto-crop-v2"
+                  "neural-auto-crop-v2",
+                  "neural-symbol-review-v1"
                 ],
                 "type": "string"
               },
@@ -35484,7 +35487,8 @@
               {
                 "enum": [
                   "neural-auto-crop-v1",
-                  "neural-auto-crop-v2"
+                  "neural-auto-crop-v2",
+                  "neural-symbol-review-v1"
                 ],
                 "type": "string"
               },
@@ -39209,7 +39213,8 @@
               {
                 "enum": [
                   "neural-auto-crop-v1",
-                  "neural-auto-crop-v2"
+                  "neural-auto-crop-v2",
+                  "neural-symbol-review-v1"
                 ],
                 "type": "string"
               },

@@ -163,7 +163,7 @@ def test_exact_game_pass_and_foreign_game_rejected_without_blocking_proposals(op
         _, report = publish_fixture(c, session)
         qualified = prepare(session, c, c.game)
         assert qualified["qualification"]["evaluationId"] == str(report)
-        assert qualified["contractVersion"] == "neural-grid-operation-pin-v3"
+        assert qualified["contractVersion"] == "neural-grid-operation-pin-v4"
         assert recheck(session, c, c.game, qualified) == (CALIBRATION_REQUIRED,)
         legacy = prepare(session, c, c.game, legacy=True)
         assert recheck(session, c, c.game, legacy) == ()

@@ -42,6 +42,7 @@ from game_predictor_api.domain.jobs import Job, update_job_progress
 from game_predictor_api.domain.neural_crop_policy import (
     LEGACY_NEURAL_AUTO_CROP_POLICY,
     NEURAL_AUTO_CROP_POLICY,
+    SYMBOL_REVIEW_CROP_POLICY,
     neural_auto_crop_blockers,
     neural_auto_crop_evidence,
 )
@@ -85,6 +86,7 @@ from game_predictor_worker.images.normalization import (
 )
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
+from .manual_board_cell_symbol_prediction import ManualBoardCellSymbolPredictor
 from .pending_grid_reinference import PendingGridReinferenceHandler
 
 
@@ -93,6 +95,9 @@ class GridReinferenceHandler:
         self, session_factory: sessionmaker[Session], artifact_root: Path, *, runner: Any = None
     ) -> None:
         self.sessions, self.root, self.runner = session_factory, artifact_root.resolve(), runner
+        self._symbol_predictor = ManualBoardCellSymbolPredictor(
+            Path(__file__).resolve().parents[5], self.root
+        )
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         if job.input_payload.get("inference_kind") != CONTRACT:
@@ -257,6 +262,7 @@ class GridReinferenceHandler:
                     qualification_blockers = recheck_operation_pin(
                         session,
                         pin=d.get(OPERATION_PIN_KEY),
+                        for_symbol_review=d["acceptancePolicy"] == "v3-symbol-review-v1",
                         model_snapshot=d["modelSnapshot"],
                         game_id=job.game_id,
                         artifact_root=self.root,
@@ -335,6 +341,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     qualification_blockers = recheck_operation_pin(
                         session,
                         pin=d.get(OPERATION_PIN_KEY),
+                        for_symbol_review=d["acceptancePolicy"] == "v3-symbol-review-v1",
                         model_snapshot=d["modelSnapshot"],
                         game_id=job.game_id,
                         artifact_root=self.root,
@@ -548,7 +555,9 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             operation_id,
             runner,
             context,
-            calibration_pin=operation_pin,
+            calibration_pin=None
+            if execution_policy == SYMBOL_REVIEW_CROP_POLICY
+            else operation_pin,
             raster_sha=frame.pixel_checksum_sha256,
             available_source_box=(
                 frame.crop.valid_box.as_list()
@@ -636,7 +645,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 ),
                 **(
                     {"executionPolicy": execution_policy}
-                    if execution_policy == NEURAL_AUTO_CROP_POLICY
+                    if execution_policy in (NEURAL_AUTO_CROP_POLICY, SYMBOL_REVIEW_CROP_POLICY)
                     else {}
                 ),
             },
@@ -666,7 +675,10 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             width=proposal["sourceWidth"],
             height=proposal["sourceHeight"],
         )
-        if "calibrationPin" in checkpoint:
+        if (
+            "calibrationPin" in checkpoint
+            and checkpoint.get("executionPolicy") != SYMBOL_REVIEW_CROP_POLICY
+        ):
             from game_predictor_api.domain.calibrated_neural_evidence import (
                 calibrated_result_blockers,
             )
@@ -927,7 +939,11 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             repository = SqlAlchemyGridReinferenceRepository(session, self.root)
             repository.bind(job.game_id, write=False)
             writer = SqlAlchemyVirtualGridGeometryRepository(session)
-            service = VirtualGridGeometryService(writer, self.root)
+            service = VirtualGridGeometryService(
+                writer,
+                self.root,
+                symbol_predictor=self._symbol_predictor,
+            )
             commands = []
             for target in frozen:
                 position = target["positionIndex"]
@@ -948,6 +964,9 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 )
                 commands.append(
                     VirtualGridGeometrySourceCommand(
+                        crop_policy_version="full-cell-v2"
+                        if checkpoint.get("executionPolicy") == SYMBOL_REVIEW_CROP_POLICY
+                        else None,
                         review_item_id=None if review is None else UUID(review["id"]),
                         pending_geometry_id=None if pending is None else UUID(pending["id"]),
                         expected_geometry_revision=board["geometry_revision"]
@@ -987,7 +1006,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     commands=commands,
                     actor="system:grid-reinference",
                     require_complete_source=False,
-                    predict=False,
+                    predict=checkpoint.get("executionPolicy") == SYMBOL_REVIEW_CROP_POLICY,
                     automatic=True,
                 )
             except ImageGridReviewError as error:
@@ -1015,11 +1034,17 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 detectionId=detection["detectionId"],
                 geometrySource="auto",
             )
-            if checkpoint.get("executionPolicy") == NEURAL_AUTO_CROP_POLICY:
+            if checkpoint.get("executionPolicy") in (
+                NEURAL_AUTO_CROP_POLICY,
+                SYMBOL_REVIEW_CROP_POLICY,
+            ):
                 geometries[position]["neuralAcceptanceEvidence"] = neural_auto_crop_evidence(
                     detection
                 )
-            if "calibrationPin" in checkpoint:
+            if (
+                "calibrationPin" in checkpoint
+                and checkpoint.get("executionPolicy") != SYMBOL_REVIEW_CROP_POLICY
+            ):
                 geometries[position]["neuralCalibrationEvidence"] = checkpoint.get(
                     "calibrationEvidence", {}
                 ).get(detection["detectionId"])

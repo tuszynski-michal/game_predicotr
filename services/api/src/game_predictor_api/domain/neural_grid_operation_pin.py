@@ -28,10 +28,29 @@ CAPABILITY_PREFLIGHT_POLICY = "page-geometry-preflight-v14-neural-capabilities"
 GAME_EVALUATION_REQUIRED = "NEURAL_GRID_GAME_EVALUATION_REQUIRED"
 CALIBRATION_REQUIRED = "NEURAL_GRID_CALIBRATION_REQUIRED"
 CALIBRATED_PIN_VERSION = "neural-grid-operation-pin-v3"
+SYMBOL_REVIEW_PIN_VERSION = "neural-grid-operation-pin-v4"
+_REVIEW_ONLY_QUALITY_BLOCKERS = frozenset(
+    {
+        GAME_EVALUATION_REQUIRED,
+        CALIBRATION_REQUIRED,
+        "NEURAL_GRID_GAME_EVALUATION_STALE",
+        "NEURAL_GRID_CALIBRATION_STALE",
+    }
+)
+
+
+def symbol_review_qualification_blockers(blockers: tuple[str, ...] | None) -> tuple[str, ...]:
+    """Only evidence-of-quality gates are waived; technical failures remain fatal."""
+    if blockers is None:
+        return ("NEURAL_GRID_GAME_EVALUATION_UNCHECKED",)
+    return tuple(code for code in blockers if code not in _REVIEW_ONLY_QUALITY_BLOCKERS)
+
+
 _SHA = re.compile(r"[0-9a-f]{64}")
 NEURAL_OPERATION_DERIVED_KEYS = frozenset(
     {
         OPERATION_PIN_KEY,
+        "neural_grid_execution_policy_version",
         "v3_engine_acceptance_policy_version",
         "pipeline_fingerprint",
         "base_page_geometry_manifest",
@@ -86,6 +105,7 @@ def make_operation_pin(
     qualification: dict[str, object],
     rescue: dict[str, object] | None = None,
     automatic_qualification: dict[str, object] | None = None,
+    for_symbol_review: bool = False,
 ) -> dict[str, object]:
     descriptor = snapshot_descriptor(snapshot)
     pin: dict[str, object] = {
@@ -111,6 +131,10 @@ def make_operation_pin(
         pin["qualificationPolicyVersion"] = _calibration_policy(profile)
         pin["automaticQualification"] = automatic_qualification
         pin["rescue"] = rescue
+    if for_symbol_review:
+        if automatic_qualification is None:
+            raise ValueError("Symbol review requires explicit qualification metadata.")
+        pin["contractVersion"] = SYMBOL_REVIEW_PIN_VERSION
     pin["pinSha256"] = descriptor_sha256(pin)
     return require_operation_pin(pin, snapshot=snapshot, game_id=game_id)
 
@@ -122,8 +146,12 @@ def require_operation_pin(
     game_id: str,
 ) -> dict[str, Any]:
     try:
-        is_calibrated = (
-            isinstance(value, Mapping) and value.get("contractVersion") == CALIBRATED_PIN_VERSION
+        is_review = (
+            isinstance(value, Mapping) and value.get("contractVersion") == SYMBOL_REVIEW_PIN_VERSION
+        )
+        is_calibrated = isinstance(value, Mapping) and value.get("contractVersion") in (
+            CALIBRATED_PIN_VERSION,
+            SYMBOL_REVIEW_PIN_VERSION,
         )
         is_rescue = (
             isinstance(value, Mapping)
@@ -155,7 +183,9 @@ def require_operation_pin(
         if (
             pin["contractVersion"]
             != (
-                CALIBRATED_PIN_VERSION
+                SYMBOL_REVIEW_PIN_VERSION
+                if is_review
+                else CALIBRATED_PIN_VERSION
                 if is_calibrated
                 else "neural-grid-operation-pin-v2"
                 if is_rescue
@@ -238,7 +268,7 @@ def require_operation_pin(
 
 
 def operation_pin_blockers(
-    value: object, *, model_snapshot: object, game_id: str
+    value: object, *, model_snapshot: object, game_id: str, for_symbol_review: bool = False
 ) -> tuple[str, ...]:
     try:
         pin = require_operation_pin(
@@ -246,10 +276,16 @@ def operation_pin_blockers(
         )
     except ValueError:
         return (NeuralOperationPinError.code,)
+    if for_symbol_review:
+        return (
+            ()
+            if pin["contractVersion"] == SYMBOL_REVIEW_PIN_VERSION
+            else ("NEURAL_GRID_OPERATION_POLICY_MISMATCH",)
+        )
     if pin["qualification"]["state"] != "qualified":
         return (GAME_EVALUATION_REQUIRED,)
     if (
-        pin["contractVersion"] == CALIBRATED_PIN_VERSION
+        pin["contractVersion"] in (CALIBRATED_PIN_VERSION, SYMBOL_REVIEW_PIN_VERSION)
         and pin["automaticQualification"]["state"] != "qualified"
     ):
         return (CALIBRATION_REQUIRED,)

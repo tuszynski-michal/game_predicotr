@@ -772,3 +772,11 @@ fingerprintu.
 ## Usunięte źródło i ponowne wypełnienie luk — TASK-1141
 
 Opt-in physical purge zapisuje compact plan przed usunięciem starego zdjęcia. Nie wymaga ukończenia przyszłego zamiennika; wymaga zakończonego starego importu, aby nie zniszczyć wejścia jego wznawiania. Rezerwacje dotyczą exact actual sequence range; pozostają po usunięciu operacyjnych boards/reviews. Dotychczasowy staged request/job/discovery admission rozpoznaje niezmienny compact scopeDigest i tworzy nowe source/reviews bez przenoszenia ocen. Powody ponownej oceny czytelności używają sequence_number/cell_index, więc nie potrzebują usuniętych cell IDs. Stare SHA pozostaje wycofane także po restored.
+
+
+## Propozycje do weryfikacji symboli — D-599
+
+Jawny v3-symbol-review-v1 udostępnia pełne renderowalne propozycje jako
+oczekujące symbole, bez potwierdzenia geometrii człowieka lub kwalifikacji
+automatu. Stare piny/polityki zachowują interpretację. Nie zmienia to modelu
+domyślnego; klasy i błędne siatki ocenia operator w istniejącej weryfikacji.

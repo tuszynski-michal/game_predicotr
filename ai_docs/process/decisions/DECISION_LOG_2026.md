@@ -15,6 +15,23 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+
+## D-599 — Propozycje siatek do ludzkiej weryfikacji symboli
+
+Status: accepted. Data:2026-11-09. TASK-1176, jawne polecenie operatora.
+
+Nowy pinv4 i v3-symbol-review-v1 oznaczają operacyjne przetworzenie propozycji,
+nie kwalifikację automatu. Bieżący zapis automatic=True zachowuje brak pól
+ludzkiego zatwierdzenia i pending klasy. Stare wersje zachowują bramki oraz
+interpretację. Nowe niekwalifikowane piny pozwalają na renderowanie pełnych,
+jednoznacznie przypisanych, geometrycznie poprawnych pól z rzeczywistych pikseli.
+FIT_OUTLIERS jest ostrzeżeniem do ludzkiego przeglądu; FIT_FAILED pozostaje
+blokadą. To doprecyzowanie D-484/550/584 dla operatorowego celu weryfikacji,
+bez udawania zaliczonej kalibracji lub etykiet treningowych geometrii.
+Źródła, modele, topologia, sekwencje i własność nadal podlegają walidacji.
+Nowe wycinki0% i rozpoznanie wykorzystują istniejący renderer/klasyfikator.
+
+
 ## D-598 — Pełne pola w nowych wycinkach i jawnej korekcie
 
 Status: accepted — polecenie operatora usunięcia marginesu8%, TASK-1175.

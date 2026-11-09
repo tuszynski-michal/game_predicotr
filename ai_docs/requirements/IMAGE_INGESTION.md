@@ -2180,3 +2180,11 @@ TASK-1129: po świeżym podglądzie i osobnym potwierdzeniu jedno całe zdjęcie
 Jeden wpis przyjmuje jedno nowe zdjęcie przez istniejący browser staging. Repair-v3 dostarcza oryginalny request i wybrane, ukończone JPEG z potwierdzonym SHA; nie wykonuje ponownego przycinania. Request obejmujący A+B z wybranym gotowym A importuje tylko A. Backend ponownie sprawdza zakres, rewizję, niezmienny scope digest i rzeczywiste bajty. Zwykły import nie przejmuje rezerwacji.
 
 Niepełna geometria, częściowe zatwierdzenie i odrzucenie zachowują wpis i rezerwacje. Operator poprawia to samo źródło przez istniejący edytor i undo; kolejne zdjęcie po częściowym accepted nie jest obsługiwane bez odrębnej decyzji. Każda plansza otrzymuje nowe zwykłe accepted/corrected, bez przenoszenia wcześniejszych approvals. Osobne restored wymaga wszystkich canonical jednego zdjęcia oraz jawnej oceny czytelności wskazanych nowych cropów z aktualną tożsamością pikseli. Dopiero atomowe zamknięcie orphan pozwala usunąć aktywne slots. Stare SHA pozostaje retired, a historia i referencje obu źródeł pozostają chronione.
+
+
+## Propozycje do weryfikacji symboli — D-599
+
+Jawny v3-symbol-review-v1 udostępnia pełne renderowalne propozycje jako
+oczekujące symbole, bez potwierdzenia geometrii człowieka lub kwalifikacji
+automatu. Stare piny/polityki zachowują interpretację. Nie zmienia to modelu
+domyślnego; klasy i błędne siatki ocenia operator w istniejącej weryfikacji.

@@ -10,18 +10,25 @@ from typing import cast
 from .neural_crop_policy import (
     LEGACY_NEURAL_AUTO_CROP_POLICY,
     NEURAL_AUTO_CROP_POLICY,
+    SYMBOL_REVIEW_CROP_POLICY,
     full_neural_prediction_geometry,
     neural_auto_crop_blockers,
     neural_auto_crop_evidence,
 )
-from .neural_grid_operation_pin import OPERATION_PIN_KEY, operation_pin_blockers
+from .neural_grid_operation_pin import (
+    OPERATION_PIN_KEY,
+    operation_pin_blockers,
+    symbol_review_qualification_blockers,
+)
 from .neural_grid_proposal import NeuralGridProposalError, validate_neural_source_binding
 
 LEGACY_V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v1"
 V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v2"
 GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v3"
 CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY = "v3-engine-acceptance-v4"
+SYMBOL_REVIEW_ENGINE_POLICY = "v3-symbol-review-v1"
 V3_ENGINE_ACCEPTANCE_POLICIES = (
+    SYMBOL_REVIEW_ENGINE_POLICY,
     LEGACY_V3_ENGINE_ACCEPTANCE_POLICY,
     V3_ENGINE_ACCEPTANCE_POLICY,
     GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
@@ -34,6 +41,7 @@ V3_ENGINE_ACCEPTANCE_ACTOR = "system:v3-engine-acceptance-v1"
 def is_game_scoped_neural_acceptance(policy: object) -> bool:
     """Trusted job policy owns strict gates, never worker kind/source claims."""
     return policy in (
+        SYMBOL_REVIEW_ENGINE_POLICY,
         GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
         CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY,
     )
@@ -41,6 +49,8 @@ def is_game_scoped_neural_acceptance(policy: object) -> bool:
 
 def acceptance_for_operation_pin(pin: Mapping[str, object]) -> str:
     """Retry preserves the policy paired with the immutable pin's version."""
+    if pin.get("contractVersion") == "neural-grid-operation-pin-v4":
+        return SYMBOL_REVIEW_ENGINE_POLICY
     return (
         CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY
         if pin.get("contractVersion") == "neural-grid-operation-pin-v3"
@@ -49,6 +59,8 @@ def acceptance_for_operation_pin(pin: Mapping[str, object]) -> str:
 
 
 def crop_policy_for_acceptance(policy: object) -> str | None:
+    if policy == SYMBOL_REVIEW_ENGINE_POLICY:
+        return SYMBOL_REVIEW_CROP_POLICY
     if policy == LEGACY_V3_ENGINE_ACCEPTANCE_POLICY:
         return LEGACY_NEURAL_AUTO_CROP_POLICY
     if policy == V3_ENGINE_ACCEPTANCE_POLICY or is_game_scoped_neural_acceptance(policy):
@@ -69,6 +81,10 @@ def pin_v3_engine_acceptance_policy(payload: dict[str, object], fingerprint: str
     game_id = pin.get("gameId") if isinstance(pin, Mapping) else None
     require_operation_pin(pin, snapshot=snapshot, game_id=cast(str, game_id))
     policy = acceptance_for_operation_pin(cast(Mapping[str, object], pin))
+    if policy == SYMBOL_REVIEW_ENGINE_POLICY:
+        from .neural_crop_policy import NEURAL_AUTO_CROP_PAYLOAD_KEY
+
+        payload[NEURAL_AUTO_CROP_PAYLOAD_KEY] = SYMBOL_REVIEW_CROP_POLICY
     payload[V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY] = policy
     return hashlib.sha256(
         f"{fingerprint}:{policy}:{descriptor_sha256(pin)}".encode("ascii")
@@ -120,6 +136,11 @@ def qualify_v3_engine_acceptance(
         return ("V3_ACCEPTANCE_PROVENANCE_INVALID",)
     source = cast(Mapping[str, object], proposal)
     reasons: list[str] = []
+    if policy == SYMBOL_REVIEW_ENGINE_POLICY and (
+        not isinstance(operation_pin, Mapping)
+        or operation_pin.get("contractVersion") != "neural-grid-operation-pin-v4"
+    ):
+        reasons.append("NEURAL_GRID_OPERATION_POLICY_MISMATCH")
     if policy == CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY and (
         not isinstance(operation_pin, Mapping)
         or operation_pin.get("contractVersion") != "neural-grid-operation-pin-v3"
@@ -127,10 +148,17 @@ def qualify_v3_engine_acceptance(
         reasons.append("NEURAL_GRID_OPERATION_POLICY_MISMATCH")
     if is_game_scoped_neural_acceptance(policy):
         reasons.extend(
-            operation_pin_blockers(operation_pin, model_snapshot=model_snapshot, game_id=game_id)
+            operation_pin_blockers(
+                operation_pin,
+                model_snapshot=model_snapshot,
+                game_id=game_id,
+                for_symbol_review=policy == SYMBOL_REVIEW_ENGINE_POLICY,
+            )
         )
         reasons.extend(
-            qualification_blockers
+            symbol_review_qualification_blockers(qualification_blockers)
+            if policy == SYMBOL_REVIEW_ENGINE_POLICY
+            else qualification_blockers
             if qualification_blockers is not None
             else ("NEURAL_GRID_GAME_EVALUATION_UNCHECKED",)
         )
@@ -189,7 +217,10 @@ def qualify_v3_engine_acceptance(
             or geometry.get("neuralExecutionPolicy") != crop_policy
         ):
             reasons.append("V3_ACCEPTANCE_GEOMETRY_INVALID")
-        if crop_policy == NEURAL_AUTO_CROP_POLICY and detection is not None:
+        if (
+            crop_policy in (NEURAL_AUTO_CROP_POLICY, SYMBOL_REVIEW_CROP_POLICY)
+            and detection is not None
+        ):
             if policy == CALIBRATED_V3_ENGINE_ACCEPTANCE_POLICY:
                 from .calibrated_neural_evidence import calibrated_result_blockers
 

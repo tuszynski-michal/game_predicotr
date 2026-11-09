@@ -15,6 +15,7 @@ from game_predictor_api.domain.neural_grid_operation_pin import (
     CALIBRATED_PIN_VERSION,
     CALIBRATION_REQUIRED,
     GAME_EVALUATION_REQUIRED,
+    SYMBOL_REVIEW_PIN_VERSION,
     NeuralOperationPinError,
     make_operation_pin,
     require_operation_pin,
@@ -112,6 +113,7 @@ def prepare_operation_pin(
         qualification=qualification,
         rescue=rescue,
         automatic_qualification=automatic,
+        for_symbol_review=automatic["state"] != "qualified",
     )
 
 
@@ -119,6 +121,7 @@ def recheck_operation_pin(
     session: Session,
     *,
     pin: object,
+    for_symbol_review: bool = False,
     model_snapshot: object,
     game_id: UUID,
     artifact_root: Path | None = None,
@@ -131,6 +134,12 @@ def recheck_operation_pin(
     rules = session.get(RulesVersionModel, UUID(checked["topologyRulesVersionId"]))
     if rules is None or rules.game_id != game_id or (rules.rows, rules.columns) != (3, 5):
         return ("NEURAL_GRID_TOPOLOGY_UNSUPPORTED",)
+    if for_symbol_review:
+        return (
+            ()
+            if checked["contractVersion"] == SYMBOL_REVIEW_PIN_VERSION
+            else ("NEURAL_GRID_OPERATION_POLICY_MISMATCH",)
+        )
     qualification = checked["qualification"]
     if qualification["state"] == "unqualified":
         return (GAME_EVALUATION_REQUIRED,)
@@ -147,7 +156,7 @@ def recheck_operation_pin(
         or descriptor_sha256(evidence) != qualification["publicationEvidenceSha256"]
     ):
         return ("NEURAL_GRID_GAME_EVALUATION_STALE",)
-    if checked["contractVersion"] == CALIBRATED_PIN_VERSION:
+    if checked["contractVersion"] in (CALIBRATED_PIN_VERSION, SYMBOL_REVIEW_PIN_VERSION):
         automatic = checked["automaticQualification"]
         if automatic["state"] != "qualified":
             return (CALIBRATION_REQUIRED,)

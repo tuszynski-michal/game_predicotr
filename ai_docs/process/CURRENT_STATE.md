@@ -14,7 +14,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 - **Audyt Claude (operator2026-11-08):** terminal/polecenia są wymaganym sposobem. Desktop wyłącznie na nowe, jawne polecenie dla danego audytu. Operator loguje CLI sam; nie sterujemy logowaniem ani nie kopiujemy tokenów. Limit Opus pozwala odłożyć audyty i kontynuować kod, bez PASS/commita oczekującego taska.
 
-- **Mumie A2:** trening/ONNX42012366 zakończone; blokada: wzrost błędu A. Default3ed60010 rev2. Import691 (bf601495):6219 pending,0 błędów; stare309 i geometrie zachowane. Dowód: root artifacts/staging-691-import-20261109/RESULT.json. Źródło: `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md`; root artifacts/grid-detector-training-20261107/block-analysis/analysis.html.
+- **Mumie A2 / TASK-1176:** kod OpusR2 PASS, czeka na merge. Operator zgodził się na restart API/general i przetworzenie bf601495;6219 nadal deferred. Default3ed60010 rev2, trening42012366 zablokowany błędemA, stare309 zachowane. Źródło: `quality/TASK-1176_VERIFICATION.md`, root artifacts/staging-691-import-20261109/RESULT.json.
 
 
 
@@ -94,6 +94,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1176** — Przekazanie siatek do weryfikacji symboli — v1.7.591 — tasks/completed/1176-symbol-review-routing.md
 - **TASK-1175** — Pełne pola symboli bez marginesu 8% — v1.7.588 / `6a560516` — tasks/completed/1175-full-cell-render-policy.md
 - **TASK-1174** — Następna plansza i szybka kolejka — v1.7.587 / `1181797c` — tasks/completed/1174-geometry-review-navigation.md
 - **TASK-1173** — HTML i końcowy odbiór pełnych wycinków — v1.7.585 / `ae323963` — tasks/completed/1173-crop-preview-acceptance.md
@@ -103,4 +104,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1169** — Zgodność schematu przy cutover — v1.7.579 / `a5e78251` — tasks/completed/1169-schema-head-cutover.md
 - **TASK-1168** — Panel pełnych symboli, HTML i odbiór — v1.7.577 / `f29cd9c2` — tasks/completed/1168-full-symbol-panel-acceptance.md
 - **TASK-1167** — Kontrolowane warianty treningu zawartości i ratunku — v1.7.576 / `a9951e94` — tasks/completed/1167-bounded-content-training.md
-- **TASK-1166** — Ocena produkcyjnych wycinków — v1.7.575 / `ac724d29` — tasks/completed/1166-production-cell-evaluation.md

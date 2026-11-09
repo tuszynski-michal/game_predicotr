@@ -303,7 +303,7 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
 
 class ImageImportJobPayload(RelocatableSourceJobPayload):
     neural_grid_execution_policy_version: (
-        Literal["neural-auto-crop-v1", "neural-auto-crop-v2"] | None
+        Literal["neural-auto-crop-v1", "neural-auto-crop-v2", "neural-symbol-review-v1"] | None
     ) = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[2]
@@ -364,7 +364,7 @@ class ImageGeometryGuardResolutionManifestJobPayload(ApiModel):
 
 class BrowserImageImportJobPayload(RelocatableSourceJobPayload):
     neural_grid_execution_policy_version: (
-        Literal["neural-auto-crop-v1", "neural-auto-crop-v2"] | None
+        Literal["neural-auto-crop-v1", "neural-auto-crop-v2", "neural-symbol-review-v1"] | None
     ) = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[5]
@@ -390,7 +390,7 @@ class BrowserImageImportJobPayload(RelocatableSourceJobPayload):
 
 class ResolvedBrowserImageImportJobPayload(RelocatableSourceJobPayload):
     neural_grid_execution_policy_version: (
-        Literal["neural-auto-crop-v1", "neural-auto-crop-v2"] | None
+        Literal["neural-auto-crop-v1", "neural-auto-crop-v2", "neural-symbol-review-v1"] | None
     ) = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     managed_source_job_id: UUID | None = None
@@ -462,7 +462,7 @@ class ManagedImageReprocessJobPayload(RelocatableSourceJobPayload):
 
 class PinnedManagedImageReprocessJobPayload(RelocatableSourceJobPayload):
     neural_grid_execution_policy_version: (
-        Literal["neural-auto-crop-v1", "neural-auto-crop-v2"] | None
+        Literal["neural-auto-crop-v1", "neural-auto-crop-v2", "neural-symbol-review-v1"] | None
     ) = None
     neural_grid_proposal: NeuralGridSnapshotContract | None = None
     schema_version: Literal[6]
@@ -735,6 +735,7 @@ class GridReinferenceJobPayload(ApiModel):
         "v3-engine-acceptance-v2",
         "v3-engine-acceptance-v3",
         "v3-engine-acceptance-v4",
+        "v3-symbol-review-v1",
     ]
 
 

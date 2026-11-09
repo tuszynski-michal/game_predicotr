@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from game_predictor_api.application.grid_model_registry import GridModelRegistryService
 from game_predictor_api.application.grid_reinference import (
-    ACCEPTANCE_POLICY,
     CONTRACT,
     PAGE_SIZE,
     RUNTIME_POLICY,
@@ -47,7 +46,10 @@ from game_predictor_api.domain.jobs import (
 )
 from game_predictor_api.domain.neural_grid_operation_pin import OPERATION_PIN_KEY
 from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
-from game_predictor_api.domain.v3_engine_acceptance import V3_ENGINE_ACCEPTANCE_POLICIES
+from game_predictor_api.domain.v3_engine_acceptance import (
+    V3_ENGINE_ACCEPTANCE_POLICIES,
+    acceptance_for_operation_pin,
+)
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from game_predictor_api.storage.grid_model_registry import (
     GridModelArtifactInspector,
@@ -268,6 +270,7 @@ class SqlAlchemyGridReinferenceRepository:
             columns=topology.columns,
             artifact_root=self.artifact_root,
         )
+        acceptance_policy = acceptance_for_operation_pin(operation_pin)
         acquire_job_admission(self.session, game_id)
         operation_id = uuid4()
         job = create_job(
@@ -279,7 +282,7 @@ class SqlAlchemyGridReinferenceRepository:
                 "operation_id": str(operation_id),
                 "model_snapshot": snapshot,
                 "runtime_policy": RUNTIME_POLICY,
-                "acceptance_policy": ACCEPTANCE_POLICY,
+                "acceptance_policy": acceptance_policy,
                 OPERATION_PIN_KEY: operation_pin,
                 "stats_policy": STATS_POLICY,
             },
@@ -291,7 +294,7 @@ class SqlAlchemyGridReinferenceRepository:
                 "model": snapshot,
                 "runtime": RUNTIME_POLICY,
                 "writePolicy": CONTRACT,
-                "acceptancePolicy": ACCEPTANCE_POLICY,
+                "acceptancePolicy": acceptance_policy,
                 OPERATION_PIN_KEY: operation_pin,
             }
         )
@@ -312,7 +315,7 @@ class SqlAlchemyGridReinferenceRepository:
             "revision": 0,
             "command": command,
             "modelSnapshot": snapshot,
-            "acceptancePolicy": ACCEPTANCE_POLICY,
+            "acceptancePolicy": acceptance_policy,
             OPERATION_PIN_KEY: operation_pin,
             "runtimePolicy": RUNTIME_POLICY,
             "assignmentRevision": revision,

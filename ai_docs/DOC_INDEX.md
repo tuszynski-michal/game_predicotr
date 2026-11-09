@@ -205,6 +205,10 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Proces i jakość
 
+- [Przekazanie propozycji do weryfikacji symboli](quality/TASK-1176_VERIFICATION.md) — nowy import i zaległe plansze, testy PostgreSQL, granice dowodu oraz stan wdrożenia.
+- [Poprawki po audycie kierowania symboli](quality/TASK-1176_AUDIT_FIXES.md) — P0/P1 i P2, zachowanie kwalifikowanego automatu oraz jawne baseline testów.
+- [Audyt Opus kierowania symboli](quality/TASK-1176_AUDIT_claude-opus-5-5.md) — kontrolny R2 PASS, receipt oraz przyjęte ryzyka P2.
+
 - [Odbiór kolejki geometrii i pełnych pól](quality/FULL_FIELD_CORRECTION_DEPLOYMENT_20261109.md) — TASK-1174–1175, merge/push i lokalne restarty, rzeczywiste HTTP oraz preview0%.
 
 - [Odbiór pełnych symboli i instrukcja operatora](quality/FULL_SYMBOL_CROPS_ACCEPTANCE_20261109.md) — T0–T5, wykonane kontrole, zakres dowodu i przygotowanie wdrożenia.

@@ -24,6 +24,7 @@ from game_predictor_api.domain.neural_grid_proposal import (
 from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
 from game_predictor_api.domain.v3_engine_acceptance import (
     GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
+    SYMBOL_REVIEW_ENGINE_POLICY,
     V3_ENGINE_ACCEPTANCE_ACTOR,
     V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY,
     V3_ENGINE_ACCEPTANCE_POLICY,
@@ -168,6 +169,7 @@ def execution(
         if acceptance_policy in (
             GAME_SCOPED_V3_ENGINE_ACCEPTANCE_POLICY,
             "v3-engine-acceptance-v4",
+            SYMBOL_REVIEW_ENGINE_POLICY,
         ):
             from game_predictor_api.domain.neural_grid_operation_pin import (
                 GAME_EVALUATION_REQUIRED,
@@ -190,6 +192,12 @@ def execution(
                 rows=3,
                 columns=5,
                 qualification=qualification,
+                automatic_qualification=(
+                    {"state": "unqualified", "reasonCodes": ["NEURAL_GRID_CALIBRATION_REQUIRED"]}
+                    if acceptance_policy == SYMBOL_REVIEW_ENGINE_POLICY
+                    else None
+                ),
+                for_symbol_review=acceptance_policy == SYMBOL_REVIEW_ENGINE_POLICY,
             )
             if evaluated_game:
                 from game_predictor_api.storage.neural_grid_operation_qualification import (
@@ -237,6 +245,15 @@ def execution(
             **({} if legacy else {V3_ENGINE_ACCEPTANCE_PAYLOAD_KEY: acceptance_policy}),
             **({"neural_grid_operation_pin": operation_pin} if operation_pin is not None else {}),
         }
+        if acceptance_policy == SYMBOL_REVIEW_ENGINE_POLICY:
+            job.input_payload = {
+                **job.input_payload,
+                "symbol_model": SymbolModelJobSnapshot.from_payload(
+                    job.input_payload["symbol_model"]
+                )
+                .with_full_cell_crops()
+                .to_payload(),
+            }
         for pending in session.scalars(
             select(ImageBoardGeometryPendingModel).where(
                 ImageBoardGeometryPendingModel.game_id == game,

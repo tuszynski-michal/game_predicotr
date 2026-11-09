@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1175 — Pełne pola symboli bez marginesu 8% (done)
 
 - Plik: `tasks/completed/1175-full-cell-render-policy.md`.
-- Commit: **v1.7.588** (hash dopisuje kolejny commit).
+- Commit: **v1.7.588 / `6a560516a45527c196b266be3b479f1a5187aa64`** (hash dopisuje kolejny commit).
 - Nowe snapshoty i jawna dalsza korekta używają full-cell-v2/0%; historyczne piny, fingerprinty, pliki i zatwierdzenia zachowane. Preview/symbole/zapis/przyjęcie propozycji wiążą tę samą politykę i idempotencję.
 - API/OpenAPI/SDK/wrapper/test domknięte, także POST/GET/list nowych jobów. Stara kalibracja nie kwalifikuje pełnych pól; bez nowej migracji.
 - Weryfikacja:198 API/worker PASS, PG1 z nowym interpreterem PASS, Reviewer44+40 PASS, klient161 PASS, dodatkowe import4 PASS, jobs36 PASS/1 zastany FAIL odtworzony na main41c784fd; Ruff/TS/build/docs/map PASS. Mypy16 ma jeden zastany błąd, potwierdzony baseline; nowy schemat mypy1 PASS. Bez fikcyjnego pełnego PASS.

@@ -110,7 +110,7 @@ fikcyjnego PASS. Wszelkie zmiany kolejności/source identity muszą zachować se
 
 ## Outcome
 
-Commit: v1.7.588 (hash dopisuje kolejny commit).
+Commit: v1.7.588 / `6a560516a45527c196b266be3b479f1a5187aa64`.
 
 Wdrożono jawny full-cell-v2 w nowych snapshotach oraz nowej korekcie
 preview/symbols/save/accept. Stare snapshoty i hashe pozostają bez zmian.

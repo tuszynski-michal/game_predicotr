@@ -96,7 +96,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1175** — Pełne pola symboli bez marginesu 8% — v1.7.588 — tasks/completed/1175-full-cell-render-policy.md
+- **TASK-1175** — Pełne pola symboli bez marginesu 8% — v1.7.588 / `6a560516` — tasks/completed/1175-full-cell-render-policy.md
 - **TASK-1174** — Następna plansza i szybka kolejka — v1.7.587 / `1181797c` — tasks/completed/1174-geometry-review-navigation.md
 - **TASK-1173** — HTML i końcowy odbiór pełnych wycinków — v1.7.585 / `ae323963` — tasks/completed/1173-crop-preview-acceptance.md
 - **TASK-1172** — Powiązanie renderowania i danych z uczeniem — v1.7.584 / `aeae6012` — tasks/completed/1172-content-render-training-binding.md

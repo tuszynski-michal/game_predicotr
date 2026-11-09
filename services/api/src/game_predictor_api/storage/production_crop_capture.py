@@ -22,6 +22,7 @@ from game_predictor_api.domain.symbol_model_snapshots import (
 from .grid_cell_content import SqlAlchemyGridCellContentRepository
 from .grid_cell_content_models import GridCellContentSessionModel
 from .grid_cell_content_pins import apply_blind_a_geometry, content_pin
+from .grid_content_diagnostic_measurement import diagnostic_measurement_ready
 from .grid_content_preview import protected_source
 from .grid_correction_split import contexts
 from .grid_model_registry_models import GridModelVersionModel
@@ -117,7 +118,7 @@ def _measurement(
     if session_ids is not None and len(session_ids) != 1:
         return None
     reports = session.scalars(
-        select(GridCellContentSessionModel.report)
+        select(GridCellContentSessionModel)
         .where(
             GridCellContentSessionModel.game_id == game,
             GridCellContentSessionModel.phase == "frozen",
@@ -132,23 +133,34 @@ def _measurement(
     ).all()
     if len(reports) > 50:
         return None
-    qualified = {}
-    for report in reports:
+    qualified, diagnostic = {}, {}
+    for measured in reports:
+        report = measured.report
+        assert report is not None
         item = report.get("games", {}).get(str(game), {})
         if (
             report.get("sha256") == digest({k: v for k, v in report.items() if k != "sha256"})
             and report.get("version") == "cell-content-repeatability-v1"
             and report.get("quantile") == "nearest-rank-p95-v1"
             and report.get("state") == "ready"
-            and report.get("qualificationState") == "ready"
             and item.get("state") == "ready"
             and type(item.get("u")) in (int, float)
             and 0 <= item["u"] <= 0.02
             and type(item.get("delta")) in (int, float)
             and 0 <= item["delta"] <= 0.002
         ):
-            qualified[report["sha256"]] = report
-    return next(iter(qualified.values())) if len(qualified) == 1 else None
+            if report.get("qualificationState") == "ready":
+                qualified[report["sha256"]] = report
+            else:
+                diagnostic[report["sha256"]] = measured
+    if qualified:
+        return next(iter(qualified.values())) if len(qualified) == 1 else None
+    available = {
+        sha: measured.report
+        for sha, measured in diagnostic.items()
+        if diagnostic_measurement_ready(session, game, measured)
+    }
+    return next(iter(available.values())) if len(available) == 1 else None
 
 
 def _policy(
@@ -310,7 +322,14 @@ def capture(
         photo_measurement = measurement
         if reason is None and frozen["role"] == "VALIDATION":
             for t in frozen["targets"]:
-                pin = content_pin(session, game, frozen["sourceIdentity"], t, purpose="A")
+                pin = content_pin(
+                    session,
+                    game,
+                    frozen["sourceIdentity"],
+                    t,
+                    purpose="A",
+                    diagnostic_mode="render-clipping-only",
+                )
                 if not pin:
                     reason = "CROP_BLIND_A_NOT_FROZEN"
                     break

@@ -88,6 +88,25 @@ def test_blind_session_http_is_source_only_authorized_and_strict(tmp_path):
         assert client.post(path, json=body, headers=headers).status_code == 200
         assert calls[-1][-1] == "local-owner"
         assert (
+            client.post(
+                path,
+                json={**body, "renderReferencePolicy": "active-symbol-render-v2"},
+                headers=headers,
+            ).status_code
+            == 200
+        )
+        assert calls[-1][2].renderReferencePolicy == "active-symbol-render-v2"
+        assert (
+            client.post(
+                path, json={**body, "renderReferencePolicy": "free-render"}, headers=headers
+            ).status_code
+            == 422
+        )
+        assert (
+            client.post(path, json={**body, "paddingFraction": 0.0}, headers=headers).status_code
+            == 422
+        )
+        assert (
             client.post(path, json={**body, "actor": "worker:fake"}, headers=headers).status_code
             == 422
         )

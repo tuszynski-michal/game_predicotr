@@ -6,10 +6,20 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1172 — Powiązanie renderowania i danych z uczeniem (done)
+
+- Plik: `tasks/completed/1172-content-render-training-binding.md`.
+- Commit: **v1.7.584** (hash dopisuje kolejny commit).
+- D-596: jawny opt-in aktualnego renderu w nowej sesji, pełny API/OpenAPI/SDK/wrapper/Admin; oddzielny import/evaluation pin przez oracle/freeze/parent/child/R0–R3 i świeżość, bez retargetu historii. Legacy/v1 i etykiety poza A zachowane.
+- D-597: rzeczywiste oracle z clipping i poprawne u/δ mogą służyć wyłącznie diagnostyce marginesów; strict trening/publikacja/default bez poluzowania. Jawny blocked stan, pierwszeństwo unique ready, diagnostyczne None wiąże aktualny kontrakt A.
+- Weryfikacja po jednej rundzie poprawek: selector/preflight29 PASS i regresje73 PASS; mały PostgreSQL actual advance/JSONB1 PASS29.87s, wcześniejszy pełny PG freeze/one-child proof1 PASS102.77s. Oba cleanup w nowym procesie:0 DB/0 ról. API/Admin/SDK/Ruff/mypy19/types PASS, docs/map PASS; cold receipt replay bez ponownego resolvera.
+- Audyt: canonical `quality/TASK-1172_AUDIT_claude-opus-5-5.*` oraz immutable R1/FIXES_R1. Po jawnym zatwierdzeniu dodatkowej poprawki P1-5, focused R2b PASS0P0/0P1; SHA/model/receipt sprawdzone. Wszystkie P1 zamknięte, P2-1/4/5/7/8 jawne.
+- Ograniczenia: długi istniejący workflow treningowy bez PASS (różne objawy T3/main, przyczyna nieustalona), koszt resolvera per-board niezmierzony, wyjątek D-597 wymaga pełnej widoczności. Read-only inventory: w wybranej kohorcie0 zatwierdzonych content, nie gotowe dane do pełnego modelu. Bez operatorowego treningu, aktywacji/default/marginesu, importu691, migracji, usług, wdrożenia i merge. Kolejny TASK-1173.
+
 ### TASK-1171 — Porównanie produkcyjnych wycinków 8% i 0% (done)
 
 - Plik: `tasks/completed/1171-production-crop-comparison.md`.
-- Commit: **v1.7.583** (hash dopisuje kolejny commit).
+- Commit: **v1.7.583 / `14fcfb4e6017dd2f1b1d2c7879bc4f498699f91f`** (hash dopisuje kolejny commit).
 - Rzeczywisty VirtualCellRenderer: para marginesów 8%/0%, geometria człowieka i przypięte predykcje modelu, te same instancje; osobne absolutne wyniki LAB RGB.
 - READ ONLY capture chroni role, kopie, bufory i zapisane sesje przed pikselami; bieżące klasy wymagają ludzkiego zatwierdzenia właściwego cropu. Runtime diagnostyczny jest osobnym dowodem od historycznego importu. Raport nie kwalifikuje publikacji ani zmiany defaultu.
 - Weryfikacja: 47 unit PASS, 1 PostgreSQL PASS (produkcyjne save_resolution i aktualna frozen A/protection), Ruff9/scoped mypy7 PASS, docs/map PASS. Nowy proces odtwarza identyczne bajty raportu; rzeczywisty pilot 135 instancji/540 cropów/10 wejść NN. Brak contentGT/current classes oznacza not_evaluable.

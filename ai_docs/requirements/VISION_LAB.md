@@ -986,3 +986,42 @@ The actual current diagnostic runtime policy is separately pinned, never asserte
 as historical import policy. Known manual/disabled permits a diagnostic recommendation
 without claiming automatic acceptance quality; a missing runtime pin is unavailable.
 LAB reports absolute reference totals per game/role, not a fictitious paired improvement.
+
+### Content measurement for the active render (D-596)
+
+A new measurement may opt into `active-symbol-render-v2`. The server pins the
+verified active symbol model and its real crop configuration before the first
+blind pass. Existing photographs and independent corrections need no reimport:
+their original import provenance remains separate and immutable. Omitted or null
+policy retains v1, including historical command fingerprints and receipt replay.
+The Admin form describes this choice as “Pomiar dla aktualnego sposobu wycinania”.
+
+The current approved A labels must reference one ready frozen measurement. That
+measurement supplies the exact evaluation contract to the cohort and every R0–R3
+child. An unrelated unfinished measurement still protects TRAIN/gallery sources,
+but does not invalidate a different qualified A reference. Missing or latest
+pass-1 A labels block evaluation. B/REG evidence may remain unavailable without
+blocking a legal A experiment; unavailable evidence cannot qualify a model.
+Invalid or mixed used render pins fail before network, bank or optimizer work.
+
+A changed crop invalidates prior admission and publication evidence. Weight-only
+changes with the same crop retain existing report-v6 freshness semantics. No old
+session, annotation or report is rewritten or retargeted. Cohort inventory states
+its scope and reports current annotations separately from frozen pins, without
+claiming global correction totals or measured model quality.
+
+D-597 separates diagnostic repeatability from render qualification. A frozen
+measurement whose valid human label pairs establish u/delta may diagnose a crop
+that its actual oracle marks as clipping. The diagnostic reader reconstructs the
+pair report and verifies current pass-2 revisions and witnessed render receipts;
+missing, unknown or unavailable rendering cannot use this exception. The original
+`render_contract_blocked` state remains visible. Only T2 comparison opts in;
+training, freeze eligibility, publication and defaults retain their strict gates.
+Thus human-geometry 8%-versus-0% diagnosis does not require activating 0% first.
+
+Outside A, a v2 reference carries no blind measurement: independent labels from
+older sessions remain usable, and missing import provenance stays explicitly
+unavailable. Only A requires a compatible measurement and oracle on every board.
+New cohort-wide render consistency checks apply only to v2; legacy v1 retains
+its original per-source interpretation. Diagnostics prefer a unique qualified
+measurement before considering the narrowly validated blocked-render fallback.

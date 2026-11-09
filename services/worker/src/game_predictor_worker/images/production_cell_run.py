@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from game_predictor_api.domain.grid_render_reference import REFERENCE_V2, require_reference_v2
 from game_predictor_api.domain.grid_training_cohorts import digest
 from game_predictor_api.domain.production_cell_evaluation import ContentGameEvidence
 
@@ -35,6 +36,11 @@ class ProductionContentRun:
         self.classifiers: set[str] = set()
         self.configurations: set[str] = set()
         reports = {}
+        expected_contract = (
+            snapshot.manifest.get("photoSplit", {})
+            .get("contentSampling", {})
+            .get("evaluationContract")
+        )
         if not roles or any(role not in ("VALIDATION", "REGRESSION") for role in roles):
             raise ValueError("CONTENT_REFERENCE_ROLE_INVALID")
         for role in roles:
@@ -49,6 +55,13 @@ class ProductionContentRun:
                     if context is None:
                         self.reasons.add("CONTENT_RENDER_REFERENCE_MISSING")
                         continue
+                    pin = target["productionContentReference"]
+                    if expected_contract is not None or pin.get("version") == REFERENCE_V2:
+                        require_reference_v2(pin, self.game)
+                        if pin["evaluationContract"] != expected_contract:
+                            raise ValueError("CONTENT_RENDER_CONTRACT_MIXED")
+                        if role == "VALIDATION" and pin.get("measurement") is None:
+                            raise ValueError("CONTENT_A_MEASUREMENT_REQUIRED")
                     self.classifiers.add(digest(context["classifier"]))
                     self.configurations.add(digest(context["renderConfiguration"]))
                     measurement = target["productionContentReference"]["measurement"]

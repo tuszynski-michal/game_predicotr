@@ -1,6 +1,6 @@
 """Projection into a newly frozen cohort; historical snapshots remain byte-identical."""
 
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -49,8 +49,12 @@ def content_pin(
     target: dict[str, Any],
     *,
     purpose: str,
+    evaluation_contract: dict[str, Any] | None = None,
+    diagnostic_mode: Literal["render-clipping-only"] | None = None,
 ) -> dict[str, Any]:
     """Missing labels are explicit absence, never estimated from the geometry."""
+    if diagnostic_mode not in (None, "render-clipping-only"):
+        raise ValueError("CONTENT_DIAGNOSTIC_MODE_INVALID")
     row = session.scalar(
         select(Revision)
         .where(
@@ -83,10 +87,51 @@ def content_pin(
             or measured.phase != "frozen"
             or measured.report is None
             or measured.report.get("state") != "ready"
-            or measured.report.get("qualificationState") != "ready"
             or measured.progress["pass2"].get(key) != row.revision
         ):
             return {}
+        if measured.report.get("qualificationState") != "ready":
+            from .grid_content_diagnostic_measurement import diagnostic_render_oracle
+
+            if (
+                diagnostic_mode != "render-clipping-only"
+                or measured.report.get("qualificationState") != "render_contract_blocked"
+                or not diagnostic_render_oracle(row, annotation, measured)
+            ):
+                return {}
+        actual_contract = measured.report.get("evaluationContract")
+        expected_contract = evaluation_contract
+        if diagnostic_mode == "render-clipping-only" and expected_contract is None:
+            expected_contract = actual_contract
+            if actual_contract is not None:
+                from game_predictor_api.domain.grid_render_reference import (
+                    require_evaluation_contract,
+                )
+
+                require_evaluation_contract(actual_contract, str(game))
+                oracle = row.oracle or {}
+                if (
+                    measured.document.get("evaluationContract") != actual_contract
+                    or oracle.get("contentReferenceSha256") != annotation.sha256
+                    or oracle.get("sha256")
+                    != digest({k: v for k, v in oracle.items() if k != "sha256"})
+                    or oracle.get("renderConfiguration") != actual_contract["renderConfiguration"]
+                    or oracle.get("classifierSnapshotSha256")
+                    != digest(
+                        {
+                            "classifier": actual_contract["classifier"],
+                            "renderConfiguration": actual_contract["renderConfiguration"],
+                        }
+                    )
+                ):
+                    raise ContentError(
+                        "CONTENT_ORACLE_CONTRACT_CHANGED",
+                        "Diagnostic oracle differs from its frozen measurement.",
+                    )
+        if actual_contract != expected_contract:
+            raise ContentError(
+                "CONTENT_A_RENDER_SELECTION_REQUIRED", "A measurement uses another render."
+            )
     return {
         "contentReferenceSha256": row.document_sha256,
         "contentReferenceRevision": row.revision,

@@ -438,6 +438,13 @@ def run_comparison(
             "measurementSha256": None
             if photo_measurement is None
             else photo_measurement.get("sha256"),
+            "measurementQualificationState": None
+            if photo_measurement is None
+            else photo_measurement.get("qualificationState"),
+            "measurementUse": "repeatability-only-render-blocked"
+            if photo_measurement is not None
+            and photo_measurement.get("qualificationState") == "render_contract_blocked"
+            else "qualified-or-unavailable",
             "visualExportAllowed": photo["role"] == "TRAIN" and photo["state"] == "available",
         }
         results.append(result)

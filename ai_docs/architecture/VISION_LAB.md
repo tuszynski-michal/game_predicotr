@@ -1691,3 +1691,46 @@ jest zgodą na kwalifikację/publikację (`diagnosticOnly=true`,
 braku policy pozostaje null. Capture, report i PNG są niezmienne; powtórzenie
 komendy w nowym procesie weryfikuje aktualne metadane, źródła, użyte wagi i pliki,
 a zgodny istniejący raport nie uruchamia ponownie inferencji.
+
+### Przypięcie aktywnego renderu do pomiaru (D-596)
+
+`ContentSessionCreate.renderReferencePolicy` opcjonalnie przyjmuje
+`active-symbol-render-v2`. `create_session` usuwa z dawnego fingerprintu wyłącznie
+nowe pole o wartości null. Najpierw odtwarza dokładny receipt; dopiero dla nowej
+komendy `resolve_evaluation_contract` pobiera jeden zweryfikowany aktywny snapshot
+i wynikający z niego `DirectCellRenderConfiguration`. Kontrakt z SHA pozostaje
+w dokumencie sesji i jej oracle, następnie w zamrożonym raporcie pomiaru.
+
+`production-cell-evaluation-reference-v2` rozdziela `importProvenance` i wykonawczy
+`sourceContext`, zawiera `evaluationContract` oraz niezależne SHA. Oryginalny
+`target.render` nadal opisuje import. `select_a_render_contract` wybiera wyłącznie
+sesję rzeczywiście wskazaną przez aktualne adnotacje A, sprawdza pass2, freeze,
+zgodność rewizji i kwalifikację. Split, frozen targets i istniejący parent/child
+dziedziczą identyczny pin; nie powstaje drugi pipeline ani ledger.
+
+Worker sprawdza te metadane przed bankiem, siecią i optymalizatorem, a czytnik
+oceny również sprawdza kontrakt gry/splitu. Freshness porównuje aktualny crop,
+nie wymaga niezmienności samych wag. V1 zachowuje dotychczasową interpretację.
+`export_grid_content_training_inventory.py` wykonuje ograniczony odczyt wybranej
+kohorty w transakcji read-only: geometria/content/render live vs frozen, istniejąca
+gotowość visibility i braki ról; klasy przez wspólny dowodowy `_classes` z T2.
+Raport nie czyta pikseli, nie mutuje danych i nie poświadcza jakości modelu.
+
+D-597: `grid_content_diagnostic_measurement` odtwarza u/delta z zapisanych obu
+passów oraz oracle summary z aktualnych pass2, weryfikując SHA adnotacji,
+geometrii, kontekstu renderowania i rzeczywistych rastrów. Tylko świadkowie
+`preserved`/`clipped` widocznych grafik dopuszczają diagnostyczny wyjątek dla
+`render_contract_blocked`. `content_pin` domyślnie pozostaje strict; zamknięty
+tryb `render-clipping-only` wywołuje wyłącznie T2 capture. Raport T2 zapisuje
+oryginalny `measurementQualificationState` i `measurementUse`, zawsze przy
+`diagnosticOnly=true`, `qualificationAllowed=false`. Wyjątek nie trafia do
+production reference admission, treningu, publikacji ani aktywacji modelu.
+
+Poprawki R1: refv2 dołącza measurement wyłącznie dla A przez istniejący marker
+`blindGeometry`; poza A zachowuje label i jawny unavailable import. Preflight
+spójności całej kohorty działa tylko przy przypiętym v2, a legacy ma dawny guard A.
+Każda plansza A v2 wymaga measurement i oracle. Strict `content_pin` wymaga zgodności
+także przy expectedNone; tylko diagnostic mode może wybrać dokładny kontrakt
+aktualnej sesji i potwierdza go przez document/report/Row.oracle. Globalny pomiar
+T2 preferuje unique ready przed blocked fallback. Awaria techniczna oracle bez
+konfiguracji ma osobny `CONTENT_ORACLE_RENDER_UNAVAILABLE`, bez fałszywego driftu.

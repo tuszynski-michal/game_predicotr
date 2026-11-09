@@ -11,7 +11,13 @@ from sqlalchemy import Connection, text
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.grid_cell_content import ContentRevision
+from game_predictor_api.domain.grid_render_reference import (
+    REFERENCE_V2,
+    execution_context,
+    require_reference_v2,
+)
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError, digest
+from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
 
 from .grid_cell_content_models import GridCellContentSessionModel
 from .grid_content_oracle_context import capture_oracle_context
@@ -34,12 +40,21 @@ def production_reference_reader(session: Session, game: UUID) -> Iterator[Sessio
 
 
 def capture_production_reference(
-    session: Session, game: UUID, source: dict[str, Any], target: dict[str, Any]
+    session: Session,
+    game: UUID,
+    source: dict[str, Any],
+    target: dict[str, Any],
+    *,
+    evaluation_contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """No live defaults, predicted labels or inferred tolerances enter this pin."""
-    context = capture_oracle_context(session, game, source, target)
+    provenance = capture_oracle_context(session, game, source, target)
+    is_a = "blindGeometry" in target
+    context = provenance
+    if evaluation_contract is not None and (is_a or provenance.get("state") == "available"):
+        context = execution_context(provenance, evaluation_contract)
     measurement = None
-    if "contentAnnotation" in target:
+    if "contentAnnotation" in target and (evaluation_contract is None or is_a):
         annotation = ContentRevision.model_validate(target["contentAnnotation"])
         if annotation.sessionId is not None and annotation.passNumber == 2:
             row = session.get(GridCellContentSessionModel, (game, annotation.sessionId))
@@ -48,27 +63,59 @@ def capture_production_reference(
                     "sessionId": str(row.id),
                     "report": deepcopy(row.report),
                 }
-    body = {
+    body: dict[str, Any] = {
         "version": REFERENCE_VERSION,
         "sourceContext": context,
         "sourceContextSha256": digest(context),
         "measurement": measurement,
     }
-    return {**body, "sha256": digest(body)}
+    if evaluation_contract is not None:
+        body.update(
+            version=REFERENCE_V2,
+            evaluationContract=evaluation_contract,
+            importProvenance=provenance,
+            importProvenanceSha256=digest(provenance),
+        )
+    result = {**body, "sha256": digest(body)}
+    if evaluation_contract is not None:
+        require_reference_v2(result, str(game))
+    return result
 
 
 def require_current_production_reference(
-    session: Session, game: UUID, source: dict[str, Any], target: dict[str, Any]
+    session: Session,
+    game: UUID,
+    source: dict[str, Any],
+    target: dict[str, Any],
+    *,
+    artifact_root: Path | None = None,
 ) -> None:
     """Original workflow provenance must still match, independently of content revision."""
     pin = target.get("productionContentReference")
-    if pin is not None and capture_production_reference(session, game, source, target) != pin:
+    if pin is not None and pin.get("version") == REFERENCE_V2:
+        require_reference_v2(pin, str(game))
+        if artifact_root is None:
+            raise GridCohortError(
+                "CONTENT_ARTIFACT_ROOT_REQUIRED", "The active render must be checked."
+            )
+        from .grid_content_oracle_context import require_current_evaluation_contract
+
+        require_current_evaluation_contract(session, artifact_root, game, pin["evaluationContract"])
+    if (
+        pin is not None
+        and capture_production_reference(
+            session, game, source, target, evaluation_contract=pin.get("evaluationContract")
+        )
+        != pin
+    ):
         raise GridCohortError(
             "CONTENT_RENDER_REFERENCE_CHANGED", "The pinned production rendering context changed."
         )
 
 
-def current_render_configuration(session: Session, root: Path, game: UUID) -> dict[str, Any]:
+def current_render_configuration(
+    session: Session, root: Path, game: UUID, *, model: SymbolModelJobSnapshot | None = None
+) -> dict[str, Any]:
     from game_predictor_worker.images.pipeline_contract import (
         SYMBOL_RGB_PREPROCESSING_VERSION,
         VIRTUAL_CELL_RENDERER_VERSION,
@@ -81,7 +128,10 @@ def current_render_configuration(session: Session, root: Path, game: UUID) -> di
 
     from .symbol_model_snapshot_resolver import SqlAlchemySymbolModelSnapshotResolver
 
-    model = SqlAlchemySymbolModelSnapshotResolver(session, artifact_root=root).resolve(game_id=game)
+    if model is None:
+        model = SqlAlchemySymbolModelSnapshotResolver(session, artifact_root=root).resolve(
+            game_id=game
+        )
     return DirectCellRenderConfiguration(
         extractor_version=VIRTUAL_CELL_RENDERER_VERSION,
         preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,

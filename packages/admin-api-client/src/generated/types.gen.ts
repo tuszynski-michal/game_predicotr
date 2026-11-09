@@ -4644,6 +4644,10 @@ export type ContentSessionCreate = {
    */
   idempotencyKey: string;
   /**
+   * Renderreferencepolicy
+   */
+  renderReferencePolicy?: 'active-symbol-render-v2' | null;
+  /**
    * Sourceids
    */
   sourceIds: Array<string>;

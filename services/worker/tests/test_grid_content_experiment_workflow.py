@@ -159,6 +159,8 @@ class WorkflowFixture:
             lambda *a: SimpleNamespace(manifest={"counts": {"TRAIN": {"photos": 1}}}),
         )
         monkeypatch.setattr(workflow, "verify_inputs", lambda *a: None)
+        # This fixture isolates checkpoint/budget execution from the frozen-data reader.
+        monkeypatch.setattr(workflow, "require_render_preflight", lambda *a: None)
         monkeypatch.setattr(evidence, "require_bank", lambda *a: None)
         monkeypatch.setattr(workflow, "torch_engine", lambda *a: SimpleNamespace())
         monkeypatch.setattr(workflow, "CohortPhotos", lambda *a, **k: [SimpleNamespace()])
@@ -405,6 +407,19 @@ def test_infeasible_preflight_never_reaches_optimizer_or_candidate(tmp_path, mon
     assert not fixture.train_calls and fixture.final_exports == 0
     assert fixture.ledger()["state"]["arms"]["R0"]["status"] == "pending"
     assert fixture.ledger()["preflight"]["R0"]["estimatedSeconds"] > 1500
+
+
+def test_render_preflight_failure_precedes_network_bank_and_optimizer(tmp_path, monkeypatch):
+    fixture = WorkflowFixture(tmp_path, monkeypatch)
+
+    def reject(_snapshots):
+        raise ValueError("CONTENT_SELECTION_REFERENCE_NOT_EVALUABLE")
+
+    monkeypatch.setattr(workflow, "require_render_preflight", reject)
+    with pytest.raises(ValueError, match="CONTENT_SELECTION_REFERENCE_NOT_EVALUABLE"):
+        fixture.invoke()
+    assert fixture.network_calls == []
+    assert fixture.bank_calls == 0 and fixture.train_calls == []
 
 
 def test_production_network_factory_uses_same_base_and_seed_for_every_arm(monkeypatch):

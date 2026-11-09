@@ -48,7 +48,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109.md` | T1–T2 Opus PASS; T3–T4 zakres/koszt zatwierdzone | TASK-1172–1173 | `codex/grid-symbol-crop-preview` |
+| `delivery/GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109.md` | T1–T3 Opus PASS; T4 pozostał do wykonania | TASK-1173 | `codex/grid-symbol-crop-preview` |
 | `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` | T0–T5 i poprawka startu Opus PASS; main/origin, baza0183, usługi działają lokalnie | zatwierdzenie obrysów, ślepy pomiar, świeże kontrole i dowód rodowodu; trening nieuruchomiony | `main` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
@@ -89,10 +89,6 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1172 — Powiązanie renderowania i danych z uczeniem (todo)
-
-- Plik: `tasks/1172-content-render-training-binding.md`. Plan GRID_SYMBOL_CROP_PREVIEW; wykonywać kolejno z audytami Opus przez terminal. Bez wdrożenia i operatorowego treningu.
-
 ### TASK-1173 — HTML i końcowy odbiór pełnych wycinków (todo)
 
 - Plik: `tasks/1173-crop-preview-acceptance.md`. Plan GRID_SYMBOL_CROP_PREVIEW; wykonywać kolejno z audytami Opus przez terminal. Bez wdrożenia i operatorowego treningu.
@@ -103,7 +99,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1171** — Porównanie produkcyjnych wycinków 8% i 0% — v1.7.583 — tasks/completed/1171-production-crop-comparison.md
+- **TASK-1172** — Powiązanie renderowania i danych z uczeniem — v1.7.584 — tasks/completed/1172-content-render-training-binding.md
+- **TASK-1171** — Porównanie produkcyjnych wycinków 8% i 0% — v1.7.583 / `14fcfb4e` — tasks/completed/1171-production-crop-comparison.md
 - **TASK-1170** — Czytelny podgląd siatki i obrysów — v1.7.582 / `23055b1e` — tasks/completed/1170-grid-content-preview.md
 - **TASK-1169** — Zgodność schematu przy cutover — v1.7.579 / `a5e78251` — tasks/completed/1169-schema-head-cutover.md
 - **TASK-1168** — Panel pełnych symboli, HTML i odbiór — v1.7.577 / `f29cd9c2` — tasks/completed/1168-full-symbol-panel-acceptance.md
@@ -112,4 +109,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1165** — Niezależne etykiety zawartości i ślepy pomiar — v1.7.574 / `450f9ef1` — tasks/completed/1165-cell-content-reference.md
 - **TASK-1164** — Kontrakt 24 punktów i 15 ocen widoczności — v1.7.573 / `1629b8be` — tasks/completed/1164-grid-visibility-contract.md
 - **TASK-1163** — Trwała procedura audytu krzyżowego — v1.7.572 / `32db23e3` — tasks/completed/1163-durable-cross-audit-runner.md
-- **TASK-1162** — Routing rejestracji diagnostyk — v1.7.569 / `08c2fd74` — tasks/completed/1162-diagnostic-registration-routing.md

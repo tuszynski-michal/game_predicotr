@@ -8553,6 +8553,18 @@
             "title": "Idempotencykey",
             "type": "string"
           },
+          "renderReferencePolicy": {
+            "anyOf": [
+              {
+                "const": "active-symbol-render-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Renderreferencepolicy"
+          },
           "sourceIds": {
             "items": {
               "format": "uuid",

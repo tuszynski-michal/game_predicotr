@@ -34,6 +34,8 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-597](decisions/DECISION_LOG_2026.md#d-597--diagnostyka-kontraktu-wycinków-niezależna-od-jego-dopuszczenia) | Diagnostyka a kwalifikacja cropu | accepted | 2026-11-09 | Poprawne u/δ dostępne do diagnozy rzeczywistego clipping, produkcyjne bariery pozostają. |
+| [D-596](decisions/DECISION_LOG_2026.md#d-596--jawny-pin-aktualnego-kontraktu-renderowania-w-nowym-pomiarze) | Pin kontraktu w nowym pomiarze | accepted | 2026-11-09 | Opt-in v2, import i ocena osobno, pin przez sesję/freeze/R0–R3 i wczesny guard. |
 | [D-595](decisions/DECISION_LOG_2026.md#d-595--diagnostyczne-porównanie-rzeczywistych-wycinków-z-przypiętym-odniesieniem) | Diagnostyka wycinków | accepted | 2026-11-09 | Read-only capture, realny renderer, klasy i osobna granica kwalifikacji. |
 | [D-594](decisions/DECISION_LOG_2026.md#d-594--przypięty-zwykły-podgląd-siatki-i-produkcyjnych-wycinków) | Zwykły podgląd siatki i cropów | accepted | 2026-11-09 | Opcjonalne piny, prawdziwe footprinty, ochrona źródeł blind i brak ghost obrysów. |
 | [D-593](decisions/DECISION_LOG_2026.md#d-593--izolowane-etykietowanie-i-dowodowy-eksport-html) | Izolowane etykietowanie i HTML | accepted | 2026-11-08 | Osobne edytory, snapshot-bound metadata/asset i rzeczywiste15rastrów z CLI. |
@@ -62,5 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-571](decisions/DECISION_LOG_2026.md#d-571--trwały-katalog-gier-i-aktualizacja-partii-selektora) | Trwały katalog gier i aktualizacja partii selektora | accepted | 2026-10-23 | Katalog niezależny od historii; aktualizacja a+cyfry lub z_a+cyfry w etykietach, bez zmiany nazw eksportu. |
 | [D-570](decisions/DECISION_LOG_2026.md#d-570--nierozpoznane-pozycje-jako-wildcard-w-wyszukiwaniu-777a2) | Nierozpoznane pozycje jako wildcard w wyszukiwaniu 777a2 | accepted | 2026-10-23 | Tylko 777a2: brak dowodu daje punkt, nadal unknown; czerwony licznik w wynikach, bez zmiany wypłat. |
 | [D-568](decisions/DECISION_LOG_2026.md#d-568--zachowanie-wygranych-sprzed-rozwinięcia-super-symbolu) | Zachowanie wygranych sprzed rozwinięcia super symbolu | accepted | 2026-10-21 | Większa wypłata per (linia, symbol), sztuki raz; próg rozwinięcia i bazowa plansza uruchamiająca bez zmian. |
-| [D-567](decisions/DECISION_LOG_2026.md#d-567--edytowalny-kierunek-i-granica-500000-w-selektorze-windows) | Edytowalny kierunek i granica 500000 w selektorze Windows | accepted | 2026-10-21 | Jeden wybór folderu, wspólne kompaktowe przyciski, limit nowych zakresów i trwała zmiana kierunku dalszej numeracji. |
-| [D-566](decisions/DECISION_LOG_2026.md#d-566--kolejka-masowej-weryfikacji-symboli) | Kolejka masowej weryfikacji symboli | accepted | 2026-10-19 | Wyjątek od D-551 pozwala kolejkować bulk za bulk; wykonanie pozostaje pojedyncze, konflikty z innymi typami bez zmian. |

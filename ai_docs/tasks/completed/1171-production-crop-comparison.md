@@ -139,7 +139,7 @@ Nie deklarować poprawy wytrenowanego modelu bez rzeczywistego eksperymentu.
 
 ## Outcome
 
-Commit: v1.7.583 (hash dopisuje kolejny commit).
+Commit: v1.7.583 / `14fcfb4e6017dd2f1b1d2c7879bc4f498699f91f`.
 
 Po Opus R1 wykonano jedną rundę poprawek; implementacja zamrożona do focused R2,
 formalny status pozostaje in_progress. Mapa ID→zmiana/test:

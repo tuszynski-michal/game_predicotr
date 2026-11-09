@@ -459,6 +459,22 @@ def prepare_split(
             result, sources, metadata, validation_assignments or {}, full_training=screen
         )
     if content_selection is not None:
+        from game_predictor_api.domain.grid_cell_content import ContentError
+
+        from .grid_render_selection import select_a_render_contract
+
+        try:
+            contract = select_a_render_contract(
+                repo.session, repo.artifact_root, game, result, target_nodes
+            )
+        except ContentError as error:
+            raise GridCohortError(error.code, error.message) from error
+        if contract is not None:
+            result["contentSampling"] = {
+                **result["contentSampling"],
+                "evaluationContract": contract,
+            }
+            result["sha256"] = digest({k: v for k, v in result.items() if k != "sha256"})
         mapping = split_mapping(result)
         for ordinal, pin in enumerate(result["sources"]):
             deadline.check(repo.session)
@@ -534,7 +550,14 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "splitSha256": split["sha256"],
             "expectedBoardCount": item["eligibleBoards"],
             **(
-                {"contentSamplingPolicy": split["contentSampling"]["policy"]}
+                {
+                    "contentSamplingPolicy": split["contentSampling"]["policy"],
+                    **(
+                        {"evaluationContract": split["contentSampling"]["evaluationContract"]}
+                        if "evaluationContract" in split["contentSampling"]
+                        else {}
+                    ),
+                }
                 if "contentSampling" in split
                 else {}
             ),

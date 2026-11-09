@@ -230,6 +230,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/grid_model_snapshots.py: uses_neural_grid, catalogue_model_version
 - domain/grid_quality_measurements.py: canonical, digest, class PopulationSampler, empty_judgments, measurement_report
 - domain/grid_recognition_status.py: decision, unavailable_game_recognition_status, frozen_recognition_status
+- domain/grid_render_reference.py: require_evaluation_contract, execution_context, require_reference_v2
 - domain/grid_rescue_policy.py: require_rescue_evidence, require_rescue_pin
 - domain/grid_shadow.py: class GridShadowError, shadow_digest, request_fingerprint, validate_shadow_output, class GridShadowResult, class GridShadowResultView, class GridShadowResultPage
 - domain/grid_training_cohorts.py: class GridCohortError, canonical, digest, exact_lattice, target_fence, role_summary, require_minima
@@ -432,11 +433,13 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_cell_content_targets.py: list_targets, target_source_asset
 - storage/grid_cohort_asset_retention.py: class AssetDeadline, class CohortAssetDeadline, cohort_asset_guard_key, acquire_cohort_asset_guard, parse_cohort_asset_path, read_cohort_asset_reference
 - storage/grid_content_bundle.py: read_content_bundle_bytes, read_content_bundle
+- storage/grid_content_diagnostic_measurement.py: diagnostic_render_oracle, diagnostic_measurement_ready
 - storage/grid_content_experiment_evidence.py: read_json, inspect_content_experiment, content_rescue_pin
 - storage/grid_content_experiment_inputs.py: read_experiment_inputs
-- storage/grid_content_oracle_context.py: capture_oracle_context
+- storage/grid_content_oracle_context.py: resolve_evaluation_contract, require_current_evaluation_contract, capture_oracle_context
 - storage/grid_content_preview.py: protected_source, preview_document, ordinary_preview
 - storage/grid_content_sampling.py: class ContentSamplingPreparationError, resolve_content_sampling, constrain_content_regression
+- storage/grid_content_training_inventory.py: training_inventory
 - storage/grid_correction_split.py: previously_used_train_boards, class GridCorrectionSplitPreparationError, population, population_sha, contexts, prepare_split, validate_population, split_mapping
 - storage/grid_diagnostic_readiness.py: summarize_capture, read_readiness
 - storage/grid_diagnostics_repository.py: read_grid_diagnostics
@@ -459,6 +462,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_reinference.py: is_grid_reinference, class SqlAlchemyGridReinferenceRepository, target_fence, source_fence, target_protection, authorize_generic_retry, require_grid_retry_authorization, synchronize_grid_job
 - storage/grid_reinference_models.py: class GridReinferenceOperationModel, class GridReinferenceSourceModel, class GridReinferenceTargetModel
 - storage/grid_reinference_retention.py: retained_grid_source_link_count, detach_grid_source_links
+- storage/grid_render_selection.py: select_a_render_contract
 - storage/grid_shadow.py: class SqlAlchemyGridShadowRepository
 - storage/grid_training_cohort_artifacts.py: class GridCohortArtifactStore
 - storage/grid_training_cohort_currentness.py: class MemberCurrentness, inspect_member, check_member, eligibility
@@ -644,7 +648,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/grid_calibration.py: class GridCalibrationError, local_corner_offsets, apply_local_corner_offsets, build_profile_document, class CalibrationAnchor, class CalibrationProfile, class CalibrationApplication, class GridCalibrationProfiles, profile_document_bytes
 - images/grid_cell_content_reference.py: run_blind_content_oracle, frozen_content_reference, content_oracle
 - images/grid_cohort_dataset.py: class GridCohortDatasetError, class GridCohortSnapshot, frame_rgb_and_box, has_full_geometry, class GridBoardDataset, class GridAssessmentDataset, class GridScreenDataset
-- images/grid_content_experiment_data.py: class ContentAssessmentEngine, verify_inputs, torch_engine, measure_bank, auxiliary, class ContentSelectionEvaluator
+- images/grid_content_experiment_data.py: class ContentAssessmentEngine, verify_inputs, require_render_preflight, torch_engine, measure_bank, auxiliary, class ContentSelectionEvaluator
 - images/grid_content_experiment_export.py: content_parity
 - images/grid_content_experiment_run.py: class ExperimentLedger, class ArmControl, require_head_exposure, run_experiment
 - images/grid_correction_apply_handler.py: class GridCorrectionApplyJobHandler
@@ -1463,6 +1467,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - evaluate_v7_holdout.py: evaluate_holdout, main
 - export_admin_openapi.py: render_openapi, main
 - export_grid_content_preview.py: preview_html, export
+- export_grid_content_training_inventory.py: main
 - export_m6_symbol_classifier_onnx.py: main
 - export_m6_symbol_dataset.py: main
 - export_v7_selection_feedback.py: publish_feedback_manifest, main

@@ -2,6 +2,29 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('new measurement render policy passes unchanged through the existing wrapper', async () => {
+  let received;
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      received = JSON.parse(await request.text());
+      return Response.json({});
+    },
+  });
+  const body = {
+    idempotencyKey: 'key',
+    cohortId: 'cohort',
+    expectedManifestSha256: 'a'.repeat(64),
+    sourceIds: ['source'],
+    renderReferencePolicy: 'active-symbol-render-v2',
+  };
+  await client.createGridContentSession('game', body);
+  assert.deepEqual(received, body);
+  const { renderReferencePolicy, ...legacy } = body;
+  await client.createGridContentSession('game', legacy);
+  assert.deepEqual(received, legacy);
+});
+
 test('ordinary preview pins extend the existing reference request without mutating labels', async () => {
   const calls = [];
   const client = createAdminApiClient({

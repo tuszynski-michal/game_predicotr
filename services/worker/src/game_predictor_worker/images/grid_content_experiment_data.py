@@ -130,6 +130,48 @@ def verify_inputs(
                     raise ValueError("CONTENT_BANK_SOURCE_PROOF_CHANGED")
 
 
+def require_render_preflight(snapshots: Sequence[Any]) -> None:
+    """Metadata-only guard before any network, bank measurement or optimizer work."""
+    from game_predictor_api.domain.grid_render_reference import require_reference_v2
+
+    from .production_cell_evaluation import reference_context
+
+    for snapshot in snapshots:
+        expected = (
+            snapshot.manifest["photoSplit"].get("contentSampling", {}).get("evaluationContract")
+        )
+        configurations: set[str] = set()
+        for source in snapshot.sources() if expected is not None else ():
+            if not source.get("used"):
+                continue
+            for target in source["targets"]:
+                pin = target.get("productionContentReference")
+                is_a = (
+                    source.get("role") == "VALIDATION"
+                    and source.get("validationPurpose", "A") == "A"
+                )
+                if pin is None:
+                    if is_a or source.get("role") == "TRAIN":
+                        raise ValueError("CONTENT_RENDER_REFERENCE_MISSING")
+                    continue
+                require_reference_v2(pin, snapshot.manifest["gameId"])
+                if pin["evaluationContract"] != expected:
+                    raise ValueError("CONTENT_RENDER_CONTRACT_MIXED")
+                if is_a and pin.get("measurement") is None:
+                    raise ValueError("CONTENT_A_MEASUREMENT_REQUIRED")
+                context = reference_context(target)
+                if context is None:
+                    if is_a:
+                        raise ValueError("CONTENT_RENDER_REFERENCE_MISSING")
+                    continue
+                configurations.add(digest(context["renderConfiguration"]))
+        if expected is not None and len(configurations) != 1:
+            raise ValueError("CONTENT_RENDER_CONTRACT_MIXED")
+        reference = ProductionContentRun(snapshot, roles=("VALIDATION",))
+        if reference.reasons:
+            raise ValueError("CONTENT_SELECTION_REFERENCE_NOT_EVALUABLE")
+
+
 def torch_engine(network: Any, recipe: Any, device: str) -> NeuralGridEngine:
     """The production decoder with actual trained tensors, no GT-generated detections."""
     screen_graph, board_graph = (

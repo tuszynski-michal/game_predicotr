@@ -10,6 +10,7 @@ import numpy as np
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.canonical_source import CanonicalSourceFrame
 from game_predictor_api.domain.grid_content_repeatability import bbox_diagonal, lattice_cell
+from game_predictor_api.domain.grid_render_reference import REFERENCE_V2, require_reference_v2
 from game_predictor_api.domain.grid_training_cohorts import digest
 from game_predictor_api.domain.image_geometry_v2 import (
     ActiveBoardSlot,
@@ -53,6 +54,30 @@ def reference_context(target: Mapping[str, Any]) -> dict[str, Any] | None:
     pin = target.get("productionContentReference")
     if pin is None:
         return None
+    if pin.get("version") == REFERENCE_V2:
+        require_reference_v2(pin)
+        if pin["measurement"] is not None:
+            annotation = target.get("contentAnnotation", {})
+            contract = pin["evaluationContract"]
+            oracle = target.get("contentOracle") or {}
+            if (
+                annotation.get("sessionId") != pin["measurement"]["sessionId"]
+                or oracle.get("contentReferenceSha256") != target.get("contentReferenceSha256")
+                or oracle.get("sha256")
+                != digest({k: v for k, v in oracle.items() if k != "sha256"})
+                or oracle.get("renderConfiguration") != contract["renderConfiguration"]
+                or oracle.get("classifierSnapshotSha256")
+                != digest(
+                    {
+                        "classifier": contract["classifier"],
+                        "renderConfiguration": contract["renderConfiguration"],
+                    }
+                )
+            ):
+                raise ValueError("CONTENT_ORACLE_CONTRACT_CHANGED")
+        return (
+            dict(pin["sourceContext"]) if pin["sourceContext"].get("state") == "available" else None
+        )
     if (
         pin.get("version") != REFERENCE_VERSION
         or pin.get("sha256") != digest({k: v for k, v in pin.items() if k != "sha256"})

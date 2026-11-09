@@ -322,13 +322,23 @@ class SqlAlchemyGridCellContentRepository:
         from .grid_content_oracle_context import capture_oracle_context
         from .grid_training_cohort_repository import CohortDeadline
 
+        body = command.model_dump(mode="json")
+        if command.renderReferencePolicy is None:
+            body.pop("renderReferencePolicy")
         payload = {
             "kind": "session_create",
             "actor": actor,
-            "body": command.model_dump(mode="json"),
+            "body": body,
         }
         if replay := self.begin_command(game, command.idempotencyKey, payload, actor):
             return replay
+        from .grid_content_oracle_context import resolve_evaluation_contract
+
+        evaluation_contract = (
+            resolve_evaluation_contract(self.session, self.root, game)
+            if command.renderReferencePolicy is not None
+            else None
+        )
         if len(set(command.sourceIds)) != len(command.sourceIds):
             raise ContentError("CONTENT_SOURCE_DUPLICATE", "Choose each source once.", 422)
         snapshot = self.snapshot(game, command.cohortId, command.expectedManifestSha256)
@@ -387,7 +397,13 @@ class SqlAlchemyGridCellContentRepository:
                     targets.append(target.model_dump(mode="json"))
                     oracle_contexts[
                         f"{source.sourceRepresentativeSha256}:{target.positionIndex}"
-                    ] = capture_oracle_context(self.session, game, frozen["sourceIdentity"], board)
+                    ] = capture_oracle_context(
+                        self.session,
+                        game,
+                        frozen["sourceIdentity"],
+                        board,
+                        evaluation_contract=evaluation_contract,
+                    )
         if found != selected or not 1 <= len(targets) <= MAX_SESSION_BOARDS:
             raise ContentError(
                 "CONTENT_SESSION_MEMBERSHIP", "The selected sources must be frozen TRAIN/A."
@@ -405,6 +421,11 @@ class SqlAlchemyGridCellContentRepository:
                 "createdAt": datetime.now(UTC).isoformat(),
                 "manifestSha256": command.expectedManifestSha256,
                 "oracleContexts": oracle_contexts,
+                **(
+                    {"evaluationContract": evaluation_contract}
+                    if evaluation_contract is not None
+                    else {}
+                ),
                 "targets": sorted(
                     targets,
                     key=lambda t: (t["source"]["sourceRepresentativeSha256"], t["positionIndex"]),
@@ -724,6 +745,11 @@ class SqlAlchemyGridCellContentRepository:
             row.phase = "pass2"
         else:
             first, second = self.pass_references(row, 1), self.pass_references(row, 2)
+            contract = row.document.get("evaluationContract")
+            if contract is not None:
+                from .grid_content_oracle_context import require_current_evaluation_contract
+
+                require_current_evaluation_contract(self.session, self.root, game, contract)
             report = repeatability_report(targets, first, second, [game])
             if report["state"] != "ready":
                 error = ContentError(
@@ -767,6 +793,29 @@ class SqlAlchemyGridCellContentRepository:
                         "state": oracle["state"],
                     }
                 )
+                if contract is not None and (
+                    oracle.get("state") == "render_contract_blocked"
+                    and oracle.get("reasonCode") is not None
+                    and "renderConfiguration" not in oracle
+                ):
+                    raise ContentError(
+                        "CONTENT_ORACLE_RENDER_UNAVAILABLE",
+                        f"Oracle could not render this input: {oracle['reasonCode']}",
+                    )
+                if contract is not None and (
+                    oracle.get("renderConfiguration") != contract["renderConfiguration"]
+                    or oracle.get("classifierSnapshotSha256")
+                    != digest(
+                        {
+                            "classifier": contract["classifier"],
+                            "renderConfiguration": contract["renderConfiguration"],
+                        }
+                    )
+                ):
+                    raise ContentError(
+                        "CONTENT_ORACLE_CONTRACT_CHANGED",
+                        "Oracle render differs from this session.",
+                    )
             qualification = oracle_qualification([o["state"] for o in oracle_rows])
             oracle_summary = {k: v for k, v in qualification.items() if k != "qualificationState"}
             oracle_summary["referencesSha256"] = digest(oracle_rows)
@@ -774,6 +823,7 @@ class SqlAlchemyGridCellContentRepository:
                 **{k: v for k, v in report.items() if k != "sha256"},
                 "oracle": oracle_summary,
                 "qualificationState": qualification["qualificationState"],
+                **({"evaluationContract": contract} if contract is not None else {}),
             }
             row.report, row.phase = {**body, "sha256": digest(body)}, "frozen"
         row.revision += 1

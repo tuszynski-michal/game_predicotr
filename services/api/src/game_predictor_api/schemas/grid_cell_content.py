@@ -46,6 +46,7 @@ class ContentSessionCreate(VisibilityClosed):
     cohortId: UUID
     expectedManifestSha256: Sha
     sourceIds: Annotated[list[UUID], Field(min_length=1, max_length=100)]
+    renderReferencePolicy: Literal["active-symbol-render-v2"] | None = None
     targetSelection: (
         Annotated[list[ContentSessionTargetSelection], Field(max_length=100)] | None
     ) = None

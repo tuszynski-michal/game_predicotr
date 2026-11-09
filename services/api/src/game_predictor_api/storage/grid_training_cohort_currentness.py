@@ -81,7 +81,9 @@ def inspect_member(repo: Any, member: Any) -> MemberCurrentness:
             continue
         try:
             require_current_content_pin(repo.session, member.game_id, label, source=source)
-            require_current_production_reference(repo.session, member.game_id, source, label)
+            require_current_production_reference(
+                repo.session, member.game_id, source, label, artifact_root=repo.artifact_root
+            )
         except ContentError as error:
             failure = GridCohortError(error.code, error.message)
         except GridCohortError as error:

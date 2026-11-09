@@ -15,6 +15,114 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+## D-597 — Diagnostyka kontraktu wycinków niezależna od jego dopuszczenia
+
+Status: accepted — domknięcie GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109, T3.
+Data: 2026-11-09
+
+Przegląd integracji wykazał sprzeczność celu porównania T2 z dotychczasowym
+czytnikiem: przycięcie przez produkcyjny margines na idealnej geometrii człowieka
+blokuje oracle, a ten sam status blokował użycie poprawnego pomiaru u/δ nawet
+do diagnostycznego porównania 8%/0%. To nie jest niedobór etykiet ani dowód
+niepoprawnej powtarzalności oznaczeń. W T3 oddzielamy te dwa rodzaje dowodu.
+
+Wyłącznie diagnostyczny capture/report D-595 może użyć jednego aktualnego
+zamrożonego pomiaru o state=ready i poprawnych u/δ, którego qualificationState
+jest render_contract_blocked, jeśli zapisane rzeczywiste oracle potwierdzają
+blokadę renderu. Brak oracle, unknown, nieważny pomiar albo niespójność dowodów
+nadal dają unavailable. Zachowujemy aktualne human-approved second-pass A refs,
+rewizje, tożsamość źródła/komórki, sesję, role/kopie/bufory i integralność oracle.
+Status blokady jest jawny w capture/raporcie, a nie przepisywany na ready.
+
+Diagnostyczny czytnik bez kontraktu eksperymentu wiąże rzeczywisty kontrakt
+aktualnej sesji A (document/report/oracle), również dla v2 na starszej kohorcie.
+To wyjątek wyłącznie zamkniętego trybu diagnostycznego. Strict caller z brakiem
+wybranego kontraktu nadal odrzuca pomiar v2 zamiast pomijać zgodność z None.
+
+Dla globalnego wyboru TRAIN bez jawnych identyfikatorów sesji pierwszy wybór to
+jeden pomiar ready. Dopiero przy jego braku rozważamy jeden prawidłowy pomiar
+diagnostycznie zablokowany. Dwa ready pozostają niejednoznaczne; dawny blocked
+nie unieważnia jedynego ready. A nadal wiąże dokładną sesję aktualnych referencji.
+
+Domyślny content_pin pozostaje strict. Nowy zamknięty tryb jest używany tylko
+przez diagnostyczny czytnik; nie trafia do publicznego requestu ani zwykłego
+freeze. Raport nadal ma diagnosticOnly=true i qualificationAllowed=false.
+Trening, kwalifikacja automatu, publikacja/default/apply oraz oracle wybranego
+kontraktu zachowują dotychczasowe bariery. Kandydat diagnostyczny marginesu
+nie jest kwalifikacją nowego modelu ani zgodą na zmianę klasyfikatora.
+
+D-596 nadal wybiera aktualny aktywny zgodny kontrakt dla nowej sesji. Nie dodajemy
+swobodnego override, nie retargetujemy historycznej sesji i nie aktywujemy0.
+Test ma użyć rzeczywistego oracle przycinającego pełny ludzki obrys: pomiar
+powtarzalności może służyć diagnozie, podczas gdy domyślna kwalifikacja
+pozostaje zablokowana. Historia T2 i jego audyt nie są przepisywane; wykryta
+później luka jest naprawiana i audytowana w T3.
+
+## D-596 — Jawny pin aktualnego kontraktu renderowania w nowym pomiarze
+
+Status: accepted — realizacja GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109, T3.
+Data: 2026-11-09
+
+Cel T3 wymaga wykorzystania istniejących zdjęć i korekt po legalnej zmianie
+sposobu wycinania. Dotychczasowy oracle/kohorta przypina classifier z importu:
+po aktywacji LAB_RGB0 pozostaje import8, a kontrola świeżości słusznie odrzuca
+raport8 względem current0. Nie rozwiązujemy tego reimportem ani osłabieniem gate.
+
+Istniejący ContentSessionCreate dostaje opcjonalny, zamknięty opt-in
+renderReferencePolicy=active-symbol-render-v2. Brak pola zachowuje v1 i dokładny
+replay dawnych żądań. Nowy Admin wysyła v2 z opisem pomiaru dla aktualnego sposobu
+wycinania. Nie przyjmujemy paddingu, wymiarów, classifier payloadu ani pinów od
+klienta. Nie ma nowego endpointu, tabeli ani fazy sesji.
+
+Serwer raz na nową sesję, po sprawdzeniu idempotency receipt, rozwiązuje faktyczny
+aktywny zgodny SymbolModelJobSnapshot przez istniejący resolver. EvaluationContract
+zawiera version=active-symbol-render-contract-v1, gameId, pełny classifier snapshot,
+DirectCellRenderConfiguration, jej SHA oraz SHA całości. Bez czasu w tożsamości.
+Sesja/oracle i freeze używają zapisanego pinu, nigdy ponownie wybranego live modelu.
+
+Production-cell-evaluation-reference-v2 zachowuje oddzielnie niezmienione
+importProvenance/importProvenanceSha256 i wykonawczy sourceContext z wybranym
+EvaluationContract, jego SHA oraz dokładny measurement. Nie podmienia canonical
+geometrii ani dawnych board_render_manifests na inny margines. Zwykłe niezależne
+content labels nie przesuwają się wraz z siatką.
+
+Nowy freeze/parent dziedziczy jeden dokładny kontrakt z właściwej zamrożonej sesji
+wskazanej przez aktualne second-pass A referencje. Brak/mieszanie sesji, v1/v2 lub
+kontraktów jest jawnie zatrzymywane. Pozostałe role dostają ten sam wybrany kontrakt
+bez fikcyjnego blind pochodzenia. Pin przechodzi istniejące split/target/snapshot
+SHA do wszystkich R0–R3, workerów i oceny, bez drugiej listy renderów ani trenera.
+
+Pomiar w referencji v2 jest wymagany i zgodny dla każdego użytego celu A.
+Poza A pole measurement jest null: wcześniejsze etykiety TRAIN z innej sesji
+zachowują własne pochodzenie i nie są dowodem oracle wybranego kontraktu.
+Niedostępny rodowód importu poza A pozostaje jawnym unavailable pinem, bez
+usuwania prawidłowej etykiety geometrii/zawartości ani tworzenia fikcyjnego
+available kontekstu. Brak dowodu kontroli nadal blokuje kwalifikację modelu.
+
+V1 snapshoty, sesje, oracle, raporty i replay zachowują dawną interpretację.
+Retarget już zapisanej historycznej sesji pod inny crop pozostaje poza T3:
+wymagałby osobnego nowego trwałego oracle dowodu. Nie przepisujemy starych labels,
+nie deklarujemy nowej ludzkiej akceptacji i nie migrujemy obecnej sesji0/50.
+Nowy pomiar v2 korzysta z tych samych istniejących zdjęć/korekt, bez reimportu.
+Zależności dotyczą sesji naprawdę wskazanej przez Arefs; stara pusta sesja nie
+blokuje innej prawidłowej frozenAref, lecz nadal chroni galerię TRAIN.
+
+Tworzenie sesji sprawdza zgodność aktywnego modelu; freeze/admission i istniejące
+publish/default/apply wymagają zgodnego SHA konfiguracji cropu. Zmiana cropu wymaga
+nowego dowodu, nie zmiany starej sesji. Same zmiany wag przy identycznym renderze
+zachowują istniejące zasady v6; pełny stary snapshot pozostaje do reprodukcji.
+
+Preflight opt-in eksperymentu sprawdza spójne referencje/render/oracle i gotowość A
+przed utworzeniem sieci, pomiarem banku i optymalizatorem. Brak B/REG nadal blokuje
+kwalifikację, nie sam legalny trening/propozycje; legacy grid-only bez nowej bariery.
+Nowa jednolitość całej kohorty i warunki TRAIN/B dotyczą wyłącznie jawnego v2.
+Wcześniejszy v1 zachowuje dozwolone różne kontrakty importów i unavailable TRAIN;
+wczesna kontrola A nie może zmieniać tych reguł ani odtwarzania trwającego runu.
+Readiness pokazuje zakres wybranej kohorty, aktualne adnotacje i frozen pins osobno,
+bez utożsamienia ich z sumą wszystkich korekt gry. Klasy wykorzystują czytnik T2.
+API zmienia się jednym pionem backend/OpenAPI/SDK/wrapper/request, z zachowaniem
+izolacji ślepego canvasu (żadnych dodatkowych podpowiedzi ani wcześniejszych punktów).
+
 ## D-595 — Diagnostyczne porównanie rzeczywistych wycinków z przypiętym odniesieniem
 
 Status: accepted — wykonanie GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109, T2.

@@ -449,6 +449,7 @@ class GridCohortEvidenceReader:
                             source,
                             label,
                             purpose=recording.get("validationPurpose") or recording.get("role", ""),
+                            evaluation_contract=recording.get("evaluationContract"),
                         )
                         label.update(pin)
                         if recording.get("validationPurpose") == "A":
@@ -458,7 +459,11 @@ class GridCohortEvidenceReader:
                         from .production_cell_reference import capture_production_reference
 
                         label["productionContentReference"] = capture_production_reference(
-                            self.session, game, source, label
+                            self.session,
+                            game,
+                            source,
+                            label,
+                            evaluation_contract=recording.get("evaluationContract"),
                         )
                 except (GridCohortError, ContentError) as error:
                     label = None

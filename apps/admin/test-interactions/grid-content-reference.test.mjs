@@ -628,6 +628,10 @@ test('setup chooses existing frozen set and exact TRAIN slots; unresolved/B targ
     ]);
     assert.equal(created[0][1].cohortId, cohort);
     assert.equal(created[0][1].expectedManifestSha256, sha);
+    assert.equal(
+      created[0][1].renderReferencePolicy,
+      'active-symbol-render-v2',
+    );
     assert.equal(document.querySelector('textarea'), null);
     assert.equal(
       f.calls.some((c) => c[0] === 'normal-get'),

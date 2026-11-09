@@ -430,6 +430,10 @@ function ContentTargetSelection({
                 zdjęciach. Wybór jest jawny i pozostanie taki sam w obu
                 przebiegach.
               </p>
+              <p>
+                Pomiar dla aktualnego sposobu wycinania. Ustawienia zostaną
+                przypięte na początku sesji.
+              </p>
               <button
                 type="button"
                 className="primaryButton"
@@ -446,6 +450,7 @@ function ContentTargetSelection({
                       cohortId: cohort.id,
                       expectedManifestSha256: cohort.manifestSha256,
                       sourceIds: sources,
+                      renderReferencePolicy: 'active-symbol-render-v2',
                       targetSelection: sources.map((sourceId) => ({
                         sourceId,
                         positionIndices: selected

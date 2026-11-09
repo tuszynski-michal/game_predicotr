@@ -41,6 +41,7 @@ from .grid_cohort_dataset import GridCohortSnapshot
 from .grid_content_experiment_data import (
     ContentSelectionEvaluator,
     measure_bank,
+    require_render_preflight,
     torch_engine,
     verify_inputs,
 )
@@ -265,6 +266,7 @@ def run_experiment(
     pins = spec["joint"]["cohorts"] if spec.get("joint") else [spec["cohort"]]
     snapshots = [GridCohortSnapshot(root, p["manifestPath"], p["manifestSha256"]) for p in pins]
     verify_inputs(plan, inputs, snapshots)
+    require_render_preflight(snapshots)
     device = "cuda" if torch.cuda.is_available() else spec.get("device", "cpu")
     if spec.get("requireCuda", True) and device != "cuda":
         raise ValueError("GRID_RUN_GPU_UNAVAILABLE")

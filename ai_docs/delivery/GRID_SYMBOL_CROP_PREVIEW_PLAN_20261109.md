@@ -65,6 +65,11 @@ rzeczywiste wejście sieci i ograniczony ratunek. Regularność nie dowodzi traf
 Odbiór: test przepływu etykiet/ustawień. Oddzielić gotowość kodu, danych i
 zmierzoną jakość; brak danych nie udaje ukończonego treningu.
 
+Doprecyzowanie integracyjne D-597: poprawny zamrożony pomiar u/δ może służyć
+wyłącznie diagnostyce 8%/0% mimo rzeczywistej blokady oracle obecnego cropu.
+Brak/unknown i niespójne dowody nadal blokują; trening i publikacja zachowują
+strict kwalifikację. Historia/audyt T2 pozostają niezmienione; poprawka w T3.
+
 ## T4 / TASK-1173 — HTML i odbiór
 
 Lokalny HTML: oryginał, wspólna siatka, zatwierdzone obrysy albo ich brak,

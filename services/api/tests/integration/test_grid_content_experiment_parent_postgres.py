@@ -114,7 +114,10 @@ print('Fresh process exact command replay PASS')
 """
 
 
-def test_real_parent_freezes_content_inputs_and_one_durable_experiment_child(tmp_path, monkeypatch):
+@pytest.mark.parametrize("render_policy", [None, "active-symbol-render-v2"])
+def test_real_parent_freezes_content_inputs_and_one_durable_experiment_child(
+    tmp_path, monkeypatch, render_policy
+):
     if os.environ.get("TASK1167_RETAIN_SETUP") != "1":
         pytest.skip("Explicit two-command setup; phase two exercises the parent protocol")
     started = time.monotonic()
@@ -175,6 +178,67 @@ def test_real_parent_freezes_content_inputs_and_one_durable_experiment_child(tmp
             )
             for index, source in enumerate(sources[:5] + sources[10:15])
         ]
+        if render_policy is not None:
+            from _grid_render_lab_fixture import install_active_lab
+
+            install_active_lab(db, tmp_path, game, factory, monkeypatch)
+            stage("real LAB registry activation; old source import8 retained")
+            abandoned_command = ContentSessionCreate(
+                idempotencyKey=uuid4(),
+                cohortId=cohort,
+                expectedManifestSha256=snapshot.manifest_sha256,
+                sourceIds=[s.sourceId for s in selections],
+                targetSelection=selections,
+            )
+            with game_storage_scope(game), factory.begin() as session:
+                abandoned = SqlAlchemyGridCellContentRepository(session, tmp_path).create_session(
+                    game, abandoned_command, ACTOR
+                )
+            replay_script = r"""
+import json, sys
+from pathlib import Path
+from uuid import UUID
+from sqlalchemy import create_engine
+from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.grid_cell_content import SqlAlchemyGridCellContentRepository
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage import grid_content_oracle_context as oracle
+from game_predictor_api.schemas.grid_cell_content import ContentSessionCreate
+data=json.load(sys.stdin)
+def changed_active(*args, **kwargs):
+    raise AssertionError("replay tried to resolve changed active model")
+oracle.resolve_evaluation_contract=changed_active
+engine=create_engine(data['url'], connect_args={'connect_timeout':5})
+try:
+    game=UUID(data['game'])
+    with game_storage_scope(game), create_session_factory(engine).begin() as session:
+        result=SqlAlchemyGridCellContentRepository(session,Path(data['root'])).create_session(
+            game, ContentSessionCreate.model_validate(data['body']), 'local-owner')
+        assert result==data['expected']
+    print('legacy create receipt cold replay PASS')
+finally:
+    engine.dispose()
+"""
+            cold = subprocess.run(
+                [sys.executable, "-c", replay_script],
+                input=json.dumps(
+                    {
+                        "url": db.app_url.render_as_string(hide_password=False),
+                        "game": str(game),
+                        "root": str(tmp_path),
+                        "body": abandoned_command.model_dump(
+                            mode="json", exclude={"renderReferencePolicy"}
+                        ),
+                        "expected": abandoned,
+                    }
+                ),
+                capture_output=True,
+                text=True,
+                timeout=20,
+                env=db.subprocess_environment(),
+            )
+            assert cold.returncode == 0, cold.stdout + cold.stderr
+            stage("legacy create receipt replay in new process; abandoned pass1 retained")
         with game_storage_scope(game), factory.begin() as session:
             measured = SqlAlchemyGridCellContentRepository(session, tmp_path).create_session(
                 game,
@@ -184,6 +248,7 @@ def test_real_parent_freezes_content_inputs_and_one_durable_experiment_child(tmp
                     expectedManifestSha256=snapshot.manifest_sha256,
                     sourceIds=[s.sourceId for s in selections],
                     targetSelection=selections,
+                    renderReferencePolicy=render_policy,
                 ),
                 ACTOR,
             )["session"]
@@ -257,6 +322,11 @@ def test_real_parent_freezes_content_inputs_and_one_durable_experiment_child(tmp
                 )["session"]
             stage(f"synthetic prior pass {number}; real repeatability reader")
         assert measured["report"]["qualificationState"] == "ready"
+        if render_policy is not None:
+            assert (
+                measured["report"]["evaluationContract"]["renderConfiguration"]["paddingFraction"]
+                == 0
+            )
         for ordinal in range(22, 27):
             source, _, job = _save_source(db, tmp_path, game, ordinal, 9, expected)
             imports.append(str(job))
@@ -384,6 +454,38 @@ def _exercise_parent(
             frozen = session.get(GridTrainingCohortModel, (game, UUID(state["cohortId"])))
             snapshot = GridCohortSnapshot(tmp_path, frozen.manifest_path, frozen.manifest_sha256)
         verify_inputs(plan, inputs, [snapshot])
+        selected_contract = (
+            snapshot.manifest["photoSplit"].get("contentSampling", {}).get("evaluationContract")
+        )
+        if selected_contract is not None:
+            from game_predictor_worker.images.grid_content_experiment_data import (
+                require_render_preflight,
+            )
+
+            require_render_preflight([snapshot])
+            for source in snapshot.sources():
+                if not source.get("used"):
+                    continue
+                for target in source["targets"]:
+                    ref = target["productionContentReference"]
+                    assert ref["evaluationContract"] == selected_contract
+                    assert ref["sourceContext"]["renderConfiguration"]["paddingFraction"] == 0
+                    assert ref["importProvenance"]["renderConfiguration"]["paddingFraction"] == 0.08
+                    assert target["render"]["configuration"]["paddingFraction"] == 0.08
+            from game_predictor_api.storage.grid_content_training_inventory import (
+                training_inventory,
+            )
+
+            with game_storage_scope(game), factory() as session:
+                report = training_inventory(
+                    SqlAlchemyGridCellContentRepository(session, tmp_path),
+                    game,
+                    UUID(state["cohortId"]),
+                    snapshot.manifest_sha256,
+                )
+                assert report["globalGameCounts"] is False and report["pixelsRead"] is False
+                assert report["roles"]["A"]["frozenRenderReferenceBoards"] > 0
+            stage("v2 exact render0/import8 and scoped inventory PASS")
         replay, _ = service.advance(
             replace(original, checkpoint_payload={"schema_version": 1, **state})
         )
@@ -397,6 +499,9 @@ def _exercise_parent(
 def test_continue_explicit_owned_fixture(monkeypatch):
     if not os.environ.get("TASK1167_PRIVATE_APP_CONFIG"):
         pytest.skip("Only the explicit retained phase-one owned fixture")
+    from _grid_render_lab_fixture import configure_lab_fixture
+
+    configure_lab_fixture(monkeypatch)
     import hashlib
     from types import SimpleNamespace
 

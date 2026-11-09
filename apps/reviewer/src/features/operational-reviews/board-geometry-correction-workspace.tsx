@@ -5,7 +5,14 @@ import type {
   ImageGridReviewItemResponse,
   ImageGridReviewPageResponse,
 } from '@game-predictor/admin-api-client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   CorrectionGridProposals,
@@ -37,6 +44,16 @@ import { RejectBoardControl } from './reject-board-control';
 import { buildOperationalReviewSymbolShortcuts } from './operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
+type PageAnchor = {
+  readonly page: ImageGridReviewPageResponse;
+  readonly afterCursor: string | undefined;
+};
+type PageLoadOptions = {
+  readonly preserveNotice?: boolean;
+  readonly resetHistory?: boolean;
+  readonly skipSavedSlot?: ImageGridReviewItemResponse;
+  readonly history?: readonly PageAnchor[];
+};
 
 export type BoardGeometryCorrectionClient = CorrectionGridProposalsClient &
   GeometryCorrectionHistoryClient &
@@ -84,16 +101,32 @@ export function BoardGeometryCorrectionWorkspace({
   const [proposalEditing, setProposalEditing] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [page, setPage] = useState<ImageGridReviewPageResponse | null>(null);
-  const [history, setHistory] = useState<
-    readonly ImageGridReviewPageResponse[]
-  >([]);
+  const [history, setHistory] = useState<readonly PageAnchor[]>([]);
+  const [currentPageCursor, setCurrentPageCursor] = useState<
+    string | undefined
+  >();
+  const lastPageRequest = useRef<{
+    afterCursor: string | undefined;
+    options: PageLoadOptions;
+  }>({ afterCursor: undefined, options: {} });
   const [pageState, setPageState] = useState<LoadState>('loading');
+  const [reachedReviewEnd, setReachedReviewEnd] = useState(false);
   const [pageError, setPageError] = useState('');
   const [notice, setNotice] = useState('');
   const [symbols, setSymbols] = useState<readonly CorrectionSymbol[]>([]);
   const mounted = useRef(true);
   const requestId = useRef(0);
   const [historyRefresh, setHistoryRefresh] = useState(0);
+  const scopeKey = JSON.stringify([
+    gameId,
+    importJobId,
+    reviewAll,
+    sourceFilter,
+  ]);
+  const activeScopeRef = useRef(scopeKey);
+  useLayoutEffect(() => {
+    activeScopeRef.current = scopeKey;
+  }, [scopeKey]);
 
   useEffect(() => {
     let active = true;
@@ -122,34 +155,85 @@ export function BoardGeometryCorrectionWorkspace({
   }, [api, gameId]);
 
   const loadPage = useCallback(
-    async (
-      afterCursor: string | undefined,
-      options: {
-        readonly preserveNotice?: boolean;
-        readonly resetHistory?: boolean;
-      } = {},
-    ) => {
+    async (afterCursor: string | undefined, options: PageLoadOptions = {}) => {
+      if (!mounted.current || activeScopeRef.current !== scopeKey) return false;
       const currentRequest = ++requestId.current;
+      lastPageRequest.current = { afterCursor, options };
       setPageState('loading');
+      setReachedReviewEnd(false);
       setPageError('');
       if (!options.preserveNotice) setNotice('');
-      let result;
-      try {
-        result = await api.listImageGridReviews({
-          gameId,
-          ...(reviewAll && sourceFilter ? { sourceImageId: sourceFilter } : {}),
-          ...(importJobId === undefined ? {} : { importJobId }),
-          // TASK-0961: the queue needs only the correction counter, which
-          // keeps the whole-game scope cheap.
-          counts: reviewAll ? 'all' : 'correction',
-          limit: 1,
-          view: reviewAll ? 'all' : 'correction',
-          ...(afterCursor === undefined ? {} : { afterCursor }),
-        });
-      } catch {
-        result = null;
+      let result: Awaited<
+        ReturnType<BoardGeometryCorrectionClient['listImageGridReviews']>
+      > | null = null;
+      let cursor = afterCursor;
+      // Resolving a deferred slot may replace its UUID with a review UUID.
+      // Skip that one logical position without skipping another source that
+      // happens to have the same sequence number. Never poll indefinitely.
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          result = await api.listImageGridReviews({
+            gameId,
+            ...(reviewAll && sourceFilter
+              ? { sourceImageId: sourceFilter }
+              : {}),
+            ...(importJobId === undefined ? {} : { importJobId }),
+            counts: reviewAll ? 'none' : 'correction',
+            limit: 1,
+            view: reviewAll ? 'all' : 'correction',
+            ...(cursor === undefined ? {} : { afterCursor: cursor }),
+          });
+        } catch {
+          result = null;
+        }
+        if (
+          !mounted.current ||
+          currentRequest !== requestId.current ||
+          activeScopeRef.current !== scopeKey
+        )
+          return false;
+        if (
+          result === null ||
+          result.error !== undefined ||
+          result.data === undefined
+        )
+          break;
+        const saved = options.skipSavedSlot;
+        const next = result.data.items[0];
+        if (
+          saved === undefined ||
+          next === undefined ||
+          saved.importJobId !== next.importJobId ||
+          saved.sourceImageId !== next.sourceImageId ||
+          saved.positionIndex !== next.positionIndex
+        )
+          break;
+        if (result.data.nextCursor == null) {
+          result = {
+            ...result,
+            data: {
+              ...result.data,
+              items: [],
+              nextCursor: null,
+              previousCursor: null,
+            },
+          };
+          break;
+        }
+        if (attempt === 1) {
+          setPageState('error');
+          setPageError(
+            'Kolejka ponownie zwróciła zapisaną pozycję. Odśwież zakres.',
+          );
+          return false;
+        }
+        cursor = result.data.nextCursor;
       }
-      if (!mounted.current || currentRequest !== requestId.current)
+      if (
+        !mounted.current ||
+        currentRequest !== requestId.current ||
+        activeScopeRef.current !== scopeKey
+      )
         return false;
       if (result === null) {
         setPageState('error');
@@ -166,12 +250,17 @@ export function BoardGeometryCorrectionWorkspace({
         );
         return false;
       }
-      if (options.resetHistory) setHistory([]);
+      if (options.history !== undefined) setHistory(options.history);
+      else if (options.resetHistory) setHistory([]);
+      setCurrentPageCursor(cursor);
       setPage(result.data);
+      setReachedReviewEnd(
+        options.skipSavedSlot !== undefined && result.data.items.length === 0,
+      );
       setPageState('ready');
       return true;
     },
-    [api, gameId, importJobId, reviewAll, sourceFilter],
+    [api, gameId, importJobId, reviewAll, sourceFilter, scopeKey],
   );
 
   useEffect(() => {
@@ -200,46 +289,92 @@ export function BoardGeometryCorrectionWorkspace({
   const targetKeyRef = useRef<string | null>(null);
   const hasNextRef = useRef(false);
   const reloadedForConflictRef = useRef<string | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     targetKeyRef.current = target?.key ?? null;
     hasNextRef.current = page?.nextCursor != null;
-  }, [page, target]);
+  }, [page?.nextCursor, target?.key]);
 
   async function showNext() {
     if (page?.nextCursor === null || page?.nextCursor === undefined) return;
-    const previousPage = page;
-    if (await loadPage(page.nextCursor)) {
-      setHistory((current) => [...current, previousPage]);
-    }
+    await loadPage(page.nextCursor, {
+      history: [...history, { page, afterCursor: currentPageCursor }],
+    });
   }
 
-  function showPrevious() {
+  async function showPrevious() {
     const previous = history.at(-1);
     if (previous === undefined) return;
+    if (reviewAll) {
+      await loadPage(previous.afterCursor, { history: history.slice(0, -1) });
+      return;
+    }
     requestId.current += 1;
     setHistory((current) => current.slice(0, -1));
-    setPage(previous);
+    setPage(previous.page);
+    setCurrentPageCursor(previous.afterCursor);
     setPageState('ready');
     setPageError('');
     setNotice('');
   }
 
   const handleSaved = useCallback(
-    async (reviewItemId: string | null) => {
+    async (reviewItemId: string | null, savedNotice?: string) => {
+      if (
+        !mounted.current ||
+        activeScopeRef.current !== scopeKey ||
+        targetKeyRef.current !== target?.key
+      )
+        return;
       reloadedForConflictRef.current = null;
       const deferred = targetKeyRef.current?.startsWith('deferred:') === true;
       setNotice(
-        reviewItemId === null
-          ? 'Plansza została już rozwiązana przez inną operację. Kolejka została odświeżona.'
-          : deferred
-            ? 'Siatka zapisana. Nowa plansza trafiła do Weryfikacji symboli.'
-            : 'Siatka zapisana. Pola ze zmienionym wycinkiem wróciły do Weryfikacji symboli.',
+        savedNotice ??
+          (reviewItemId === null
+            ? 'Plansza została już rozwiązana przez inną operację. Kolejka została odświeżona.'
+            : deferred
+              ? 'Siatka zapisana. Nowa plansza trafiła do Weryfikacji symboli.'
+              : 'Siatka zapisana. Pola ze zmienionym wycinkiem wróciły do Weryfikacji symboli.'),
       );
-      // The saved board leaves the queue; the next one is the new first entry.
       setHistoryRefresh((value) => value + 1);
-      await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+      if (reviewAll && page !== null) {
+        const saved = page.items[0];
+        const nextHistory = [
+          ...history,
+          { page, afterCursor: currentPageCursor },
+        ];
+        if (page.nextCursor == null || saved === undefined) {
+          requestId.current += 1;
+          setHistory(nextHistory);
+          setPage({
+            ...page,
+            items: [],
+            nextCursor: null,
+            previousCursor: null,
+          });
+          setPageState('ready');
+          setPageError('');
+          setReachedReviewEnd(true);
+          return;
+        }
+        await loadPage(page.nextCursor, {
+          preserveNotice: true,
+          history: nextHistory,
+          skipSavedSlot: saved,
+        });
+      } else {
+        // Correction entries leave their queue when saved.
+        await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+      }
     },
-    [loadPage],
+    [
+      loadPage,
+      page,
+      reviewAll,
+      scopeKey,
+      target?.key,
+      history,
+      currentPageCursor,
+    ],
   );
 
   // TASK-0970: a rejected slot or board leaves the queue; the history lists
@@ -249,16 +384,22 @@ export function BoardGeometryCorrectionWorkspace({
       'Plansza została odrzucona. Zdjęcie czeka na zdjęcie zastępcze albo wyjątek operatora.',
     );
     setHistoryRefresh((value) => value + 1);
-    await loadPage(undefined, { preserveNotice: true, resetHistory: true });
-  }, [loadPage]);
+    await loadPage(reviewAll ? currentPageCursor : undefined, {
+      preserveNotice: true,
+      resetHistory: !reviewAll,
+    });
+  }, [loadPage, reviewAll, currentPageCursor]);
 
   const handleRejectionRefused = useCallback(
     async (message: string) => {
       setNotice(message);
       setHistoryRefresh((value) => value + 1);
-      await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+      await loadPage(reviewAll ? currentPageCursor : undefined, {
+        preserveNotice: true,
+        resetHistory: !reviewAll,
+      });
     },
-    [loadPage],
+    [loadPage, reviewAll, currentPageCursor],
   );
 
   const submitRejection = useCallback(
@@ -294,8 +435,11 @@ export function BoardGeometryCorrectionWorkspace({
   );
 
   const handleReverted = useCallback(async () => {
-    await loadPage(undefined, { preserveNotice: true, resetHistory: true });
-  }, [loadPage]);
+    await loadPage(reviewAll ? currentPageCursor : undefined, {
+      preserveNotice: true,
+      resetHistory: !reviewAll,
+    });
+  }, [loadPage, reviewAll, currentPageCursor]);
 
   const handleConflict = useCallback(
     async (message: string) => {
@@ -312,9 +456,12 @@ export function BoardGeometryCorrectionWorkspace({
       }
       reloadedForConflictRef.current = key;
       setNotice(`${message} Wczytano aktualny stan kolejki.`);
-      await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+      await loadPage(reviewAll ? currentPageCursor : undefined, {
+        preserveNotice: true,
+        resetHistory: !reviewAll,
+      });
     },
-    [loadPage],
+    [loadPage, reviewAll, currentPageCursor],
   );
 
   return (
@@ -351,22 +498,56 @@ export function BoardGeometryCorrectionWorkspace({
         <CorrectionState text="Pobieram jedną planszę do korekty." />
       ) : pageState === 'error' ? (
         <CorrectionState
-          action={() => void loadPage(undefined, { resetHistory: true })}
+          action={() => {
+            const request = lastPageRequest.current;
+            void loadPage(request.afterCursor, request.options);
+          }}
           error
           text={pageError}
         />
       ) : item === null || target === null ? (
         <div className="deferredGeometryComplete">
           <h3>
-            {reviewAll
-              ? 'Brak plansz w tym zakresie'
-              : 'Brak plansz do korekty'}
+            {reviewAll && reachedReviewEnd
+              ? 'Koniec zakresu'
+              : reviewAll
+                ? 'Brak plansz w tym zakresie'
+                : 'Brak plansz do korekty'}
           </h3>
           <p>
-            {reviewAll
-              ? 'Wybierz istniejący import z opisanymi źródłami.'
-              : 'W tym zakresie nie ma plansz odrzuconych przez algorytm ani zgłoszonych jako „Zła siatka”.'}
+            {reviewAll && reachedReviewEnd
+              ? 'Zapisano ostatnią planszę w tym zakresie. Możesz wrócić do początku.'
+              : reviewAll
+                ? 'Wybierz istniejący import z opisanymi źródłami.'
+                : 'W tym zakresie nie ma plansz odrzuconych przez algorytm ani zgłoszonych jako „Zła siatka”.'}
           </p>
+          {reviewAll && reachedReviewEnd ? (
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() => void loadPage(undefined, { resetHistory: true })}
+            >
+              Od początku
+            </button>
+          ) : null}
+          {reviewAll && history.length > 0 ? (
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() => void showPrevious()}
+            >
+              ← Poprzednia
+            </button>
+          ) : null}
+          {reviewAll && sourceFilter ? (
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() => setSourceFilter(null)}
+            >
+              Wszystkie zdjęcia
+            </button>
+          ) : null}
         </div>
       ) : (
         <>
@@ -387,20 +568,16 @@ export function BoardGeometryCorrectionWorkspace({
             item={item}
             onEditingChange={setProposalEditing}
             onChanged={() => {
-              setNotice(
+              void handleSaved(
+                item.reviewItemId,
                 'Przyjęto propozycję siatki. Zatwierdzone punkty zapisano; odświeżono kolejkę.',
               );
-              void loadPage(undefined, {
-                preserveNotice: true,
-                resetHistory: true,
-              });
-              setHistoryRefresh((value) => value + 1);
             }}
             onRejected={() => {
               setNotice(
                 'Odrzucono propozycję. Zgłoszenie siatki pozostaje otwarte; możesz poprawić tę planszę ręcznie.',
               );
-              void loadPage(history.at(-1)?.nextCursor ?? undefined, {
+              void loadPage(currentPageCursor, {
                 preserveNotice: true,
               });
             }}
@@ -408,7 +585,7 @@ export function BoardGeometryCorrectionWorkspace({
               setNotice(
                 'Odświeżono bieżącą kolejkę. Wczytano aktualną wersję planszy.',
               );
-              void loadPage(history.at(-1)?.nextCursor ?? undefined, {
+              void loadPage(currentPageCursor, {
                 preserveNotice: true,
               });
             }}
@@ -468,7 +645,7 @@ export function BoardGeometryCorrectionWorkspace({
             {page?.nextCursor == null ? (
               <button
                 className="secondaryButton"
-                disabled={history.length === 0}
+                disabled={!reviewAll && history.length === 0}
                 onClick={() => void loadPage(undefined, { resetHistory: true })}
                 type="button"
               >

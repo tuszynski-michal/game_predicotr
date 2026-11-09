@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1174 — Następna plansza i szybka kolejka (done)
+
+- Plik: tasks/completed/1174-geometry-review-navigation.md.
+- Commit: **v1.7.587** (hash dopisuje kolejny commit).
+- Wynik: save all przechodzi kursorem, retry/historia/propozycje zachowują miejsce; counts=none bez agregatów. API/domena24+PG2, Reviewer38, klient160 i lint/types/build/docs/map PASS. Opus5.5/high R2 PASS; P2 w Outcome. Bez wdrożenia i zmian danych operatora.
+
 ### TASK-1173 — HTML i końcowy odbiór pełnych wycinków (done)
 
 - Plik: `tasks/completed/1173-crop-preview-acceptance.md`.

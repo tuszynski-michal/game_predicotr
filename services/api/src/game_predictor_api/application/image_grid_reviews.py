@@ -152,6 +152,14 @@ class ImageGridReviewService:
         review_filter: ImageGridReviewListFilter,
         mode: ImageGridReviewCountsMode,
     ) -> ImageGridReviewCounts:
+        if mode is ImageGridReviewCountsMode.NONE:
+            return ImageGridReviewCounts(
+                needs_validation=0,
+                needs_correction=0,
+                approved=0,
+                full_grids=0,
+                correction=0,
+            )
         if mode is ImageGridReviewCountsMode.CORRECTION:
             # TASK-0961: only the correction queue is counted; every other
             # counter is reported as 0, as the OpenAPI description says.

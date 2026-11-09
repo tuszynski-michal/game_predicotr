@@ -13549,8 +13549,10 @@ export type ImageGeometrySystemicGuardPolicyJobPayload = {
  * reported boards plus the deferred slots of the D-462 R4 queue — and
  * reports every other counter as ``0``; the Reviewer polls the correction
  * queue after every board and must not pay for the full set each time.
+ * ``NONE`` skips all aggregates and returns uncomputed zeros. Its callers
+ * must not display these values as measured totals.
  */
-export type ImageGridReviewCountsMode = 'all' | 'correction';
+export type ImageGridReviewCountsMode = 'all' | 'correction' | 'none';
 
 /**
  * ImageGridReviewCountsResponse
@@ -32650,7 +32652,7 @@ export type ListImageGridReviewsData = {
      */
     limit?: number;
     /**
-     * Which counters the page computes. `all` (default) returns the full set. `correction` computes only `counts.correction` (reported boards plus deferred slots) and returns every other counter as 0.
+     * Which counters the page computes. `all` (default) returns the full set. `correction` computes only `counts.correction` (reported boards plus deferred slots) and returns every other counter as 0. `none` skips all counter queries and returns 0 for every counter; these zeros are uncomputed, not measured totals.
      */
     counts?: ImageGridReviewCountsMode;
   };

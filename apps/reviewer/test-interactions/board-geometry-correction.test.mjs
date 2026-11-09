@@ -1338,3 +1338,443 @@ test('ordinary good geometry uses the same editor, GET-only all view and photo f
   assert.equal(calls.save.length, 0);
   await act(async () => root.unmount());
 });
+
+test('all-view save advances although the approved board remains in the collection', async () => {
+  const first = reportedBoard();
+  const second = reportedBoard({
+    slotId: 's2',
+    reviewItemId: 'r2',
+    recognizedBoardId: 'b2',
+    positionIndex: 4,
+    sequenceNumber: 1235,
+  });
+  const state = { queue: [first, second] };
+  const { api, calls } = fakeApi(state);
+  api.createImageGridReviewGeometryRevision = async (id, scope, command) => {
+    calls.save.push({ id, scope, command });
+    state.queue[0] = {
+      ...first,
+      geometryRevision: 3,
+      approvedGeometryRevision: 3,
+      state: 'approved',
+    };
+    return { data: { created: true } };
+  };
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await loadImageAndPreview();
+    assert.equal(calls.list.at(-1).afterCursor, '1');
+    assert.equal(calls.preview.at(-1).id, 'r2');
+    assert.ok(calls.list.every((x) => x.view === 'all' && x.counts === 'none'));
+    assert.equal(calls.save.length, 1);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('all-view last save ends the range and only an explicit restart returns to the first board', async () => {
+  const state = { queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  api.createImageGridReviewGeometryRevision = async (id, scope, command) => {
+    calls.save.push({ id, scope, command });
+    return { data: { created: true } };
+  };
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.match(document.body.textContent, /Koniec zakresu/);
+    assert.equal(calls.list.length, 1);
+    await act(async () => button('Od początku').click());
+    await loadImageAndPreview();
+    assert.equal(calls.list.length, 2);
+    assert.equal(calls.list.at(-1).afterCursor, undefined);
+    assert.equal(calls.preview.at(-1).id, 'r1');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('all-view materialized UUID is skipped but another source with the same sequence remains reviewable', async () => {
+  const first = deferredSlot();
+  const materialized = reportedBoard({
+    slotId: 'materialized',
+    reviewItemId: 'new-review',
+  });
+  const alternative = reportedBoard({
+    slotId: 'alternative',
+    reviewItemId: 'r2',
+    sourceImageId: 'other-source',
+    recognizedBoardId: 'b2',
+  });
+  const state = { queue: [first] };
+  const { api, calls } = fakeApi(state);
+  api.listImageGridReviews = async (options) => {
+    calls.list.push(options);
+    const [item, nextCursor] =
+      options.afterCursor === 'after-pending'
+        ? [materialized, 'after-materialized']
+        : options.afterCursor === 'after-materialized'
+          ? [alternative, null]
+          : [first, 'after-pending'];
+    return {
+      data: {
+        counts: counts(1),
+        items: [structuredClone(item)],
+        nextCursor,
+        previousCursor: null,
+        gameId: 'g',
+        view: 'all',
+      },
+    };
+  };
+  api.resolvePendingBoardCellGeometryManually = async (id, scope, command) => {
+    calls.resolve.push({ id, scope, command });
+    state.queue = [materialized, alternative];
+    return {
+      data: {
+        created: true,
+        geometryRevision: 1,
+        pending: { id },
+        reviewItemId: 'new-review',
+      },
+    };
+  };
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await loadImageAndPreview();
+    assert.deepEqual(
+      calls.list.slice(1).map((x) => x.afterCursor),
+      ['after-pending', 'after-materialized'],
+    );
+    assert.equal(calls.preview.at(-1).id, 'r2');
+    assert.equal(calls.resolve.length, 1);
+    assert.ok(!calls.preview.some((x) => x.id === 'new-review'));
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('all-view lost save response stays on the board until its idempotent retry succeeds', async () => {
+  const state = {
+    queue: [
+      reportedBoard(),
+      reportedBoard({
+        slotId: 's2',
+        reviewItemId: 'r2',
+        recognizedBoardId: 'b2',
+        positionIndex: 4,
+        sequenceNumber: 1235,
+      }),
+    ],
+  };
+  const { api, calls } = fakeApi(state);
+  api.createImageGridReviewGeometryRevision = async (id, scope, command) => {
+    calls.save.push({ id, scope, command });
+    if (calls.save.length === 1) {
+      state.queue[0] = {
+        ...state.queue[0],
+        geometryRevision: 3,
+        state: 'approved',
+      };
+      throw new Error('lost after commit');
+    }
+    return { data: { created: false } };
+  };
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.equal(calls.list.length, 1);
+    assert.ok(button('Zapisz geometrię i dalej'));
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await loadImageAndPreview();
+    assert.match(calls.save[0].command.idempotencyKey, /^[0-9a-f-]{36}$/);
+    assert.equal(
+      calls.save[0].command.idempotencyKey,
+      calls.save[1].command.idempotencyKey,
+    );
+    assert.equal(calls.preview.at(-1).id, 'r2');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('a successful save from an old import cannot reset or advance the new import', async () => {
+  const state = { queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  let finishSave;
+  api.createImageGridReviewGeometryRevision = (id, scope, command) => {
+    calls.save.push({ id, scope, command });
+    return new Promise((resolve) => {
+      finishSave = resolve;
+    });
+  };
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    assert.equal(calls.save.length, 1);
+    state.queue = [
+      reportedBoard({ importJobId: 'j2', reviewItemId: 'r2', slotId: 's2' }),
+    ];
+    await act(async () =>
+      root.render(
+        React.createElement(BoardGeometryCorrectionWorkspace, {
+          api,
+          apiBaseUrl: 'http://localhost',
+          gameId: 'g',
+          importJobId: 'j2',
+          reviewAll: true,
+        }),
+      ),
+    );
+    await settle();
+    await loadImageAndPreview();
+    const readsBeforeOldSave = calls.list.length;
+    await act(async () => finishSave({ data: { created: true } }));
+    await settle();
+    assert.equal(calls.list.length, readsBeforeOldSave);
+    assert.equal(calls.list.at(-1).importJobId, 'j2');
+    assert.equal(calls.preview.at(-1).id, 'r2');
+    assert.doesNotMatch(document.body.textContent, /Koniec zakresu/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('all-view saving in a photo filter advances within the same photo', async () => {
+  const state = {
+    queue: [
+      reportedBoard(),
+      reportedBoard({ reviewItemId: 'r2', slotId: 's2', positionIndex: 4 }),
+    ],
+  };
+  const { api, calls } = fakeApi(state);
+  api.createImageGridReviewGeometryRevision = async (id, scope, command) => {
+    calls.save.push({ id, scope, command });
+    return { data: { created: true } };
+  };
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () =>
+      button('Sprawdź wszystkie plansze tego zdjęcia').click(),
+    );
+    await settle();
+    await loadImageAndPreview();
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await loadImageAndPreview();
+    assert.equal(calls.list.at(-1).sourceImageId, 'src');
+    assert.equal(calls.list.at(-1).importJobId, 'j');
+    assert.equal(calls.list.at(-1).afterCursor, '1');
+    assert.equal(calls.preview.at(-1).id, 'r2');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('all-view previous reloads the saved revision and restart works on the last board', async () => {
+  const state = {
+    queue: [
+      reportedBoard(),
+      reportedBoard({ slotId: 's2', reviewItemId: 'r2', positionIndex: 4 }),
+    ],
+  };
+  const { api, calls } = fakeApi(state);
+  api.createImageGridReviewGeometryRevision = async (id, scope, command) => {
+    calls.save.push({ id, scope, command });
+    state.queue = state.queue.map((board) =>
+      board.reviewItemId === id
+        ? { ...board, geometryRevision: 3, approvedGeometryRevision: 3 }
+        : board,
+    );
+    return { data: { created: true } };
+  };
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await loadImageAndPreview();
+    assert.equal(button('← Poprzednia').disabled, false);
+    assert.equal(button('Od początku').disabled, false);
+    await act(async () => button('← Poprzednia').click());
+    await loadImageAndPreview();
+    assert.equal(calls.preview.at(-1).id, 'r1');
+    assert.equal(calls.preview.at(-1).command.expectedGeometryRevision, 3);
+    assert.equal(calls.list.at(-1).afterCursor, undefined);
+    await act(async () => button('Pomiń na razie →').click());
+    await loadImageAndPreview();
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.match(document.body.textContent, /Koniec zakresu/);
+    await act(async () => button('← Poprzednia').click());
+    await loadImageAndPreview();
+    assert.equal(calls.preview.at(-1).id, 'r2');
+    assert.equal(calls.preview.at(-1).command.expectedGeometryRevision, 3);
+    await act(async () => button('Od początku').click());
+    await loadImageAndPreview();
+    assert.equal(calls.preview.at(-1).id, 'r1');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('all-view retry after a successful save repeats the failed forward read, not the first page', async () => {
+  const first = deferredSlot();
+  const materialized = reportedBoard({
+    slotId: 'new-review',
+    reviewItemId: 'new-review',
+  });
+  const next = reportedBoard({
+    slotId: 's2',
+    reviewItemId: 'r2',
+    positionIndex: 4,
+  });
+  const state = { queue: [first] };
+  const { api, calls } = fakeApi(state);
+  let failed = false;
+  api.listImageGridReviews = async (options) => {
+    calls.list.push(options);
+    if (options.afterCursor === 'after-materialized' && !failed) {
+      failed = true;
+      throw new Error('next page response lost');
+    }
+    const [board, nextCursor] =
+      options.afterCursor === undefined
+        ? [first, 'after-pending']
+        : options.afterCursor === 'after-pending'
+          ? [materialized, 'after-materialized']
+          : [next, null];
+    return {
+      data: {
+        counts: counts(2),
+        gameId: 'g',
+        items: [structuredClone(board)],
+        nextCursor,
+        previousCursor: null,
+        view: 'all',
+      },
+    };
+  };
+  api.resolvePendingBoardCellGeometryManually = async (id, scope, command) => {
+    calls.resolve.push({ id, scope, command });
+    return {
+      data: {
+        created: true,
+        geometryRevision: 1,
+        reviewItemId: 'new-review',
+        pending: { id },
+      },
+    };
+  };
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.ok(button('Spróbuj ponownie'));
+    await act(async () => button('Spróbuj ponownie').click());
+    await loadImageAndPreview();
+    assert.deepEqual(
+      calls.list.map((x) => x.afterCursor),
+      [
+        undefined,
+        'after-pending',
+        'after-materialized',
+        'after-pending',
+        'after-materialized',
+      ],
+    );
+    assert.equal(calls.preview.at(-1).id, 'r2');
+    assert.equal(calls.resolve.length, 1);
+    assert.equal(button('← Poprzednia').disabled, false);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('rejecting and refreshing proposals after saving keeps the current all-view cursor', async () => {
+  const state = {
+    queue: [
+      reportedBoard(),
+      reportedBoard({ slotId: 's2', reviewItemId: 'r2', positionIndex: 4 }),
+    ],
+  };
+  const { api, calls } = fakeApi(state);
+  proposalQueueApi(state, api);
+  api.createImageGridReviewGeometryRevision = async () => ({
+    data: { created: true },
+  });
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await loadImageAndPreview();
+    await act(async () => button('Odrzuć propozycję').click());
+    await loadImageAndPreview();
+    assert.equal(calls.list.at(-1).afterCursor, '1');
+    assert.equal(calls.preview.at(-1).id, 'r2');
+    state.queue[1] = { ...state.queue[1], geometryRevision: 3 };
+    // The stale identity offers the proposal panel's read-only refresh.
+    await act(async () => button('Odśwież propozycje').click());
+    await settle();
+    assert.ok(button('Odśwież kolejkę'));
+    await act(async () => button('Odśwież kolejkę').click());
+    await loadImageAndPreview();
+    assert.equal(calls.list.at(-1).afterCursor, '1');
+    assert.equal(calls.preview.at(-1).command.expectedGeometryRevision, 3);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('accepting a proposal in all-view advances although the saved board remains listed', async () => {
+  const state = {
+    queue: [
+      reportedBoard(),
+      reportedBoard({ slotId: 's2', reviewItemId: 'r2', positionIndex: 4 }),
+    ],
+  };
+  const { api, calls } = fakeApi(state);
+  proposalQueueApi(state, api);
+  let accepted = 0;
+  api.acceptOperationalGridGeometryProposal = async () => {
+    accepted += 1;
+    return { data: { current: { state: 'accepted', applicable: false } } };
+  };
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () => button('Przyjmij propozycję').click());
+    await loadImageAndPreview();
+    assert.equal(accepted, 1);
+    assert.equal(calls.list.at(-1).afterCursor, '1');
+    assert.equal(calls.preview.at(-1).id, 'r2');
+    assert.match(document.body.textContent, /Przyjęto propozycję siatki/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('the end of a photo range offers a direct return to all photos', async () => {
+  const state = { queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  api.createImageGridReviewGeometryRevision = async () => ({
+    data: { created: true },
+  });
+  const root = await render(api, { importJobId: 'j', reviewAll: true });
+  try {
+    await act(async () =>
+      button('Sprawdź wszystkie plansze tego zdjęcia').click(),
+    );
+    await settle();
+    await loadImageAndPreview();
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.match(document.body.textContent, /Koniec zakresu/);
+    await act(async () => button('Wszystkie zdjęcia').click());
+    await settle();
+    await loadImageAndPreview();
+    assert.equal(calls.list.at(-1).sourceImageId, undefined);
+    assert.equal(calls.preview.at(-1).id, 'r1');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});

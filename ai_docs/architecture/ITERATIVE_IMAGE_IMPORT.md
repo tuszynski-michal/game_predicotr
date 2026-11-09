@@ -666,6 +666,16 @@ bounded keysetu. Edycja wiąże rewizję decyzji, geometrii, checksumę i wymiar
 czterech narożników w kolejności LT, PT, PD, LD; linie wewnętrzne i cropy są
 wyprowadzane z topologii planszy. Nowy widok nie ładuje katalogu symboli.
 
+TASK-1174: pełny widok „Geometria zdjęć” zachowuje semantykę `view=all`.
+Zapis przechodzi po bieżącym kursorze, z maksymalnie jednym dodatkowym
+odczytem przy materializacji tej samej pozycji (import/source/position).
+Nie porównuje samych numerów sekwencji. Ostatni zapis kończy zakres bez
+automatycznego powrotu; stara odpowiedź nie zmienia nowego zakresu.
+`counts=none` istniejącej listy pomija agregaty i zwraca udokumentowane zera
+nieobliczonych liczników; ten widok ich nie prezentuje. Domyślne `all`
+i `correction` pozostają zgodne. Jawne predykaty partycji gry ograniczają
+złączenia źródeł, plansz i rewizji bez osłabiania filtrów widoczności.
+
 Dla kompletnego `virtual_source` klient inicjalizuje source-wide szkic z
 bieżących quadów wszystkich aktywnych slotów. Hit-test siatki jednocześnie
 wybiera slot i otwiera edycję; kolejne przełączenia modyfikują tę samą lokalną

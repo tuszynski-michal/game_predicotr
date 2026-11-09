@@ -14,7 +14,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 - **Audyt Claude (operator2026-11-08):** terminal/polecenia są wymaganym sposobem. Desktop wyłącznie na nowe, jawne polecenie dla danego audytu. Operator loguje CLI sam; nie sterujemy logowaniem ani nie kopiujemy tokenów. Limit Opus pozwala odłożyć audyty i kontynuować kod, bez PASS/commita oczekującego taska.
 
-- **Mumie A2:** trening42012366/ONNX zakończone; zastosowanie blokuje wzrost błędu A. Default3ed60010 revision2;691zdjęć w stagingu, bez importu. Źródło: `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` i root artifacts/grid-detector-training-20261107/block-analysis/analysis.html.
+- **Mumie A2:** trening/ONNX42012366 zakończone; blokada: wzrost błędu A. Default3ed60010 rev2. Import691 (bf601495):6219 pending,0 błędów; stare309 i geometrie zachowane. Dowód: root artifacts/staging-691-import-20261109/RESULT.json. Źródło: `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md`; root artifacts/grid-detector-training-20261107/block-analysis/analysis.html.
 
 
 
@@ -48,6 +48,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
+| `delivery/FULL_FIELD_CORRECTION_FLOW_PLAN_20261109.md` | T1 gotowe, Opus PASS; dalej T2,2–4h zatwierdzone | TASK-1175 | `codex/full-field-correction-flow` |
 | `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` | T0–T5 i poprawka startu Opus PASS; main/origin, baza0183, usługi działają lokalnie | zatwierdzenie obrysów, ślepy pomiar, świeże kontrole i dowód rodowodu; trening nieuruchomiony | `main` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |
 | `delivery/V3_GRID_FINE_TUNING_EXECUTION_PLAN_20261014.md` | accepted, rev. 6; 24/24 done, zintegrowany w `main` | rzeczywisty eksperyment TASK-1006 za osobną zgodą | `main` |
@@ -88,12 +89,17 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
+### TASK-1175 — Pełne pola0% (todo)
+
+- Plik: `tasks/1175-full-cell-render-policy.md`. Nowy pin renderowania dla nowych i pending korekt, historia bez przepisywania.
+
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1174** — Następna plansza i szybka kolejka — v1.7.587 — tasks/completed/1174-geometry-review-navigation.md
 - **TASK-1173** — HTML i końcowy odbiór pełnych wycinków — v1.7.585 / `ae323963` — tasks/completed/1173-crop-preview-acceptance.md
 - **TASK-1172** — Powiązanie renderowania i danych z uczeniem — v1.7.584 / `aeae6012` — tasks/completed/1172-content-render-training-binding.md
 - **TASK-1171** — Porównanie produkcyjnych wycinków 8% i 0% — v1.7.583 / `14fcfb4e` — tasks/completed/1171-production-crop-comparison.md
@@ -103,4 +109,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1167** — Kontrolowane warianty treningu zawartości i ratunku — v1.7.576 / `a9951e94` — tasks/completed/1167-bounded-content-training.md
 - **TASK-1166** — Ocena produkcyjnych wycinków — v1.7.575 / `ac724d29` — tasks/completed/1166-production-cell-evaluation.md
 - **TASK-1165** — Niezależne etykiety zawartości i ślepy pomiar — v1.7.574 / `450f9ef1` — tasks/completed/1165-cell-content-reference.md
-- **TASK-1164** — Kontrakt 24 punktów i 15 ocen widoczności — v1.7.573 / `1629b8be` — tasks/completed/1164-grid-visibility-contract.md

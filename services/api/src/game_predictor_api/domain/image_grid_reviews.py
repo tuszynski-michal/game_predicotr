@@ -37,10 +37,14 @@ class ImageGridReviewCountsMode(StrEnum):
     reported boards plus the deferred slots of the D-462 R4 queue — and
     reports every other counter as ``0``; the Reviewer polls the correction
     queue after every board and must not pay for the full set each time.
+    ``NONE`` skips all aggregates and returns uncomputed zeros. Its callers
+    must not display these values as measured totals.
     """
 
     ALL = "all"
     CORRECTION = "correction"
+    # Explicitly uncomputed counters, for viewers that only need the items.
+    NONE = "none"
 
 
 class ImageGridReviewCursorDirection(StrEnum):

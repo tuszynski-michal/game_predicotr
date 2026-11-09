@@ -183,7 +183,9 @@ def create_image_grid_reviews_router(
                 description=(
                     "Which counters the page computes. `all` (default) returns the full "
                     "set. `correction` computes only `counts.correction` (reported boards "
-                    "plus deferred slots) and returns every other counter as 0."
+                    "plus deferred slots) and returns every other counter as 0. "
+                    "`none` skips all counter queries and returns 0 for every counter; "
+                    "these zeros are uncomputed, not measured totals."
                 ),
             ),
         ] = ImageGridReviewCountsMode.ALL,

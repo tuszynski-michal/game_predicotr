@@ -7,7 +7,18 @@ from dataclasses import replace
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import String, and_, case, exists, func, literal, or_, select, tuple_
+from sqlalchemy import (
+    String,
+    and_,
+    case,
+    exists,
+    func,
+    literal,
+    literal_column,
+    or_,
+    select,
+    tuple_,
+)
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
@@ -409,6 +420,11 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             .where(
                 document.game_id == review_filter.game_id,
                 ImageReviewItemModel.game_id == review_filter.game_id,
+                # These V2 partition keys are intentionally not mapped on the
+                # legacy ORM classes. Explicit predicates let PostgreSQL prune
+                # other games even on the owner read path (without RLS).
+                literal_column("recognized_boards.game_id") == review_filter.game_id,
+                literal_column("source_images.game_id") == review_filter.game_id,
                 ImageReviewItemModel.status.in_(("pending", "accepted", "corrected")),
                 current_review_clause(ImageReviewItemModel.id),
             )
@@ -457,6 +473,8 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
             .where(
                 ImageBoardGeometryPendingModel.game_id == review_filter.game_id,
+                literal_column("source_images.game_id") == review_filter.game_id,
+                ImageSourceGeometryRevisionModel.game_id == review_filter.game_id,
                 ImageBoardGeometryPendingModel.status == "pending",
                 current_clause(
                     review_filter.game_id,
@@ -528,6 +546,7 @@ def _current_grid_issue_exists() -> Any:
     cell = ImageSymbolReviewCellModel
     return exists(
         select(cell.id).where(
+            cell.game_id == ImageReviewItemModel.game_id,
             cell.review_item_id == ImageReviewItemModel.id,
             cell.recognized_board_id == RecognizedBoardModel.id,
             cell.geometry_revision == RecognizedBoardModel.geometry_revision,

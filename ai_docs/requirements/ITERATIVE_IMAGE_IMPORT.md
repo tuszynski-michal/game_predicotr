@@ -130,6 +130,13 @@ przełączony w locie między v18 i v20.
 
 ## Reviewer i jakość obrazu
 
+- „Geometria zdjęć” zachowuje zapisane plansze w pełnym zakresie, ale po
+  udanym zapisie przechodzi do następnej. Ostatnia pozycja kończy zakres;
+  powrót na początek wymaga jawnej akcji. Zmiana identyfikatora przy
+  materializacji nie może ponownie otworzyć tej samej pozycji zdjęcia.
+  Filtry zdjęcia/importu pozostają aktywne; opóźniony zapis nie zmienia
+  nowo wybranego zakresu. Widok nie oblicza niewyświetlanych liczników.
+
 - W kolejce niepełnych siatek pojedynczej planszy kadr pozostaje nieruchomy
   przez cały gest przeciągania narożnika lub wnętrza siatki. Dopiero puszczenie
   dopasowuje kadr do końcowej geometrii i automatycznie odświeża 15 cropów.

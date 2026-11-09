@@ -4102,6 +4102,14 @@ test('listImageGridReviews requests the single correction queue (D-462)', async 
     counts: 'correction',
   });
 
+  await client.listImageGridReviews({
+    gameId,
+    view: 'all',
+    limit: 1,
+    counts: 'none',
+    afterCursor: 'next-slot',
+  });
+
   const url = new URL(requests[0].url);
   assert.equal(url.pathname, `/api/v1/admin/games/${gameId}/grid-reviews`);
   assert.equal(url.searchParams.get('view'), 'correction');
@@ -4110,6 +4118,10 @@ test('listImageGridReviews requests the single correction queue (D-462)', async 
   // The default request never sends `counts` (server default `all`).
   assert.equal(url.searchParams.has('counts'), false);
   // TASK-0961: the cheap counters mode in the game-wide scope.
+  const withoutCounts = new URL(requests[2].url);
+  assert.equal(withoutCounts.searchParams.get('counts'), 'none');
+  assert.equal(withoutCounts.searchParams.get('view'), 'all');
+  assert.equal(withoutCounts.searchParams.get('afterCursor'), 'next-slot');
   const cheap = new URL(requests[1].url);
   assert.equal(cheap.pathname, `/api/v1/admin/games/${gameId}/grid-reviews`);
   assert.deepEqual(Object.fromEntries(cheap.searchParams.entries()), {

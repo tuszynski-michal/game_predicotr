@@ -1051,6 +1051,25 @@ def test_service_counts_mode_selects_the_repository_method() -> None:
     assert repository.count_calls == ["correction", "all"]
 
 
+def test_counts_none_lists_real_items_without_any_aggregate(tmp_path: Path) -> None:
+    client, repository, items = _client(tmp_path)
+    url = f"/api/v1/admin/games/{items[0].game_id}/grid-reviews"
+    response = client.get(url, params={"view": "all", "limit": 1, "counts": "none"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert len(body["items"]) == 1
+    assert body["nextCursor"] is not None
+    assert all(value == 0 for value in body["counts"].values())
+    assert repository.count_calls == []
+    second = client.get(
+        url,
+        params={"view": "all", "limit": 1, "counts": "none", "afterCursor": body["nextCursor"]},
+    )
+    assert second.status_code == 200, second.text
+    assert second.json()["items"][0]["sequenceNumber"] != body["items"][0]["sequenceNumber"]
+    assert repository.count_calls == []
+
+
 def test_correction_view_sql_keeps_one_entry_per_board_slot() -> None:
     session = MagicMock()
     repository = SqlAlchemyImageGridReviewRepository(session)

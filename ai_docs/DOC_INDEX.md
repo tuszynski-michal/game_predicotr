@@ -205,6 +205,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Proces i jakość
 
+- [Odbiór kolejki geometrii i pełnych pól](quality/FULL_FIELD_CORRECTION_DEPLOYMENT_20261109.md) — TASK-1174–1175, merge/push i lokalne restarty, rzeczywiste HTTP oraz preview0%.
+
 - [Odbiór pełnych symboli i instrukcja operatora](quality/FULL_SYMBOL_CROPS_ACCEPTANCE_20261109.md) — T0–T5, wykonane kontrole, zakres dowodu i przygotowanie wdrożenia.
 - [Wdrożenie pełnych symboli i dane operatora](quality/FULL_SYMBOL_CROPS_ROLLOUT_20261109.md) — migracje0182/0183, lokalne usługi, szkice TRAIN i brakujące dowody przed treningiem.
 - [Zgodność schematu przy cutover](quality/TASK-1169_VERIFICATION.md) — poprawka globalnego strażnika i statyczna bariera przed scaleniem.

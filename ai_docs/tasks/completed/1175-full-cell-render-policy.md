@@ -141,6 +141,12 @@ według nowego pinu; jawny opis pola/architektury i checksumy manifestów.
 P2-2 przyjęte: dawny fallback joba zupełnie bez modelu może korzystać z
 sąsiedniego manifestu0. Nowe kompletne piny są od tego niezależne.
 
+Aktualizacja wdrożenia2026-11-09: po osobnej zgodzie operatora main/origin
+zawierają v1.7.587–589, API/Reviewer/general uruchomione ponownie. Rzeczywiste
+preview15 wycinków0/8 działa, bez zmiany ręcznych rewizji. To odbiór kontraktu,
+nie nowy dowód jakości modelu. Raport:
+ai_docs/quality/FULL_FIELD_CORRECTION_DEPLOYMENT_20261109.md.
+
 DoD/plan: wersjonowany pin i stare fingerprinty; pion API i klienta; ręczny
 preview/symbole/zapis/propozycje;15 produkcyjnych wycinków i zachowanie historii;
 CAS/lost response/nowy proces; worker i brak dziedziczenia kalibracji; dokumenty,

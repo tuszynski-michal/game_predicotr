@@ -58,8 +58,6 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **Korekta zdjęć / TASK-1174–1175:** kolejna plansza, odczyt bez agregatów i jawne pełne pola0 gotowe na codex/full-field-correction-flow; oba Opus PASS. Bez wdrożenia. Odbiór: quality/TASK-1174_VERIFICATION.md i quality/TASK-1175_VERIFICATION.md; merge i restart wymagają zgody.
-
 - **Mumie A2 / TASK-1152:** naprawa licznika wdrożona po Opus PASS i zgodzie; ten sam apply zakończony, default i MumieA2 revision2. Porównanie151plansz w root artifacts/grid-applied-comparison-20261103/comparison.html.
 
 

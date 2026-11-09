@@ -106,3 +106,9 @@ miejsce, ale ekran błędu nie ma osobnego „Od początku”. Nie zmienia to za
 ani normalnego przejścia naprzód. Nie rozszerzano rund audytu dla tych P2.
 Bez migracji, operatorowych zapisów/restartów/merge. Następnie TASK-1175,
 zgodnie z poleceniem wykonania obu poprawek. Margin0% nie jest jeszcze gotowy.
+
+Aktualizacja wdrożenia2026-11-09: TASK-1175 ukończony; operator zaakceptował
+merge/push/cleanup oraz restart API/Reviewera/general. Main i origin zawierają
+oba taski; nowy Reviewer i worker działają. HTTP zwróciło trzy różne kolejne
+pozycje w1.9–2.2s. Odbiór:
+ai_docs/quality/FULL_FIELD_CORRECTION_DEPLOYMENT_20261109.md.

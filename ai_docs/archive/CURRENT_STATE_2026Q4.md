@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1173 — HTML i końcowy odbiór pełnych wycinków (done)
 
 - Plik: `tasks/completed/1173-crop-preview-acceptance.md`.
-- Commit: **v1.7.585** (hash dopisuje kolejny commit).
+- Commit: **v1.7.585 / `ae323963249c73cf7b24f8e53a5ab8883b0dac3f`** (hash dopisuje kolejny commit).
 - Nowy jawny tryb istniejącego CLI tworzy lokalny HTML rzeczywistych wycinków 8%/0%, bez zmiany legacy. Oryginał/24punkty/approved content lub brak/actual wejścia NN/15par human i model są rozdzielone. TRAIN+visualExportAllowed przed pikselem/public JSON, bez ujawniania A ani mieszania indeksów detekcji.
 - Raport v4 w root artifacts/grid-symbol-crop-preview-20261109-t4-v4/index.html: 9plansz,540cropów+10inputów+oryginał=551PNG; cold CLI exit0 i niezmienność552wejść/553wyjść/SHA/pikseli/wymiarów. Podgląd jest diagnostyką, bez dowodu jakości operatorowego modelu (brak approved GT).
 - Domknięto T1: ukryty obrys nie przyjmuje niewidocznej edycji, TRAIN bez nodes zachowuje ordinary obraz/adnotację. Instrukcja pełnej grafiki obejmuje ozdobne obramowanie. LF checksum-bound auditów potwierdzony w świeżym checkout.

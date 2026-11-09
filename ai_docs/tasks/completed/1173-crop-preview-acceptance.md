@@ -130,7 +130,7 @@ Nie deklarować poprawy wytrenowanego modelu bez rzeczywistego eksperymentu.
 
 ## Outcome
 
-Commit: v1.7.585 (hash dopisuje kolejny commit).
+Commit: v1.7.585 / `ae323963249c73cf7b24f8e53a5ab8883b0dac3f`.
 
 Implementacja odebrana z Opus R2 PASS; wyniki i ograniczenia końcowe poniżej.
 Jawny `--crop-report` istniejącego CLI tworzy immutable samodzielny HTML z sealed

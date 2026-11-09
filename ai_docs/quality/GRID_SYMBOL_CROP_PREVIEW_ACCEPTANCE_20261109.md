@@ -76,3 +76,15 @@ ochrony capture i ręcznego odbioru pozostają aktualne. Gotowość narzędzia n
 jest rekomendacją zmiany marginesu ani dowodem poprawy modelu. Bez operatorowych
 mutacji, treningu, wdrożenia i merge/push. Końcowe docs/map i task-close są
 kontrolą metadanych po audycie, bez zmiany audytowanego kodu.
+
+## Zamknięte taski
+
+| Task | Wersja | Commit | Audyt |
+|---|---|---|---|
+| TASK-1170 / T1 | v1.7.582 | `23055b1e0cfbc7c325b5a0d4f18f370d9f9ae1ac` | Opus PASS |
+| TASK-1171 / T2 | v1.7.583 | `14fcfb4e6017dd2f1b1d2c7879bc4f498699f91f` | Opus PASS |
+| TASK-1172 / T3 | v1.7.584 | `aeae60128e954338cdd257c517c48933e0f25846` | Opus PASS |
+| TASK-1173 / T4 | v1.7.585 | `ae323963249c73cf7b24f8e53a5ab8883b0dac3f` | Opus R2 PASS |
+
+Końcowe `docs:check` i `code-map:check` po task-close: PASS,
+startup43179B. Zapis hashy jest osobnym commitem metadanych po T4.

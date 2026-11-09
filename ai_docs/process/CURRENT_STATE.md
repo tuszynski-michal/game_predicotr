@@ -94,7 +94,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1173** — HTML i końcowy odbiór pełnych wycinków — v1.7.585 — tasks/completed/1173-crop-preview-acceptance.md
+- **TASK-1173** — HTML i końcowy odbiór pełnych wycinków — v1.7.585 / `ae323963` — tasks/completed/1173-crop-preview-acceptance.md
 - **TASK-1172** — Powiązanie renderowania i danych z uczeniem — v1.7.584 / `aeae6012` — tasks/completed/1172-content-render-training-binding.md
 - **TASK-1171** — Porównanie produkcyjnych wycinków 8% i 0% — v1.7.583 / `14fcfb4e` — tasks/completed/1171-production-crop-comparison.md
 - **TASK-1170** — Czytelny podgląd siatki i obrysów — v1.7.582 / `23055b1e` — tasks/completed/1170-grid-content-preview.md

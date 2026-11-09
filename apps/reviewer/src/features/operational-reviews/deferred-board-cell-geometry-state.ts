@@ -69,6 +69,8 @@ export function deferredBoardCellGeometryPreviewCommand(
         );
   return {
     corners:
+      // The policy is forwarded separately below; corners always stay in
+      // source coordinates and are never expanded to simulate a wider crop.
       latticeNodes === undefined
         ? corners
         : boardLatticeTransportCorners(latticeNodes),
@@ -82,6 +84,9 @@ export function deferredBoardCellGeometryPreviewCommand(
             context.expectedProposalChecksumSha256,
         }),
     expectedGeometryRevision: context.item.expectedGeometryRevision,
+    ...(context.manualCropPolicyVersion == null
+      ? {}
+      : { cropPolicyVersion: context.manualCropPolicyVersion }),
     expectedManifestChecksumSha256:
       context.item.processingManifestChecksumSha256,
     expectedResolutionRevision: context.item.expectedReviewResolutionRevision,

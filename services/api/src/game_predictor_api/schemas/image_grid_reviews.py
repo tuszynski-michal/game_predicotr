@@ -39,6 +39,10 @@ Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 
 class ImageGridReviewItemResponse(ApiModel):
+    manual_crop_policy_version: Literal["full-cell-v2"] = Field(
+        default="full-cell-v2",
+        description="Offered policy for a NEW manual correction, not the stored crop.",
+    )
     lattice_nodes: SourceLatticeNodesPayload | None = None
     expected_proposal_checksum_sha256: Sha256 | None = None
     geometry_qualification: GeometryQualificationPayload | None = None
@@ -142,6 +146,9 @@ class ImageGridReviewPageResponse(ApiModel):
 
 
 class ImageGridReviewGeometryPreviewCommand(ApiModel):
+    crop_policy_version: Literal["full-cell-v2"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     lattice_nodes: SourceLatticeNodesPayload | None = None
     expected_proposal_checksum_sha256: Sha256 | None = None
     geometry_qualification: GeometryQualificationPayload | None = None

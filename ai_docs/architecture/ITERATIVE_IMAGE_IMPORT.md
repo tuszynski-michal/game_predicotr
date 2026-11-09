@@ -660,6 +660,30 @@ planszy i przejście do następnej. Szybkie zatwierdzanie planszy lub zdjęcia,
 source-wide szkic 36 narożników i endpoint `source-geometry-revisions` zostały
 usunięte; poniższe akapity o nich opisują stan sprzed D-462.
 
+D-598/TASK-1175: `SymbolModelJobSnapshot.cropPolicyVersion=full-cell-v2`
+przypina0% w nowych operacjach. Brak pola zachowuje payload/fingerprint i
+interpretację starego modelu. Serwer oferuje `manualCropPolicyVersion` na
+kontekście/itemie do NOWEJ korekty; to nie jest opis historycznego renderu.
+Klient przekazuje wyłącznie zamknięty token w preview/symbols/save/accept,
+wiąże go ze szkicem i kluczem komendy. Nie podaje surowego paddingu.
+Nowa rewizja ma checksum-bound konfigurację0 i efektywny snapshot predykcji;
+importowy pin nie jest nadpisywany. CAS nadal porównuje źródło, rewizje,
+topologię i pozostałe parametry. Zmiana polityki w replay daje409.
+Pending z poprawnym pinem joba nie pożycza konfiguracji innych slotów/importu.
+Niekompletny historyczny pin runtime zachowuje dawny czytnik manifestów,
+z paddingiem zweryfikowanego modelu, jeśli istnieje; bez nowego dowodu jakości.
+Stare wywołania bez tokenu zachowują swój kontrakt.
+Publiczny payload joba dopuszcza ten sam zamknięty opcjonalny token; brak
+pola nie dodaje null do dawnych odpowiedzi. W ponownej inferencji istniejących
+symboli pin określa model i jego kontrakt nowych renderów, a faktyczne piksele
+pochodzą z manifestu każdego istniejącego wycinka. Ta operacja nie przerabia
+historycznych8% na0%; rewizja predykcji wiąże checksumę manifestu cropów.
+Legacy bez jakiegokolwiek snapshotu klasyfikatora nadal może odziedziczyć
+konfigurację z istniejącego manifestu (także po korekcie0 w sąsiednim slocie).
+To zachowany fallback starszych danych, nie oferta nowego kontraktu ani dowód
+jakości. Nowe poprawnie przypięte joby nie korzystają z tego fallbacku.
+API i worker wymagają skoordynowanej aktualizacji przed nowymi jobami0.
+
 Kolejka game-wide korzysta z jednego właściciela logicznego numeru oraz
 bounded keysetu. Edycja wiąże rewizję decyzji, geometrii, checksumę i wymiary
 źródła oraz snapshot topologii. Edytor używa

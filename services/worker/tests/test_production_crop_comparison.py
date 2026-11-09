@@ -667,6 +667,23 @@ def test_calibration_needs_runtime_pin_and_exact_model_scope(tmp_path):
     assert acceptance_policy(pinned, evidence)["state"] == "unavailable"
 
 
+def test_legacy_threshold_does_not_qualify_a_new_full_cell_runtime(tmp_path):
+    _, captured, _, *_ = setup(tmp_path)
+    target = captured["photos"][0]["targets"][0]
+    pinned = SymbolModelJobSnapshot.from_payload(
+        target["productionContentReference"]["sourceContext"]["classifier"]
+    )
+    evidence = deepcopy(target["classificationPolicy"])
+    assert acceptance_policy(pinned, evidence)["state"] == "disabled"
+    full = pinned.with_full_cell_crops()
+    # Same old calibration, even with an accurately declared new runtime.
+    evidence["runtime"] = current_runtime_pin(full)
+    assert acceptance_policy(full, evidence) == {
+        "state": "unavailable",
+        "reason": "CLASS_ACCEPTANCE_CROP_POLICY_UNCALIBRATED",
+    }
+
+
 def test_classes_use_current_review_owner_not_old_same_board_cell(monkeypatch):
     from game_predictor_api.storage import production_crop_capture as module
     from game_predictor_worker.images import production_crop_classification as classification

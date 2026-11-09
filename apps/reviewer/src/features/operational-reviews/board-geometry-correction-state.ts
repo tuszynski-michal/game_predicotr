@@ -68,6 +68,9 @@ export function gridReviewGeometryPreviewCommand(
   latticeNodes?: BoardLatticeNodes,
 ): ImageGridReviewGeometryPreviewCommand {
   return {
+    ...(item.manualCropPolicyVersion == null
+      ? {}
+      : { cropPolicyVersion: item.manualCropPolicyVersion }),
     corners:
       latticeNodes === undefined
         ? corners

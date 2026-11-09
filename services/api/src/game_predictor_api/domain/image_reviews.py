@@ -294,6 +294,7 @@ class ValidatedImageReviewGeometryCommand:
     geometry_qualification: GeometryQualification | None = None
     lattice_nodes: SourceLatticeNodes | None = None
     expected_proposal_checksum_sha256: str | None = None
+    crop_policy_version: str | None = None
 
 
 def canonical_image_review_bytes(value: object) -> bytes:
@@ -345,6 +346,7 @@ def validate_image_review_geometry_command(
     geometry_qualification: GeometryQualification | None = None,
     lattice_nodes: SourceLatticeNodes | None = None,
     expected_proposal_checksum_sha256: str | None = None,
+    crop_policy_version: str | None = None,
 ) -> ValidatedImageReviewGeometryCommand:
     actor = corrected_by.strip()
     if not actor or len(actor) > 200:
@@ -396,6 +398,14 @@ def validate_image_review_geometry_command(
         "expectedGeometryRevision": expected_geometry_revision,
         "expectedResolutionRevision": expected_resolution_revision,
     }
+    if crop_policy_version is not None:
+        from game_predictor_api.domain.symbol_model_snapshots import FULL_CELL_CROP_POLICY_VERSION
+
+        if crop_policy_version != FULL_CELL_CROP_POLICY_VERSION:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_CROP_POLICY_INVALID", "The manual crop policy is unsupported."
+            )
+        command_value["cropPolicyVersion"] = crop_policy_version
     if geometry_qualification is not None:
         command_value["geometryQualification"] = geometry_qualification.to_dict()
     if lattice_nodes is not None:
@@ -417,6 +427,7 @@ def validate_image_review_geometry_command(
         geometry_qualification=geometry_qualification,
         lattice_nodes=lattice_nodes,
         expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+        crop_policy_version=crop_policy_version,
     )
 
 

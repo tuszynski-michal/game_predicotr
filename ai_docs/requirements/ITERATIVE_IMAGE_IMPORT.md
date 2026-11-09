@@ -130,6 +130,14 @@ przełączony w locie między v18 i v20.
 
 ## Reviewer i jakość obrazu
 
+- Nowe operacje przypinają pełne pola symboli bez marginesu do wewnątrz
+  (`full-cell-v2`,0%). Nowa ręczna korekta używa tego samego jawnego ustawienia
+  w podglądzie, podpowiedziach i zapisie. Nie rozszerza punktów siatki.
+  Wcześniejsze wycinki8% i ich zatwierdzenia pozostają w historii. Jeżeli
+  piksele nowego wycinka się zmienią, symbol wymaga ponownej weryfikacji,
+  chyba że operator wskaże go na nowym podglądzie. Stary raport jakości8%
+  nie zatwierdza nowego kontraktu0%. Szczegóły wersjonowania: D-598.
+
 - „Geometria zdjęć” zachowuje zapisane plansze w pełnym zakresie, ale po
   udanym zapisie przechodzi do następnej. Ostatnia pozycja kończy zakres;
   powrót na początek wymaga jawnej akcji. Zmiana identyfikatora przy

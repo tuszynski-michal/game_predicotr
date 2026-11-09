@@ -193,6 +193,9 @@ export function GridGeometryProposals({
               originalCandidateSha256:
                 proposal.candidate.originalCandidateSha256,
               mode: 'model' as const,
+              ...(item.manualCropPolicyVersion == null
+                ? {}
+                : { cropPolicyVersion: item.manualCropPolicyVersion }),
             };
       const key = proposalCommandKey(
         localStorage,
@@ -220,6 +223,9 @@ export function GridGeometryProposals({
                 originalCandidateSha256:
                   proposal.candidate.originalCandidateSha256,
                 mode: 'model',
+                ...(item.manualCropPolicyVersion == null
+                  ? {}
+                  : { cropPolicyVersion: item.manualCropPolicyVersion }),
                 idempotencyKey: key,
               },
             );
@@ -274,7 +280,7 @@ export function GridGeometryProposals({
     const nodes = parseBoardLattice(
       proposal.candidate.originalGeometry.latticeNodes,
     );
-    const binding = `${proposal.id}:${proposal.revision}:${item.sourceChecksumSha256}:${item.geometryRevision}:${item.resolutionRevision}:${proposal.candidate.originalCandidateSha256}`;
+    const binding = `${proposal.id}:${proposal.revision}:${item.sourceChecksumSha256}:${item.geometryRevision}:${item.resolutionRevision}:${proposal.candidate.originalCandidateSha256}${item.manualCropPolicyVersion == null ? '' : `:${item.manualCropPolicyVersion}`}`;
     return {
       ...base,
       key: `proposal:${binding}`,
@@ -313,6 +319,9 @@ export function GridGeometryProposals({
             expectedResolutionRevision: item.resolutionRevision,
             originalCandidateSha256: proposal.candidate.originalCandidateSha256,
             mode: 'edited',
+            ...(item.manualCropPolicyVersion == null
+              ? {}
+              : { cropPolicyVersion: item.manualCropPolicyVersion }),
             geometry,
           },
         );

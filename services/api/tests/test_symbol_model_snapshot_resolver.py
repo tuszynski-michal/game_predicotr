@@ -177,6 +177,8 @@ def test_resolver_returns_a_checksum_verified_active_candidate(tmp_path: Path) -
     assert snapshot.input_size == 64
     assert snapshot.temperature == 1.2
     assert snapshot.onnx_relative_path == "models/candidate.onnx"
+    assert snapshot.crop_policy_version == "full-cell-v2"
+    assert snapshot.crop_padding_fraction == 0
 
 
 def test_resolver_rejects_an_active_artifact_changed_after_activation(tmp_path: Path) -> None:

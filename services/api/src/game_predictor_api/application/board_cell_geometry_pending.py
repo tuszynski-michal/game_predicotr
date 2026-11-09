@@ -296,6 +296,7 @@ class BoardCellGeometryPendingService:
         geometry_qualification: GeometryQualification | None = None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometryPreview:
         """Contact sheet of the virtual cells a resolution would persist."""
 
@@ -314,6 +315,7 @@ class BoardCellGeometryPendingService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
@@ -328,6 +330,7 @@ class BoardCellGeometryPendingService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             geometry_qualification=geometry_qualification,
             actor=corrected_by,
         )
@@ -346,6 +349,7 @@ class BoardCellGeometryPendingService:
         geometry_qualification: GeometryQualification | None = None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
         """Model symbols of the cells a resolution would persist (D-488)."""
 
@@ -364,6 +368,7 @@ class BoardCellGeometryPendingService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
@@ -378,6 +383,7 @@ class BoardCellGeometryPendingService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             geometry_qualification=geometry_qualification,
             actor=corrected_by,
         )
@@ -399,6 +405,7 @@ class BoardCellGeometryPendingService:
         cell_symbols: Sequence[VirtualGridCellSymbol] = (),
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> BoardCellGeometryManualResolution:
         """Persist the deferred board as one ``virtual_source`` board (D-467).
 
@@ -423,6 +430,7 @@ class BoardCellGeometryPendingService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
@@ -439,6 +447,7 @@ class BoardCellGeometryPendingService:
                 corners=corners,
                 lattice_nodes=lattice_nodes,
                 expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+                crop_policy_version=crop_policy_version,
                 actor=corrected_by,
                 created_at=resolved_at,
                 geometry_qualification=geometry_qualification,

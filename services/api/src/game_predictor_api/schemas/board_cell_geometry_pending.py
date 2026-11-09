@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from pydantic import Field
@@ -80,6 +80,7 @@ class BoardCellGeometryPendingPageResponse(ApiModel):
 
 
 class BoardCellGeometryCorrectionContextResponse(ApiModel):
+    manual_crop_policy_version: Literal["full-cell-v2"] = "full-cell-v2"
     lattice_nodes: SourceLatticeNodesPayload | None = None
     expected_proposal_checksum_sha256: Sha256 | None = None
     item: BoardCellGeometryPendingResponse
@@ -101,6 +102,9 @@ class BoardCellGeometryCorrectionContextResponse(ApiModel):
 
 
 class BoardCellGeometryManualPreviewCommand(ApiModel):
+    crop_policy_version: Literal["full-cell-v2"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     lattice_nodes: SourceLatticeNodesPayload | None = None
     expected_proposal_checksum_sha256: Sha256 | None = None
     expected_manifest_checksum_sha256: Sha256

@@ -92,6 +92,7 @@ class VirtualGridGeometryContext:
     # Symbol model pinned to the import of a still-deferred slot; its rendered
     # cells are classified with exactly this model (D-467, TASK-0790).
     pending_symbol_model: Mapping[str, object] | None = None
+    manual_crop_policy_version: str | None = None
     # Common revision of the 15 current symbol cells of the slot's
     # ``game_id + sequence_number`` when a deferred slot takes over a sequence
     # already owned by another board (TASK-0702 handoff rule, DATA_MODEL).
@@ -207,6 +208,7 @@ class VirtualGridGeometryRevision:
     geometry_qualification: GeometryQualification | None = None
     lattice_nodes: SourceLatticeNodes | None = None
     expected_proposal_checksum_sha256: str | None = None
+    crop_policy_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,6 +234,7 @@ class VirtualGridGeometrySourceCommand:
     geometry_qualification: GeometryQualification | None = None
     lattice_nodes: SourceLatticeNodes | None = None
     expected_proposal_checksum_sha256: str | None = None
+    crop_policy_version: str | None = None
 
     @property
     def target_id(self) -> UUID:
@@ -369,6 +372,7 @@ class VirtualGridGeometryService:
         geometry_qualification: GeometryQualification | None = None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometryPreview:
         prepared, renders = self._prepare(
             game_id=game_id,
@@ -384,6 +388,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             actor="local-admin-preview",
             geometry_qualification=geometry_qualification,
         )
@@ -419,6 +424,7 @@ class VirtualGridGeometryService:
         cell_symbols: Sequence[VirtualGridCellSymbol] = (),
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometrySaveResult:
         _require_valid_cell_symbols(cell_symbols)
         result = self._save(
@@ -436,6 +442,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             actor=actor,
             created_at=created_at,
             geometry_qualification=geometry_qualification,
@@ -470,6 +477,7 @@ class VirtualGridGeometryService:
         geometry_qualification: GeometryQualification | None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometrySaveResult:
         replay = self._find_replay(
             game_id=game_id,
@@ -488,6 +496,7 @@ class VirtualGridGeometryService:
                     corners=tuple(corners),
                     lattice_nodes=lattice_nodes,
                     expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+                    crop_policy_version=crop_policy_version,
                     geometry_qualification=geometry_qualification,
                 ),
             ),
@@ -510,6 +519,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             actor=actor,
             geometry_qualification=geometry_qualification,
         )
@@ -531,6 +541,7 @@ class VirtualGridGeometryService:
         geometry_qualification: GeometryQualification | None = None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometryPreview:
         """Render one current board for the operational Reviewer (TASK-0796).
 
@@ -557,6 +568,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             geometry_qualification=geometry_qualification,
         )
 
@@ -575,6 +587,7 @@ class VirtualGridGeometryService:
         geometry_qualification: GeometryQualification | None = None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometrySaveResult:
         """Persist one current board's manual geometry for the Reviewer (TASK-0796).
 
@@ -604,6 +617,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             geometry_qualification=geometry_qualification,
             actor=actor,
             created_at=created_at,
@@ -670,6 +684,7 @@ class VirtualGridGeometryService:
         actor: str = "local-admin-preview",
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometryPreview:
         """Render one deferred slot from its source, exactly as a save would."""
 
@@ -682,6 +697,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             geometry_qualification=geometry_qualification,
         )
         prepared, renders = self._prepare_source(
@@ -720,6 +736,7 @@ class VirtualGridGeometryService:
         cell_symbols: Sequence[VirtualGridCellSymbol] = (),
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometrySourceSaveResult:
         """Resolve one deferred slot as a ``virtual_source`` board (D-467).
 
@@ -742,6 +759,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             actor=actor,
             created_at=created_at,
             geometry_qualification=geometry_qualification,
@@ -775,6 +793,7 @@ class VirtualGridGeometryService:
         actor: str = "local-admin-preview",
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
         """Pinned-model predictions for exactly the cut a save would persist.
 
@@ -792,6 +811,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             geometry_qualification=geometry_qualification,
         )
         prepared, _renders = self._prepare_source(
@@ -847,6 +867,7 @@ class VirtualGridGeometryService:
         geometry_qualification: GeometryQualification | None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometrySourceSaveResult:
         command = self._pending_slot_command(
             game_id=game_id,
@@ -858,6 +879,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             geometry_qualification=geometry_qualification,
         )
         replay = self._find_replay(
@@ -894,6 +916,7 @@ class VirtualGridGeometryService:
         geometry_qualification: GeometryQualification | None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
         replay_key: UUID | None = None,
     ) -> VirtualGridGeometrySourceCommand:
         # The deferred item's processing manifest already pins the source
@@ -918,6 +941,7 @@ class VirtualGridGeometryService:
             corners=tuple(corners),
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             geometry_qualification=geometry_qualification,
         )
 
@@ -966,6 +990,7 @@ class VirtualGridGeometryService:
                 corners=value.corners,
                 lattice_nodes=value.lattice_nodes,
                 expected_proposal_checksum_sha256=value.expected_proposal_checksum_sha256,
+                crop_policy_version=value.crop_policy_version,
                 expected_geometry_revision=value.expected_geometry_revision,
                 expected_resolution_revision=value.expected_resolution_revision,
                 corrected_by=actor,
@@ -1060,6 +1085,7 @@ class VirtualGridGeometryService:
                 corners=source_command.corners,
                 lattice_nodes=source_command.lattice_nodes,
                 expected_proposal_checksum_sha256=source_command.expected_proposal_checksum_sha256,
+                crop_policy_version=source_command.crop_policy_version,
                 expected_geometry_revision=source_command.expected_geometry_revision,
                 expected_resolution_revision=source_command.expected_resolution_revision,
                 corrected_by=actor,
@@ -1073,6 +1099,7 @@ class VirtualGridGeometryService:
                     pending_geometry_id=source_command.pending_geometry_id,
                 )
             )
+            context = bind_manual_crop_policy(context, source_command.crop_policy_version)
             _require_expected_context(
                 context,
                 command=command,
@@ -1103,6 +1130,7 @@ class VirtualGridGeometryService:
                     corners=command.corners,
                     lattice_nodes=command.lattice_nodes,
                     expected_proposal_checksum_sha256=command.expected_proposal_checksum_sha256,
+                    crop_policy_version=command.crop_policy_version,
                     expected_geometry_revision=command.expected_geometry_revision,
                     expected_resolution_revision=command.expected_resolution_revision,
                     corrected_by=actor,
@@ -1346,6 +1374,7 @@ class VirtualGridGeometryService:
                 ],
                 "geometryChecksumSha256": source_geometry_checksum,
                 "schemaVersion": VIRTUAL_MANUAL_RENDER_MANIFEST_VERSION,
+                **_manual_crop_metadata(context),
             }
             if command.geometry_qualification is not None:
                 render_manifest["configuration"] = context.render_configuration.to_dict()
@@ -1454,6 +1483,7 @@ class VirtualGridGeometryService:
         geometry_qualification: GeometryQualification | None = None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> tuple[PreparedVirtualGridGeometry, tuple[VirtualCellRender, ...]]:
         from game_predictor_worker.images.normalization import (
             CanonicalSourceLoader,
@@ -1468,6 +1498,7 @@ class VirtualGridGeometryService:
             corners=corners,
             lattice_nodes=lattice_nodes,
             expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+            crop_policy_version=crop_policy_version,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=actor,
@@ -1481,6 +1512,7 @@ class VirtualGridGeometryService:
                 pending_geometry_id=None,
             )
         )
+        context = bind_manual_crop_policy(context, crop_policy_version)
         _require_expected_context(
             context,
             command=command,
@@ -1524,6 +1556,7 @@ class VirtualGridGeometryService:
                     corners=corners,
                     lattice_nodes=lattice_nodes,
                     expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+                    crop_policy_version=crop_policy_version,
                     expected_geometry_revision=expected_geometry_revision,
                     expected_resolution_revision=expected_resolution_revision,
                     corrected_by=actor,
@@ -1603,6 +1636,7 @@ class VirtualGridGeometryService:
             ],
             "geometryChecksumSha256": source_geometry_checksum,
             "schemaVersion": VIRTUAL_MANUAL_RENDER_MANIFEST_VERSION,
+            **_manual_crop_metadata(context),
         }
         if geometry_qualification is not None:
             render_manifest["configuration"] = context.render_configuration.to_dict()
@@ -1632,6 +1666,45 @@ class VirtualGridGeometryService:
             ),
             renders,
         )
+
+
+def _manual_crop_metadata(context: VirtualGridGeometryContext) -> dict[str, object]:
+    if context.manual_crop_policy_version is None:
+        return {}
+    return {
+        "cropPolicyVersion": context.manual_crop_policy_version,
+        **(
+            {}
+            if context.pending_symbol_model is None
+            else {
+                "symbolModelSnapshot": dict(context.pending_symbol_model),
+            }
+        ),
+    }
+
+
+def bind_manual_crop_policy(
+    context: VirtualGridGeometryContext, crop_policy_version: str | None
+) -> VirtualGridGeometryContext:
+    """Bind an explicit manual operation without changing its import/history."""
+    if crop_policy_version is None:
+        return context
+    from game_predictor_api.domain.symbol_model_snapshots import (
+        FULL_CELL_CROP_POLICY_VERSION,
+        SymbolModelJobSnapshot,
+    )
+
+    if crop_policy_version != FULL_CELL_CROP_POLICY_VERSION:
+        raise ImageGridReviewError("IMAGE_REVIEW_CROP_POLICY_INVALID", "Unsupported crop policy.")
+    model = context.pending_symbol_model
+    return replace(
+        context,
+        manual_crop_policy_version=crop_policy_version,
+        render_configuration=replace(context.render_configuration, padding_fraction=0.0),
+        pending_symbol_model=None
+        if model is None
+        else (SymbolModelJobSnapshot.from_payload(model).with_full_cell_crops().to_payload()),
+    )
 
 
 def _bind_current_renderer(context: VirtualGridGeometryContext) -> VirtualGridGeometryContext:

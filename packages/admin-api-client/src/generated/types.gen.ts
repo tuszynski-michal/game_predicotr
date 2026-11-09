@@ -623,6 +623,10 @@ export type BoardCellGeometryCorrectionContextResponse = {
       ]
     | null;
   /**
+   * Manualcroppolicyversion
+   */
+  manualCropPolicyVersion?: 'full-cell-v2';
+  /**
    * Sourceheight
    */
   sourceHeight: number;
@@ -719,6 +723,10 @@ export type BoardCellGeometryManualPreviewCommand = {
     ManualSourceGeometryPoint,
   ];
   /**
+   * Croppolicyversion
+   */
+  cropPolicyVersion?: 'full-cell-v2' | null;
+  /**
    * Expectedgeometryrevision
    */
   expectedGeometryRevision: number;
@@ -789,6 +797,10 @@ export type BoardCellGeometryManualResolutionCommand = {
    * Correctedby
    */
   correctedBy: string;
+  /**
+   * Croppolicyversion
+   */
+  cropPolicyVersion?: 'full-cell-v2' | null;
   /**
    * Expectedgeometryrevision
    */
@@ -13647,6 +13659,10 @@ export type ImageGridReviewGeometryCommand = {
     ManualSourceGeometryPoint,
   ];
   /**
+   * Croppolicyversion
+   */
+  cropPolicyVersion?: 'full-cell-v2' | null;
+  /**
    * Expectedgeometryrevision
    */
   expectedGeometryRevision: number;
@@ -13731,6 +13747,10 @@ export type ImageGridReviewGeometryPreviewCommand = {
     ManualSourceGeometryPoint,
     ManualSourceGeometryPoint,
   ];
+  /**
+   * Croppolicyversion
+   */
+  cropPolicyVersion?: 'full-cell-v2' | null;
   /**
    * Expectedgeometryrevision
    */
@@ -14041,6 +14061,12 @@ export type ImageGridReviewItemResponse = {
    * Locallatticeversion
    */
   localLatticeVersion?: string | null;
+  /**
+   * Manualcroppolicyversion
+   *
+   * Offered policy for a NEW manual correction, not the stored crop.
+   */
+  manualCropPolicyVersion?: 'full-cell-v2';
   /**
    * Pendinggeometryid
    */
@@ -18442,6 +18468,10 @@ export type OperationalImageReviewGeometryCommand = {
    */
   correctedBy: string;
   /**
+   * Croppolicyversion
+   */
+  cropPolicyVersion?: 'full-cell-v2' | null;
+  /**
    * Expectedgeometryrevision
    */
   expectedGeometryRevision: number;
@@ -18506,6 +18536,10 @@ export type OperationalImageReviewGeometryPreviewCommand = {
     ManualSourceGeometryPoint,
     ManualSourceGeometryPoint,
   ];
+  /**
+   * Croppolicyversion
+   */
+  cropPolicyVersion?: 'full-cell-v2' | null;
   /**
    * Expectedgeometryrevision
    */
@@ -18744,6 +18778,10 @@ export type OperationalImageReviewItemResponse = {
         SourceLatticePoint,
       ]
     | null;
+  /**
+   * Manualcroppolicyversion
+   */
+  manualCropPolicyVersion?: 'full-cell-v2';
   /**
    * Pipelinefingerprint
    */
@@ -19638,6 +19676,10 @@ export type PinnedManagedImageReprocessJobPayload = {
  * ProposalAcceptCommand
  */
 export type ProposalAcceptCommand = {
+  /**
+   * Croppolicyversion
+   */
+  cropPolicyVersion?: 'full-cell-v2' | null;
   /**
    * Expectedgeometryrevision
    */
@@ -26740,6 +26782,12 @@ export type SymbolModelJobSnapshotPayload = {
    * Classcodes
    */
   classCodes: Array<string>;
+  /**
+   * Croppolicyversion
+   *
+   * Crop contract for newly rendered pixels. Pending-symbol reinference reuses each crop's stored render manifest; this pin does not recrop historical pixels.
+   */
+  cropPolicyVersion?: 'full-cell-v2' | null;
   /**
    * Cropsize
    */

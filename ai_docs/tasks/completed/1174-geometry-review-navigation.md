@@ -73,7 +73,7 @@ fikcyjnego PASS. Wszelkie zmiany kolejności/source identity muszą zachować se
 
 ## Outcome
 
-Commit: v1.7.587 (hash dopisuje kolejny commit).
+Commit: v1.7.587 / `1181797cbad2bdd62fda9ff249ee60ce8d1123b7`.
 
 Naprawiono przejście po zapisie `reviewAll`, zmianę UUID deferred→review,
 koniec zakresu i ochronę nowego zakresu przed starą odpowiedzią. Correction

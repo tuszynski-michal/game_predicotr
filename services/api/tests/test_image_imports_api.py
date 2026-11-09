@@ -738,9 +738,11 @@ def test_v12_browser_import_waits_for_registered_inner_grids(tmp_path: Path) -> 
 
 
 @pytest.mark.parametrize("lab_rgb", [False, True])
+@pytest.mark.parametrize("full_cell", [False, True])
 def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     tmp_path: Path,
     lab_rgb: bool,
+    full_cell: bool,
 ) -> None:
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)
@@ -761,6 +763,8 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
             iteration_id=uuid4(),
             class_codes=("10", "J", "Q", "K", "A", "MUMIA"),
         )
+    if full_cell:
+        snapshot = snapshot.with_full_cell_crops()
 
     class SnapshotResolver:
         def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
@@ -1098,6 +1102,10 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         returned_snapshot = returned["inputPayload"]["symbolModel"]
         assert returned_snapshot["cropSize"] == (96 if lab_rgb else None)
         assert returned_snapshot["inferenceFingerprint"] == snapshot.inference_fingerprint
+        if full_cell:
+            assert returned_snapshot["cropPolicyVersion"] == "full-cell-v2"
+        else:
+            assert "cropPolicyVersion" not in returned_snapshot
     assert invalid_resolution_reference.status_code == 409
     assert (
         invalid_resolution_reference.json()["code"] == "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED"

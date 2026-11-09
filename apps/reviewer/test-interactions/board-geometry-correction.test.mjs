@@ -1729,15 +1729,22 @@ test('rejecting and refreshing proposals after saving keeps the current all-view
 test('accepting a proposal in all-view advances although the saved board remains listed', async () => {
   const state = {
     queue: [
-      reportedBoard(),
+      reportedBoard({ manualCropPolicyVersion: 'full-cell-v2' }),
       reportedBoard({ slotId: 's2', reviewItemId: 'r2', positionIndex: 4 }),
     ],
   };
   const { api, calls } = fakeApi(state);
   proposalQueueApi(state, api);
   let accepted = 0;
-  api.acceptOperationalGridGeometryProposal = async () => {
+  let acceptedCommand;
+  api.acceptOperationalGridGeometryProposal = async (
+    _id,
+    _proposal,
+    _scope,
+    command,
+  ) => {
     accepted += 1;
+    acceptedCommand = command;
     return { data: { current: { state: 'accepted', applicable: false } } };
   };
   const root = await render(api, { importJobId: 'j', reviewAll: true });
@@ -1745,6 +1752,7 @@ test('accepting a proposal in all-view advances although the saved board remains
     await act(async () => button('Przyjmij propozycję').click());
     await loadImageAndPreview();
     assert.equal(accepted, 1);
+    assert.equal(acceptedCommand.cropPolicyVersion, 'full-cell-v2');
     assert.equal(calls.list.at(-1).afterCursor, '1');
     assert.equal(calls.preview.at(-1).id, 'r2');
     assert.match(document.body.textContent, /Przyjęto propozycję siatki/);
@@ -1774,6 +1782,57 @@ test('the end of a photo range offers a direct return to all photos', async () =
     await loadImageAndPreview();
     assert.equal(calls.list.at(-1).sourceImageId, undefined);
     assert.equal(calls.preview.at(-1).id, 'r1');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('offered full-field policy binds reported preview and save without changing the grid', async () => {
+  const board = reportedBoard({ manualCropPolicyVersion: 'full-cell-v2' });
+  const { api, calls } = fakeApi({ queue: [board] });
+  const root = await render(api);
+  try {
+    assert.equal(
+      calls.preview.at(-1).command.cropPolicyVersion,
+      'full-cell-v2',
+    );
+    const previewCorners = structuredClone(
+      calls.preview.at(-1).command.corners,
+    );
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.equal(calls.save.at(-1).command.cropPolicyVersion, 'full-cell-v2');
+    assert.deepEqual(calls.save.at(-1).command.corners, previewCorners);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('offered full-field policy binds deferred preview, symbol prediction and resolution', async () => {
+  const { api, calls } = fakeApi({ queue: [deferredSlot()], symbols: SYMBOLS });
+  const legacyContext = api.getPendingBoardCellGeometryCorrectionContext;
+  api.getPendingBoardCellGeometryCorrectionContext = async (...args) => {
+    const result = await legacyContext(...args);
+    return {
+      data: { ...result.data, manualCropPolicyVersion: 'full-cell-v2' },
+    };
+  };
+  const root = await render(api);
+  try {
+    assert.equal(
+      calls.preview.at(-1).command.cropPolicyVersion,
+      'full-cell-v2',
+    );
+    assert.equal(
+      calls.symbols.at(-1).command.cropPolicyVersion,
+      'full-cell-v2',
+    );
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.equal(
+      calls.resolve.at(-1).command.cropPolicyVersion,
+      'full-cell-v2',
+    );
   } finally {
     await act(async () => root.unmount());
   }

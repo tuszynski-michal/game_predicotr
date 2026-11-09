@@ -205,6 +205,16 @@ export function deferredBoardGeometryTarget(input: {
                     ).length > 0,
                 },
           kind: 'deferred',
+          ...(result.context.manualCropPolicyVersion == null
+            ? {}
+            : {
+                draftBindingKey: JSON.stringify({
+                  cropPolicyVersion: result.context.manualCropPolicyVersion,
+                  manifest: item.processingManifestChecksumSha256,
+                  geometry: item.expectedGeometryRevision,
+                  resolution: item.expectedReviewResolutionRevision,
+                }),
+              }),
           metadata: [
             {
               label: 'Numer planszy',
@@ -247,6 +257,12 @@ export function deferredBoardGeometryTarget(input: {
                   geometry: item.expectedGeometryRevision,
                   resolution: item.expectedReviewResolutionRevision,
                   proposal: result.context.expectedProposalChecksumSha256,
+                  ...(result.context.manualCropPolicyVersion == null
+                    ? {}
+                    : {
+                        cropPolicyVersion:
+                          result.context.manualCropPolicyVersion,
+                      }),
                 }),
               }),
           supportsPartial: true,
@@ -368,8 +384,8 @@ export function reportedBoardGeometryTarget(input: {
   });
   const reported = [...(item.reportedCellIndices ?? [])].sort((a, b) => a - b);
   return {
-    draftKey: `review:${item.slotId}`,
-    key: `review:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}`,
+    draftKey: `review:${item.slotId}${item.manualCropPolicyVersion == null ? '' : `:${item.manualCropPolicyVersion}`}`,
+    key: `review:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}${item.manualCropPolicyVersion == null ? '' : `:${item.manualCropPolicyVersion}`}`,
     async load() {
       if (reviewItemId === null) {
         return missingReviewItem();
@@ -719,8 +735,8 @@ export function operationalBoardGeometryTarget(input: {
   };
   const sequenceNumber = item.sequenceNumber ?? item.suggestedSequenceNumber;
   return {
-    draftKey: `operational:${item.id}`,
-    key: `operational:${item.id}:${item.geometryRevision}:${item.resolutionRevision}`,
+    draftKey: `operational:${item.id}${item.manualCropPolicyVersion == null ? '' : `:${item.manualCropPolicyVersion}`}`,
+    key: `operational:${item.id}:${item.geometryRevision}:${item.resolutionRevision}${item.manualCropPolicyVersion == null ? '' : `:${item.manualCropPolicyVersion}`}`,
     async load() {
       if (item.sourceWidth == null || item.sourceHeight == null) {
         return {

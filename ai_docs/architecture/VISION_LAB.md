@@ -105,6 +105,14 @@ Legacy proposals omit the optional stamp entirely. The new numeric menu budget i
 
 ## Production cell evaluation (D-591, TASK-1166)
 
+TASK-1175/D-598 adds the optional, closed `cropPolicyVersion=full-cell-v2`
+to new classifier snapshots. It binds zero inset without changing weights,
+size or RGB preprocessing. Historical snapshots omit it and retain their
+exact fingerprint. Existing render-currentness checks compare the effective
+configuration, so an 8% proof cannot admit 0%. Diagnostic class admission
+marks old calibration unavailable for the new full-cell policy. This is
+separate from model prediction and human correction, which remain usable.
+
 Opt-in capture freezes `production-cell-evaluation-reference-v1` in each target:
 the full import classifier/render snapshot and source provenance, plus the frozen
 TRAIN/A repeatability report where available. `ProductionContentRun` accepts one

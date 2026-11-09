@@ -1,0 +1,17 @@
+{
+  "request_sha256": "4ea864ebd3b4a5ed091149efed0deecfcf42cbd092ef39eb6d62b2d4b452172d",
+  "payload_sha256": "db6034a137b87f8aca30883777c2267c3c1e8bfc12988caff007f50eacd01648",
+  "task": "TASK-1175",
+  "review_round": 2,
+  "requested_model": "claude-opus-5-5",
+  "requested_effort": "high",
+  "report_sha256": "b3adc7d20d2c0a4a757cbf7c7313cc6b87f6f262caa8d1d9525b6ed4fe0bb764",
+  "verdict": "PASS",
+  "transport": "cli",
+  "evidence_source": "cli-system.init;effort-requested-only",
+  "observed_model": "claude-opus-5-5",
+  "session_ref": "66f82696-8f1b-4725-988d-66bda1c18c46",
+  "effort_evidence": {
+    "requested_only": "high"
+  }
+}

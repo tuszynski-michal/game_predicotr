@@ -2761,34 +2761,58 @@ class SqlAlchemyVirtualGridGeometryRepository:
         import_job_id: UUID,
         job: JobModel,
     ) -> DirectCellRenderConfiguration:
-        # D-467 S7 (TASK-0792): the pinned configuration of the source's (or,
-        # failing that, the import's) current virtual cells comes from a
-        # current-revision board render manifest; only its first entry's
-        # render specification is fetched.  All cells of one import share the
-        # configuration, which ``_configuration`` validates.
-        first_render_spec = BoardRenderManifestModel.cells["cells"][0]["renderSpec"]
-        current_manifest = and_(
-            RecognizedBoardModel.id == BoardRenderManifestModel.recognized_board_id,
-            RecognizedBoardModel.geometry_revision == BoardRenderManifestModel.geometry_revision,
-        )
-        render_spec = self._session.scalar(
-            select(first_render_spec)
-            .join(RecognizedBoardModel, current_manifest)
-            .where(RecognizedBoardModel.source_image_id == source_image_id)
-            .order_by(RecognizedBoardModel.position_index, RecognizedBoardModel.id)
-            .limit(1)
-        )
-        if render_spec is None:
+        # Valid job pins define the classifier/render pair for this operation.
+        # An incomplete legacy runtime pin retains the historical manifest
+        # reader. If a classifier is pinned, its verified footprint wins over
+        # an unrelated current manual crop. This is no new calibration proof.
+        if (
+            job.input_payload.get("symbol_model") is None
+            or job.input_payload.get("image_geometry_rollout") is None
+        ):
+            # D-467 S7 (TASK-0792): the pinned configuration of the source's (or,
+            # failing that, the import's) current virtual cells comes from a
+            # current-revision board render manifest; only its first entry's
+            # render specification is fetched.  All cells of one import share the
+            # configuration, which ``_configuration`` validates.
+            first_render_spec = BoardRenderManifestModel.cells["cells"][0]["renderSpec"]
+            current_manifest = and_(
+                RecognizedBoardModel.id == BoardRenderManifestModel.recognized_board_id,
+                RecognizedBoardModel.geometry_revision
+                == BoardRenderManifestModel.geometry_revision,
+            )
             render_spec = self._session.scalar(
                 select(first_render_spec)
                 .join(RecognizedBoardModel, current_manifest)
-                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-                .where(SourceImageModel.import_job_id == import_job_id)
-                .order_by(RecognizedBoardModel.id)
+                .where(RecognizedBoardModel.source_image_id == source_image_id)
+                .order_by(RecognizedBoardModel.position_index, RecognizedBoardModel.id)
                 .limit(1)
             )
-        if render_spec is not None:
-            return _configuration(render_spec)
+            if render_spec is None:
+                render_spec = self._session.scalar(
+                    select(first_render_spec)
+                    .join(RecognizedBoardModel, current_manifest)
+                    .join(
+                        SourceImageModel,
+                        SourceImageModel.id == RecognizedBoardModel.source_image_id,
+                    )
+                    .where(SourceImageModel.import_job_id == import_job_id)
+                    .order_by(RecognizedBoardModel.id)
+                    .limit(1)
+                )
+            if render_spec is not None:
+                configuration = _configuration(render_spec)
+                if job.input_payload.get("symbol_model") is None:
+                    return configuration
+                from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
+
+                try:
+                    model = SymbolModelJobSnapshot.from_payload(job.input_payload["symbol_model"])
+                except ValueError as error:
+                    raise ImageGridReviewError(
+                        "IMAGE_GRID_REVIEW_RENDER_CONFIGURATION_INVALID",
+                        "The legacy source has an invalid classifier pin.",
+                    ) from error
+                return replace(configuration, padding_fraction=model.crop_padding_fraction)
         from game_predictor_worker.images.pipeline_contract import GeometryPipelineRolloutSnapshot
         from game_predictor_worker.images.virtual_cell_extraction import (
             VIRTUAL_CELL_INTERPOLATION_VERSION,
@@ -3411,9 +3435,12 @@ def _require_same_context(
 ) -> None:
     # TASK-0815: the service binds the context it prepared to the current
     # renderer, while the stored one still pins the renderer of the import
-    # that produced the cells. That version is the only field allowed to
-    # differ; revisions, source and geometry must still match, and the write
-    # re-renders every cell with the current renderer.
+    # that produced the cells. Renderer version is the only implicit upgrade.
+    # TASK-1175 also binds the explicit, command-hashed full-cell policy;
+    # all remaining configuration, revisions, source and geometry must match.
+    from game_predictor_api.application.virtual_grid_geometry import bind_manual_crop_policy
+
+    current = bind_manual_crop_policy(current, expected.manual_crop_policy_version)
     current = replace(
         current,
         render_configuration=replace(

@@ -26,9 +26,28 @@ class ProposalAcceptCommand(BaseModel):
         alias="originalCandidateSha256", pattern="^[0-9a-f]{64}$"
     )
     geometry: OperationalImageReviewGeometryPreviewCommand | None = None
+    crop_policy_version: Literal["full-cell-v2"] | None = Field(
+        default=None, alias="cropPolicyVersion"
+    )
+
+    def to_command_payload(self) -> dict[str, Any]:
+        payload = self.model_dump(mode="json", by_alias=True)
+        # Preserve exact hashes of historical accept commands, including all
+        # existing null fields. Only the new absent policy is omitted.
+        if self.crop_policy_version is None:
+            payload.pop("cropPolicyVersion", None)
+        geometry = payload.get("geometry")
+        if isinstance(geometry, dict) and geometry.get("cropPolicyVersion") is None:
+            geometry.pop("cropPolicyVersion", None)
+        return payload
 
     @model_validator(mode="after")
     def require_edited_geometry(self) -> "ProposalAcceptCommand":
+        if (
+            self.geometry is not None
+            and self.geometry.crop_policy_version != self.crop_policy_version
+        ):
+            raise ValueError("Edited preview and acceptance must use the same crop policy.")
         if (self.mode == "edited") != (self.geometry is not None):
             raise ValueError("Only edited acceptance requires complete geometry.")
         if self.geometry is not None and (

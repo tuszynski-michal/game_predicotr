@@ -420,6 +420,7 @@ class SqlAlchemyGridGeometryProposalRepository:
                                 if geometry.geometry_qualification is None
                                 else geometry.geometry_qualification.to_domain(),
                                 expected_proposal_checksum_sha256=geometry.expected_proposal_checksum_sha256,
+                                crop_policy_version=payload.get("cropPolicyVersion"),
                                 actor=actor,
                                 created_at=datetime.now(UTC),
                             )

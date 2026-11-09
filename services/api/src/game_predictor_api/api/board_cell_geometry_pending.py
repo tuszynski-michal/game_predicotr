@@ -240,6 +240,7 @@ def create_board_cell_geometry_pending_router(
             corners=tuple(ImageReviewGeometryPoint(x=p.x, y=p.y) for p in payload.corners),
             lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
             expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
+            crop_policy_version=payload.crop_policy_version,
             geometry_qualification=(
                 None
                 if payload.geometry_qualification is None
@@ -287,6 +288,7 @@ def create_board_cell_geometry_pending_router(
                 corners=tuple(ImageReviewGeometryPoint(x=p.x, y=p.y) for p in payload.corners),
                 lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
                 expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
+                crop_policy_version=payload.crop_policy_version,
                 geometry_qualification=(
                     None
                     if payload.geometry_qualification is None
@@ -334,6 +336,7 @@ def create_board_cell_geometry_pending_router(
                 ),
                 lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
                 expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
+                crop_policy_version=payload.crop_policy_version,
                 corrected_by=reviewer_actor or payload.corrected_by,
                 resolved_at=datetime.now(UTC),
                 geometry_qualification=(

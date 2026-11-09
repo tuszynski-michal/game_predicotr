@@ -71,6 +71,14 @@ class SymbolModelJobSnapshotPayload(ApiModel):
     inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     inference_mode: Literal["model", "unclassified"] = "model"
     crop_size: int | None = Field(default=None, ge=16, strict=True)
+    crop_policy_version: Literal["full-cell-v2"] | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "Crop contract for newly rendered pixels. Pending-symbol reinference reuses "
+            "each crop's stored render manifest; this pin does not recrop historical pixels."
+        ),
+    )
 
     @model_validator(mode="after")
     def validate_lab_crop_contract(self) -> Self:

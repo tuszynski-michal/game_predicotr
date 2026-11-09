@@ -6,10 +6,20 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1175 — Pełne pola symboli bez marginesu 8% (done)
+
+- Plik: `tasks/completed/1175-full-cell-render-policy.md`.
+- Commit: **v1.7.588** (hash dopisuje kolejny commit).
+- Nowe snapshoty i jawna dalsza korekta używają full-cell-v2/0%; historyczne piny, fingerprinty, pliki i zatwierdzenia zachowane. Preview/symbole/zapis/przyjęcie propozycji wiążą tę samą politykę i idempotencję.
+- API/OpenAPI/SDK/wrapper/test domknięte, także POST/GET/list nowych jobów. Stara kalibracja nie kwalifikuje pełnych pól; bez nowej migracji.
+- Weryfikacja:198 API/worker PASS, PG1 z nowym interpreterem PASS, Reviewer44+40 PASS, klient161 PASS, dodatkowe import4 PASS, jobs36 PASS/1 zastany FAIL odtworzony na main41c784fd; Ruff/TS/build/docs/map PASS. Mypy16 ma jeden zastany błąd, potwierdzony baseline; nowy schemat mypy1 PASS. Bez fikcyjnego pełnego PASS.
+- Terminalowy Opus5.5/high R1 REVISE/P0-1, jedna poprawka, R2 PASS; P0-1 i P2-1 zamknięte, P2-2 przyjęty legacy fallback. Raport: `quality/TASK-1175_AUDIT_claude-opus-5-5.md` i receipt; wykonania: `quality/TASK-1175_VERIFICATION.md`.
+- Bez treningu, aktywacji, operatorowych zapisów, restartów i merge/push. Cały zlecony plan kodu gotowy; integracja wymaga osobnej zgody.
+
 ### TASK-1174 — Następna plansza i szybka kolejka (done)
 
 - Plik: tasks/completed/1174-geometry-review-navigation.md.
-- Commit: **v1.7.587** (hash dopisuje kolejny commit).
+- Commit: **v1.7.587 / `1181797cbad2bdd62fda9ff249ee60ce8d1123b7`** (hash dopisuje kolejny commit).
 - Wynik: save all przechodzi kursorem, retry/historia/propozycje zachowują miejsce; counts=none bez agregatów. API/domena24+PG2, Reviewer38, klient160 i lint/types/build/docs/map PASS. Opus5.5/high R2 PASS; P2 w Outcome. Bez wdrożenia i zmian danych operatora.
 
 ### TASK-1173 — HTML i końcowy odbiór pełnych wycinków (done)

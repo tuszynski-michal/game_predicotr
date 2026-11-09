@@ -307,6 +307,7 @@ def create_image_grid_reviews_router(
                 corners=corners,
                 lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
                 expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
+                crop_policy_version=payload.crop_policy_version,
             )
             return Response(
                 content=virtual_preview.contact_sheet_png,
@@ -361,6 +362,7 @@ def create_image_grid_reviews_router(
                 corners=corners,
                 lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
                 expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
+                crop_policy_version=payload.crop_policy_version,
                 actor=_LOCAL_ADMIN_ACTOR,
                 created_at=datetime.now(UTC),
                 cell_symbols=tuple(value.to_domain() for value in payload.cell_symbols),

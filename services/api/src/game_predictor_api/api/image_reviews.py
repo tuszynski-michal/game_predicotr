@@ -645,6 +645,7 @@ def create_image_reviews_router(
             ),
             lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
             expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
+            crop_policy_version=payload.crop_policy_version,
             geometry_qualification=(
                 None
                 if payload.geometry_qualification is None
@@ -699,6 +700,7 @@ def create_image_reviews_router(
             ),
             lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
             expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
+            crop_policy_version=payload.crop_policy_version,
             geometry_qualification=(
                 None
                 if payload.geometry_qualification is None
@@ -1055,7 +1057,7 @@ def create_image_reviews_router(
                 review_item_id,
                 proposal_id,
                 "accept",
-                payload.model_dump(mode="json", by_alias=True),
+                payload.to_command_payload(),
                 actor,
             )
         )

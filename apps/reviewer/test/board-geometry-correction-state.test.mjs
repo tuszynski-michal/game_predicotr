@@ -36,6 +36,23 @@ const item = {
   state: 'needs_correction',
 };
 
+test('a full-cell offer changes the command while old callers omit the policy', () => {
+  const corners = [
+    { x: 10, y: 10 },
+    { x: 510, y: 10 },
+    { x: 510, y: 310 },
+    { x: 10, y: 310 },
+  ];
+  const legacy = gridReviewGeometryPreviewCommand(item, corners);
+  const full = gridReviewGeometryPreviewCommand(
+    { ...item, manualCropPolicyVersion: 'full-cell-v2' },
+    corners,
+  );
+  assert.equal(Object.hasOwn(legacy, 'cropPolicyVersion'), false);
+  assert.equal(full.cropPolicyVersion, 'full-cell-v2');
+  assert.deepEqual(full.corners, legacy.corners);
+});
+
 const quad = (x, y, width, height) => [
   { x, y },
   { x: x + width, y },

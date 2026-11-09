@@ -8,6 +8,7 @@ from typing import Any, cast
 
 from game_predictor_api.domain.grid_training_cohorts import digest
 from game_predictor_api.domain.symbol_model_snapshots import (
+    FULL_CELL_CROP_POLICY_VERSION,
     LAB_RGB_SYMBOL_MODEL_VERSION,
     SymbolModelJobSnapshot,
 )
@@ -99,6 +100,8 @@ def acceptance_policy(
         or policy.get("policyVersion") != "symbol-confidence-policy-v1"
     ):
         return unavailable
+    if model.crop_policy_version == FULL_CELL_CROP_POLICY_VERSION:
+        return {"state": "unavailable", "reason": "CLASS_ACCEPTANCE_CROP_POLICY_UNCALIBRATED"}
     if enabled is False:
         return {"state": "disabled", "reason": "CLASS_AUTO_ACCEPT_DISABLED", "threshold": None}
     # M6 reports bind legacy model versions but do not attest RGB96 crop and

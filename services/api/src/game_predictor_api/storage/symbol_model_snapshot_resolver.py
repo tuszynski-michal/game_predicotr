@@ -40,7 +40,7 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
 
     def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
         with game_storage_scope(game_id):
-            return self._resolve_in_game_storage(game_id=game_id)
+            return self._resolve_in_game_storage(game_id=game_id).with_full_cell_crops()
 
     def _resolve_in_game_storage(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
         active_catalog_codes = tuple(
@@ -200,7 +200,8 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
 
     def resolve_unclassified_cold_start(self, *, game_id: UUID) -> SymbolModelJobSnapshot | None:
         with game_storage_scope(game_id):
-            return self._resolve_unclassified_cold_start_in_game_storage(game_id=game_id)
+            snapshot = self._resolve_unclassified_cold_start_in_game_storage(game_id=game_id)
+            return None if snapshot is None else snapshot.with_full_cell_crops()
 
     def _resolve_unclassified_cold_start_in_game_storage(
         self, *, game_id: UUID

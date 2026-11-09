@@ -858,6 +858,7 @@ class OperationalImageReviewService:
         geometry_qualification: GeometryQualification | None = None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> VirtualGridGeometryPreview:
         """Render the cells a manual geometry would persist (D-467 S6, TASK-0796).
 
@@ -878,6 +879,7 @@ class OperationalImageReviewService:
                 corners=corners,
                 lattice_nodes=lattice_nodes,
                 expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+                crop_policy_version=crop_policy_version,
                 geometry_qualification=geometry_qualification,
             )
 
@@ -895,6 +897,7 @@ class OperationalImageReviewService:
         geometry_qualification: GeometryQualification | None = None,
         lattice_nodes: SourceLatticeNodes | None = None,
         expected_proposal_checksum_sha256: str | None = None,
+        crop_policy_version: str | None = None,
     ) -> tuple[ImageReviewItem, VirtualGridGeometryRevision, bool]:
         """Persist a ``virtual_source`` geometry revision of one current board.
 
@@ -917,6 +920,7 @@ class OperationalImageReviewService:
                 corners=corners,
                 lattice_nodes=lattice_nodes,
                 expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
+                crop_policy_version=crop_policy_version,
                 geometry_qualification=geometry_qualification,
                 actor=corrected_by,
                 created_at=datetime.now(UTC),

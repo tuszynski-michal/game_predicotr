@@ -845,6 +845,31 @@ class _MutableSymbolModelResolver:
         return self.snapshot
 
 
+@pytest.mark.parametrize("full_cell", [False, True])
+def test_pending_symbol_job_get_and_list_preserve_crop_pin(tmp_path: Path, full_cell: bool) -> None:
+    client, game_id, _service, repository = _client(tmp_path)
+    snapshot = _test_symbol_snapshot(uuid4(), "b")
+    if full_cell:
+        snapshot = snapshot.with_full_cell_crops()
+    service = JobService(
+        repository, symbol_model_snapshot_resolver=_MutableSymbolModelResolver(snapshot)
+    )
+    job = service.create_pending_symbol_reinference_job(game_id=game_id)
+    with client:
+        fetched = client.get(f"/api/v1/admin/jobs/{job.id}")
+        listed = client.get("/api/v1/admin/jobs", params={"game_id": str(game_id)})
+    assert fetched.status_code == 200, fetched.text
+    assert listed.status_code == 200, listed.text
+    listed_job = next(item for item in listed.json() if item["id"] == str(job.id))
+    for returned in (fetched.json(), listed_job):
+        pin = returned["inputPayload"]["symbolModel"]
+        assert pin["inferenceFingerprint"] == snapshot.inference_fingerprint
+        if full_cell:
+            assert pin["cropPolicyVersion"] == "full-cell-v2"
+        else:
+            assert "cropPolicyVersion" not in pin
+
+
 def _test_symbol_snapshot(iteration_id: UUID, marker: str) -> SymbolModelJobSnapshot:
     return SymbolModelJobSnapshot(
         iteration_id=iteration_id,

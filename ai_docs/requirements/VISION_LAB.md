@@ -6,6 +6,15 @@ last_updated: 2026-11-09
 
 # Laboratorium wizji
 
+## Nowe pełne wycinki (D-598, TASK-1175)
+
+Aktualny resolver może przypiąć pełne pole0% również do istniejących wag
+klasyfikatora. Nowy token nie jest nowym dowodem jakości. Historyczne piny,
+adnotacje i geometrie pozostają odtwarzalne, a zmiana renderu unieważnia dowód
+dla poprzedniego paddingu. Import i aktualny kontrakt pomiaru nadal są osobne.
+Przeniesiona kalibracja8% nie kwalifikuje automatycznej akceptacji pełnego pola;
+predykcje pozostają propozycjami. Brak GT nie zamienia się w deklarację poprawy.
+
 ## Przypięty zwykły podgląd (D-594, TASK-1170)
 
 Zwykły edytor ma trzy niezależne warstwy: siatkę pól z dokładnie zapisanych

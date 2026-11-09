@@ -69,6 +69,7 @@ class OperationalImageReviewCellResponse(ApiModel):
 
 
 class OperationalImageReviewItemResponse(ApiModel):
+    manual_crop_policy_version: Literal["full-cell-v2"] = "full-cell-v2"
     lattice_nodes: SourceLatticeNodesPayload | None = None
     expected_proposal_checksum_sha256: Sha256 | None = None
     id: UUID
@@ -359,6 +360,9 @@ class OperationalImageReviewResolutionResponse(ApiModel):
 
 
 class OperationalImageReviewGeometryPreviewCommand(ApiModel):
+    crop_policy_version: Literal["full-cell-v2"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     lattice_nodes: SourceLatticeNodesPayload | None = None
     expected_proposal_checksum_sha256: Sha256 | None = None
     expected_geometry_revision: int = Field(ge=0)

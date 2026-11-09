@@ -15,6 +15,38 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+## D-598 — Pełne pola w nowych wycinkach i jawnej korekcie
+
+Status: accepted — polecenie operatora usunięcia marginesu8%, TASK-1175.
+Data: 2026-11-09
+
+Opcjonalne cropPolicyVersion=full-cell-v2 wiąże pełne pole0% w snapshotach
+symboli i komendach ręcznej korekty. Brak pola zachowuje poprzedni payload,
+fingerprint oraz kontrakt modelu (zwykle8%,LAB0%). Parser nie przepisuje
+historycznych importów. Nowy resolver aktywnego modelu emituje full-cell-v2;
+wagi, klasy, RGB, rozmiary oraz interpolacja pozostają niezmienione.
+
+Nowe targety korekty wybierają jawnie full-cell-v2 dla podglądu, predykcji
+symboli, zapisu i przyjęcia propozycji. Serwer akceptuje wyłącznie zamknięty
+token, nigdy dowolny padding z klienta. Token wpływa na draft, hash komendy,
+idempotencję i efektywną konfigurację nowej rewizji. Stare wywołania zachowują
+swój przypięty sposób wycinania. Próba zmiany tokenu w replay daje konflikt.
+Kontekst jest ponownie sprawdzany przy zapisie; zmiana źródła/rewizji nie
+otrzymuje zgody przez samo wskazanie tokenu.
+
+Pending wiąże model ze źródłowego joba i dokładną efektywną konfigurację tego
+renderowania; nie pożycza konfiguracji dowolnego sąsiedniego slotu/importu.
+Nowy pełny wycinek nie jest zmianą źródłowego pinu. Historyczne manifesty,
+ręczne geometrie i zatwierdzenia pozostają odtwarzalne. Zmienione piksele
+zachowują dotychczasowe zasady ponownej weryfikacji symboli; jawnie wybrane
+na nowym podglądzie etykiety człowieka nadal można zapisać.
+
+D-591/D-596 nadal wymagają dowodu dla faktycznej konfiguracji renderowania.
+Stary raport8 nie kwalifikuje0; pewność klasyfikatora nie zastępuje oceny klas.
+Bez zmian globalnego defaultu geometrii, treningu, migracji i masowej podmiany
+istniejących wycinków. Wdrożenie jest osobną operacją; API i worker muszą
+obsługiwać nowy token przed tworzeniem nowych snapshotów0.
+
 ## D-597 — Diagnostyka kontraktu wycinków niezależna od jego dopuszczenia
 
 Status: accepted — domknięcie GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109, T3.

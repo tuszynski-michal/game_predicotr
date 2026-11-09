@@ -1049,6 +1049,12 @@
             ],
             "title": "Latticenodes"
           },
+          "manualCropPolicyVersion": {
+            "const": "full-cell-v2",
+            "default": "full-cell-v2",
+            "title": "Manualcroppolicyversion",
+            "type": "string"
+          },
           "sourceHeight": {
             "exclusiveMinimum": 0.0,
             "title": "Sourceheight",
@@ -1213,6 +1219,18 @@
             "title": "Corners",
             "type": "array"
           },
+          "cropPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "full-cell-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Croppolicyversion"
+          },
           "expectedGeometryRevision": {
             "minimum": 0.0,
             "title": "Expectedgeometryrevision",
@@ -1312,6 +1330,18 @@
             "minLength": 1,
             "title": "Correctedby",
             "type": "string"
+          },
+          "cropPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "full-cell-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Croppolicyversion"
           },
           "expectedGeometryRevision": {
             "minimum": 0.0,
@@ -24639,6 +24669,18 @@
             "title": "Corners",
             "type": "array"
           },
+          "cropPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "full-cell-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Croppolicyversion"
+          },
           "expectedGeometryRevision": {
             "minimum": 0.0,
             "title": "Expectedgeometryrevision",
@@ -24755,6 +24797,18 @@
             ],
             "title": "Corners",
             "type": "array"
+          },
+          "cropPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "full-cell-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Croppolicyversion"
           },
           "expectedGeometryRevision": {
             "minimum": 0.0,
@@ -25236,6 +25290,13 @@
               }
             ],
             "title": "Locallatticeversion"
+          },
+          "manualCropPolicyVersion": {
+            "const": "full-cell-v2",
+            "default": "full-cell-v2",
+            "description": "Offered policy for a NEW manual correction, not the stored crop.",
+            "title": "Manualcroppolicyversion",
+            "type": "string"
           },
           "pendingGeometryId": {
             "anyOf": [
@@ -33369,6 +33430,18 @@
             "title": "Correctedby",
             "type": "string"
           },
+          "cropPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "full-cell-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Croppolicyversion"
+          },
           "expectedGeometryRevision": {
             "minimum": 0.0,
             "title": "Expectedgeometryrevision",
@@ -33456,6 +33529,18 @@
             ],
             "title": "Corners",
             "type": "array"
+          },
+          "cropPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "full-cell-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Croppolicyversion"
           },
           "expectedGeometryRevision": {
             "minimum": 0.0,
@@ -33768,6 +33853,12 @@
               }
             ],
             "title": "Latticenodes"
+          },
+          "manualCropPolicyVersion": {
+            "const": "full-cell-v2",
+            "default": "full-cell-v2",
+            "title": "Manualcroppolicyversion",
+            "type": "string"
           },
           "pipelineFingerprint": {
             "pattern": "^[a-f0-9]{64}$",
@@ -35516,6 +35607,18 @@
       "ProposalAcceptCommand": {
         "additionalProperties": false,
         "properties": {
+          "cropPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "full-cell-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Croppolicyversion"
+          },
           "expectedGeometryRevision": {
             "minimum": 0.0,
             "title": "Expectedgeometryrevision",
@@ -48246,6 +48349,19 @@
             "minItems": 1,
             "title": "Classcodes",
             "type": "array"
+          },
+          "cropPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "full-cell-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Crop contract for newly rendered pixels. Pending-symbol reinference reuses each crop's stored render manifest; this pin does not recrop historical pixels.",
+            "title": "Croppolicyversion"
           },
           "cropSize": {
             "anyOf": [

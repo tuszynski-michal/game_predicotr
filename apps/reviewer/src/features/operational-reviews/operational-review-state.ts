@@ -740,6 +740,9 @@ export function buildOperationalReviewGeometryPreviewCommand(
   corners: OperationalReviewGeometryCorners,
 ): OperationalImageReviewGeometryPreviewCommand {
   return {
+    ...(item.manualCropPolicyVersion == null
+      ? {}
+      : { cropPolicyVersion: item.manualCropPolicyVersion }),
     corners,
     expectedGeometryRevision: item.geometryRevision,
     expectedResolutionRevision: item.resolutionRevision,

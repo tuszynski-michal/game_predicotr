@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-598](decisions/DECISION_LOG_2026.md#d-598--pełne-pola-w-nowych-wycinkach-i-jawnej-korekcie) | Pełne pola w nowych wycinkach | accepted | 2026-11-09 | Jawny full-cell-v2 wiąże0% w nowych snapshotach i korekcie; historia i dowody zachowane. |
 | [D-597](decisions/DECISION_LOG_2026.md#d-597--diagnostyka-kontraktu-wycinków-niezależna-od-jego-dopuszczenia) | Diagnostyka a kwalifikacja cropu | accepted | 2026-11-09 | Poprawne u/δ dostępne do diagnozy rzeczywistego clipping, produkcyjne bariery pozostają. |
 | [D-596](decisions/DECISION_LOG_2026.md#d-596--jawny-pin-aktualnego-kontraktu-renderowania-w-nowym-pomiarze) | Pin kontraktu w nowym pomiarze | accepted | 2026-11-09 | Opt-in v2, import i ocena osobno, pin przez sesję/freeze/R0–R3 i wczesny guard. |
 | [D-595](decisions/DECISION_LOG_2026.md#d-595--diagnostyczne-porównanie-rzeczywistych-wycinków-z-przypiętym-odniesieniem) | Diagnostyka wycinków | accepted | 2026-11-09 | Read-only capture, realny renderer, klasy i osobna granica kwalifikacji. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-572](decisions/DECISION_LOG_2026.md#d-572--nazwa-folderu-wynikowego-selektora) | Nazwa folderu wynikowego selektora | accepted | 2026-10-23 | Nowe partie: gra aktualizacja pierwsza-ostatnia; stary outputRoot i nazwy JPEG bez zmian; zastępuje regułę folderu D-571. |
 | [D-571](decisions/DECISION_LOG_2026.md#d-571--trwały-katalog-gier-i-aktualizacja-partii-selektora) | Trwały katalog gier i aktualizacja partii selektora | accepted | 2026-10-23 | Katalog niezależny od historii; aktualizacja a+cyfry lub z_a+cyfry w etykietach, bez zmiany nazw eksportu. |
 | [D-570](decisions/DECISION_LOG_2026.md#d-570--nierozpoznane-pozycje-jako-wildcard-w-wyszukiwaniu-777a2) | Nierozpoznane pozycje jako wildcard w wyszukiwaniu 777a2 | accepted | 2026-10-23 | Tylko 777a2: brak dowodu daje punkt, nadal unknown; czerwony licznik w wynikach, bez zmiany wypłat. |
-| [D-568](decisions/DECISION_LOG_2026.md#d-568--zachowanie-wygranych-sprzed-rozwinięcia-super-symbolu) | Zachowanie wygranych sprzed rozwinięcia super symbolu | accepted | 2026-10-21 | Większa wypłata per (linia, symbol), sztuki raz; próg rozwinięcia i bazowa plansza uruchamiająca bez zmian. |

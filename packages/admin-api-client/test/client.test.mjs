@@ -2434,6 +2434,7 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
     expectedGeometryRevision: 0,
     expectedManifestChecksumSha256: checksum,
     expectedResolutionRevision: 0,
+    cropPolicyVersion: 'full-cell-v2',
   };
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000',
@@ -4627,6 +4628,29 @@ test('grid control commands keep separate endpoints, evidence references and CAS
   for (const request of requests.slice(1, 4)) {
     assert.deepEqual(await request.json(), assignment);
   }
+});
+
+test('job reads preserve full-cell crop provenance through the wrapper', async () => {
+  const jobId = '77777777-7777-4777-8777-777777777777';
+  const job = {
+    id: jobId,
+    inputPayload: { symbolModel: { cropPolicyVersion: 'full-cell-v2' } },
+  };
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      const path = new URL(request.url).pathname;
+      requests.push([request.method, path]);
+      return Response.json(path.endsWith('/jobs') ? [job] : job);
+    },
+  });
+  assert.deepEqual((await client.getJob(jobId)).data, job);
+  assert.deepEqual((await client.listJobs()).data, [job]);
+  assert.deepEqual(requests, [
+    ['GET', `/api/v1/admin/jobs/${jobId}`],
+    ['GET', '/api/v1/admin/jobs'],
+  ]);
 });
 
 test('grid catalogue preserves published but stale eligibility independently of files', async () => {

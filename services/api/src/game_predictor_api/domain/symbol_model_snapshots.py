@@ -6,7 +6,7 @@ import hashlib
 import json
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import cast
@@ -31,6 +31,7 @@ COLD_START_UNCLASSIFIED_MODEL_VERSION = "cold-start-unclassified-v1"
 COLD_START_UNCLASSIFIED_INPUT_SIZE = 64
 LAB_RGB_SYMBOL_MODEL_VERSION = "lab-rgb-symbol-onnx-v1"
 COLD_START_UNCLASSIFIED_STORAGE_PATH = "unclassified/cold-start-unclassified-v1.no-onnx"
+FULL_CELL_CROP_POLICY_VERSION = "full-cell-v2"
 
 
 class SymbolModelStorageRoot(StrEnum):
@@ -51,8 +52,11 @@ class SymbolModelJobSnapshot:
     temperature: float
     inference_mode: str = "model"
     crop_size: int | None = None
+    crop_policy_version: str | None = None
 
     def __post_init__(self) -> None:
+        if self.crop_policy_version not in (None, FULL_CELL_CROP_POLICY_VERSION):
+            raise ValueError("SYMBOL_CROP_POLICY_UNSUPPORTED")
         if self.model_version == LAB_RGB_SYMBOL_MODEL_VERSION:
             if (
                 not isinstance(self.crop_size, int)
@@ -73,7 +77,16 @@ class SymbolModelJobSnapshot:
     def crop_padding_fraction(self) -> float:
         # The explicit model version binds the render footprint as well as the
         # RGB transform. Legacy models retain their established inset.
-        return 0.0 if self.model_version == LAB_RGB_SYMBOL_MODEL_VERSION else 0.08
+        return (
+            0.0
+            if self.crop_policy_version == FULL_CELL_CROP_POLICY_VERSION
+            or self.model_version == LAB_RGB_SYMBOL_MODEL_VERSION
+            else 0.08
+        )
+
+    def with_full_cell_crops(self) -> SymbolModelJobSnapshot:
+        """New operation descriptor; never mutate a historical import snapshot."""
+        return replace(self, crop_policy_version=FULL_CELL_CROP_POLICY_VERSION)
 
     def to_payload(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -93,6 +106,8 @@ class SymbolModelJobSnapshot:
             payload["iterationId"] = str(self.iteration_id)
         if self.crop_size is not None:
             payload["cropSize"] = self.crop_size
+        if self.crop_policy_version is not None:
+            payload["cropPolicyVersion"] = self.crop_policy_version
         return payload
 
     @property
@@ -111,6 +126,8 @@ class SymbolModelJobSnapshot:
             payload["inferenceMode"] = self.inference_mode
         if self.crop_size is not None:
             payload["cropSize"] = self.crop_size
+        if self.crop_policy_version is not None:
+            payload["cropPolicyVersion"] = self.crop_policy_version
         return hashlib.sha256(
             json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
         ).hexdigest()
@@ -164,6 +181,7 @@ class SymbolModelJobSnapshot:
                 temperature=float(temperature),
                 inference_mode=str(value.get("inferenceMode", "model")),
                 crop_size=cast(int | None, value.get("cropSize")),
+                crop_policy_version=cast(str | None, value.get("cropPolicyVersion")),
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("The pinned symbol model snapshot is invalid.") from error

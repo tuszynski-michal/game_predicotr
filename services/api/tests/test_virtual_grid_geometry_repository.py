@@ -778,7 +778,7 @@ def test_pending_render_configuration_reads_a_current_manifest_not_cells() -> No
     session = Mock()
     session.scalar.side_effect = [_RENDER_SPEC]
     configuration = SqlAlchemyVirtualGridGeometryRepository(session)._pending_render_configuration(
-        source_image_id=uuid4(), import_job_id=uuid4(), job=Mock()
+        source_image_id=uuid4(), import_job_id=uuid4(), job=SimpleNamespace(input_payload={})
     )
     assert configuration.output_width == 64
     assert session.scalar.call_count == 1
@@ -793,7 +793,7 @@ def test_pending_render_configuration_falls_back_to_the_import_manifests() -> No
     session = Mock()
     session.scalar.side_effect = [None, _RENDER_SPEC]
     configuration = SqlAlchemyVirtualGridGeometryRepository(session)._pending_render_configuration(
-        source_image_id=uuid4(), import_job_id=uuid4(), job=Mock()
+        source_image_id=uuid4(), import_job_id=uuid4(), job=SimpleNamespace(input_payload={})
     )
     assert configuration.output_width == 64
     fallback = str(session.scalar.call_args.args[0].compile(dialect=postgresql.dialect()))

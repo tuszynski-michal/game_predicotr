@@ -63,7 +63,7 @@ API/OpenAPI/SDK zgodne; bez migracji schematu. Szczegółowy raport po testach.
 
 ## Outcome
 
-Commit: v1.7.591 (hash dopisuje kolejny commit).
+Commit: v1.7.591 / `ccedfdbe2c7ffba3844e580c7fdd2fed8a77fd90`.
 
 Implementacja odebrana przed integracją; bez wdrożenia i zapisów operatora.
 Nowe pinyv4 oznaczają cel ludzkiej weryfikacji symboli; automat pozostaje

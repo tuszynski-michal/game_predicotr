@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1176 — Przekazanie siatek do weryfikacji symboli (done)
 
 - Plik: `tasks/completed/1176-symbol-review-routing.md`.
-- Commit: **v1.7.591**.
+- Commit: **v1.7.591 / `ccedfdbe2c7ffba3844e580c7fdd2fed8a77fd90`**.
 - Nowe importy i reinferencja deferred używają istniejącego renderera0% i klasyfikatora, zapisując pending bez human approval. Pinv4/review oddzielony od kwalifikowanego v3/v4; historyczne bariery i własność zachowane.
 - Weryfikacja:117 API/worker PASS,3 PG pionu z widocznością symboli i cold replay PASS,163 SDK/build PASS,44 historyczne PASS/2 zastane błędy fixture. Pełny moduł PG reinferencji21 PASS/2 zastane FAIL; propozycje13 zastanych FAIL także main. Scoped typy9 modułów PASS, jeden znany błąd w _current_row w dziesiątym. Lint, SDK typy/generated, docs i mapa PASS.
 - Claude Code Opus5.5/high przez terminal: R1 REVISE, jedna runda poprawek, R2 PASS z0 P0/P1. Raporty/receipts zachowane; P2-5/P2-6 jawnie przyjęte.

@@ -8,7 +8,8 @@ last_updated: 2026-11-09
 
 Zakres: `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md`, gałąź
 `codex/full-symbol-crops`. Implementacja T0–T5 ma niezależne audyty Opus PASS
-oraz wykonane właściwe kontrole kodu. T5 jest zamykane jako v1.7.577.
+oraz wykonane właściwe kontrole kodu. T5 zamknięto jako v1.7.577,
+commit `f29cd9c2e72345a8fde68ae00c6e373c63ff3e53`.
 Ten dokument nie jest wynikiem rzeczywistego treningu modelu.
 
 Kontrola Opus R1 T5 zwróciła REVISE: błędna ścieżka prawdziwego manifestu,

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1168 — Panel pełnych symboli, HTML i odbiór (done)
 
 - Plik: `tasks/completed/1168-full-symbol-panel-acceptance.md`.
-- Commit: **v1.7.577** (hash dopisuje kolejny commit).
+- Commit: **v1.7.577 / `f29cd9c2e72345a8fde68ae00c6e373c63ff3e53`** (hash dopisuje kolejny commit).
 - Wdrożono ordinary/blind content15, snapshot-bound targets/asset, liczniki live/frozen, panel v6 i HTML z rzeczywistymi15PNG/model; brak fallbacku9/indeksu.
 - Runda po Opus naprawia prawdziwy manifest pages/SHA, istniejące nazwy importów, lokalny brak renderu, ochronę obcych PNG/indexu oraz retry budżetu. Prawdziwy publish_json i cold PG wykluczają wcześniejsze błędy fixture.
 - QA:78 interakcji Admina,50 HTML,9 API+1realPG/cold/cleanup0/0 po poprawkach; lint/types i nowy Admin build PASS. Reviewer60/typecheck/build oraz wcześniejsze ONNX/PG i trwałość zgodnie z raportami. Docs/map PASS; zestawów pokrywających się nie sumowano.

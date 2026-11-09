@@ -217,7 +217,7 @@ procesów. Wyniki quality/TASK-1168_VERIFICATION.md.
 
 ## Outcome
 
-Commit: v1.7.577 (hash dopisuje kolejny commit).
+Commit: v1.7.577 / `f29cd9c2e72345a8fde68ae00c6e373c63ff3e53`.
 
 ### Changed
 

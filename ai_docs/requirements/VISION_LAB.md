@@ -6,6 +6,32 @@ last_updated: 2026-11-09
 
 # Laboratorium wizji
 
+## Przypięty zwykły podgląd (D-594, TASK-1170)
+
+Zwykły edytor ma trzy niezależne warstwy: siatkę pól z dokładnie zapisanych
+24 punktów, obrysy grafik z aktualnych etykiet oraz rzeczywiste zakresy
+produkcyjnych wycinków. Legenda opisuje je tekstem. Powiększony kadr do
+oznaczania zawiera otoczenie i nie udaje produkcyjnego rastra ani wejścia NN.
+Brak quadu nie tworzy obrysu, także jeżeli archiwalny szkic ma boxInPreview.
+Pochodzenie, rewizja i zatwierdzenie zawartości są jawne; odczyt ich nie zmienia.
+
+Footprint wymaga aktualnego, zgodnego manifestu renderowania. Braki są jawne,
+z licznikiem dostępnych wycinków, bez zastępowania ich całymi polami.
+Niezgodne manifesty lub błędne komórki nie blokują istniejących adnotacji i edytora:
+zapisane punkty oraz poprawne footprinty pozostają dostępne z jawnym kodem.
+Częściowa komórka może mieć rzeczywisty footprint poza zdjęciem; pokazuje się
+go bez przycinania współrzędnych i bez deklaracji realnych pikseli poza kadrem.
+Nowe podpowiedzi i pomocnicza galeria chronią całe źródła wszystkich zapisanych
+ślepych sesji, również kopie o tych samych pikselach i inne sloty; nowe preview
+chroni też B/REG. Historyczny zwykły odczyt i zapis etykiet pozostają dostępne.
+Ślepy kontroler zachowuje pusty canvas i nie pobiera nowego preview.
+
+Domyślne pomocnicze przygotowanie to odczyt bieżących adnotacji przez
+`scripts/export_grid_content_preview.py`. Nie uruchamia generatora jasności/
+koloru, nie regeneruje detektora i nie zapisuje ani nie zatwierdza szkiców.
+Zachowuje istniejące szkice do sprawdzenia; galeria obejmuje wyłącznie TRAIN
+poza chronionymi źródłami. Archiwalne helpers/overlay PNG nie są źródłem obrysów.
+
 ## Izolowane oznaczenia i rzeczywisty HTML (D-593, TASK-1168)
 
 Zwykły edytor15pól obejmuje również B/REG, a osobny ślepy pomiar TRAIN/A

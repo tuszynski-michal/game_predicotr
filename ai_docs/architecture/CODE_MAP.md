@@ -64,7 +64,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 - `services/api/src/game_predictor_api/application/` (111 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
 - `services/api/src/game_predictor_api/domain/` (121 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (64 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (217 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/storage/` (218 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
@@ -81,7 +81,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (509 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (511 plików w katalogu testów, rekurencyjnie)
 - `services/api/tests/integration/` (156 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -279,7 +279,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (183 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (184 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -292,7 +292,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `crop_*` (8): `crop_m5_board_cells.py`, `crop_m5_board_cells_calibrated.py`, `crop_m5_board_cells_detector_symbol_aware.py` (+5)
 - `diagnose_*` (2): `diagnose_full_board_input.py`, `diagnose_selected_crop_v11.mjs`
 - `evaluate_*` (16): `evaluate_grid_audit_feedback.py`, `evaluate_lateral_partial_v4.py`, `evaluate_m35_acceptance.py` (+13)
-- `export_*` (5): `export_admin_openapi.py`, `export_m6_symbol_classifier_onnx.py`, `export_m6_symbol_dataset.py` (+2)
+- `export_*` (6): `export_admin_openapi.py`, `export_grid_content_preview.py`, `export_m6_symbol_classifier_onnx.py` (+3)
 - `freeze_*` (3): `freeze_shape_geometry_v2_corpus.py`, `freeze_v7_corpus.py`, `freeze_vision_lab_hybrid_protocol.py`
 - `generate_*` (4): `generate_code_map.py`, `generate_m1_snapshot.py`, `generate_m35_benchmark_dataset.py` (+1)
 - `import_*` (2): `import_grid_audit_proposals.py`, `import_recording_lab_provider.py`

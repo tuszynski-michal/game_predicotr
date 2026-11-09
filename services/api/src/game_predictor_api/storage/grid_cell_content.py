@@ -207,6 +207,15 @@ class SqlAlchemyGridCellContentRepository:
         row = self.latest(game, source.sourceRepresentativeSha256, position)
         return self.reference_view(row)
 
+    def get_preview(
+        self, game: UUID, source_id: UUID, position: int, cohort: UUID, manifest: str
+    ) -> dict[str, Any]:
+        from .grid_content_preview import ordinary_preview
+
+        self.bind(game)
+        preview = ordinary_preview(self, game, source_id, position, cohort, manifest)
+        return {**self.get(game, source_id, position), "ordinaryPreview": preview}
+
     @staticmethod
     def reference_view(row: Revision | None) -> dict[str, Any]:
         return {

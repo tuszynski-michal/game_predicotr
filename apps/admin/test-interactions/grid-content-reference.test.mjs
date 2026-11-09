@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import React, { act } from 'react';
 import { JSDOM } from 'jsdom';
 import { contentCommandKey } from '../src/features/model-quality/grid-content-state.ts';
@@ -34,6 +35,7 @@ const { GridModelWorkspace } =
   await import('../src/features/model-quality/grid-model-workspace.tsx');
 const { GridContentReadiness } =
   await import('../src/features/model-quality/grid-content-readiness.tsx');
+
 const game = '11111111-1111-4111-8111-111111111111',
   session = '22222222-2222-4222-8222-222222222222',
   source = '33333333-3333-4333-8333-333333333333',
@@ -372,6 +374,12 @@ test('ordinary B/REG is mounted, reads and approves content with CAS without geo
     await change('Zamrożony zestaw etykiet', cohort);
     await click('Oznacz Zdjęcie 42 — pozycja 1');
     assert.equal(f.calls.filter((c) => c[0] === 'normal-get').length, 1);
+    assert.deepEqual(f.calls.find((c) => c[0] === 'normal-get').slice(1), [
+      game,
+      source,
+      0,
+      { cohortId: cohort, manifestSha256: sha },
+    ]);
     await imageLoaded();
     for (const p of [
       [10, 10],
@@ -1507,6 +1515,172 @@ test('an old blind mutation receipt cannot clear a new ordinary pending command 
       JSON.parse(localStorage.getItem(newKey)).command.body.idempotencyKey,
       newBody.idempotencyKey,
     );
+  } finally {
+    await m.cleanup();
+  }
+});
+
+test('unavailable crop proof keeps saved nodes and ordinary annotation controls usable', async () => {
+  const f = fixture();
+  f.api.getGridCellContentReference = async () => ({
+    data: {
+      annotation: null,
+      revision: 0,
+      contentReferenceSha256: null,
+      ordinaryPreview: {
+        state: 'unavailable',
+        nodes: Array.from({ length: 24 }, (_, i) => [
+          10 + (i % 6) * 20,
+          10 + Math.floor(i / 6) * 20,
+        ]),
+        productionCells: [],
+        geometryRevision: 7,
+        reasonCodes: ['CONTENT_PRODUCTION_MANIFEST_CONFLICT'],
+      },
+    },
+  });
+  const m = await mount(GridContentReferenceWorkspace, {
+    apiBaseUrl,
+    gameId: game,
+    mode: 'ordinary',
+    client: f.api,
+    onClose() {},
+  });
+  try {
+    await change('Zamrożony zestaw etykiet', cohort);
+    await click('Oznacz Zdjęcie 42 — pozycja 1');
+    await imageLoaded();
+    assert.ok(document.querySelector('.gridContentCanvas'));
+    assert.equal(document.querySelectorAll('.gridContentLattice').length, 10);
+    assert.equal(find('Zapisz etykiety bez zatwierdzenia').disabled, false);
+    assert.match(
+      document.body.textContent,
+      /CONTENT_PRODUCTION_MANIFEST_CONFLICT/,
+    );
+    assert.match(document.body.textContent, /Dane wycinków są niespójne/);
+    assert.equal(
+      f.calls.some((c) => c[0] === 'reference'),
+      false,
+    );
+  } finally {
+    await m.cleanup();
+  }
+});
+
+test('shared ordinary and blind lattice keeps its default style separate from production crop footprints', () => {
+  const css = readFileSync(
+    new URL(
+      '../src/features/model-quality/grid-correction-learning.css',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  const dom = new JSDOM(
+    `<style>${css}</style><svg><polyline class="gridContentLattice"/><polygon class="gridContentProductionCrop"/></svg>`,
+  );
+  try {
+    const lattice = dom.window.getComputedStyle(
+      dom.window.document.querySelector('.gridContentLattice'),
+    );
+    const crop = dom.window.getComputedStyle(
+      dom.window.document.querySelector('.gridContentProductionCrop'),
+    );
+    assert.equal(lattice.getPropertyValue('fill'), 'none');
+    assert.equal(lattice.getPropertyValue('stroke'), '#51caff');
+    assert.equal(lattice.getPropertyValue('stroke-dasharray'), '');
+    assert.equal(crop.getPropertyValue('stroke'), '#ffcf69');
+    assert.equal(crop.getPropertyValue('stroke-dasharray'), '8 4');
+    assert.notEqual(
+      lattice.getPropertyValue('fill'),
+      crop.getPropertyValue('fill'),
+    );
+  } finally {
+    dom.window.close();
+  }
+});
+
+test('ordinary overlays preserve all saved points and keep grid, content and production footprints independent', async () => {
+  const nodes = Array.from({ length: 24 }, (_, i) => [
+    8 + (i % 6) * 20 + Math.floor(i / 6) * 0.125,
+    8 + Math.floor(i / 6) * 20,
+  ]);
+  const cells = Array.from({ length: 15 }, () => ({
+    state: 'unknown',
+    quad: null,
+  }));
+  cells[0] = {
+    state: 'visible',
+    quad: [
+      [12, 12],
+      [22, 12],
+      [22, 22],
+      [12, 22],
+    ],
+  };
+  cells[1].boxInPreview = [
+    [1, 1],
+    [90, 1],
+    [90, 90],
+    [1, 90],
+  ];
+  const changes = [];
+  const m = await mount(GridContentCanvas, {
+    sourceUrl: '/ordinary',
+    width: 200,
+    height: 120,
+    initialCells: cells,
+    ordinaryPreview: {
+      state: 'available',
+      nodes,
+      productionCells: [
+        {
+          cellIndex: 0,
+          quad: [
+            [10, 10],
+            [25, 10],
+            [25, 25],
+            [10, 25],
+          ],
+        },
+      ],
+    },
+    onChange: (...args) => changes.push(args),
+  });
+  try {
+    await imageLoaded();
+    assert.equal(document.querySelectorAll('.gridContentLattice').length, 10);
+    assert.equal(
+      document.querySelector('.gridContentLattice').getAttribute('points'),
+      nodes
+        .slice(0, 6)
+        .map((p) => p.join(','))
+        .join(' '),
+    );
+    assert.equal(document.querySelectorAll('.gridContentQuad').length, 1);
+    assert.equal(document.querySelectorAll('.gridContentHandle').length, 4);
+    assert.equal(
+      document.querySelectorAll('.gridContentProductionCrop').length,
+      0,
+    );
+    const toggle = async (label) => {
+      const checkbox = [...document.querySelectorAll('label')]
+        .find((x) => x.textContent.trim() === label)
+        .querySelector('input');
+      await act(async () => checkbox.click());
+    };
+    await toggle('Rzeczywiste wycinki');
+    assert.equal(
+      document.querySelectorAll('.gridContentProductionCrop').length,
+      2,
+    );
+    assert.match(document.body.textContent, /kadr podglądu jest większy/);
+    await toggle('Siatka pól');
+    assert.equal(document.querySelectorAll('.gridContentLattice').length, 0);
+    await toggle('Obrysy grafik');
+    assert.equal(document.querySelectorAll('.gridContentQuad').length, 0);
+    assert.equal(document.querySelectorAll('.gridContentHandle').length, 0);
+    assert.deepEqual(changes.at(-1)[0], cells);
+    assert.equal(changes.at(-1)[1], null);
   } finally {
     await m.cleanup();
   }

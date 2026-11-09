@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import type { ContentReferenceResponse } from '@game-predictor/admin-api-client';
 import {
   contentStateLabels,
   convexContentQuad,
@@ -20,6 +21,7 @@ export function GridContentCanvas({
   height,
   measureGeometry = false,
   initialCells,
+  ordinaryPreview,
   disabled = false,
   onChange,
 }: {
@@ -28,6 +30,7 @@ export function GridContentCanvas({
   readonly height: number;
   readonly measureGeometry?: boolean;
   readonly initialCells?: ContentCells;
+  readonly ordinaryPreview?: ContentReferenceResponse['ordinaryPreview'];
   readonly disabled?: boolean;
   readonly onChange: (
     cells: ContentCells,
@@ -45,6 +48,9 @@ export function GridContentCanvas({
   const [nodeIndex, setNodeIndex] = useState(0);
   const [quadIndex, setQuadIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [showGrid, setShowGrid] = useState(true);
+  const [showOutlines, setShowOutlines] = useState(true);
+  const [showCrops, setShowCrops] = useState(false);
   const [panning, setPanning] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
   const panStart = useRef<{
@@ -127,6 +133,23 @@ export function GridContentCanvas({
     }
   }
   const selected = cells[cellIndex];
+  // Saved ordinary geometry is a read-only overlay, never the editable blind nodes.
+  const displayedNodes = measureGeometry ? nodes : ordinaryPreview?.nodes;
+  const selectedCrop = ordinaryPreview?.productionCells.find(
+    (c) => c.cellIndex === cellIndex,
+  );
+  const cropPoints = selectedCrop?.quad;
+  const cropBounds = cropPoints
+    ? (() => {
+        const xs = cropPoints.map((p) => p[0]),
+          ys = cropPoints.map((p) => p[1]);
+        const left = Math.min(...xs),
+          top = Math.min(...ys),
+          w = Math.max(...xs) - left,
+          h = Math.max(...ys) - top;
+        return `${left - w * 0.25} ${top - h * 0.25} ${w * 1.5} ${h * 1.5}`;
+      })()
+    : undefined;
   return (
     <section className="gridContentCanvas" aria-label="Edytor zawartości pól">
       <p>
@@ -134,6 +157,46 @@ export function GridContentCanvas({
         Obwiednie i siatka są niezależne.
       </p>
       <div className="gridContentActions">
+        {!measureGeometry && ordinaryPreview ? (
+          <>
+            <label>
+              <input
+                type="checkbox"
+                checked={showGrid}
+                onChange={(e) => setShowGrid(e.target.checked)}
+              />{' '}
+              Siatka pól
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={showOutlines}
+                onChange={(e) => setShowOutlines(e.target.checked)}
+              />{' '}
+              Obrysy grafik
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={showCrops}
+                onChange={(e) => setShowCrops(e.target.checked)}
+              />{' '}
+              Rzeczywiste wycinki
+            </label>
+            <p>
+              Siatka pól: wspólne granice z 24 zapisanych punktów. Obrysy
+              grafik: aktualne etykiety i Twoje zmiany. Rzeczywiste wycinki:
+              kreskowany zakres produkcji z przypiętego renderu, nie większy
+              kadr do oznaczania.
+            </p>
+            {ordinaryPreview.state === 'protected' ? (
+              <p role="status">
+                Podgląd siatki i wycinków ukryty dla tego zdjęcia lub roli
+                kontrolnej.
+              </p>
+            ) : null}
+          </>
+        ) : null}
         <label>
           Powiększenie podglądu{' '}
           <select
@@ -301,7 +364,11 @@ export function GridContentCanvas({
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="none"
             role="img"
-            aria-label="Ręczne punkty i obwiednie"
+            aria-label={
+              measureGeometry
+                ? 'Ręczne punkty i obwiednie'
+                : 'Zapisana siatka i obwiednie'
+            }
             style={{ touchAction: 'none' }}
             onPointerDown={(event) => {
               if (event.button !== 0 || disabled || !loaded) return;
@@ -349,11 +416,11 @@ export function GridContentCanvas({
               panStart.current = null;
             }}
           >
-            {nodes
+            {displayedNodes && showGrid
               ? Array.from({ length: 4 }, (_, row) => (
                   <polyline
                     key={`r${row}`}
-                    points={nodes
+                    points={displayedNodes
                       .slice(row * 6, row * 6 + 6)
                       .map((p) => p.join(','))
                       .join(' ')}
@@ -361,30 +428,45 @@ export function GridContentCanvas({
                   />
                 ))
               : null}
-            {nodes
+            {displayedNodes && showGrid
               ? Array.from({ length: 6 }, (_, col) => (
                   <polyline
                     key={`c${col}`}
                     points={[0, 1, 2, 3]
-                      .map((r) => nodes[r * 6 + col].join(','))
+                      .map((r) => displayedNodes[r * 6 + col].join(','))
                       .join(' ')}
                     className="gridContentLattice"
                   />
                 ))
               : null}
-            {cells.map((cell, i) =>
-              cell.quad ? (
-                <polygon
-                  key={i}
-                  points={cell.quad.map((p) => p.join(',')).join(' ')}
-                  className={
-                    i === cellIndex
-                      ? 'gridContentQuad selected'
-                      : 'gridContentQuad'
-                  }
-                />
-              ) : null,
-            )}
+            {!measureGeometry && showCrops
+              ? ordinaryPreview?.productionCells.map((cell) => (
+                  <polygon
+                    key={`crop${cell.cellIndex}`}
+                    data-cell-index={cell.cellIndex}
+                    points={cell.quad.map((p) => p.join(',')).join(' ')}
+                    className="gridContentProductionCrop"
+                  />
+                ))
+              : null}
+            {showOutlines
+              ? cells.map((cell, i) =>
+                  cell.quad ? (
+                    <polygon
+                      key={i}
+                      data-content-state={cell.state}
+                      points={cell.quad.map((p) => p.join(',')).join(' ')}
+                      className={
+                        i === cellIndex
+                          ? 'gridContentQuad selected'
+                          : 'gridContentQuad'
+                      }
+                    >
+                      <title>{`Pole ${i + 1}: ${contentStateLabels[cell.state]}. ${cell.state === 'visible' ? 'Obwiednia pełnej grafiki.' : 'Obwiednia widocznego fragmentu; nie potwierdza pełnego symbolu.'}`}</title>
+                    </polygon>
+                  ) : null,
+                )
+              : null}
             {[...corners, ...draft].map((p, i) => (
               <circle
                 key={`d${i}`}
@@ -413,7 +495,7 @@ export function GridContentCanvas({
                   />
                 ))
               : null}
-            {tool === 'content' && selected.quad
+            {tool === 'content' && showOutlines && selected.quad
               ? selected.quad.map((p, i) => (
                   <circle
                     key={`q${i}`}
@@ -435,6 +517,40 @@ export function GridContentCanvas({
         </div>
       </div>
       {!loaded ? <p role="status">Oczekiwanie na obraz źródłowy…</p> : null}
+      {!measureGeometry && ordinaryPreview && showCrops ? (
+        <figure>
+          <figcaption>
+            Powiększone pole {cellIndex + 1}: otoczenie pomaga ocenić grafikę.
+            Kreskowany obrys ogranicza rzeczywisty wycinek produkcyjny; kadr
+            podglądu jest większy.
+          </figcaption>
+          {cropBounds && selectedCrop ? (
+            <svg
+              viewBox={cropBounds}
+              role="img"
+              aria-label={`Otoczenie i zakres produkcyjnego wycinka pola ${cellIndex + 1}`}
+              style={{ width: '100%', maxWidth: 480 }}
+            >
+              <image href={sourceUrl} width={width} height={height} />
+              <polygon
+                points={selectedCrop.quad.map((p) => p.join(',')).join(' ')}
+                className="gridContentProductionCrop"
+              />
+              {showOutlines && selected.quad ? (
+                <polygon
+                  points={selected.quad.map((p) => p.join(',')).join(' ')}
+                  className="gridContentQuad"
+                />
+              ) : null}
+            </svg>
+          ) : (
+            <p>
+              Brak przypiętego produkcyjnego wycinka tego pola. Nie zastępujemy
+              go całym polem.
+            </p>
+          )}
+        </figure>
+      ) : null}
       {tool === 'geometry' && nodes ? (
         <div className="gridContentActions">
           <label>

@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1170 — Czytelny podgląd siatki i obrysów (done)
+
+- Plik: `tasks/completed/1170-grid-content-preview.md`.
+- Commit: **v1.7.582** (hash dopisuje kolejny commit).
+- Zapisane24punkty, aktualne obrysy, produkcyjne footprinty i trzy warstwy; GET-only HTML bez ghost obrysów. Historyczne zapisy i ślepy pomiar zachowane.
+- 52pytest,PG15footprints/coldread/cleanup0,SDK4,typy/lint/kontrakt/docs/mapPASS. PełnyAdmin428PASS/10FAIL potwierdzonych na main; buildT4.
+- Opus5.5/high terminal R1REVISE→R2PASS; P0/P1=0. P2-4 jawne; P2-7/8 zaplanowane T4, P2-9 metadane wyrównane. Bez operatorowego treningu, danych, usług, merge/pushu.
+
 ### TASK-1169 — Zgodność schematu przy cutover (done)
 
 - Plik: `tasks/completed/1169-schema-head-cutover.md`.

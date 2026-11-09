@@ -19,6 +19,23 @@ import {
   type ContentCommand,
 } from './grid-content-state';
 
+const previewReasonLabels: Record<string, string> = {
+  CONTENT_PRODUCTION_MANIFEST_UNAVAILABLE:
+    'Brak zapisanego manifestu wycinków. Siatka i adnotacje pozostają dostępne.',
+  CONTENT_PRODUCTION_MANIFEST_CONFLICT:
+    'Dane wycinków są niespójne. Pokazujemy dostępną siatkę i adnotacje.',
+  CONTENT_PRODUCTION_CELL_UNAVAILABLE:
+    'Część wycinków jest niedostępna lub niezgodna z bieżącą siatką.',
+  CONTENT_PRODUCTION_CELLS_PARTIAL: 'Pokazujemy tylko dostępne wycinki.',
+  CONTENT_PRODUCTION_FOOTPRINT_OUTSIDE_SOURCE:
+    'Część wycinka znajduje się poza zdjęciem; ten obszar nie zawiera pikseli źródła.',
+  CONTENT_SAVED_NODES_UNAVAILABLE: 'Brak kompletnej zapisanej siatki.',
+  CONTENT_CONTROL_ROLE_PROTECTED:
+    'Podgląd siatki i wycinków jest chroniony dla tej roli kontrolnej.',
+  CONTENT_BLIND_SOURCE_PROTECTED:
+    'Podgląd siatki i wycinków chroni niezależny pomiar tego zdjęcia.',
+};
+
 export type GridContentOrdinaryClient = Pick<
   AdminApiClient,
   | 'getGridCellContentReference'
@@ -68,6 +85,7 @@ export function GridContentOrdinary({
           gameId,
           target.source.sourceId,
           target.positionIndex,
+          { cohortId, manifestSha256 },
         )
         .then((result) => {
           if (!active) return;
@@ -90,7 +108,15 @@ export function GridContentOrdinary({
     return () => {
       active = false;
     };
-  }, [api, gameId, target.source.sourceId, target.positionIndex, refresh]);
+  }, [
+    api,
+    gameId,
+    cohortId,
+    manifestSha256,
+    target.source.sourceId,
+    target.positionIndex,
+    refresh,
+  ]);
   async function execute(command: ContentCommand) {
     if (command.kind !== 'reference')
       throw new Error(
@@ -165,6 +191,41 @@ export function GridContentOrdinary({
                 : 'Poprzednie etykiety nie są zatwierdzone.'
               : 'Brak dotychczasowych etykiet.'}
           </p>
+          {annotation ? (
+            <p>
+              Pochodzenie: {annotation.origin}; autor: {annotation.actor}.
+              Zatwierdzający: {annotation.approvedBy ?? 'brak'}.
+            </p>
+          ) : null}
+          {reference.ordinaryPreview ? (
+            <p>
+              Rewizja zapisanej siatki:{' '}
+              {reference.ordinaryPreview.geometryRevision ?? 'brak'}. Silnik:{' '}
+              {reference.ordinaryPreview.geometryEngine ?? 'nieustalony'}.{' '}
+              {reference.ordinaryPreview.reasonCodes
+                .map(
+                  (code) =>
+                    previewReasonLabels[code] ??
+                    'Podgląd nie jest teraz dostępny; odśwież dane celu.',
+                )
+                .join(' ')}{' '}
+              Produkcyjne wycinki:{' '}
+              {reference.ordinaryPreview.productionCells.length}/15.
+              {reference.ordinaryPreview.productionCells.length < 15
+                ? ' Brakujące wycinki pozostają niedostępne; cały obszar pola ich nie zastępuje.'
+                : ''}
+            </p>
+          ) : (
+            <p>
+              Brak danych podglądu zapisanej siatki i produkcyjnych wycinków.
+            </p>
+          )}
+          {reference.ordinaryPreview?.reasonCodes.length ? (
+            <details>
+              <summary>Szczegóły podglądu</summary>
+              <code>{reference.ordinaryPreview.reasonCodes.join('; ')}</code>
+            </details>
+          ) : null}
           {annotation && !sameTarget ? (
             <p role="alert">
               Bieżąca etykieta dotyczy innego numeru planszy lub ramy źródła.
@@ -187,6 +248,7 @@ export function GridContentOrdinary({
             width={target.source.width}
             height={target.source.height}
             initialCells={initialCells}
+            ordinaryPreview={reference.ordinaryPreview ?? undefined}
             disabled={control.blocked || reading}
             onChange={(c, _n, r) => {
               setCells(c);

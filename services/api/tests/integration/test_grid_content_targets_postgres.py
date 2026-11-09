@@ -17,6 +17,7 @@ from game_predictor_api.domain.grid_model_registry import descriptor_sha256
 from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.grid_cell_content import SqlAlchemyGridCellContentRepository
+from game_predictor_api.storage.grid_cell_content_models import GridCellContentSessionModel
 from game_predictor_api.storage.grid_quality_observations import read_source
 from game_predictor_api.storage.grid_training_cohort_models import GridTrainingCohortModel
 from sqlalchemy import create_engine, event, text
@@ -70,6 +71,10 @@ with game_storage_scope(game),create_session_factory(engine)() as session:
  assert len(page['items'])==1 and page['items'][0]['state']=='ready'
  assert page['items'][0]['displayName']==os.environ['TEST_DISPLAY_NAME']
  assert repo.get(game,UUID(page['items'][0]['source']['sourceId']),0)['annotation'] is None
+ preview=repo.get_preview(game,UUID(page['items'][0]['source']['sourceId']),0,cohort,os.environ['TEST_MANIFEST'])
+ assert preview['ordinaryPreview']['state']=='protected'
+ assert preview['ordinaryPreview']['nodes'] is None
+ assert preview['ordinaryPreview']['productionCells']==[]
 engine.dispose()
 print('Cold explicit owned target reader PASS',flush=True)
 """
@@ -111,7 +116,10 @@ def test_real_target_reader_and_source_pin_survive_new_process(tmp_path):
         try:
             game = db.games["content-target-reader"]
             _install_base(db, game)
-            source, _checksums, _import = _save_source(db, tmp_path, game, 1, 1, {})
+            production_expected = {}
+            source, _checksums, _import = _save_source(
+                db, tmp_path, game, 1, 1, production_expected
+            )
             print("T1168 targets one real source ready", flush=True)
             factory = create_session_factory(app)
             with game_storage_scope(game), factory() as session:
@@ -196,6 +204,80 @@ def test_real_target_reader_and_source_pin_survive_new_process(tmp_path):
                     == (tmp_path / "data" / identity["relative_path"]).read_bytes()
                 )
             assert snapshot.manifest["cohortId"] == str(cohort)
+            # A persisted measurement of an alias at ANOTHER slot protects the
+            # entire normalized image, across phase/restart, without changing
+            # the legacy reference reader. This is real PostgreSQL JSONB/RLS.
+            with game_storage_scope(game), factory() as session:
+                repo = SqlAlchemyGridCellContentRepository(session, tmp_path)
+                before = repo.get_preview(game, source, 0, cohort, pin["sha256"])
+                actual = before["ordinaryPreview"]
+                assert actual["state"] == "available", actual["reasonCodes"]
+                assert actual["nodes"] == production_expected[f"{source}:0"]["nodes"]
+                assert len(actual["productionCells"]) == 15
+                renderer_quad = production_expected[f"{source}:0"]["cell"]["render_spec"][
+                    "paddedSourceQuad"
+                ]
+                assert isinstance(renderer_quad[0], dict)  # the production renderer's actual JSON
+                assert actual["productionCells"][6]["quad"] == [
+                    [p["x"], p["y"]] for p in renderer_quad
+                ]
+                assert (
+                    session.scalar(
+                        text("SELECT count(*) FROM board_render_manifests WHERE game_id=:game"),
+                        {"game": game},
+                    )
+                    == 1
+                )
+            with game_storage_scope(game), factory.begin() as session:
+                repo = SqlAlchemyGridCellContentRepository(session, tmp_path)
+                repo.bind(game, write=True)
+                session.add(
+                    GridCellContentSessionModel(
+                        game_id=game,
+                        id=uuid4(),
+                        cohort_id=cohort,
+                        revision=1,
+                        phase="frozen",
+                        report={"state": "ready"},
+                        progress={"pass1": {}, "pass2": {}},
+                        document={
+                            "targets": [
+                                {
+                                    "positionIndex": 8,
+                                    "source": {
+                                        "sourceId": str(uuid4()),
+                                        "sourceSha256": "e" * 64,
+                                        "sourceRepresentativeSha256": identity[
+                                            "normalized_pixel_checksum_sha256"
+                                        ],
+                                    },
+                                }
+                            ]
+                        },
+                    )
+                )
+            statements = []
+
+            def observed(_connection, _cursor, statement, _parameters, _context, _many):
+                statements.append(statement.lstrip().upper())
+
+            event.listen(app, "before_cursor_execute", observed)
+            try:
+                with game_storage_scope(game), factory() as session:
+                    repo = SqlAlchemyGridCellContentRepository(session, tmp_path)
+                    protected = repo.get_preview(game, source, 0, cohort, pin["sha256"])
+                    assert protected["ordinaryPreview"]["state"] == "protected"
+                    assert protected["ordinaryPreview"]["nodes"] is None
+                    assert protected["ordinaryPreview"]["productionCells"] == []
+                    assert repo.get(game, source, 0) == {
+                        k: v for k, v in protected.items() if k != "ordinaryPreview"
+                    }
+                assert not any(
+                    s.startswith(("INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP"))
+                    for s in statements
+                )
+            finally:
+                event.remove(app, "before_cursor_execute", observed)
             environment.update(
                 TEST_GAME=str(game),
                 TEST_COHORT=str(cohort),
@@ -210,6 +292,9 @@ def test_real_target_reader_and_source_pin_survive_new_process(tmp_path):
                 "coldRead": True,
                 "displayName": expected_name,
                 "actualImportNameRead": True,
+                "actualProductionManifestFootprints": 15,
+                "protectedAliasOtherSlot": True,
+                "readOnlyPreview": True,
             }
         finally:
             app.dispose()

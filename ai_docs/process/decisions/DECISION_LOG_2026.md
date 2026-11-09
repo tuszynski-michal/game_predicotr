@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-11-08
+last_updated: 2026-11-09
 ---
 
 # Decision Log — wpisy 2026
@@ -14,6 +14,38 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+
+## D-594 — Przypięty zwykły podgląd siatki i produkcyjnych wycinków
+
+Status: accepted — operator zlecił GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109, T1.
+Data: 2026-11-09
+
+Rozszerzamy D-593 o opcjonalny zwykły podgląd przy odczycie istniejącej content
+reference, z exact cohortId/manifestSha256. Historyczny odczyt bez pinów i zapisy
+adnotacji zachowują znaczenie. Podgląd nie tworzy ani nie zatwierdza etykiet,
+nie uruchamia inferencji i nie nadpisuje geometrii. Pokazuje 24 rzeczywiste
+zapisane punkty z rewizją/pochodzeniem oraz konfigurację i footprint rzeczywistych
+wycinków wyłącznie z weryfikowalnego manifestu renderowania. Brak lub drift dowodu
+jest jawnym unavailable, nigdy obliczonym na oko zamiennikiem footprintu.
+
+Pomocnicza galeria obejmuje wyłącznie TRAIN; nowe hints nie ujawniają geometrii
+B/REG. Nowe hints i pomocnicza galeria chronią całe źródła z zapisanych blind sessions,
+również inne sloty tego zdjęcia. Protected nie zawiera nodes ani productionCells.
+Ta ochrona nie zmienia istniejącego ordinary odczytu etykiet i nie dodaje requestów
+ani pól do blind kontrolera/DTO. Ślepy pomiar nadal zaczyna się pusty i nie otrzymuje
+wcześniejszych punktów, obrysów, propozycji ani obrazów z nałożonymi wynikami.
+
+UI rozróżnia granice 15 pól, obwiednie grafiki i produkcyjne footprinty, tekstem
+oraz kolorem. Zachowuje dokładne ręczne punkty i perspektywę. Brak quadu w aktualnej
+adnotacji oznacza brak obrysu także w HTML; pomocniczy boxInPreview nie jest etykietą.
+Obrys obejmuje grafikę wraz z dekoracyjną otoczką, bez tła i sąsiada. Dotychczasowy
+pomocniczy generator jasności/koloru nie jest domyślną metodą nowych szkiców.
+Nie utożsamiamy pełnej komórki z obwiednią symbolu i nie poprawiamy nimi GT.
+
+Rozszerzenie przechodzi istniejący backend/OpenAPI/SDK/wrapper/request pion.
+Nie wymaga nowej tabeli, migracji ani zmiany aktywnego marginesu lub modelu.
+Alternatywa odrzucona: wyliczanie równego insetu w UI jako dowodu produkcyjnego
+wycinania; pomija rzeczywisty warp, ręczne punkty i wersjonowany renderer.
 
 ## D-593 — Izolowane etykietowanie i dowodowy eksport HTML
 

@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 
 from game_predictor_api.application.grid_cell_content import ContentRepository
@@ -110,19 +110,37 @@ def create_grid_cell_content_router(dependency: Callable[..., object]) -> APIRou
         "/content-references/{source_id}/{position_index}",
         operation_id="getGridCellContentReference",
         response_model=ContentReferenceResponse,
+        response_model_exclude_unset=True,
     )
     def read(
+        response: Response,
         game_id: UUID,
         source_id: UUID,
         position_index: int,
         service: Annotated[OperationalImageReviewService, parameter],
+        cohort_id: Annotated[UUID | None, Query(alias="cohortId")] = None,
+        manifest_sha256: Annotated[
+            str | None, Query(alias="manifestSha256", pattern=r"^[0-9a-f]{64}$")
+        ] = None,
     ) -> Any:
-        return invoke(lambda: repo(service).get(game_id, source_id, position_index))
+        response.headers["Cache-Control"] = "no-store"
+        if (cohort_id is None) != (manifest_sha256 is None):
+            raise ContentError(
+                "CONTENT_PREVIEW_PINS_REQUIRED", "Both preview pins are required.", 422
+            )
+        if cohort_id is None:
+            return invoke(lambda: repo(service).get(game_id, source_id, position_index))
+        return invoke(
+            lambda: repo(service).get_preview(
+                game_id, source_id, position_index, cohort_id, cast(str, manifest_sha256)
+            )
+        )
 
     @router.post(
         "/content-references",
         operation_id="writeGridCellContentReference",
         response_model=ContentWriteResponse,
+        response_model_exclude_unset=True,
     )
     def write(
         request: Request,

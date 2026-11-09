@@ -2,6 +2,40 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('ordinary preview pins extend the existing reference request without mutating labels', async () => {
+  const calls = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      calls.push(request);
+      return Response.json({
+        annotation: null,
+        revision: 0,
+        contentReferenceSha256: null,
+        ordinaryPreview: {
+          state: 'protected',
+          nodes: null,
+          productionCells: [],
+        },
+      });
+    },
+  });
+  const pins = { cohortId: 'cohort', manifestSha256: 'a'.repeat(64) };
+  const result = await client.getGridCellContentReference(
+    'game',
+    'source',
+    2,
+    pins,
+  );
+  assert.equal(calls[0].method, 'GET');
+  assert.equal(calls[0].body, null);
+  assert.match(
+    calls[0].url,
+    /content-references\/source\/2\?cohortId=cohort&manifestSha256=a{64}$/,
+  );
+  assert.equal(result.data.ordinaryPreview.state, 'protected');
+});
+
 test('content wrappers preserve independent CAS and blind session bodies', async () => {
   const calls = [];
   const missing = {

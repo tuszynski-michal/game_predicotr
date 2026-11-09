@@ -7666,6 +7666,189 @@
         "title": "ContentGameEvidence",
         "type": "object"
       },
+      "ContentOrdinaryPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "geometryEngine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryengine"
+          },
+          "geometryEngineVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryengineversion"
+          },
+          "geometryRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometryrevision"
+          },
+          "geometrySha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrysha256"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "nodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nodes"
+          },
+          "productionCells": {
+            "items": {
+              "$ref": "#/components/schemas/ContentProductionFootprint"
+            },
+            "title": "Productioncells",
+            "type": "array"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "sourceGeometryRevisionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcegeometryrevisionid"
+          },
+          "state": {
+            "enum": [
+              "available",
+              "unavailable",
+              "protected"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "version": {
+            "const": "grid-content-ordinary-preview-v1",
+            "default": "grid-content-ordinary-preview-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cohortId",
+          "manifestSha256",
+          "state",
+          "reasonCodes",
+          "nodes",
+          "productionCells"
+        ],
+        "title": "ContentOrdinaryPreview",
+        "type": "object"
+      },
+      "ContentProductionFootprint": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/ContentRenderConfiguration"
+          },
+          "quad": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Quad",
+            "type": "array"
+          },
+          "renderSpecSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Renderspecsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "quad",
+          "renderSpecSha256",
+          "configuration"
+        ],
+        "title": "ContentProductionFootprint",
+        "type": "object"
+      },
       "ContentReadinessResponse": {
         "additionalProperties": false,
         "properties": {
@@ -7797,6 +7980,16 @@
             ],
             "title": "Contentreferencesha256"
           },
+          "ordinaryPreview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentOrdinaryPreview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "revision": {
             "minimum": 0.0,
             "title": "Revision",
@@ -7809,6 +8002,52 @@
           "revision"
         ],
         "title": "ContentReferenceResponse",
+        "type": "object"
+      },
+      "ContentRenderConfiguration": {
+        "additionalProperties": false,
+        "properties": {
+          "extractorVersion": {
+            "minLength": 1,
+            "title": "Extractorversion",
+            "type": "string"
+          },
+          "interpolation": {
+            "minLength": 1,
+            "title": "Interpolation",
+            "type": "string"
+          },
+          "outputHeight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Outputheight",
+            "type": "integer"
+          },
+          "outputWidth": {
+            "exclusiveMinimum": 0.0,
+            "title": "Outputwidth",
+            "type": "integer"
+          },
+          "paddingFraction": {
+            "exclusiveMaximum": 0.5,
+            "minimum": 0.0,
+            "title": "Paddingfraction",
+            "type": "number"
+          },
+          "preprocessingVersion": {
+            "minLength": 1,
+            "title": "Preprocessingversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "extractorVersion",
+          "preprocessingVersion",
+          "interpolation",
+          "outputWidth",
+          "outputHeight",
+          "paddingFraction"
+        ],
+        "title": "ContentRenderConfiguration",
         "type": "object"
       },
       "ContentRevision": {
@@ -57650,6 +57889,40 @@
             "schema": {
               "title": "Position Index",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cohortId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cohortid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifestSha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Manifestsha256"
             }
           }
         ],

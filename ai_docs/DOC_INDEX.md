@@ -66,6 +66,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Poprawa siatek, obrysów i wycinków](delivery/GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109.md) — accepted; TASK-1170–1173.
+
 - [Pełne symbole w planszach 3×5](delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md) — accepted, TASK-1163–1168; kontrakt 24/15, etykiety zawartości i ocena produkcyjnych wycinków.
 
 - [Propozycje do korekty i pełny kadr](delivery/GRID_REVIEW_PROPOSALS_VIEWPORT_20261103.md) — TASK-1153; ręczna ocena modelu i kontekst zdjęcia.

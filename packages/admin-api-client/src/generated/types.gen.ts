@@ -4145,6 +4145,111 @@ export type ContentGameEvidence = {
 };
 
 /**
+ * ContentOrdinaryPreview
+ */
+export type ContentOrdinaryPreview = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Geometryengine
+   */
+  geometryEngine?: string | null;
+  /**
+   * Geometryengineversion
+   */
+  geometryEngineVersion?: string | null;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision?: number | null;
+  /**
+   * Geometrysha256
+   */
+  geometrySha256?: string | null;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Nodes
+   */
+  nodes:
+    | [
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+      ]
+    | null;
+  /**
+   * Productioncells
+   */
+  productionCells: Array<ContentProductionFootprint>;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Sourcegeometryrevisionid
+   */
+  sourceGeometryRevisionId?: string | null;
+  /**
+   * State
+   */
+  state: 'available' | 'unavailable' | 'protected';
+  /**
+   * Version
+   */
+  version?: 'grid-content-ordinary-preview-v1';
+};
+
+/**
+ * ContentProductionFootprint
+ */
+export type ContentProductionFootprint = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  configuration: ContentRenderConfiguration;
+  /**
+   * Quad
+   */
+  quad: [
+    [number, number],
+    [number, number],
+    [number, number],
+    [number, number],
+  ];
+  /**
+   * Renderspecsha256
+   */
+  renderSpecSha256: string;
+};
+
+/**
  * ContentReadinessResponse
  */
 export type ContentReadinessResponse = {
@@ -4203,10 +4308,41 @@ export type ContentReferenceResponse = {
    * Contentreferencesha256
    */
   contentReferenceSha256: string | null;
+  ordinaryPreview?: ContentOrdinaryPreview | null;
   /**
    * Revision
    */
   revision: number;
+};
+
+/**
+ * ContentRenderConfiguration
+ */
+export type ContentRenderConfiguration = {
+  /**
+   * Extractorversion
+   */
+  extractorVersion: string;
+  /**
+   * Interpolation
+   */
+  interpolation: string;
+  /**
+   * Outputheight
+   */
+  outputHeight: number;
+  /**
+   * Outputwidth
+   */
+  outputWidth: number;
+  /**
+   * Paddingfraction
+   */
+  paddingFraction: number;
+  /**
+   * Preprocessingversion
+   */
+  preprocessingVersion: string;
 };
 
 /**
@@ -31844,7 +31980,16 @@ export type GetGridCellContentReferenceData = {
      */
     position_index: number;
   };
-  query?: never;
+  query?: {
+    /**
+     * Cohortid
+     */
+    cohortId?: string | null;
+    /**
+     * Manifestsha256
+     */
+    manifestSha256?: string | null;
+  };
   url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-references/{source_id}/{position_index}';
 };
 

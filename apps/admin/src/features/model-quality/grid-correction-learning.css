@@ -113,6 +113,14 @@
   height: 100%;
 }
 
+.gridContentProductionCrop {
+  fill: rgb(255 209 108 / 12%);
+  stroke: #ffcf69;
+  stroke-width: 2;
+  stroke-dasharray: 8 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
 .gridContentLattice,
 .gridContentQuad {
   fill: none;
@@ -129,6 +137,15 @@
 .gridContentQuad.selected {
   fill: rgb(112 225 180 / 14%);
   stroke-width: 3;
+}
+.gridContentQuad[data-content-state='unknown'] {
+  stroke: #c4cbd1;
+  stroke-dasharray: 3 5;
+}
+.gridContentQuad[data-content-state='occluded'],
+.gridContentQuad[data-content-state='out_of_frame'] {
+  stroke: #ffbc69;
+  stroke-dasharray: 7 4;
 }
 
 .gridContentHandle {

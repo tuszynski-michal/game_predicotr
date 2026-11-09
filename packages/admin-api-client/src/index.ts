@@ -1894,9 +1894,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       gameId: string,
       sourceId: string,
       positionIndex: number,
+      pins?: { cohortId: string; manifestSha256: string },
     ) =>
       generatedContentReference({
         client,
+        query: pins,
         path: {
           game_id: gameId,
           source_id: sourceId,

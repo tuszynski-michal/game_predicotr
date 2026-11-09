@@ -6,6 +6,41 @@ last_updated: 2026-11-09
 
 # Architektura laboratorium wizji
 
+## Pinned ordinary overlays (D-594, TASK-1170)
+
+The existing content-reference GET accepts optional paired cohortId and
+manifestSha256. With neither pin its response retains the legacy three fields.
+With both, ordinaryPreview has version grid-content-ordinary-preview-v1, scoped
+pins, availability/reasons, exact saved nodes, geometry revision/checksum/source
+revision/engine provenance and checksum-bound productionCells. Each footprint
+contains its cellIndex, persisted paddedSourceQuad, renderSpecSha256 and the
+closed production configuration. Current source/sequence, manifest checksum,
+cell checksum, source pixel/byte identity, geometry revision/slot and the nominal
+quad's binding to saved nodes are checked without inference or domain writes.
+Missing footprints remain empty/partial with explicit reasons and counters.
+Invalid production proofs set preview state unavailable while retaining saved
+nodes and individually verified cells. Only pure document validation failures
+are downgraded; database/infrastructure errors propagate. Partial-source render
+footprints keep their exact coordinates (including out-of-frame support and the
+renderer epsilon); outside support is explicitly flagged, never clamped. The
+legacy write response derives from a separate common base without ordinaryPreview.
+
+Source-wide JSONB membership over normalized pixel identity protects all stored
+blind-session phases, aliases and slots before geometry is read. B/REG are also
+protected. Protected preview contains no geometry hint. Existing ordinary labels
+and assets keep their semantics; the independent blind DTO/controller never
+imports this extension. Local Admin receives three optional read-only overlays;
+editable blind geometry stays separate from the saved ordinary overlay.
+
+The versioned helper scripts/export_grid_content_preview.py exports bounded
+GET-only TRAIN pages into a new directory. It saves current JSON and original
+assets and draws HTML SVG quads directly from current matching annotations,
+never boxInPreview or archived overlay files. Non-TRAIN/protected sources are
+omitted before assets are downloaded. Requests have byte/time bounds and the
+export never invokes brightness/colour proposal generation or annotation writes.
+This T1 helper presents production footprints; report-bound 15 production rasters
+and actual NN input remain the existing comparison/T4 responsibility.
+
 ## Isolated annotation and file-backed production views (D-593, TASK-1168)
 
 Local Admin mounts separate ordinary-reference and blind-session controllers.

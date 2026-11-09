@@ -11,7 +11,7 @@ from game_predictor_api.domain.grid_cell_content import (
     ContentSource,
     GeometryNodes,
 )
-from game_predictor_api.domain.grid_visibility_contract import Sha, VisibilityClosed
+from game_predictor_api.domain.grid_visibility_contract import Point, Sha, VisibilityClosed
 
 
 class ContentWriteCommand(VisibilityClosed):
@@ -94,13 +94,48 @@ class ContentSessionAdvance(VisibilityClosed):
     expectedSessionRevision: Annotated[int, Field(strict=True, ge=1)]
 
 
-class ContentReferenceResponse(VisibilityClosed):
+class ContentRenderConfiguration(VisibilityClosed):
+    extractorVersion: Annotated[str, Field(min_length=1)]
+    preprocessingVersion: Annotated[str, Field(min_length=1)]
+    interpolation: Annotated[str, Field(min_length=1)]
+    outputWidth: Annotated[int, Field(strict=True, gt=0)]
+    outputHeight: Annotated[int, Field(strict=True, gt=0)]
+    paddingFraction: Annotated[float, Field(ge=0, lt=0.5, allow_inf_nan=False)]
+
+
+class ContentProductionFootprint(VisibilityClosed):
+    cellIndex: Annotated[int, Field(strict=True, ge=0, le=14)]
+    quad: Annotated[list[Point], Field(min_length=4, max_length=4)]
+    renderSpecSha256: Sha
+    configuration: ContentRenderConfiguration
+
+
+class ContentOrdinaryPreview(VisibilityClosed):
+    version: Literal["grid-content-ordinary-preview-v1"] = "grid-content-ordinary-preview-v1"
+    cohortId: UUID
+    manifestSha256: Sha
+    state: Literal["available", "unavailable", "protected"]
+    reasonCodes: list[str]
+    nodes: GeometryNodes | None
+    geometryRevision: int | None = None
+    sourceGeometryRevisionId: UUID | None = None
+    geometrySha256: Sha | None = None
+    geometryEngine: str | None = None
+    geometryEngineVersion: str | None = None
+    productionCells: list[ContentProductionFootprint]
+
+
+class ContentReferenceBase(VisibilityClosed):
     annotation: ContentRevision | None
     contentReferenceSha256: Sha | None
     revision: Annotated[int, Field(ge=0)]
 
 
-class ContentWriteResponse(ContentReferenceResponse):
+class ContentReferenceResponse(ContentReferenceBase):
+    ordinaryPreview: ContentOrdinaryPreview | None = None
+
+
+class ContentWriteResponse(ContentReferenceBase):
     idempotencyKey: UUID
 
 

@@ -112,6 +112,25 @@ class ContentBlindTarget(VisibilityClosed):
     # Deliberately no prior nodes, cells, predictions, reference hash or grid revision.
 
 
+class ContentTargetResponse(VisibilityClosed):
+    source: ContentSource
+    displayName: str | None = None
+    positionIndex: Annotated[int, Field(strict=True, ge=0, le=8)]
+    sequenceNumber: Annotated[int, Field(strict=True, ge=1)] | None
+    role: Literal["TRAIN", "A", "B", "REGRESSION"]
+    state: Literal["ready", "unresolved"]
+    reasonCodes: list[str]
+
+
+class ContentTargetPage(VisibilityClosed):
+    version: Literal["source-cell-content-targets-v1"] = "source-cell-content-targets-v1"
+    gameId: UUID
+    cohortId: UUID
+    manifestSha256: Sha
+    items: list[ContentTargetResponse]
+    nextOffset: Annotated[int, Field(ge=0)] | None
+
+
 class ContentSessionStatus(VisibilityClosed):
     sessionId: UUID
     gameId: UUID

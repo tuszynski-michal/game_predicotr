@@ -9,6 +9,33 @@ import type {
 
 /** TASK-1000: readable reasons; an unknown code is never hidden, only labelled. */
 export const REASON_LABELS: Readonly<Record<string, string>> = {
+  CONTENT_SEQUENCE_CONFLICT:
+    'Bieżąca etykieta dotyczy innego numeru planszy. Plansza pozostaje nieoznaczona w tym odczycie; zamrożone etykiety są sprawdzane osobno.',
+  CONTENT_SEQUENCE_UNRESOLVED:
+    'Nie ustalono jednoznacznego numeru planszy. Cel pozostaje zablokowany.',
+  CONTENT_FRAME_CONFLICT:
+    'Bieżąca etykieta dotyczy innej ramy źródła. Jej pola są nierozstrzygnięte; nie zmienia to przypiętych etykiet.',
+  CONTENT_ROLE_MEMBERSHIP_INCOMPLETE:
+    'Część zdjęć lub plansz tej roli nie ma kompletnego przypisania.',
+  CONTENT_LABELS_MISSING: 'Brak etykiet zawartości w tym zakresie.',
+  CONTENT_UNKNOWN_LIMIT:
+    'Zbyt wiele pól ma nieznaną zawartość, aby ocenić ten zakres.',
+  CONTENT_REG_FULL_PHOTOS_MISSING:
+    'Kontrola REG wymaga co najmniej pięciu pełnych opisanych zdjęć.',
+  CONTENT_RENDER_REFERENCE_MISSING:
+    'Brak przypiętych ustawień produkcyjnego wycinka.',
+  CONTENT_MEASUREMENT_NOT_EVALUABLE:
+    'Pomiar powtarzalności nie spełnia wymagań oceny.',
+  CONTENT_MEASUREMENT_UNIQUE_REFERENCE_REQUIRED:
+    'Brak jednego spójnego pomiaru powtarzalności dla gry.',
+  CONTENT_UNCERTAINTY_MISSING: 'Nie ustalono niepewności niezależnego pomiaru.',
+  CONTENT_REFERENCE_NOT_EVALUABLE:
+    'Etykiety zawartości nie pozwalają na ocenę jakości.',
+  CONTENT_FRESH_REGRESSION_REQUIRED: 'Brak wymaganej świeżej kontroli REG.',
+  CONTENT_BANK_MEASUREMENT:
+    'Pomiar banku błędów wyłącznie na dopuszczalnych zdjęciach TRAIN.',
+  EXPERIMENT_ARM_FEASIBILITY:
+    'Pomiar wykonalności wariantów w ograniczonym budżecie workera.',
   NEURAL_GRID_STATUS_STORAGE_UNAVAILABLE:
     'Odczyt kwalifikacji jest chwilowo niedostępny. Przypisanie modelu pozostaje zachowane; odśwież stan.',
   NEURAL_GRID_STATUS_DATA_UNAVAILABLE:

@@ -7,9 +7,11 @@ from pathlib import Path
 
 import numpy as np
 from game_predictor_worker.images.comparison_input_diagnostics import diagnostic_inputs
+from game_predictor_worker.images.comparison_production_bundle import build_production_package
+from game_predictor_worker.images.comparison_production_cells import ComparisonProductionCells
 
 
-def render(root: Path) -> Path:
+def render(root: Path, *, artifact_root: Path | None = None) -> Path:
     """Render saved checksum-bound results; never run inference or write domain data."""
 
     inputs = json.loads((root / "inputs.json").read_text(encoding="utf-8"))
@@ -28,6 +30,12 @@ def render(root: Path) -> Path:
         raise ValueError("Evaluation identity differs from the learning run")
     membership = {row["source_id"]: row for row in inputs["membership"]}
     photos = {row["id"]: row for row in inputs["photos"]}
+    packaging_errors = (
+        {}
+        if artifact_root is None
+        else build_production_package(root, artifact_root, evaluation, set(photos))
+    )
+    production = ComparisonProductionCells(root, evaluation)
     cards = []
     for board in inputs["boards"]:
         source = photos[board["source_image_id"]]
@@ -43,29 +51,34 @@ def render(root: Path) -> Path:
         if not base["sourceChecksum"] == candidate["sourceChecksum"] == source["checksum_sha256"]:
             raise ValueError("Inference source checksum differs from the selected photo")
         position = board["position_index"]
-        paired = (
-            base["status"] == candidate["status"] == "ok"
-            and len(base["detections"]) == len(candidate["detections"]) == 9
-            and 0 <= position < 9
+        crops = production.for_board(source, board, {"base": base, "candidate": candidate})
+        if source["id"] in packaging_errors:
+            crops = {"state": "unavailable", "reason": packaging_errors[source["id"]]}
+        paired = base["status"] == candidate["status"] == "ok" and crops["state"] == "available"
+        paired = paired and all(
+            crops["models"][name]["state"] == "available" for name in ("base", "candidate")
         )
-        left = base["detections"][position]["nodes"] if paired else None
-        right = candidate["detections"][position]["nodes"] if paired else None
+        left = crops["models"]["base"]["nodes"] if paired else None
+        right = crops["models"]["candidate"]["nodes"] if paired else None
         delta = None
         if left is not None and right is not None:
             delta = float(np.linalg.norm(np.asarray(left) - np.asarray(right), axis=1).mean())
         record = membership.get(source["id"], {})
+        diagnostics = diagnostic_inputs(
+            root,
+            source,
+            board,
+            {"base": evaluation["baseVersionId"], "candidate": learning["candidateVersionId"]},
+        )
+        if crops["state"] == "available":
+            for name in ("base", "candidate"):
+                if diagnostics[name]["state"] != "available":
+                    diagnostics[name] = crops["models"][name].get("neuralInput", diagnostics[name])
         cards.append(
             {
                 "sequence": board["sequence_number"],
-                "diagnostics": diagnostic_inputs(
-                    root,
-                    source,
-                    board,
-                    {
-                        "base": evaluation["baseVersionId"],
-                        "candidate": learning["candidateVersionId"],
-                    },
-                ),
+                "productionCells": crops,
+                "diagnostics": diagnostics,
                 "boardId": board["id"],
                 "position": position,
                 "gridRows": board["grid_rows"],
@@ -98,26 +111,36 @@ def render(root: Path) -> Path:
     report = evaluation["report"]
     current = next(game for game in report["games"] if game["gameId"] == learning["gameId"])
     regression = current["roles"]["REGRESSION"]
-    old_error = regression["base"]["normalized_error"]
-    new_error = regression["candidate"]["normalized_error"]
-    reduction = (old_error - new_error) / old_error * 100 if old_error else 0
+    old_error = regression["base"].get("normalized_error", regression["base"].get("image_macro"))
+    new_error = regression["candidate"].get(
+        "normalized_error", regression["candidate"].get("image_macro")
+    )
+    change = (
+        f"Spadek błędu punktów: {(old_error - new_error) / old_error * 100:.1f}%."
+        if old_error and new_error is not None
+        else "Brak porównywalnej metryki błędu punktów."
+    )
     summary = (
         f"Kontrola końcowa: {regression['base']['boards_correct']} → "
         f"{regression['candidate']['boards_correct']} poprawnych plansz z "
-        f"{regression['base']['boards_expected']}. Spadek błędu punktów: {reduction:.1f}%."
+        f"{regression['base']['boards_expected']}. {change}"
     )
     metric_rows = []
     for game in report["games"]:
         for role, label in [("VALIDATION", "Dobór modelu"), ("REGRESSION", "Kontrola końcowa")]:
             data = game["roles"][role]
             old, new = data["base"], data["candidate"]
+            old_nme = old.get("normalized_error", old.get("image_macro"))
+            new_nme = new.get("normalized_error", new.get("image_macro"))
+            old_display = f"{old_nme:.5f}" if old_nme is not None else "—"
+            new_display = f"{new_nme:.5f}" if new_nme is not None else "—"
             metric_rows.append(
                 "<tr>"
                 f"<td>{html.escape(game['gameId'])}</td>"
                 f"<td>{label}</td><td>{data['photos']}</td>"
                 f"<td>{old['boards_correct']} / {old['boards_expected']}</td>"
                 f"<td>{new['boards_correct']} / {new['boards_expected']}</td>"
-                f"<td>{old['normalized_error']:.5f}</td><td>{new['normalized_error']:.5f}</td></tr>"
+                f"<td>{old_display}</td><td>{new_display}</td></tr>"
             )
     payload = json.dumps(cards, ensure_ascii=False, allow_nan=False).replace("<", "\\u003c")
     template = (Path(__file__).parent / "templates" / "grid-correction-comparison.html").read_text(
@@ -191,8 +214,13 @@ def main() -> None:
         required=True,
         help="Saved comparison inputs, inference JSON and photos",
     )
+    parser.add_argument(
+        "--artifact-root",
+        type=Path,
+        help="Read-only artifact store: package exact read-v6 cohort/detail pins automatically",
+    )
     args = parser.parse_args()
-    print(render(args.directory.resolve()))
+    print(render(args.directory.resolve(), artifact_root=args.artifact_root))
 
 
 if __name__ == "__main__":

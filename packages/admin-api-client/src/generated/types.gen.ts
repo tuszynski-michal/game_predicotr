@@ -4656,6 +4656,67 @@ export type ContentSource = {
 };
 
 /**
+ * ContentTargetPage
+ */
+export type ContentTargetPage = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Items
+   */
+  items: Array<ContentTargetResponse>;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Nextoffset
+   */
+  nextOffset: number | null;
+  /**
+   * Version
+   */
+  version?: 'source-cell-content-targets-v1';
+};
+
+/**
+ * ContentTargetResponse
+ */
+export type ContentTargetResponse = {
+  /**
+   * Displayname
+   */
+  displayName?: string | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Role
+   */
+  role: 'TRAIN' | 'A' | 'B' | 'REGRESSION';
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number | null;
+  source: ContentSource;
+  /**
+   * State
+   */
+  state: 'ready' | 'unresolved';
+};
+
+/**
  * ContentWriteCommand
  */
 export type ContentWriteCommand = {
@@ -32143,6 +32204,121 @@ export type GetGridContentSessionSourceError =
   GetGridContentSessionSourceErrors[keyof GetGridContentSessionSourceErrors];
 
 export type GetGridContentSessionSourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ListGridContentTargetsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Cohortid
+     */
+    cohortId: string;
+    /**
+     * Manifestsha256
+     */
+    manifestSha256: string;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Offset
+     */
+    offset?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-targets';
+};
+
+export type ListGridContentTargetsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridContentTargetsError =
+  ListGridContentTargetsErrors[keyof ListGridContentTargetsErrors];
+
+export type ListGridContentTargetsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ContentTargetPage;
+};
+
+export type ListGridContentTargetsResponse =
+  ListGridContentTargetsResponses[keyof ListGridContentTargetsResponses];
+
+export type GetGridContentTargetSourceData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+  };
+  query: {
+    /**
+     * Cohortid
+     */
+    cohortId: string;
+    /**
+     * Manifestsha256
+     */
+    manifestSha256: string;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-targets/sources/{source_id}/asset';
+};
+
+export type GetGridContentTargetSourceErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetGridContentTargetSourceError =
+  GetGridContentTargetSourceErrors[keyof GetGridContentTargetSourceErrors];
+
+export type GetGridContentTargetSourceResponses = {
   /**
    * Successful Response
    */

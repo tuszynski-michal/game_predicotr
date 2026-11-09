@@ -210,3 +210,110 @@ def test_actual_write_maps_out_of_source_quad_to_typed_422(tmp_path):
         )
     assert response.status_code == 422
     assert response.json()["code"] == "CONTENT_QUAD_OUTSIDE_SOURCE"
+
+
+def test_real_readiness_repository_preserves_frozen_coverage_after_live_sequence_change(
+    monkeypatch, tmp_path
+):
+    from game_predictor_api.storage.grid_cell_content import SqlAlchemyGridCellContentRepository
+    from game_predictor_worker.images import grid_cohort_dataset
+    from test_grid_cell_content import GAME, revision, target
+
+    targets = [target(10, role="TRAIN"), target(11, role="A"), target(12, role="B")]
+    targets += [
+        target(photo, slot, "REGRESSION", True) for photo in range(1, 6) for slot in range(9)
+    ]
+    labels = [revision(member) for member in targets]
+    frozen_sources = []
+    for member, label in zip(targets, labels, strict=True):
+        source = member.source
+        frozen_sources.append(
+            {
+                "sourceId": str(source.sourceId),
+                "role": member.role,
+                "purposeProofSha256": "c" * 64,
+                "sourceIdentity": {
+                    "id": str(source.sourceId),
+                    "checksum_sha256": source.sourceSha256,
+                    "normalized_pixel_checksum_sha256": source.sourceRepresentativeSha256,
+                    "oriented_width": source.width,
+                    "oriented_height": source.height,
+                    "coordinate_space": source.coordinateSpace,
+                    "normalization_adapter_version": source.normalizationAdapterVersion,
+                },
+                "targets": [
+                    {
+                        "positionIndex": member.positionIndex,
+                        "sequenceNumber": member.sequenceNumber,
+                        "contentAnnotation": label.model_dump(mode="json"),
+                        "contentReferenceSha256": label.sha256,
+                        "contentReferenceRevision": 1,
+                    }
+                ],
+            }
+        )
+    snapshot = SimpleNamespace(
+        manifest={
+            "photoSplit": {
+                "sources": [
+                    {"sourceId": source["sourceId"], "canonicalBoards": 1}
+                    for source in frozen_sources
+                ]
+            }
+        },
+        sources=lambda: iter(frozen_sources),
+    )
+
+    class Dataset:
+        def __init__(self, _snapshot, role):
+            self.role = role
+
+        def indexed(self):
+            # The production caller distinguishes A/B by dataset type below.
+            role = "A" if self.role == "VALIDATION" else self.role
+            return [(source, []) for source in frozen_sources if source["role"] == role]
+
+    class AssessmentDataset(Dataset):
+        def indexed(self):
+            role = "B" if self.role == "VALIDATION" else self.role
+            return [(source, []) for source in frozen_sources if source["role"] == role]
+
+    monkeypatch.setattr(grid_cohort_dataset, "GridBoardDataset", Dataset)
+    monkeypatch.setattr(grid_cohort_dataset, "GridAssessmentDataset", AssessmentDataset)
+    monkeypatch.setattr(grid_cohort_dataset, "has_full_geometry", lambda _source: True)
+    by_key = {
+        (label.source.sourceRepresentativeSha256, label.reference.positionIndex): label
+        for label in labels
+    }
+
+    class Repository(SqlAlchemyGridCellContentRepository):
+        def bind(self, _game, **_kwargs):
+            pass
+
+        def snapshot(self, _game, _cohort, _manifest):
+            return snapshot
+
+        def latest(self, _game, pixel, position):
+            label = by_key[pixel, position]
+            if pixel == labels[0].source.sourceRepresentativeSha256:
+                label = label.model_copy(update={"sequenceNumber": 999})
+            return SimpleNamespace(document=label.model_dump(mode="json"))
+
+    app = FastAPI()
+    service = SimpleNamespace(grid_cell_content=GridCellContentService(Repository(None, tmp_path)))
+    app.include_router(create_grid_cell_content_router(lambda: service), prefix="/api/v1")
+    with TestClient(app) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{GAME}/grid-quality-measurements/content-readiness",
+            params={"cohortId": str(uuid4()), "manifestSha256": "a" * 64},
+        )
+    assert response.status_code == 200
+    report = response.json()
+    assert report["state"] == report["frozenPinCoverage"]["state"] == "evaluable"
+    assert report["games"] == report["frozenPinCoverage"]["games"]
+    live = report["annotationProgress"]["games"][str(GAME)]
+    assert live["TRAIN"]["reasonCodes"] == ["CONTENT_SEQUENCE_CONFLICT", "CONTENT_UNKNOWN_LIMIT"]
+    assert live["TRAIN"]["boards"] == 1 and live["TRAIN"]["slots"] == 15
+    assert live["TRAIN"]["states"]["unknown"] == 15
+    assert live["A"]["states"]["visible"] == 15
+    assert live["REGRESSION"]["fullPhotos"] == 5

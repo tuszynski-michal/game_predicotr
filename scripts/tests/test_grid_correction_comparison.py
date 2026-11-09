@@ -95,6 +95,8 @@ class ComparisonTest(unittest.TestCase):
         self.assertNotIn("__DATA__", html)
         cards = json.loads((self.root / "comparison-data.json").read_text())
         self.assertEqual(cards[0]["saved"], self.nodes)
+        self.assertFalse(cards[0]["paired"], "Nine detections are not a versioned T3 binding")
+        self.assertEqual(cards[0]["productionCells"]["state"], "unavailable")
         result = subprocess.run(
             [
                 "node",

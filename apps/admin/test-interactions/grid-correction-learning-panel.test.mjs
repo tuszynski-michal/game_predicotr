@@ -30,6 +30,7 @@ const READ_ONLY_METHODS = new Set([
   'listGridCorrectionApply',
   'getGridCorrectionApply',
   'getGameGridModelAssignment',
+  'getGridTrainingRun',
 ]);
 function assertOnlyReads(calls) {
   assert.deepEqual(
@@ -264,6 +265,167 @@ test('calibrated v5 retains raw quality display when automation is unqualified',
     await settle();
     assert.match(document.body.textContent, /Wynik: PASS/);
     assert.match(document.body.textContent, /Dowód oceny jest aktualny/);
+    assertOnlyReads(setup.calls);
+  } finally {
+    await view.close();
+  }
+});
+
+test('v6 content verdict controls the result even when historical raw quality passed; variant shortages remain manual', async () => {
+  const value = evaluation('current');
+  const counts = {
+    preserved: 14,
+    borderline: 1,
+    clipped: 0,
+    missing: 0,
+    wrongCells: 0,
+    ties: 0,
+    foreignSymbols: 0,
+    ambiguousBoards: 0,
+    usableBoards: 0,
+  };
+  const role = {
+    state: 'ready',
+    reasonCodes: [],
+    photos: 5,
+    fullPhotos: 5,
+    slots: 15,
+    visible: 15,
+    unknown: 0,
+    base: { ...counts, preserved: 15, borderline: 0, usableBoards: 1 },
+    candidate: counts,
+    degradedInstances: 1,
+  };
+  value.verdict = 'REVISE';
+  value.report = {
+    ...value.report,
+    schemaVersion: 'grid-model-evaluation-read-v6',
+    verdict: 'REVISE',
+    rawQuality: { verdict: 'PASS' },
+    contentEvaluation: [
+      {
+        gameId: GAME,
+        state: 'ready',
+        reasonCodes: [],
+        u: 0.001,
+        delta: 0.001,
+        measurementSha256: 'a'.repeat(64),
+        renderConfigurationSha256s: ['b'.repeat(64)],
+        classifierSnapshotSha256s: ['c'.repeat(64)],
+        freshRegression: true,
+        roles: { VALIDATION: role, REGRESSION: role },
+      },
+    ],
+    automaticCalibration: [
+      {
+        gameId: GAME,
+        state: 'unqualified',
+        reasonCodes: ['VARIANT_MINIMA'],
+        allowedVariants: [{ sha256: 'wide', stage: 'wide' }],
+        variants: [
+          {
+            variantKey: 'wide',
+            state: 'unqualified',
+            reasonCodes: ['VARIANT_MINIMA'],
+            b: { baselineBadSources: 2, baselineGoodSources: 1 },
+            regression: { baselineBadSources: 1, baselineGoodSources: 2 },
+          },
+        ],
+      },
+    ],
+  };
+  const finished = {
+    ...evaluatedRun,
+    verdict: 'REVISE',
+    contentExperiment: 'full-symbol-content-experiment-v1',
+    contentExperimentPlanSha256: 'd'.repeat(64),
+    trainingRunId: 'training',
+  };
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [finished] } }),
+    getGridCorrectionLearning: () => ({ data: finished }),
+    getGridCorrectionLearningEvaluation: () => ({ data: value }),
+    getGridTrainingRun: () => ({
+      data: {
+        runId: 'training',
+        gameId: GAME,
+        budget: {
+          usedSeconds: 13.5,
+          maxSeconds: 7200,
+          reservedSteps: 4,
+          maxSteps: 4800,
+        },
+      },
+    }),
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    assert.match(
+      document.body.textContent,
+      /Zawartość końcowych wycinków: REVISE/,
+    );
+    assert.match(document.body.textContent, /Nie zastępuje wyniku zawartości/);
+    assert.match(
+      document.body.textContent,
+      /Szerszy wycinek: Kontrole B: 2 błędnych/,
+    );
+    assert.match(document.body.textContent, /Zużyto 13.5 z 7200/);
+    assert.match(document.body.textContent, /wymaga kalibracji/);
+    assert.equal(
+      document.querySelector('[aria-label="Zastosowanie wersji"]'),
+      null,
+    );
+    assertOnlyReads(setup.calls);
+  } finally {
+    await view.close();
+  }
+});
+
+test('failed worker budget read stays unavailable and manual refresh retries the same unchanged run', async () => {
+  let budgetReads = 0;
+  const unchangedRun = {
+    ...run,
+    verdict: 'REVISE',
+    trainingRunId: 'training',
+    contentExperiment: 'full-symbol-content-experiment-v1',
+    updatedAt: '2026-11-09T01:00:00Z',
+  };
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [unchangedRun] } }),
+    getGridCorrectionLearning: () => ({ data: structuredClone(unchangedRun) }),
+    getGridTrainingRun: () => {
+      budgetReads += 1;
+      return budgetReads === 1
+        ? { error: { code: 'BUDGET_UNAVAILABLE' } }
+        : {
+            data: {
+              runId: 'training',
+              gameId: GAME,
+              budget: {
+                usedSeconds: 17.25,
+                maxSeconds: 7200,
+                reservedSteps: 9,
+                maxSteps: 4800,
+              },
+            },
+          };
+    },
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    assert.equal(budgetReads, 1);
+    const budget = () =>
+      document.querySelector('[aria-label="Budżet eksperymentu"]').textContent;
+    assert.match(budget(), /Brak potwierdzonego odczytu zużycia budżetu/);
+    assert.match(budget(), /Nie udało się potwierdzić/);
+    assert.doesNotMatch(budget(), /Zużyto 0/);
+    await click('Odśwież stan uczenia');
+    await settle();
+    assert.equal(budgetReads, 2);
+    assert.match(budget(), /Zużyto 17.3 z 7200/);
+    assert.doesNotMatch(budget(), /Nie udało się potwierdzić/);
     assertOnlyReads(setup.calls);
   } finally {
     await view.close();

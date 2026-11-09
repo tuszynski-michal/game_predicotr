@@ -438,6 +438,9 @@ import type {
   GetGridContentSessionSourceData,
   GetGridContentSessionSourceErrors,
   GetGridContentSessionSourceResponses,
+  GetGridContentTargetSourceData,
+  GetGridContentTargetSourceErrors,
+  GetGridContentTargetSourceResponses,
   GetGridCorrectionApplyData,
   GetGridCorrectionApplyErrors,
   GetGridCorrectionApplyResponses,
@@ -806,6 +809,9 @@ import type {
   ListGridContentSessionsData,
   ListGridContentSessionsErrors,
   ListGridContentSessionsResponses,
+  ListGridContentTargetsData,
+  ListGridContentTargetsErrors,
+  ListGridContentTargetsResponses,
   ListGridCorrectionApplyData,
   ListGridCorrectionApplyErrors,
   ListGridCorrectionApplyResponses,
@@ -3093,6 +3099,46 @@ export const getGridContentSessionSource = <
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-sessions/{session_id}/sources/{source_id}/asset',
+    ...options,
+  });
+
+/**
+ * Targets
+ */
+export const listGridContentTargets = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridContentTargetsData, ThrowOnError>,
+): RequestResult<
+  ListGridContentTargetsResponses,
+  ListGridContentTargetsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridContentTargetsResponses,
+    ListGridContentTargetsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-targets',
+    ...options,
+  });
+
+/**
+ * Target Asset
+ */
+export const getGridContentTargetSource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetGridContentTargetSourceData, ThrowOnError>,
+): RequestResult<
+  GetGridContentTargetSourceResponses,
+  GetGridContentTargetSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridContentTargetSourceResponses,
+    GetGridContentTargetSourceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-targets/sources/{source_id}/asset',
     ...options,
   });
 

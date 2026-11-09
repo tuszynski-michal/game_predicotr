@@ -123,6 +123,10 @@ def resolve_final_stage(
     original = baseline[binding[position]]
     if detection is original:
         return "baseline"
+    # A final spatial rebind can move another BASE object's apparent position.
+    # That object is never evidence of a successful WIDE replacement here.
+    if any(detection is item for item in baseline):
+        return None
     return "wide" if position in replacements else None
 
 

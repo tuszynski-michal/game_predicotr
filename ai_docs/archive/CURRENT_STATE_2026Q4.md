@@ -6,10 +6,21 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1168 — Panel pełnych symboli, HTML i odbiór (done)
+
+- Plik: `tasks/completed/1168-full-symbol-panel-acceptance.md`.
+- Commit: **v1.7.577** (hash dopisuje kolejny commit).
+- Wdrożono ordinary/blind content15, snapshot-bound targets/asset, liczniki live/frozen, panel v6 i HTML z rzeczywistymi15PNG/model; brak fallbacku9/indeksu.
+- Runda po Opus naprawia prawdziwy manifest pages/SHA, istniejące nazwy importów, lokalny brak renderu, ochronę obcych PNG/indexu oraz retry budżetu. Prawdziwy publish_json i cold PG wykluczają wcześniejsze błędy fixture.
+- QA:78 interakcji Admina,50 HTML,9 API+1realPG/cold/cleanup0/0 po poprawkach; lint/types i nowy Admin build PASS. Reviewer60/typecheck/build oraz wcześniejsze ONNX/PG i trwałość zgodnie z raportami. Docs/map PASS; zestawów pokrywających się nie sumowano.
+- Audyt: terminalowy Opus5.5/high, R1 REVISE zachowany; jedyna runda poprawek i R2 PASS0P0/0P1. Sześć tasków1163–1168 ma zweryfikowane report/receipt/modelSHA.
+- Residuale: T5P2-2 exactnodes/pokrycie HTML; T5P2-4 brak testu rzeczywistego detailproducenta, root potwierdził artifactroot/pin odczytem kodu; wcześniejszy koszt replayu T3/T4 bez benchmarku.
+- Odbiór: `quality/FULL_SYMBOL_CROPS_ACCEPTANCE_20261109.md` oraz `quality/TASK-1168_VERIFICATION.md`. Bez operatortraining, migracji0182/0183, usług, defaultu, importu691, merge/push. Cały plan gotowy do akceptacji operatora.
+
 ### TASK-1167 — Kontrolowane warianty treningu zawartości i ratunku (done)
 
 - Plik: tasks/completed/1167-bounded-content-training.md.
-- Commit: **v1.7.576** (hash dopisuje kolejny commit).
+- Commit: **v1.7.576 / `a9951e94f8cb7ad1912c1888f3f47eb94cb5efea`** (hash dopisuje kolejny commit).
 - Jeden child R0–R3, ancestor-unseen bank TRAIN, wspólny logiczny4800/7200,
   właściwy nadzór/ekspozycja R3, PASS-first A, rzeczywiste ONNX i restart/eksport.
 - BASE/WIDE: osobne progi i30+30, pełne rostery, independent physical API replay,

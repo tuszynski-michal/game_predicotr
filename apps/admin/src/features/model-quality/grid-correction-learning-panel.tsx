@@ -11,6 +11,7 @@ import type {
   GridModelVersionResponse,
   GridCorrectionLearningPreviewCommand,
   GridModelEvaluationCohortPin,
+  GridTrainingRunView,
 } from '@game-predictor/admin-api-client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -18,6 +19,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { GridCorrectionApplyPanel } from './grid-correction-apply-panel';
 import { GridHistoryRecovery } from './grid-history-recovery';
+import { GridContentEvaluationSummary } from './grid-content-evaluation-summary';
 import {
   GridValidationPurposeSelector,
   VALIDATION_POLICY,
@@ -65,7 +67,8 @@ export type GridCorrectionLearningClient = Pick<
   | 'listGridCorrectionApply'
   | 'getGridCorrectionApply'
   | 'resumeGridCorrectionApply'
->;
+> &
+  Partial<Pick<AdminApiClient, 'getGridTrainingRun'>>;
 
 interface Props {
   readonly apiBaseUrl: string;
@@ -102,6 +105,47 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const [evaluation, setEvaluation] = useState<GridModelEvaluationView | null>(
     null,
   );
+  const [trainingBudget, setTrainingBudget] =
+    useState<GridTrainingRunView['budget']>(null);
+  const [budgetError, setBudgetError] = useState('');
+  const [budgetRefresh, setBudgetRefresh] = useState(0);
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      setTrainingBudget(null);
+      setBudgetError('');
+      if (!selected?.trainingRunId || !api.getGridTrainingRun) return;
+      void api
+        .getGridTrainingRun(gameId, selected.trainingRunId)
+        .then((result) => {
+          if (!active) return;
+          if (
+            !result.data ||
+            result.data.gameId !== gameId ||
+            result.data.runId !== selected.trainingRunId
+          ) {
+            setBudgetError(
+              'Nie udało się potwierdzić bieżącego zużycia budżetu workera.',
+            );
+            return;
+          }
+          setTrainingBudget(result.data.budget);
+        })
+        .catch(() => {
+          if (active) setBudgetError('Nie udało się odczytać budżetu workera.');
+        });
+    });
+    return () => {
+      active = false;
+    };
+  }, [
+    api,
+    gameId,
+    selected?.trainingRunId,
+    selected?.updatedAt,
+    budgetRefresh,
+  ]);
   const [pending, setPending] = useState<LearningCommand | null>(null);
   const [corrupt, setCorrupt] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -180,6 +224,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   }
 
   async function refresh() {
+    setBudgetRefresh((value) => value + 1);
     previewSequence.current += 1;
     invalidateCurrentnessCheck();
     setEvaluationReading(true);
@@ -733,12 +778,49 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               Pełne symbole — kontrolowany eksperyment
             </label>
             {ready.contentExperimentReadiness ? (
-              <p>
-                Plan obejmuje do czterech wariantów, łącznie 4800 kroków i 7200
-                sekund. Pomiar banku błędów oraz wykonalności pozostaje do
-                sprawdzenia przed uczeniem. Automat nie jest jeszcze
-                zakwalifikowany.
-              </p>
+              <section aria-label="Gotowość eksperymentu zawartości">
+                <p>
+                  {ready.contentExperimentReadiness.state === 'metadata_ready'
+                    ? 'Metadane eksperymentu są gotowe.'
+                    : 'Przygotowanie eksperymentu jest zablokowane.'}{' '}
+                  Pomiar banku błędów i wykonalności workera pozostaje do
+                  sprawdzenia przed uczeniem. Automat nie jest jeszcze
+                  zakwalifikowany.
+                </p>
+                <p>
+                  {ready.contentExperimentReadiness.reasonCodes
+                    .map(reasonLabel)
+                    .join('; ')}
+                </p>
+                <ul>
+                  {ready.contentExperimentReadiness.games.map((game) => (
+                    <li key={game.gameId}>
+                      {gameName(games, game.gameId)}: do pomiaru banku{' '}
+                      {game.bankEligiblePhotos} zdjęć; wykluczono{' '}
+                      {game.excludedPhotos}.
+                    </li>
+                  ))}
+                </ul>
+                <details>
+                  <summary>Warianty i wspólny budżet eksperymentu</summary>
+                  <p>
+                    Do czterech wariantów, łącznie{' '}
+                    {ready.contentExperimentReadiness.maxSteps} kroków i{' '}
+                    {ready.contentExperimentReadiness.maxSeconds} sekund.
+                    Wznowienie nie odnawia budżetu. Rezerwy czasu:{' '}
+                    {ready.contentExperimentReadiness.armReserveSeconds?.join(
+                      ', ',
+                    ) ?? 'brak odczytu'}{' '}
+                    s.
+                  </p>
+                  <p>
+                    R0: poprawione cele; R1: statystyki normalizacji; R2: dwa
+                    rozmiary wejścia; R3: pomocnicze obwiednie po niezaliczonym
+                    R2. Bank korzysta wyłącznie z dopuszczalnego TRAIN. A
+                    wybiera model; B kalibruje, REG jest końcową kontrolą.
+                  </p>
+                </details>
+              </section>
             ) : null}
             {ready.detectorReadiness ? (
               <p>
@@ -1085,6 +1167,32 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       </ul>
       {selected ? (
         <article aria-label="Postęp uczenia">
+          {selected.contentExperiment ? (
+            <section aria-label="Budżet eksperymentu">
+              <p>
+                Kontrolowany eksperyment pełnych symboli. Jego zakończenie nie
+                oznacza automatycznego zastosowania modelu.
+              </p>
+              {trainingBudget ? (
+                <p>
+                  Zużyto {trainingBudget.usedSeconds.toFixed(1)} z{' '}
+                  {trainingBudget.maxSeconds} s; zarezerwowano{' '}
+                  {trainingBudget.reservedSteps} z {trainingBudget.maxSteps}{' '}
+                  kroków. Ponowienie zachowuje dotychczasowe zużycie.
+                </p>
+              ) : (
+                <p>Brak potwierdzonego odczytu zużycia budżetu.</p>
+              )}
+              {budgetError ? <p role="alert">{budgetError}</p> : null}
+              <details>
+                <summary>Tożsamość planu eksperymentu</summary>
+                <p>
+                  {selected.contentExperimentPlanSha256 ??
+                    'Plan oczekuje na przygotowanie.'}
+                </p>
+              </details>
+            </section>
+          ) : null}
           <p>
             Stan: {learningStatus[selected.status]} · {learningStage(selected)}
             {selected.errorCode ? ` · ${reasonLabel(selected.errorCode)}` : ''}
@@ -1361,6 +1469,9 @@ function LearningReport({
   return (
     <section aria-label="Wynik uczenia">
       <h4>Wynik: {report.verdict}</h4>
+      {report.schemaVersion === 'grid-model-evaluation-read-v6' ? (
+        <GridContentEvaluationSummary report={report} games={games} />
+      ) : null}
       {'automaticCalibration' in report && report.automaticCalibration ? (
         <>
           <p>

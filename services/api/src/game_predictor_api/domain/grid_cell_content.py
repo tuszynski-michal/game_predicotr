@@ -188,6 +188,7 @@ def content_readiness(
     required_games: Sequence[UUID],
     *,
     unresolved_photos: Mapping[tuple[str, str], int] | None = None,
+    report_live_conflicts: bool = False,
 ) -> dict[str, object]:
     """The frozen target denominator includes absent/unapproved annotations as unknown."""
     refs: dict[tuple[str, str, int], ContentRevision] = {}
@@ -220,6 +221,7 @@ def content_readiness(
             members = [t for t in unique.values() if str(t.gameId) == game and t.role == role]
             counts = dict.fromkeys(("visible", "occluded", "out_of_frame", "unknown"), 0)
             unapproved = 0
+            conflicts: set[str] = set()
             full: dict[str, set[int]] = {}
             for target in members:
                 current_ref = refs.get(target.key)
@@ -228,11 +230,19 @@ def content_readiness(
                     unapproved += 15
                     continue
                 # Copy UUIDs can differ, but their frame/slot and label must agree.
-                if (
-                    not same_content_frame(current_ref.source, target.source)
-                    or current_ref.sequenceNumber != target.sequenceNumber
-                ):
-                    raise ContentError("CONTENT_FRAME_CONFLICT", "Copy frames differ.")
+                frame_conflict = not same_content_frame(current_ref.source, target.source)
+                sequence_conflict = current_ref.sequenceNumber != target.sequenceNumber
+                if frame_conflict or sequence_conflict:
+                    if not report_live_conflicts:
+                        raise ContentError("CONTENT_FRAME_CONFLICT", "Copy frames differ.")
+                    # A stale live board is unknown progress, not a failure to read
+                    # independent immutable pins. Keep all 15 slots in the population.
+                    counts["unknown"] += 15
+                    unapproved += 15
+                    conflicts.add(
+                        "CONTENT_FRAME_CONFLICT" if frame_conflict else "CONTENT_SEQUENCE_CONFLICT"
+                    )
+                    continue
                 for cell in current_ref.reference.cells:
                     counts[cell.state] += 1
                 if target.fullPhoto and all(
@@ -243,7 +253,7 @@ def content_readiness(
                     )
             total = len(members) * 15
             complete = sum(slots == set(range(9)) for slots in full.values())
-            reasons = []
+            reasons = sorted(conflicts)
             unresolved = (unresolved_photos or {}).get((game, role), 0)
             if unresolved:
                 reasons.append("CONTENT_ROLE_MEMBERSHIP_INCOMPLETE")
@@ -282,9 +292,15 @@ def content_readiness_views(
     unresolved_photos: Mapping[tuple[str, str], int] | None = None,
 ) -> dict[str, object]:
     """Live progress cannot upgrade immutable training/evaluation input coverage."""
-    progress = content_readiness(targets, live, required_games, unresolved_photos=unresolved_photos)
     coverage = content_readiness(
         targets, frozen, required_games, unresolved_photos=unresolved_photos
+    )
+    progress = content_readiness(
+        targets,
+        live,
+        required_games,
+        unresolved_photos=unresolved_photos,
+        report_live_conflicts=True,
     )
     return {
         **coverage,

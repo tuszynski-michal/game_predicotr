@@ -15,6 +15,102 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+## D-593 — Izolowane etykietowanie i dowodowy eksport HTML
+
+Status: accepted — wykonanie FULL_SYMBOL_CROPS_PLAN_20261108, T5.
+Data: 2026-11-08
+
+Zatwierdzone pełne T5 obejmuje zwykłe adnotacje15pól również B/REG oraz
+ślepy pomiar TRAIN/A. Są to osobne kontrolery; nowy canvas może współdzielić
+wyłącznie rendering/interakcje. Ślepy kontroler nie importuje zwykłych
+etykiet, starych szkiców ani modelowych propozycji. Zmiana trybu/gry/przebiegu/
+źródła odmontowuje i czyści canvas. Dokładny pending UUID/body służy retry,
+lecz nie odtwarza ślepego canvasu po reload. Nie zmienia się geometrii ani
+symboli przy zapisie zwykłych content references. Remote Reviewer proxy
+nie dostaje nowych tras; workflow jest lokalny w Adminie.
+
+Zwykły edytor wymaga metadanych/assetu również gdy annotation=null. Rozszerza
+się istniejący prefix grid-quality-measurements o odczyty, bez równoległego
+ledgera i bez ujawniania prywatnych ścieżek:
+
+- GET content-targets, operation listGridContentTargets, query cohortId UUID,
+  manifestSha256 SHA64, limit1..50 default20 oraz offset>=0 default0.
+  ContentTargetPage ma version=source-cell-content-targets-v1, gameId,
+  cohortId, manifestSha256, items oraz nextOffset:int|null. Limit dotyczy
+  target items. ContentTargetResponse zawiera istniejący ContentSource,
+  displayName:string|null, positionIndex0..8, sequenceNumber:int|null,
+  role TRAIN/A/B/REGRESSION, state ready/unresolved i reasonCodes.
+- Lista używa exact frozen snapshotv4 i role-proven used sources w stabilnym
+  porządku snapshot/source+position. Nie zwraca nodes, labels ani model hints,
+  także dla setupu TRAIN/A. Aktualne current_source/require_board są sprawdzane
+  per target; nierozstrzygnięta sekwencja, retired lub identity drift daje
+  unresolved/null z kodem, bez kalkulacji. UUID/order wyświetlania nie jest
+  dowodem kolejności domenowej. Błędy DB/infrastruktury nie udają pustej listy.
+- GET content-targets/sources/{sourceId}/asset, operation
+  getGridContentTargetSource, query cohortId/manifestSha256. Membership i
+  exact pin przed filesystem; no-store/nosniff. Reuse istniejącego snapshotu
+  oraz wyłącznie wybranego pinned original JPEG. Manifest/index/pages
+  weryfikowane bez pełnego skanowania JPEG dla każdego requestu. Gdy live
+  source jest managed crop, można pokazać istniejący pełny immutable original
+  snapshotu; to nie deklaracja obrazu, który aktualnie otrzymała sieć.
+- Wrappery listGridContentTargets(gameId,filters) i
+  gridContentTargetSourceUrl(gameId,sourceId,pins). DisplayName pochodzi
+  wyłącznie z istniejącej logicznej nazwy źródła/safe basename; brak→null.
+  Nie używa się internal relative_path jako operatorowej etykiety. UI wybiera
+  kohorty/zdjęcia po nazwie/roli; UUID/SHA nie są ręcznym głównym formularzem.
+
+R1 doprecyzował źródło displayName: materializowane strony nie zapisują
+logicalName. Jeden ograniczony odczyt dla wyświetlanej strony (≤50 źródeł)
+używa istniejącego powiązania source_images → image_import_job_files po
+game/import/file_execution_key. Importowe source_relative_path jest nazwą
+wejściową; do odpowiedzi trafia wyłącznie safe basename po zgodności obu
+checksum źródła z pinem. Nie jest to fallback do storage relative_path ani
+zmiana tożsamości/podziału zdjęcia. Brak prawdziwej nazwy pozostaje null.
+
+Readiness P2-5: tylko live annotationProgress toleruje konflikt pojedynczej
+planszy jako15unknown/unapproved z zachowanym mianownikiem i jawnym kodem.
+Konflikt nie przerywa HTTP ani nie zmienia niezależnego strict frozenPinCoverage.
+Nie zmienia się znaczenia unresolvedPhotos i nie osłabia freshness/apply gate.
+Live role z konfliktem jest not_evaluable, również przy małym odsetku unknown.
+Istniejący DTO wystarcza; nowe odczyty przechodzą pełny backend/OpenAPI/
+generated SDK/wrapper/request pion i regresję izolacji ślepego trybu.
+
+HTML używa rzeczywistego render_cells(..., raster_sink=None). Default None
+zachowuje dotychczasowy wynik i dostaje regresję; istniejący CLI rzeczywiście
+konsumuje sink do15losslessPNG z produkcyjnego VirtualCellRenderer, z osobnym
+normalized RGB pixel SHA i encoded PNG file SHA. Nowy opcjonalny indeks
+production-cells/index.json ma zamknięty schemaVersion=
+grid-comparison-production-cells-index-v1 oraz entries. Entry:
+sourceId, gameId, role VALIDATION/REGRESSION, manifest{path,sha256},
+detail{path,sha256}. Limit1MiB/4096entries; strict report-relative POSIX paths,
+bez traversal/linków/junction. Detail ma limit96MiB, exact detail-v1, game/job/
+evaluation/cohort/role. Manifest/cohort SHA i detail pin muszą odpowiadać
+zapisanemu report read-v6 i jego rawQuality. Wersjonowany T3 replay sprawdza
+source/slot/sequence, matching, input support i piksele; dziewięć detekcji
+ani indeks pozycji nie są zastępczym dowodem powiązania.
+
+CLI dostarcza rzeczywistą ścieżkę stworzenia pakietu z pinned reportv6 i
+jawnego artifact root, bez ręcznego składania JSON przez operatora. Pakiet
+jest plikowym eksportem raportu, nie nowym domenowym datasetem. Brak/mismatch
+jest unavailable, nie fallback do innego oryginału. Rzeczywiste wejście NN
+wymaga strict diagnosticsv1/v2 albo opisanego poniżej verified T3 RGB; szerszy
+podgląd użytkownika jest osobny.
+Jeśli brak legacy diagnostics, istniejący T3 inputEvidence może dostarczyć
+rzeczywisty RGB: verify_input odtwarza source/content/quad/preset/geometry/
+transform i raster SHA, następnie produkcyjny crop_board na tej samej
+zweryfikowanej macierzy odtwarza RGB. Przed zapisem PNG wymagany jest exact
+inputRasterSha256 match. To dowód RGB, nie zapis model-stage tensora;
+nie tworzy się tensorSHA ani deklaracji archiwalnego tensora. Brak/mismatch
+pozostaje jawnie niedostępny. Nie wykonuje się inferencji, domenowych zapisów,
+operatorowego treningu ani wdrożenia przy HTML lub otwarciu panelu.
+
+Odbiór T5 obejmuje również handoff z T4 Opus R2 PASS: bounded odczyt
+bundle w production_cell_input, odrzucenie przypisania obcej bazowej detekcji
+jako WIDE oraz domyślny test stale stamp przy identycznych węzłach. To korekty
+istniejącej semantyki dowodu, bez nowego wariantu treningu lub zmiany progów.
+Audyt T4 pozostaje historycznym PASS z P2; dopiero audyt T5 obejmuje te nowe
+delty i ich wyniki. Koszt widoku inspektora T4P2-1 pozostaje osobnym residualem.
+
 ## D-592 — Ograniczony eksperyment uczenia pełnych symboli z jednym budżetem
 
 Status: accepted — wykonanie FULL_SYMBOL_CROPS_PLAN_20261108, T4.

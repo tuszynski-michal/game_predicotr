@@ -260,7 +260,7 @@ Dokładne komendy i dowody w quality/TASK-1167_VERIFICATION.md.
 
 ## Outcome
 
-Commit: v1.7.576 (hash dopisuje kolejny commit).
+Commit: v1.7.576 / `a9951e94f8cb7ad1912c1888f3f47eb94cb5efea`.
 
 ### Changed
 

@@ -8581,6 +8581,132 @@
         "title": "ContentSource",
         "type": "object"
       },
+      "ContentTargetPage": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentTargetResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "nextOffset": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextoffset"
+          },
+          "version": {
+            "const": "source-cell-content-targets-v1",
+            "default": "source-cell-content-targets-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "cohortId",
+          "manifestSha256",
+          "items",
+          "nextOffset"
+        ],
+        "title": "ContentTargetPage",
+        "type": "object"
+      },
+      "ContentTargetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "role": {
+            "enum": [
+              "TRAIN",
+              "A",
+              "B",
+              "REGRESSION"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencenumber"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ContentSource"
+          },
+          "state": {
+            "enum": [
+              "ready",
+              "unresolved"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "positionIndex",
+          "sequenceNumber",
+          "role",
+          "state",
+          "reasonCodes"
+        ],
+        "title": "ContentTargetResponse",
+        "type": "object"
+      },
       "ContentWriteCommand": {
         "additionalProperties": false,
         "properties": {
@@ -58204,6 +58330,218 @@
           }
         },
         "summary": "Asset",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-targets": {
+      "get": {
+        "operationId": "listGridContentTargets",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cohortId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohortid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifestSha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifestsha256",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentTargetPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Targets",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-targets/sources/{source_id}/asset": {
+      "get": {
+        "operationId": "getGridContentTargetSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cohortId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cohortid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifestSha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Manifestsha256",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Target Asset",
         "tags": [
           "grid-quality-measurements"
         ]

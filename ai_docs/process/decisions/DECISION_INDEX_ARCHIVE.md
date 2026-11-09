@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-563](DECISION_LOG_2026.md#d-563--przycinanie-i-usuwanie-oryginałów-importów-oczekujących-na-przegląd) | Przycinanie i usuwanie oryginałów importów oczekujących na przegląd | accepted | 2026-10-18 | Import `completed` albo `waiting_for_review` kwalifikuje oryginał; aktywne, przerwane i anulowane importy wykluczają (`IMPORT_NOT_SETTLED`). |
 | [D-562](DECISION_LOG_2026.md#d-562--przycięty-wariant-zarządzanego-oryginału) | Przycięty wariant zarządzanego oryginału | accepted | 2026-10-17 | Bezstratny crop JPEG z atestem obok pliku zastępuje usunięty oryginał; współrzędne i zatwierdzenia bez zmian, odczyt poza kadrem kończy się błędem. |
 | [D-561](DECISION_LOG_2026.md#d-561--parity-eksportu-onnx-względna-do-wielkości-wyjścia) | Parity eksportu ONNX względna do wielkości wyjścia | accepted | 2026-10-16 | Różnica torch/ONNX dzielona przez max(1, moduł wyjścia torch): współrzędne w pikselach nie padają na szumie fp32, wyjścia jednostkowe bez zmian. |
 | [D-560](DECISION_LOG_2026.md#d-560--wspólny-kandydat-geometrii-v3-kilku-gier) | Wspólny kandydat geometrii V3 kilku gier | accepted | 2026-10-16 | Jedna baza na TRAIN kilku gier z równą wagą gier i nagrań, przypięty plan bez aliasów kontrolnych, ocena na wszystkich kohortach treningu. |

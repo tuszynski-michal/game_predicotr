@@ -1,10 +1,29 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-11-08
+last_updated: 2026-11-09
 ---
 
 # Architektura laboratorium wizji
+
+## Isolated annotation and file-backed production views (D-593, TASK-1168)
+
+Local Admin mounts separate ordinary-reference and blind-session controllers.
+They may share a new canvas primitive, but blind mode never imports ordinary
+reference reads, prediction hints or previous drafts. Context switches unmount
+and clear it; persisted pending commands support exact retry without rehydration.
+
+Existing content routes gain snapshot-bound paged target metadata and a selected
+plain original asset. The response carries no nodes/labels/private paths; missing
+sequence is unresolved, never a guessed domain position. Live readiness tolerance
+is limited to annotationProgress, retaining strict frozen coverage/currentness.
+
+The existing file CLI uses optional render_cells raster_sink and actual pinned
+VirtualCellRenderer output. A closed production-cells index pins reportv6,
+manifest/detail/source identity and T3 matching. A producer builds it from the
+explicit artifact root. RGB and encoded PNG checksums are distinct. Strict
+legacy diagnostics or T3 verify_input/matrix/inputRasterSHA replay can show real
+NN RGB, with no fabricated tensor proof or neural inference.
 
 ## Bounded content experiment (D-592, TASK-1167)
 

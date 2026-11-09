@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 from uuid import UUID
 
@@ -31,7 +31,11 @@ from game_predictor_api.domain.production_cell_geometry import (
 from ..geometry_core.metrics import hungarian, quad_iou
 from .grid_cell_content_reference import frozen_content_reference
 from .grid_rescue_strategy import slots
-from .virtual_cell_extraction import VirtualCellExtractionError, VirtualCellRenderer
+from .virtual_cell_extraction import (
+    VirtualCellExtractionError,
+    VirtualCellRender,
+    VirtualCellRenderer,
+)
 
 
 def real_source_support(frame: CanonicalSourceFrame) -> list[list[float]]:
@@ -60,7 +64,12 @@ def reference_context(target: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def render_cells(
-    frame: CanonicalSourceFrame, nodes: Any, target: Mapping[str, Any], context: Mapping[str, Any]
+    frame: CanonicalSourceFrame,
+    nodes: Any,
+    target: Mapping[str, Any],
+    context: Mapping[str, Any],
+    *,
+    raster_sink: Callable[[VirtualCellRender], None] | None = None,
 ) -> list[dict[str, Any]]:
     lattice = SourceLatticeNodes(tuple(SourcePoint(float(x), float(y)) for x, y in nodes))
     geometry = VirtualBoardGeometry(
@@ -114,6 +123,12 @@ def render_cells(
             )
         except VirtualCellExtractionError as error:
             results.append({"support": None, "reason": error.code})
+            continue
+        # The default observer remains metadata-only. A file consumer can retain
+        # these exact, validated RGB pixels, rather than approximating the warp.
+        # Sink failures must propagate, never become a missing production cell.
+        if raster_sink is not None:
+            raster_sink(rendered)
     return results
 
 

@@ -14,6 +14,8 @@ import {
   writeGridBlindContentObservation as generatedContentObservation,
   advanceGridContentSession as generatedContentAdvance,
   getGridContentReadiness as generatedContentReadiness,
+  listGridContentTargets as generatedContentTargets,
+  getGridContentTargetSource as generatedContentTargetSource,
   previewGridContentSampling as generatedContentSampling,
 } from './generated/sdk.gen';
 import type {
@@ -22,6 +24,8 @@ import type {
   ContentBlindWrite,
   ContentSessionAdvance,
   ContentSamplingPreview,
+  ListGridContentTargetsData,
+  GetGridContentTargetSourceData,
 } from './generated/types.gen';
 export type {
   ContentWriteCommand,
@@ -31,6 +35,17 @@ export type {
   ContentSamplingPreview,
   ContentSessionResponse,
   ContentSessionStatus,
+  ContentSessionCommandResponse,
+  ContentSessionList,
+  ContentBlindTarget,
+  ContentSessionTargetSelection,
+  ContentReferenceResponse,
+  ContentWriteResponse,
+  ContentReadinessResponse,
+  ContentReadinessSummary,
+  ContentRoleReadiness,
+  ContentTargetPage,
+  ContentTargetResponse,
   ContentRevision,
   ContentSource,
 } from './generated/types.gen';
@@ -1888,6 +1903,33 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           position_index: positionIndex,
         },
       }),
+    listGridContentTargets: (
+      gameId: string,
+      filters: ListGridContentTargetsData['query'],
+    ) =>
+      generatedContentTargets({
+        client,
+        path: { game_id: gameId },
+        query: filters,
+      }),
+    getGridContentTargetSource: (
+      gameId: string,
+      sourceId: string,
+      pins: GetGridContentTargetSourceData['query'],
+    ) =>
+      generatedContentTargetSource({
+        client,
+        path: { game_id: gameId, source_id: sourceId },
+        query: pins,
+      }),
+    gridContentTargetSourceUrl: (
+      gameId: string,
+      sourceId: string,
+      pins: GetGridContentTargetSourceData['query'],
+    ) => {
+      const query = new URLSearchParams(pins);
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/grid-quality-measurements/content-targets/sources/${encodeURIComponent(sourceId)}/asset?${query.toString()}`;
+    },
     writeGridCellContentReference: (
       gameId: string,
       body: ContentWriteCommand,

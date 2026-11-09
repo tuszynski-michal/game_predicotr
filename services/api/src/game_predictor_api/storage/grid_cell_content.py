@@ -164,11 +164,29 @@ class SqlAlchemyGridCellContentRepository:
         self, game: UUID, source: ContentSource, position: int, sequence: int
     ) -> None:
         target = current_targets(self.session, game, source.sourceId).get(position)
+        self.require_current_board(target, sequence)
+
+    @staticmethod
+    def require_current_board(target: dict[str, Any] | None, sequence: int) -> None:
         if target is None or not own_target(target):
             raise ContentError("CONTENT_TARGET_UNAVAILABLE", "A current own board is required.")
         board = target.get("board") or {}
         if board.get("sequence_number") != sequence or board.get("status") == "rejected":
             raise ContentError("CONTENT_SEQUENCE_CONFLICT", "The logical board sequence differs.")
+
+    def list_targets(
+        self, game: UUID, cohort: UUID, manifest: str, limit: int, offset: int
+    ) -> dict[str, Any]:
+        from .grid_cell_content_targets import list_targets
+
+        self.bind(game)
+        return list_targets(self, game, cohort, manifest, limit, offset)
+
+    def target_source_asset(self, game: UUID, cohort: UUID, manifest: str, source: UUID) -> Path:
+        from .grid_cell_content_targets import target_source_asset
+
+        self.bind(game)
+        return target_source_asset(self, game, cohort, manifest, source)
 
     def latest(self, game: UUID, pixel: str, position: int) -> Revision | None:
         return self.session.scalar(

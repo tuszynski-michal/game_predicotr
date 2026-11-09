@@ -41,12 +41,17 @@ def manifest_input_context(root: Any, manifest: Mapping[str, Any]) -> dict[str, 
     import json
 
     from game_predictor_api.application.grid_model_evaluation import bundle_sha256
+    from game_predictor_api.domain.grid_content_bundle import ContentBundleTooLarge
     from game_predictor_api.domain.grid_rescue_policy import require_rescue_evidence
+    from game_predictor_api.storage.grid_content_bundle import read_content_bundle_bytes
 
     path = (root / manifest["managedDirectory"] / "bundle.json").resolve()
-    if not path.is_relative_to(root.resolve()) or path.stat().st_size > 16 * 1024 * 1024:
+    if not path.is_relative_to(root.resolve()):
         raise ValueError("INPUT_CONTENT_BUNDLE_PATH_OR_SIZE")
-    content = path.read_bytes()
+    try:
+        content = read_content_bundle_bytes(path)
+    except ContentBundleTooLarge as error:
+        raise ValueError("INPUT_CONTENT_BUNDLE_PATH_OR_SIZE") from error
     if hashlib.sha256(content).hexdigest() != bundle_sha256(manifest):
         raise ValueError("INPUT_CONTENT_BUNDLE_CHANGED")
     bundle = json.loads(content)

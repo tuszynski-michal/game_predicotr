@@ -1,10 +1,28 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-11-08
+last_updated: 2026-11-09
 ---
 
 # Laboratorium wizji
+
+## Izolowane oznaczenia i rzeczywisty HTML (D-593, TASK-1168)
+
+Zwykły edytor15pól obejmuje również B/REG, a osobny ślepy pomiar TRAIN/A
+zaczyna każdy cel/przebieg od pustego canvasu. Zwykłe etykiety, szkice i
+predykcje nie wchodzą do ślepego kontrolera. Retry zachowuje dokładną komendę,
+bez odtwarzania jej dawnych punktów na ślepym canvasie. Zapis content labels
+nie zmienia geometrii ani symboli.
+
+Lista celów i plain asset są przypięte do źródeł zamrożonej kohorty i dostępne
+przed pierwszą etykietą. Operator wybiera zdjęcia po nazwie/roli, bez ręcznego
+wpisywania SHA/UUID. Konflikt live sekwencji dotyczy jednej planszy i nie
+ukrywa frozenPinCoverage; nie znosi niezależnych warunków aktualności oceny.
+
+HTML pokazuje15rzeczywistych rastrów produkcyjnego klasyfikatora oraz źródłowo
+zweryfikowany RGB wejścia NN. Szerszy podgląd i brak zapisanego tensora są
+jawne. CLI tworzy pinned pakiet bez ręcznego JSON; niepewne dopasowanie nie
+udaje poprawnego porównania. Dokładny kontrakt i ograniczenia opisuje D-593.
 
 ## Kontrolowane warianty pełnych symboli (D-592, TASK-1167)
 

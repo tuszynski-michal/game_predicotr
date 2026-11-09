@@ -1,7 +1,7 @@
 ---
 title: Poprawa cięcia pełnych symboli w planszach 3 × 5
 status: accepted
-last_updated: 2026-11-08
+last_updated: 2026-11-09
 ---
 
 # Poprawa cięcia pełnych symboli w planszach 3 × 5
@@ -13,6 +13,13 @@ Rzeczywisty trening, merge/push, migracje operatora, restarty, aktywacja
 i import pozostałych zdjęć wymagają osobnych zgód. W razie limitu Opus
 operator polecił kontynuować implementację i odłożyć audyty; oczekujące
 zmiany nie otrzymują PASS i nie są zamykane jako audytowane.
+
+Stan wykonania 2026-11-09: T0–T5 wykonane z osobnymi commitami v1.7.572–577
+i audytami Opus PASS; końcowe zamknięcie T5 zapisuje task-close. Operator
+zaakceptował ujawniony wzrost szacunku
+do 15–19 godzin, w tym domknięcie kalibracji BASE/WIDE. Szczegółowy odbiór:
+`ai_docs/quality/FULL_SYMBOL_CROPS_ACCEPTANCE_20261109.md`. Historyczny
+werdykt audytu projektu poniżej nie jest przepisywany przez audyty kodu.
 
 ## Stan i cel
 

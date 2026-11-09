@@ -1,10 +1,25 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-11-08
+last_updated: 2026-11-09
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Cele oznaczeń i izolowany pomiar (TASK-1168, D-593)
+
+Istniejący prefix grid-quality-measurements udostępnia GET content-targets:
+cohortId/manifestSha256, limit1..50(default20), offset>=0. Zamknięty
+source-cell-content-targets-v1 przekazuje snapshot-bound źródło, nullable
+logical displayName, slot/sekwencję, rolę, stan i reasonCodes; bez etykiet,
+geometrii i ścieżek. GET content-targets/sources/{sourceId}/asset z tym samym
+pinem zwraca wyłącznie wybrane źródło po kontroli membership, no-store/nosniff.
+Nowe odczyty przechodzą backend/OpenAPI/generated/wrapper/request pion.
+
+Live annotationProgress zachowuje konflikt per board jako unknown/unapproved
+z jawnym kodem, bez przerywania całego GET. FrozenPinCoverage i freshness
+raportu zachowują dotychczasowe ścisłe reguły. Zwykłe i ślepe zapisy używają
+istniejących odrębnych komend T2/CAS; nie zmieniają geometrii ani symboli.
 
 ## Eksperyment pełnych symboli (TASK-1167, D-592)
 

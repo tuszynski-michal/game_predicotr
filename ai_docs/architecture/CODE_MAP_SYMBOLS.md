@@ -314,7 +314,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/geometry_qualification.py: class GridCorrectionCellSymbolPayload, class GridCorrectionCellSymbolSuggestionResponse, class GridCorrectionSymbolsResponse, to_grid_correction_symbols_response, class ManualSourceGeometryPoint, class GeometryQualificationPayload, class AutomaticPartialGeometryProposalPayload, class AutomaticFrameGeometryProposalPayload
 - schemas/grid_audit_proposals.py: class GridAuditQueueCountsResponse, class GridAuditQueueItemResponse, class GridAuditQueuePageResponse, class GridAuditNodeResponse, class GridAuditProposalGridResponse, class GridAuditSymbolSuggestionsResponse, class GridAuditProposalResponse, to_grid_audit_queue_item_response, to_grid_audit_queue_page_response, to_grid_audit_proposal_response
 - schemas/grid_calibration.py: class GeometryCohortResponse, class GridCalibrationProfileResponse, class CreateGridCalibrationCandidateResponse, class GridEndToEndGateSource, class GridEndToEndGateReportCommand, class CreateGridCalibrationCandidateCommand, class GeometryCohortDiagnosticsResponse, class GridProfileActivationCommand, class GridProfileActivationPreviewResponse, class GridProfileActivationResponse, class GridProfileActivationCommandResponse, to_cohort_response, to_diagnostics_response, to_profile_response, to_activation_preview_response, to_activation_response
-- schemas/grid_cell_content.py: class ContentWriteCommand, class ContentSessionTargetSelection, class ContentSessionCreate, class ContentBlindWrite, class ContentSessionAdvance, class ContentReferenceResponse, class ContentWriteResponse, class ContentBlindTarget, class ContentSessionStatus, class ContentSessionResponse, class ContentSessionCommandResponse, class ContentSessionList, class ContentSamplingPreview, class ContentRoleReadiness, class ContentReadinessSummary, class ContentReadinessResponse, class ContentSamplingResponse
+- schemas/grid_cell_content.py: class ContentWriteCommand, class ContentSessionTargetSelection, class ContentSessionCreate, class ContentBlindWrite, class ContentSessionAdvance, class ContentReferenceResponse, class ContentWriteResponse, class ContentBlindTarget, class ContentTargetResponse, class ContentTargetPage, class ContentSessionStatus, class ContentSessionResponse, class ContentSessionCommandResponse, class ContentSessionList, class ContentSamplingPreview, class ContentRoleReadiness, class ContentReadinessSummary, class ContentReadinessResponse, class ContentSamplingResponse
 - schemas/grid_correction_apply.py: class GridCorrectionApplyTarget, class GridCorrectionApplyPreview, class GridCorrectionApplyStartCommand, class GridCorrectionApplyStep, class GridCorrectionApplyView, class GridCorrectionApplyList
 - schemas/grid_correction_learning.py: class CorrectionLearningClosedModel, class GridCorrectionLearningExclusion, class GridCorrectionLearningPreviewCommand, class GridCorrectionLearningStartCommand, class GridCorrectionLearningRoleCount, class GridCorrectionDataAvailability, class GridCorrectionLearningCount, class GridCorrectionLearningExclusionCount, class GridCorrectionLearningProgressCounts, class DetectorRoleReadiness, class GridDetectorReadiness, class GridValidationSourceChoice, class GridValidationPurposeChoice, class GridValidationComponentChoice, class GridValidationPurposeCount, class GridCorrectionLearningPreview, class GridCorrectionLearningView, class GridCorrectionLearningList, class GridContentExperimentGameReadiness, class GridContentExperimentReadiness
 - schemas/grid_engine_acceptance.py: class HistoricalAcceptanceCreateCommand, class HistoricalAcceptancePreviewCommand, class HistoricalAcceptanceConfirmCommand, class HistoricalAcceptanceRunCommand, class HistoricalAcceptanceItemResponse, class HistoricalAcceptanceResponse, historical_acceptance_response
@@ -429,6 +429,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_cell_content_migration.py: guard, manifest, protect, upgrade, downgrade
 - storage/grid_cell_content_models.py: class GridCellContentRevisionModel, class GridCellContentSessionModel, class GridCellContentCommandModel
 - storage/grid_cell_content_pins.py: require_content_target_identity, content_pin, apply_blind_a_geometry, require_current_content_pin
+- storage/grid_cell_content_targets.py: list_targets, target_source_asset
 - storage/grid_cohort_asset_retention.py: class AssetDeadline, class CohortAssetDeadline, cohort_asset_guard_key, acquire_cohort_asset_guard, parse_cohort_asset_path, read_cohort_asset_reference
 - storage/grid_content_bundle.py: read_content_bundle_bytes, read_content_bundle
 - storage/grid_content_experiment_evidence.py: read_json, inspect_content_experiment, content_rescue_pin
@@ -621,6 +622,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/cell_grid_review_http.py: class CellGridReviewHttpError, is_loopback_host, class CellGridReviewHttpApplication, create_cell_grid_review_server
 - images/cell_grid_v2_quality.py: class CellGridV2QualityError, build_v2_quality_report, build_calibrated_quality_report, v2_quality_report_bytes, calibrated_quality_report_bytes
 - images/comparison_input_diagnostics.py: diagnostic_inputs
+- images/comparison_production_bundle.py: build_production_package
+- images/comparison_production_cells.py: class ComparisonProductionCells
 - images/contrast_frame_grid_v12.py: class ContrastFrameGridV12Error, class FrameGridSample, class ContrastFrameGridV12Profile, build_contrast_frame_grid_v12_profile, class ContrastFrameGridV12Result, class ContrastFrameGridV12Evaluation, class ContrastFrameGridV12Registrar
 - images/corpus.py: class CorpusValidationError, class CorpusValidationReport, validate_corpus
 - images/dataset_split.py: class SymbolDatasetSplitError, class SymbolDatasetSplitReport, build_symbol_dataset_split
@@ -1043,6 +1046,14 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/model-quality/grid-cohort-actions.ts: GridCohortClient, sendGridCohortCommand
 - features/model-quality/grid-cohort-command-storage.ts: GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand, reserveGridCohortCommand, clearGridCohortCommand, discardGridCohortCommand
 - features/model-quality/grid-cohort-preview.tsx: GridCohortPreview
+- features/model-quality/grid-content-blind.tsx: GridContentBlindClient, GridContentBlind
+- features/model-quality/grid-content-canvas.tsx: GridContentCanvas
+- features/model-quality/grid-content-command-control.tsx: useContentCommands, ContentCommandNotice
+- features/model-quality/grid-content-evaluation-summary.tsx: GridContentEvaluationSummary
+- features/model-quality/grid-content-ordinary.tsx: GridContentOrdinaryClient, GridContentOrdinary
+- features/model-quality/grid-content-readiness.tsx: GridContentReadiness
+- features/model-quality/grid-content-reference-workspace.tsx: GridContentClient, GridContentReferenceWorkspace
+- features/model-quality/grid-content-state.ts: ContentCells, ContentNodes, ContentPoint, ContentCell, ContentMode, ContentCommand, contentUuid, contentStateLabels, contentRoleLabel, emptyContentCells, convexContentQuad, validContentCells, validContentNodes, manualContentLattice, contentCommandKey, readContentCommand, saveContentCommand, clearContentCommand, archiveContentCommand
 - features/model-quality/grid-correction-apply-panel.tsx: GridCorrectionApplyPanel
 - features/model-quality/grid-correction-learning-panel.tsx: GridCorrectionLearningClient, GridCorrectionLearningPanel
 - features/model-quality/grid-correction-learning-state.ts: LearningCommand, learningCommandKey, readLearningCommand, clearLearningCommand, archiveLearningCommand, learningStatus, learningRole, learningActive, learningStage

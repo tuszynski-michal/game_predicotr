@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 // Execute only the report's pure rendering logic in a stub DOM; no browser/network.
 const file = process.argv[2];
@@ -61,6 +62,30 @@ assert.equal(
   Math.min(12, data.length),
 );
 const snapshot = vm.runInContext('JSON.stringify(all)', context);
+const rasterFiles = new Map();
+for (const card of data) {
+  const proof = card.productionCells;
+  if (proof?.state !== 'available') {
+    assert.equal(card.paired, false, 'no nine-detection/index fallback');
+    continue;
+  }
+  for (const name of ['base', 'candidate']) {
+    const model = proof.models[name];
+    if (model.state !== 'available') continue;
+    assert.deepEqual(model.cells.map((cell) => cell.cellIndex), Array.from({ length: 15 }, (_, i) => i));
+    const available = model.cells.filter((cell) => cell.state === 'available');
+    assert.equal(new Set(available.map((cell) => cell.image)).size, available.length);
+    for (const cell of available) {
+      const asset = path.resolve(path.dirname(file), cell.image);
+      assert.ok(asset.startsWith(path.resolve(path.dirname(file)) + path.sep));
+      const raw = fs.readFileSync(asset);
+      assert.equal(raw.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+      assert.equal(crypto.createHash('sha256').update(raw).digest('hex'), cell.pngFileSha256);
+      assert.notEqual(cell.pngFileSha256, cell.renderedPixelSha256);
+      rasterFiles.set(asset, raw);
+    }
+  }
+}
 elements.framing.value = 'full';
 elements.framing.handlers.change();
 for (const card of data) {
@@ -119,6 +144,9 @@ assert.equal(
   snapshot,
   'framing preserves all geometry and provenance',
 );
+for (const [asset, bytes] of rasterFiles) {
+  assert.deepEqual(fs.readFileSync(asset), bytes, 'viewport preserves actual production PNG bytes');
+}
 elements.framing.value = 'context';
 elements.framing.handlers.change();
 if (data.length) {
@@ -146,6 +174,11 @@ assert.ok(hidden);
 const screenInput = vm.runInContext(`inputs({diagnostics:{base:{state:'available',stageLabel:'wejście ekranu',margin:null,image:'synthetic.png',tensorShape:[1,3,768,1024]}}})`, context);
 assert.match(screenInput, /wejście ekranu; Margin: nie dotyczy/);
 assert.doesNotMatch(screenInput, /Margin: 0\.15/);
+assert.match(vm.runInContext("productionCells({productionCells:{state:'unavailable',reason:'missing'}})", context), /Wycinki niedostępne: missing/);
+const flagged = vm.runInContext("cellCaption({assessment:{finalContentState:'preserved',wrongCell:true,tie:true,foreignFullSymbol:true}})", context);
+assert.match(flagged, /obce pole/);
+assert.match(flagged, /remis/);
+assert.match(flagged, /pełny obcy symbol/);
 console.log(
   JSON.stringify({
     boards: data.length,
@@ -157,6 +190,8 @@ console.log(
       'search/filter/pagination',
       'grid topology',
       'image assets',
+      '15 actual lossless PNGs and file hashes',
+      'unchanged crop pixels after viewport changes',
     ],
   }),
 );

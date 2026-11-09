@@ -6,6 +6,8 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { GridModelAssignmentSummary } from '@/features/games/grid-model-assignment-summary';
 import { GridCohortPreview } from './grid-cohort-preview';
 import { GridCorrectionLearningPanel } from './grid-correction-learning-panel';
+import { GridContentReferenceWorkspace } from './grid-content-reference-workspace';
+import type { ContentMode } from './grid-content-state';
 import { GridModelComparison } from './grid-model-comparison';
 import { GridModelVersionsPanel } from './grid-model-versions-panel';
 import { GridQualityMeasurementPanel } from './grid-quality-measurement-panel';
@@ -33,9 +35,25 @@ export function GridModelWorkspace({
   );
   const reinference = useRef<HTMLDetailsElement>(null);
   const scope = `${apiBaseUrl}:${gameId}`;
+  const [contentView, setContentView] = useState<{
+    scope: string;
+    mode: ContentMode;
+  } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const onChanged = useCallback(() => setRefreshKey((value) => value + 1), []);
   const shared = { apiBaseUrl, gameId, refreshKey, onChanged };
+  if (contentView?.scope === scope)
+    return (
+      <GridContentReferenceWorkspace
+        apiBaseUrl={apiBaseUrl}
+        gameId={gameId}
+        mode={contentView.mode}
+        onClose={() => {
+          setContentView(null);
+          onChanged();
+        }}
+      />
+    );
   return (
     <section className="modelQualityWorkflowGroup" aria-label="Geometria V3">
       <h2>Geometria V3</h2>
@@ -46,6 +64,22 @@ export function GridModelWorkspace({
         <li>Wynik i zastosowanie</li>
         <li>Historia</li>
       </ol>
+      <div className="gridContentActions">
+        <button
+          className="secondaryButton"
+          type="button"
+          onClick={() => setContentView({ scope, mode: 'ordinary' })}
+        >
+          Etykiety zawartości zdjęć
+        </button>
+        <button
+          className="secondaryButton"
+          type="button"
+          onClick={() => setContentView({ scope, mode: 'blind' })}
+        >
+          Pomiar powtarzalności etykiet
+        </button>
+      </div>
       <GridModelAssignmentSummary
         key={`assignment:${scope}:${refreshKey}`}
         apiBaseUrl={apiBaseUrl}

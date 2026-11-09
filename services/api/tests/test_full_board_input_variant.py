@@ -109,3 +109,93 @@ def test_optional_stamp_roundtrip_preserves_historical_bytes_and_binds_new_snaps
     stamped["detections"][0]["inputVariant"]["variantKey"] = "0" * 64
     with pytest.raises(ValueError, match="checksum"):
         validate_neural_source_proposal(stamped)
+
+
+def test_finalizer_rejects_valid_old_base_proof_for_wide_input_with_identical_nodes():
+    from game_predictor_api.domain.calibrated_neural_evidence import calibrated_result_blockers
+    from game_predictor_api.domain.full_board_calibration import AXES_V2
+    from game_predictor_api.domain.full_board_calibration_report import AutomaticProfile
+    from game_predictor_api.domain.full_board_variant_calibration_types import (
+        VariantAutomaticProfile,
+    )
+    from test_full_board_variant_calibration import GAME
+
+    contexts, _ = contexts_fixture()
+    # Two closed profiles are sufficient for this identity regression: no
+    # calibration population, inference, environment switch or database is needed.
+    children = []
+    for context in contexts:
+        child = AutomaticProfile.model_validate(
+            seal(
+                {
+                    "version": "full-board-auto-profile-v2",
+                    "gameId": str(GAME),
+                    "candidateManifestSha256": "a" * 64,
+                    "planSha256": "d" * 64,
+                    "sealedSha256": "e" * 64,
+                    "routingSha256": context["sha256"],
+                    "configuration": dict.fromkeys(AXES_V2, 0.5),
+                    "gameLogAspectReference": None,
+                    "assessmentScope": "labelled_targets",
+                }
+            )
+        )
+        children.append({"variantKey": context["sha256"], "profile": child.model_dump(mode="json")})
+    profile = VariantAutomaticProfile.model_validate(
+        seal(
+            {
+                "version": "full-board-auto-profile-v3",
+                "gameId": str(GAME),
+                "candidateManifestSha256": "a" * 64,
+                "routingSha256": contexts[0]["routingSha256"],
+                "variantPlanSha256": "f" * 64,
+                "allowedVariants": contexts,
+                "usedVariantKeys": [context["sha256"] for context in contexts],
+                "variants": children,
+                "assessmentScope": "labelled_targets",
+            }
+        )
+    ).model_dump(mode="json")
+    pin = {
+        "contractVersion": "neural-grid-operation-pin-v3",
+        "catalogueManifestSha256": "a" * 64,
+        "pinSha256": "b" * 64,
+        "automaticQualification": {"state": "qualified", "profile": profile},
+    }
+    proposal = {"sourceChecksumSha256": "c" * 64, "sourceWidth": 1000, "sourceHeight": 1000}
+    detection = {
+        "detectionId": "same-board",
+        "latticeNodes": [
+            {"x": float(col), "y": float(row)} for row in range(4) for col in range(6)
+        ],
+    }
+    documents, proofs = {}, {}
+    for context, child in zip(contexts, children, strict=True):
+        document = {**detection, "inputVariant": stamp_fixture(context, detection)}
+        proof = seal(
+            {
+                "version": "full-board-result-evidence-v3",
+                "sourceSha256": "c" * 64,
+                "modelManifestSha256": "a" * 64,
+                "operationPinSha256": "b" * 64,
+                "profileSha256": profile["sha256"],
+                "detectionId": detection["detectionId"],
+                "nodesSha256": digest(detection["latticeNodes"]),
+                "features": {
+                    "version": "full-board-completeness-features-v2",
+                    "values": dict.fromkeys(AXES_V2, 0.5),
+                },
+                "variantKey": context["sha256"],
+                "variantProfileSha256": child["profile"]["sha256"],
+                "inputVariantSha256": document["inputVariant"]["sha256"],
+            }
+        )
+        assert (
+            calibrated_result_blockers(proof, pin=pin, proposal=proposal, detection=document) == ()
+        )
+        documents[context["stage"]], proofs[context["stage"]] = document, proof
+    assert documents["baseline"]["latticeNodes"] == documents["wide"]["latticeNodes"]
+    assert proofs["baseline"]["nodesSha256"] == proofs["wide"]["nodesSha256"]
+    assert calibrated_result_blockers(
+        proofs["baseline"], pin=pin, proposal=proposal, detection=documents["wide"]
+    ) == ("COMPLETENESS_INPUT_VARIANT_CHANGED",)

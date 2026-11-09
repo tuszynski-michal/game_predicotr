@@ -122,3 +122,124 @@ test('content wrappers preserve independent CAS and blind session bodies', async
     `${prefix}/content-sessions/${session}/sources/${source}/asset`,
   );
 });
+
+test('readiness wrapper keeps unresolved live boards separate from frozen evidence', async () => {
+  const game = '11111111-1111-4111-8111-111111111111';
+  const role = {
+    state: 'evaluable',
+    reasonCodes: [],
+    boards: 2,
+    slots: 30,
+    unapprovedSlots: 0,
+    unresolvedPhotos: 0,
+    states: { visible: 30, unknown: 0, occluded: 0, out_of_frame: 0 },
+    fullPhotos: 0,
+    missingFullPhotos: 0,
+  };
+  const coverage = {
+    version: 'source-cell-content-v1',
+    state: 'evaluable',
+    games: { [game]: { TRAIN: role } },
+  };
+  const report = {
+    ...coverage,
+    basis: 'frozen_content_pins',
+    frozenPinCoverage: coverage,
+    annotationProgress: {
+      ...coverage,
+      state: 'not_evaluable',
+      games: {
+        [game]: {
+          TRAIN: {
+            ...role,
+            state: 'not_evaluable',
+            reasonCodes: ['CONTENT_SEQUENCE_CONFLICT', 'CONTENT_UNKNOWN_LIMIT'],
+            unapprovedSlots: 15,
+            states: { ...role.states, visible: 15, unknown: 15 },
+          },
+        },
+      },
+    },
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async () =>
+      new Response(JSON.stringify(report), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+  });
+  const response = await client.getGridContentReadiness(
+    game,
+    game,
+    'a'.repeat(64),
+  );
+  assert.deepEqual(response.data, report);
+  assert.equal(response.data.state, 'evaluable');
+  assert.equal(response.data.annotationProgress.games[game].TRAIN.slots, 30);
+  assert.equal(
+    response.data.annotationProgress.games[game].TRAIN.unapprovedSlots,
+    15,
+  );
+});
+
+test('target metadata and plain asset wrappers pin exact cohort and manifest', async () => {
+  const calls = [];
+  const game = '11111111-1111-4111-8111-111111111111';
+  const source = '22222222-2222-4222-8222-222222222222';
+  const pins = { cohortId: game, manifestSha256: 'a'.repeat(64) };
+  const page = {
+    version: 'source-cell-content-targets-v1',
+    gameId: game,
+    ...pins,
+    items: [
+      {
+        source: {
+          sourceId: source,
+          sourceSha256: 'b'.repeat(64),
+          sourceRepresentativeSha256: 'c'.repeat(64),
+          width: 320,
+          height: 240,
+          coordinateSpace: 'exif-normalized-rgb-pixels-v1',
+          normalizationAdapterVersion:
+            'image-normalization-v2-in-memory-source-v1',
+        },
+        displayName: null,
+        positionIndex: 0,
+        sequenceNumber: null,
+        role: 'B',
+        state: 'unresolved',
+        reasonCodes: ['CONTENT_SEQUENCE_CONFLICT'],
+      },
+    ],
+    nextOffset: 3,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      calls.push(request);
+      return new Response(JSON.stringify(page), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  });
+  const prefix = `http://127.0.0.1:8000/api/v1/admin/games/${game}/grid-quality-measurements/content-targets`;
+  const query = `cohortId=${game}&manifestSha256=${pins.manifestSha256}`;
+  const result = await client.listGridContentTargets(game, {
+    ...pins,
+    limit: 2,
+    offset: 1,
+  });
+  assert.deepEqual(result.data, page);
+  assert.equal(calls[0].method, 'GET');
+  assert.equal(calls[0].url, `${prefix}?${query}&limit=2&offset=1`);
+  await client.getGridContentTargetSource(game, source, pins);
+  assert.equal(calls[1].url, `${prefix}/sources/${source}/asset?${query}`);
+  assert.equal(
+    client.gridContentTargetSourceUrl(game, source, pins),
+    calls[1].url,
+  );
+  assert.equal(
+    new URL(client.gridContentTargetSourceUrl('a/b', 'x/y', pins)).pathname,
+    '/api/v1/admin/games/a%2Fb/grid-quality-measurements/content-targets/sources/x%2Fy/asset',
+  );
+});

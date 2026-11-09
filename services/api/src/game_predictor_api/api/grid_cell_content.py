@@ -22,6 +22,7 @@ from game_predictor_api.schemas.grid_cell_content import (
     ContentSessionCreate,
     ContentSessionList,
     ContentSessionResponse,
+    ContentTargetPage,
     ContentWriteCommand,
     ContentWriteResponse,
 )
@@ -64,6 +65,46 @@ def create_grid_cell_content_router(dependency: Callable[..., object]) -> APIRou
         # Let the request dependency roll back before the application's typed
         # exception handler creates the documented ErrorResponse.
         return action()
+
+    @router.get(
+        "/content-targets",
+        operation_id="listGridContentTargets",
+        response_model=ContentTargetPage,
+    )
+    def targets(
+        game_id: UUID,
+        cohort_id: Annotated[UUID, Query(alias="cohortId")],
+        manifest_sha256: Annotated[str, Query(alias="manifestSha256", pattern=r"^[0-9a-f]{64}$")],
+        service: Annotated[OperationalImageReviewService, parameter],
+        limit: int = Query(default=20, ge=1, le=50),
+        offset: int = Query(default=0, ge=0),
+    ) -> Any:
+        return invoke(
+            lambda: repo(service).list_targets(game_id, cohort_id, manifest_sha256, limit, offset)
+        )
+
+    @router.get(
+        "/content-targets/sources/{source_id}/asset",
+        operation_id="getGridContentTargetSource",
+        response_class=FileResponse,
+    )
+    def target_asset(
+        game_id: UUID,
+        source_id: UUID,
+        cohort_id: Annotated[UUID, Query(alias="cohortId")],
+        manifest_sha256: Annotated[str, Query(alias="manifestSha256", pattern=r"^[0-9a-f]{64}$")],
+        service: Annotated[OperationalImageReviewService, parameter],
+    ) -> FileResponse:
+        path = invoke(
+            lambda: repo(service).target_source_asset(
+                game_id, cohort_id, manifest_sha256, source_id
+            )
+        )
+        return FileResponse(
+            path,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        )
 
     @router.get(
         "/content-references/{source_id}/{position_index}",

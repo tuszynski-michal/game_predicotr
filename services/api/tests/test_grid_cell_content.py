@@ -215,6 +215,35 @@ def test_live_complete_labels_cannot_upgrade_legacy_frozen_pin_coverage():
     assert pinned["annotationProgress"]["state"] == "not_evaluable"
 
 
+@pytest.mark.parametrize("changed", ["sequence", "frame"])
+def test_live_conflict_keeps_board_unknown_without_masking_frozen_coverage(changed):
+    targets = [target(photo) for photo in range(1, 12)]
+    frozen = [revision(t) for t in targets]
+    live = list(frozen)
+    if changed == "sequence":
+        live[0] = live[0].model_copy(update={"sequenceNumber": 999})
+        reason = "CONTENT_SEQUENCE_CONFLICT"
+    else:
+        live[0] = live[0].model_copy(
+            update={"source": live[0].source.model_copy(update={"width": 201})}
+        )
+        reason = "CONTENT_FRAME_CONFLICT"
+    report = content_readiness_views(targets, live, frozen, [GAME])
+    progress = report["annotationProgress"]["games"][str(GAME)]["TRAIN"]
+    coverage = report["frozenPinCoverage"]["games"][str(GAME)]["TRAIN"]
+    assert progress["boards"] == coverage["boards"] == 11
+    assert progress["slots"] == coverage["slots"] == 165
+    assert progress["states"] == {"visible": 150, "unknown": 15, "occluded": 0, "out_of_frame": 0}
+    assert progress["unapprovedSlots"] == 15
+    assert progress["unresolvedPhotos"] == 0
+    assert progress["reasonCodes"] == [reason]  # Conflict blocks even below 10% unknown.
+    assert progress["state"] == "not_evaluable"
+    assert coverage["state"] == "evaluable"
+    assert coverage["states"]["visible"] == 165
+    with pytest.raises(ContentError, match="Copy frames differ"):
+        content_readiness_views(targets, frozen, live, [GAME])
+
+
 def test_oracle_negative_board_is_not_clipping_or_full_qualification():
     negative = revision(target(), states=["occluded"] * 15)
     # Legal TRAIN negatives remain available as labels independently of oracle qualification.

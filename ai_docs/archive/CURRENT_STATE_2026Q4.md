@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1169 — Zgodność schematu przy cutover (done)
 
 - Plik: `tasks/completed/1169-schema-head-cutover.md`.
-- Commit: **v1.7.579** (hash dopisuje kolejny commit).
+- Commit: **v1.7.579 / `a5e78251f4fb0b6dec67256ceef9f43184150f94`** (hash dopisuje kolejny commit).
 - Usunięto pominięcie stałej startowej: exact0183/manifestv22; API/worker bez bypassu.
 - Preflight czyta przypięty commit i statyczny graf; mismatch/unknown blokują. Procedura canonical/mirror i guide egzekwują blocks_merge.
 - QA:29guard/worker+12preflight+1nextmigration PASS; Ruff4/mypy2/docs/map PASS. Nowy proces odczytał0183 rolą aplikacji; wspólna funkcja workera potwierdzona.

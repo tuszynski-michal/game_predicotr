@@ -94,7 +94,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1169** — Zgodność schematu przy cutover — v1.7.579 — tasks/completed/1169-schema-head-cutover.md
+- **TASK-1169** — Zgodność schematu przy cutover — v1.7.579 / `a5e78251` — tasks/completed/1169-schema-head-cutover.md
 - **TASK-1168** — Panel pełnych symboli, HTML i odbiór — v1.7.577 / `f29cd9c2` — tasks/completed/1168-full-symbol-panel-acceptance.md
 - **TASK-1167** — Kontrolowane warianty treningu zawartości i ratunku — v1.7.576 / `a9951e94` — tasks/completed/1167-bounded-content-training.md
 - **TASK-1166** — Ocena produkcyjnych wycinków — v1.7.575 / `ac724d29` — tasks/completed/1166-production-cell-evaluation.md

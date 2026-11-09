@@ -89,7 +89,7 @@ rzeczywisty start po integracji, z zachowaniem operatorowych danych.
 
 ## Outcome
 
-Commit: v1.7.579 (hash dopisuje kolejny commit).
+Commit: v1.7.579 / `a5e78251f4fb0b6dec67256ceef9f43184150f94`.
 
 ### Changed
 

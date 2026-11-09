@@ -954,3 +954,35 @@ and base. Every game and recording weighs the same, so a large game never domina
 control photo of one game never becomes training data of another. The candidate is
 evaluated on every game it trained on; a regression in any game blocks publication, and the
 result never switches a game automatically.
+
+## Diagnostic production crop comparison (D-595, TASK-1171)
+
+A bounded read-only command compares legacy margins 0.08 and 0.0 with the same
+output size, preprocessing and classifier weights. It first uses approved human
+geometry, then actual pinned grid-model predictions with their runtime rescue
+routing. LAB RGB is a separate pinned 96-to-64 contract. Existing renderer
+semantics remain unchanged: zero uses the exact cell quad; a positive margin
+uses the outer-board homography, including on irregular internal nodes.
+
+The diagnostic retains every selected instance and reports each game and role
+separately. A recommendation requires fewer clipped-plus-missing graphics without any
+new missing instance or new content
+damage, wrong-cell assignment, ambiguity, foreign glyphs, classification errors
+or false acceptance. Missing content, uncertainty, current human class approval,
+model or pinned acceptance policy is explicit lack of evidence, never success.
+An immutable report with `diagnosticOnly=true` and `qualificationAllowed=false`
+cannot qualify, publish or activate a model or crop setting.
+
+Current source/owner, copy and role protection is checked before pixel access.
+TRAIN helpers exclude aliases of every stored blind session. Internal A scoring
+requires current approved pass-2 references bound to one qualified frozen
+measurement; an unrelated abandoned session does not invalidate those references.
+A never exports visual hints. Fresh inference preserves witnessed neural inputs
+even without content labels; visual raster export is restricted to eligible TRAIN.
+Sealed internal A JSON retains geometry/classes for replay and metrics; its local
+metadata exposure is an accepted diagnostic risk. It must not feed HTML or hints.
+The visual consumer requires both TRAIN and visualExportAllowed=true.
+The actual current diagnostic runtime policy is separately pinned, never asserted
+as historical import policy. Known manual/disabled permits a diagnostic recommendation
+without claiming automatic acceptance quality; a missing runtime pin is unavailable.
+LAB reports absolute reference totals per game/role, not a fictitious paired improvement.

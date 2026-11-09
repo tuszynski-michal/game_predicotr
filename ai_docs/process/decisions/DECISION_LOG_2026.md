@@ -15,6 +15,64 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+## D-595 — Diagnostyczne porównanie rzeczywistych wycinków z przypiętym odniesieniem
+
+Status: accepted — wykonanie GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109, T2.
+Data: 2026-11-09
+
+Nowy plikowy capture/report production-crop-comparison-v1 jest wyłącznie
+narzędziem diagnostycznym. Nie jest raportem kwalifikacji modelu v6 i nigdy
+nie pozwala publikować, ustawić defaultu ani aktywować wersji. Stan candidate
+oznacza jedynie wariant warty dalszej niezależnej oceny. T3 zachowuje istniejące
+bramki publikacji i aktualności. Nie ma nowej tabeli ani rejestru ról.
+
+Producent używa istniejącej frozen kohorty i read-only aktualnych metadanych,
+current owner/geometry/content/class revisions, roli/kopii/buforów z istniejącego
+recording_photo_context_v3 oraz zaufanych pinów wag i polityki klasyfikacji.
+Zapisuje identyfikatory, SHA i ścieżki; obrazy pozostają plikami. Przed pikselami
+sprawdza dopuszczalność źródła i aliasów. Brak dowodu jest not_evaluable, a nie
+fikcyjną etykietą lub zerową liczbą błędnych akceptacji. Capture/replay weryfikuje
+przypięte dane; nie backfilluje historycznych snapshotów ani nie zatwierdza szkiców.
+
+Galeria pokazuje wyłącznie dopuszczalne TRAIN, bez źródeł zapisanych blind sessions.
+Wewnętrzna ocena A jest legalna po rzeczywistym zamrożeniu niezależnego pomiaru i
+zatwierdzeniu etykiet, zgodnie z dotychczasowymi regułami ról. Gotowość dotyczy
+sesji wskazanej przez faktycznie przypięte aktualne A referencje. Blank/in-progress
+referencja A jest blokowana przed pikselami; inny stary pusty dokument sesji nie
+unieważnia odrębnej prawidłowej frozen referencji. Zdjęcia/wycinki A nie trafiają do pomocniczej
+galerii. Wewnętrzne capture/report JSON A zachowują metadane potrzebne do
+powtarzalnej oceny, w tym etykiety i przewidywaną geometrię. To nie jest eksport
+wizualny ani plik do pokazywania w edytorze ślepym. Odbiorcy galerii muszą wymagać
+TRAIN i visualExportAllowed; sam brak ścieżek PNG nie dowodzi braku podpowiedzi
+w surowych metadanych. B/REG nie służą do strojenia tego porównania. Nie deklarujemy globalnej
+historii nieekspozycji przyszłych sesji (zaakceptowane ograniczenie D-594).
+
+W obu przebiegach (geometria człowieka i rzeczywiste przypięte predykcje modelu)
+używamy VirtualCellRenderer i istniejącego jednoznacznego matching/coverage.
+Legacy0.08 i0.0 różnią wyłącznie wartość parametru marginesu przy tych samych
+pozostałych ustawieniach. Istniejący renderer ma asymetrię: zero bierze dokładny
+source_quad komórki, dodatni parametr homografię zewnętrznej planszy. Zachowujemy
+ją i jawnie raportujemy/testujemy przy nieregularnych wewnętrznych węzłach.
+LAB_RGB jest osobnym rzeczywistym kontraktem z własnymi wagami/preprocessingiem;
+nie zmienia wyniku izolowanego porównania marginesów.
+
+Ręczne klasy wymagają aktualnej tożsamości cropu i odpowiadającego ludzkiego
+zdarzenia approve/reassign/decyzji planszy; status, enum lub actor text nie są
+samodzielnym dowodem. Próg pochodzi z rzeczywistej przypiętej kalibracji/runtime
+policy.autoAccept, nie z pewności ani nowej kalibracji na ocenianych zdjęciach.
+Bieżący diagnostyczny runtime przypina osobny zwalidowany envelope/fingerprint
+kanonicznego pipeline'u i jawny zakres current-diagnostic-runtime; nie przedstawia
+go jako historycznego ustawienia importu. Bieżąca granica manualna (autoAccept=false)
+pozwala policzyć zero automatycznych decyzji jako fakt konfiguracji, bez dowodu
+jakości automatu. Nie wymaga fikcyjnego progu; kalibracja rzeczywistego modelu
+pozostaje oddzielnym przypiętym dokumentem w autentycznym formacie jej autora.
+Brak rzeczywistego runtime pinu pozostaje unavailable. Oba marginesy używają
+tego samego kontraktu klasyfikacji i bieżącej granicy review.
+Wynik rekomendacji wymaga mniej przycięć i braku nowych uszkodzeń, zamian,
+niejednoznaczności, obcego symbolu, gorszej klasyfikacji i błędnej autoakceptacji
+osobno w każdej wymaganej grze, na tych samych instancjach. Znane pogorszenie
+nie znika w sumie poprawionych przykładów. Braki dowodu pozostają jawne.
+
 ## D-594 — Przypięty zwykły podgląd siatki i produkcyjnych wycinków
 
 Status: accepted — operator zlecił GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109, T1.

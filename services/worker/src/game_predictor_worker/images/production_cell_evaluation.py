@@ -175,18 +175,33 @@ def ambiguous_matching(labels: Any, predictions: Any, matches: Any) -> set[int]:
 
 class ProductionContentObserver:
     def __init__(
-        self, snapshot: Any, role: str, *, u: float | None, input_reader: Any = None
+        self,
+        snapshot: Any,
+        role: str,
+        *,
+        u: float | None,
+        input_reader: Any = None,
+        sources: Mapping[str, Any] | None = None,
+        render_configurations: Mapping[str, Mapping[str, Any]] | None = None,
+        raster_sink: Callable[[str, int, VirtualCellRender], None] | None = None,
+        physical_slots: Mapping[int, int] | None = None,
     ) -> None:
         from .grid_cohort_dataset import GridAssessmentDataset, GridBoardDataset
 
-        dataset = (
-            GridAssessmentDataset(snapshot, "VALIDATION" if role == "B" else role)
-            if role in ("REGRESSION", "B")
-            else GridBoardDataset(snapshot, role)
-        )
         self.snapshot, self.role, self.u = snapshot, role, u
         self.input_reader = input_reader
-        self.sources = {source["sourceId"]: source for source, _ in dataset.indexed()}
+        self.render_configurations = render_configurations
+        self.raster_sink = raster_sink
+        self.physical_slots = physical_slots
+        if sources is None:
+            dataset = (
+                GridAssessmentDataset(snapshot, "VALIDATION" if role == "B" else role)
+                if role in ("REGRESSION", "B")
+                else GridBoardDataset(snapshot, role)
+            )
+            self.sources = {source["sourceId"]: source for source, _ in dataset.indexed()}
+        else:
+            self.sources = dict(sources)
 
     def __call__(self, photo: Any, rgb: Any, observed: Mapping[str, Any]) -> dict[str, Any]:
         source = self.sources[photo.source_id]
@@ -239,7 +254,9 @@ class ProductionContentObserver:
             ambiguous = ambiguous_matching(
                 list(photo.labels), [d.nodes for d in usable], measured.matching.matches
             )
-            binding = slots(found)
+            binding = getattr(self, "physical_slots", None)
+            if binding is None:
+                binding = slots(found)
             ambiguous.update(
                 i
                 for i, match in matches.items()
@@ -258,9 +275,32 @@ class ProductionContentObserver:
                     )
                     continue
                 try:
-                    crops.extend(render_cells(frame, detection.nodes, targets[index], context))
+                    configuration = (getattr(self, "render_configurations", None) or {}).get(name)
+                    render_context = (
+                        context
+                        if configuration is None
+                        else {**context, "renderConfiguration": dict(configuration)}
+                    )
+                    retained: list[VirtualCellRender] = []
+                    crops.extend(
+                        render_cells(
+                            frame,
+                            detection.nodes,
+                            targets[index],
+                            render_context,
+                            raster_sink=retained.append
+                            if getattr(self, "raster_sink", None)
+                            else None,
+                        )
+                    )
                 except (ValueError, TypeError):
                     crops.extend([{"support": None, "reason": "CONTENT_PREDICTION_INVALID"}] * 15)
+                    continue
+                # Consumer failures must not be disguised as missing geometry.
+                sink = getattr(self, "raster_sink", None)
+                if sink is not None:
+                    for raster in retained:
+                        sink(name, p, raster)
             proper: list[int | None] = [
                 None if i not in matches or i in ambiguous else matches[i].prediction * 15 + j
                 for i, j, _ in visible

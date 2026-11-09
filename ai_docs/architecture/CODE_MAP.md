@@ -64,7 +64,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 - `services/api/src/game_predictor_api/application/` (111 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
 - `services/api/src/game_predictor_api/domain/` (121 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (64 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (218 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/storage/` (219 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (511 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (156 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (512 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (157 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -98,7 +98,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Katalogi
 
-- `services/worker/src/game_predictor_worker/images/` (164 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
+- `services/worker/src/game_predictor_worker/images/` (168 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
 - `services/worker/src/game_predictor_worker/symbols/` (19 py) - klasyfikacja symboli, biblioteka referencyjna, RGB v2; Versioned symbol-training dataset tools.
 - `services/worker/src/game_predictor_worker/payouts/` (6 py) - wypłaty: kontrakty, handler, gotowość, audyt; Batch payout precomputation for durable worker jobs.
 - `services/worker/src/game_predictor_worker/domain/super_games/` (4 py) - supergry: definicje, rejestr, Wild; Code-defined super game kinds (D-535).
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (313 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (314 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -279,7 +279,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (184 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (185 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -318,7 +318,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `verify_*` (8): `verify_android_apk.ps1`, `verify_artifact_references.py`, `verify_m2_acceptance.ps1` (+5)
 - `vision_*` (5): `vision_lab_assisted_annotation.ps1`, `vision_lab_export.py`, `vision_lab_geometry_export.py` (+2)
 
-Pojedyncze pliki: `accept_m6_classifier_vertical_slice.py`, `acceptance_concurrent_worker_lanes.ps1`, `apply_v7_pilot_acceptance.py`, `backfill_image_geometry_completeness.py`, `bundle_management_browser_fixture.mjs`, `calibrate_m6_symbol_confidence.py`, `clean_scratch_dirs.ps1`, `close_task.py`, `compact_image_pipeline_state.py`, `complete_m4_acceptance_apk.py`, `configure_windows_user_environment.ps1`, `convert_legacy_boards_to_virtual.py`, `delete_archived_v2_game.py`, `detect_m5_boards.py`, `discover_m5_images.py`, `drop_diagnostic_databases.py`, `ensure_android_release_signing.ps1`, `get_remote_reviewer_tunnel_status.ps1`, `integration_preflight.py`, `inventory_worktrees.ps1`, `legacy_job_path_migration.py`, `m8_gold_frame_pilot.py`, `manage_worker_lanes.ps1`, `management_browser_flow.mjs`, `migrate_cell_level_verification.py`, `normalize_m5_images.py`, `profile_image_selection_slice.py`, `queue_image_selection_after_report.ps1`, `read_grid_diagnostics.py`, `recognize_grid_audit_symbols.py`, `refresh_stale_board_search_documents.py`, `register_grid_diagnostics.py`, `release_m6_spatial_symbol_model.py`, `remote_manual_selection_rollout_stage_two.py`, `remove_superseded_import_images.py`, `render_grid_correction_comparison.py`, `reset_local_admin_database.ps1`, `reverify_777_grids.py`, `reviewer_process_lifecycle.ps1`, `route_partial_boards_to_grid_correction.py`, `scan_legacy_database_paths.py`, `slim_prediction_revisions.py`, `split_m6_symbol_dataset.py`, `stop_remote_reviewer_tunnel.ps1`, `sync_data_directories_to_d.ps1`, `test_mumie_folder.py`, `token_pilot_collect.py`, `windows_process_environment.ps1`
+Pojedyncze pliki: `accept_m6_classifier_vertical_slice.py`, `acceptance_concurrent_worker_lanes.ps1`, `apply_v7_pilot_acceptance.py`, `backfill_image_geometry_completeness.py`, `bundle_management_browser_fixture.mjs`, `calibrate_m6_symbol_confidence.py`, `clean_scratch_dirs.ps1`, `close_task.py`, `compact_image_pipeline_state.py`, `compare_production_symbol_crops.py`, `complete_m4_acceptance_apk.py`, `configure_windows_user_environment.ps1`, `convert_legacy_boards_to_virtual.py`, `delete_archived_v2_game.py`, `detect_m5_boards.py`, `discover_m5_images.py`, `drop_diagnostic_databases.py`, `ensure_android_release_signing.ps1`, `get_remote_reviewer_tunnel_status.ps1`, `integration_preflight.py`, `inventory_worktrees.ps1`, `legacy_job_path_migration.py`, `m8_gold_frame_pilot.py`, `manage_worker_lanes.ps1`, `management_browser_flow.mjs`, `migrate_cell_level_verification.py`, `normalize_m5_images.py`, `profile_image_selection_slice.py`, `queue_image_selection_after_report.ps1`, `read_grid_diagnostics.py`, `recognize_grid_audit_symbols.py`, `refresh_stale_board_search_documents.py`, `register_grid_diagnostics.py`, `release_m6_spatial_symbol_model.py`, `remote_manual_selection_rollout_stage_two.py`, `remove_superseded_import_images.py`, `render_grid_correction_comparison.py`, `reset_local_admin_database.ps1`, `reverify_777_grids.py`, `reviewer_process_lifecycle.ps1`, `route_partial_boards_to_grid_correction.py`, `scan_legacy_database_paths.py`, `slim_prediction_revisions.py`, `split_m6_symbol_dataset.py`, `stop_remote_reviewer_tunnel.ps1`, `sync_data_directories_to_d.ps1`, `test_mumie_folder.py`, `token_pilot_collect.py`, `windows_process_environment.ps1`
 
 npm scripts wg prefiksu (liczba): `admin:`3, `android:`7, `api:`2, `code-map:`1, `data:`1, `db:`10, `docs:`1, `fixture:`1, `format:`2, `image-import:`1, `images:`2, `lint:`1, `m2:`1, `m35:`7, `m4:`2, `m5:`15, `m6:`10, `m7:`10, `openapi:`2, `powershell:`1, `python:`3, `quality:`1, `remote-selection:`3, `repository:`1, `reviewer:`8, `selector:`4, `snapshot:`2, `test:`1, `typecheck:`1, `v01:`3, `v02:`1, `v04:`2, `vision-lab:`4, `windows:`3, `worker:`5, `workers:`5
 

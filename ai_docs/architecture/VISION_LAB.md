@@ -1635,3 +1635,59 @@ Odrzucenie propozycji odczytuje bieżący kursor kolejki bez utraty historii;
 przyjęcie przechodzi do odświeżonego początku. Obie decyzje pozostawiają komunikat
 po odczycie. Niezgodna tożsamość daje jawny przycisk odczytu kolejki, a błąd API
 osobny retry propozycji; odczyty nigdy nie stosują geometrii.
+
+## Diagnostyczne porównanie cropów produkcyjnych (D-595, TASK-1171)
+
+`scripts/compare_production_symbol_crops.py` otwiera transakcję REPEATABLE READ /
+READ ONLY i wywołuje `storage.production_crop_capture.capture`. Producent korzysta
+z istniejącego frozen snapshotu, `recording_photo_context_v3`, źródeł i właścicieli,
+`GridCohortEvidenceReader`, current `content_pin` i zdarzeń zatwierdzania klas.
+Nie uzupełnia historycznych snapshotów ani nie zapisuje drugiego ledgera. Ochronę
+aliasów wszystkich sesji sprawdza przed pikselami. Dla wewnętrznej oceny A piny
+latest pass2 wskazują jeden właściwy frozen raport u/δ; inna stara pusta sesja
+nie blokuje tego pomiaru. Wszystkie sesje nadal chronią TRAIN/helpery.
+
+`production-crop-capture-v1` przypina źródła, bieżące rewizje, obrysy, klasy,
+renderer i modele. `production_crop_comparison` używa istniejącego
+`ProductionContentObserver`, matching, `coverage_matrix`, `assess_content` i
+`VirtualCellRenderer`. Opcjonalny raster sink oraz konfiguracje zachowują stare
+defaulty. Tylko padding zmienia się 0.08→0.0; asymetria exact-cell-quad /
+outer-board-homography-inset pozostaje jawna i ma regresję nieregularnych węzłów.
+
+Klasyfikacja wiąże slot/sequence/cell z current review owner (own_target,
+review_item_id i source_replacement_current_v1), current approved crop, dokładnym human
+approve/reassign lub board_synchronized eventem i ponownym renderem zatwierdzonych
+pikseli. board_synchronized wymaga current board_decision oraz aktualnej ludzkiej
+decyzji planszy zgodnej z aktorem zdarzenia; system/reopened nie stanowią GT. Wykorzystuje
+`LocalSymbolOnnxAdapter` i rzeczywiste preprocessing/temperature snapshotu.
+Producent przypina zwalidowany canonical pipeline envelope z reviewBoundary,
+fingerprintem i zakresem model/input jako `current-diagnostic-runtime`. Nie
+przypisuje tej polityki historycznemu importowi. Brak tego pinu daje unavailable.
+Calibration obsługuje faktyczne M6 v1/v2 oraz candidate_gate version z manifestem,
+klasami, wagami, temperature i inputSize; M6 policy nie poświadcza LAB_RGB.
+Known disabled to odrębny stan konfiguracji,
+bez deklaracji jakości automatu; top1 może być ocenione niezależnie.
+Osobny LAB snapshot przechodzi istniejące `require_iteration_candidate` oraz
+LAB_RGB preprocessing 96→64. Nie jest aliasem legacy cropu.
+
+`load_assessment_engine` zachowuje przypięte routing/rescue. Lokalny wrapper
+runnerów obserwuje SHA faktycznych tensorów i zawsze przywraca runner w `finally`.
+`production_crop_inputs` odtwarza produkcyjne transformacje dla rzeczywiście
+wybranego BASE/rescue, wymagając zgodności z zaobserwowanym tensorem. Obrys GT nie
+jest warunkiem zapisu wejścia. Report zawiera raw/fitted model nodes, screenQuad,
+transformację, preset/routing, RGB/tensor SHA oraz PNG tylko dla TRAIN.
+Brak świadka screen (także rzeczywiście wykonanego rescue) daje partial z powodem.
+
+`production-crop-comparison-v1` ma game/role/geometry, stały mianownik, per-instance
+obserwacje, osobny absolutny LAB reference i sumy `labGames` per game/role/geometry.
+LAB nie udaje porównania poprawy dwóch identycznych wariantów. Legacy gate wymaga
+spadku clipped+missing i zakazuje każdej nowej missing instance bez kompensacji.
+Wewnętrzny sealed JSON A zachowuje geometrię/klasy niezbędne do replay i metryk;
+to zaakceptowane ryzyko lokalnych metadanych, nie publiczny dokument galerii.
+HTML/hinty/PNG mogą konsumować wyłącznie TRAIN z visualExportAllowed=true.
+Raport daje rekomendację diagnostyczną. `candidate` nie
+jest zgodą na kwalifikację/publikację (`diagnosticOnly=true`,
+`qualificationAllowed=false`). Braki mają jawne reason codes, falseAccept przy
+braku policy pozostaje null. Capture, report i PNG są niezmienne; powtórzenie
+komendy w nowym procesie weryfikuje aktualne metadane, źródła, użyte wagi i pliki,
+a zgodny istniejący raport nie uruchamia ponownie inferencji.

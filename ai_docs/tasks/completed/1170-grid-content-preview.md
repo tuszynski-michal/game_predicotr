@@ -109,7 +109,7 @@ Nie deklarować poprawy wytrenowanego modelu bez rzeczywistego eksperymentu.
 
 ## Outcome
 
-Commit: v1.7.582 (hash dopisuje kolejny commit).
+Commit: v1.7.582 / `23055b1e0cfbc7c325b5a0d4f18f370d9f9ae1ac`.
 
 ### Changed
 

@@ -6,10 +6,20 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1171 — Porównanie produkcyjnych wycinków 8% i 0% (done)
+
+- Plik: `tasks/completed/1171-production-crop-comparison.md`.
+- Commit: **v1.7.583** (hash dopisuje kolejny commit).
+- Rzeczywisty VirtualCellRenderer: para marginesów 8%/0%, geometria człowieka i przypięte predykcje modelu, te same instancje; osobne absolutne wyniki LAB RGB.
+- READ ONLY capture chroni role, kopie, bufory i zapisane sesje przed pikselami; bieżące klasy wymagają ludzkiego zatwierdzenia właściwego cropu. Runtime diagnostyczny jest osobnym dowodem od historycznego importu. Raport nie kwalifikuje publikacji ani zmiany defaultu.
+- Weryfikacja: 47 unit PASS, 1 PostgreSQL PASS (produkcyjne save_resolution i aktualna frozen A/protection), Ruff9/scoped mypy7 PASS, docs/map PASS. Nowy proces odtwarza identyczne bajty raportu; rzeczywisty pilot 135 instancji/540 cropów/10 wejść NN. Brak contentGT/current classes oznacza not_evaluable.
+- Audyt: raport i receipt `quality/TASK-1171_AUDIT_claude-opus-5-5.*`; pierwotne R1 i mapa jednej rundy poprawek zachowane. R2 PASS (0P0/0P1), rzeczywisty Opus5.5/high requested, SHA receipt zweryfikowany. P2-5–9 jawnie przyjęte w Outcome.
+- Ograniczenia: wewnętrzne A JSON zawierają metadane do replay, nie wolno renderować ich w galerii (TRAIN+visualExportAllowed). Brak treningu operatora, zmiany marginesu/modelu, usług, importu691, wdrożenia i merge. Kolejny TASK-1172.
+
 ### TASK-1170 — Czytelny podgląd siatki i obrysów (done)
 
 - Plik: `tasks/completed/1170-grid-content-preview.md`.
-- Commit: **v1.7.582** (hash dopisuje kolejny commit).
+- Commit: **v1.7.582 / `23055b1e0cfbc7c325b5a0d4f18f370d9f9ae1ac`** (hash dopisuje kolejny commit).
 - Zapisane24punkty, aktualne obrysy, produkcyjne footprinty i trzy warstwy; GET-only HTML bez ghost obrysów. Historyczne zapisy i ślepy pomiar zachowane.
 - 52pytest,PG15footprints/coldread/cleanup0,SDK4,typy/lint/kontrakt/docs/mapPASS. PełnyAdmin428PASS/10FAIL potwierdzonych na main; buildT4.
 - Opus5.5/high terminal R1REVISE→R2PASS; P0/P1=0. P2-4 jawne; P2-7/8 zaplanowane T4, P2-9 metadane wyrównane. Bez operatorowego treningu, danych, usług, merge/pushu.

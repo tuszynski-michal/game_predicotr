@@ -511,6 +511,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/pipeline_state_compaction_repository.py: class PipelineCompactionPreview, class SqlAlchemyPipelineStateCompactionRepository, load_pipeline_execution_references, load_pipeline_stage_digests
 - storage/prediction_revision_slimming.py: class PredictionRevisionSlimError, class SlimBatch, class RetentionBatch, legacy_digest_column_present, preview_slim, slim_batch, preview_retention, delete_retention_batch
 - storage/production_cell_reference.py: production_reference_reader, capture_production_reference, require_current_production_reference, current_render_configuration, require_production_content_freshness
+- storage/production_crop_capture.py: role_reason, capture
 - storage/protected_control_truth.py: load_control_truth, current_control_decisions, require_control_truth_promotion
 - storage/remote_manual_selection_access_repository.py: class SqlAlchemyRemoteManualSelectionAccessRepository, class InMemoryRemoteManualSelectionAccessRepository
 - storage/remote_manual_selection_repository.py: class RemoteManualSelectionHostBinding, class RemoteManualSelectionSessionSecrets, class RemoteManualSelectionFileDelta, class RemoteManualSelectionSourceRegistration, class RemoteManualSelectionTransferRecord, class RemoteManualSelectionHostActionRecord, class RemoteManualSelectionMaterializationContext, class RemoteManualSelectionRemovalContext, class RemoteManualSelectionFinalFileRecord, class RemoteManualSelectionFinalizationSnapshot, class RemoteManualSelectionRecoveryTransferCandidate, class RemoteManualSelectionQueueSnapshot, class SqlAlchemyRemoteManualSelectionRepository, class InMemoryRemoteManualSelectionRepository, validate_remote_selection_audit_payload
@@ -701,6 +702,10 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/production_cell_evaluation.py: real_source_support, reference_context, render_cells, ambiguous_matching, class ProductionContentObserver
 - images/production_cell_input.py: engine_input_context, manifest_input_context, require_input_context, observe_input, bind_input_references, verify_input
 - images/production_cell_run.py: content_enabled, class ProductionContentRun, summarize_content, unavailable_content
+- images/production_crop_artifacts.py: safe_path, read_json, sealed, checked, write_bytes, write_json, save_raster
+- images/production_crop_classification.py: current_runtime_pin, acceptance_policy, human_class, class PinnedClassifier
+- images/production_crop_comparison.py: comparison_summary, paired_gate, absolute_reference, run_comparison
+- images/production_crop_inputs.py: analyse_with_inputs
 - images/production_workflow.py: class BoardCellGeometryDeferrer, class ProductionImageImportWorkflow, class ProductionImageStageAdapterSuite
 - images/projective_lattice_crops.py: class ProjectiveLatticeCell, class ProjectiveLatticeCropResult, build_projective_lattice_crops
 - images/qualified_manual_geometry.py: apply_v12_page_geometry, apply_qualified_page_override
@@ -1427,6 +1432,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - check_vision_lab_hybrid_resume.py: step
 - close_task.py: class CloseError, class FileChange, class Plan, split_lines, detect_eol, bare, headings, block_end, find_section, normalise_block, encode, decode, parse_task_id, check_version, active_task_file, active_names, archives_newest_first, newest_archive, read_state, set_task_status_done, move_destination, plan_close, plan_record_hash, git, verify_commit, is_tracked, move_task, move_back, load_script, run_checks, sandbox_checks, apply_plan, print_plan, build_parser, run, main
 - compact_image_pipeline_state.py: main
+- compare_production_symbol_crops.py: main
 - complete_m4_acceptance_apk.py: main
 - convert_legacy_boards_to_virtual.py: main
 - crop_m5_board_cells.py: main

@@ -93,8 +93,9 @@ Commit: v1.7.599 / `4e5585905caf6e369bc12c656c24a88fa03575d7`.
 
 ### Not completed
 
-- Scalenie, push i wdrożenie. Działające API nie zostało zrestartowane;
-  nadal wymaga zastosowania poprawki. Brak nowych usług i zapisów operatora.
+- Weryfikacja implementacji nie obejmowała wdrożenia. Osobno zatwierdzone
+  scalenie i restart opisuje poniższy zapis. Nie wykonywano treningu ani
+  ponawiania zadań operatora; migracja nie jest potrzebna.
 
 ### Documentation updates
 
@@ -103,8 +104,17 @@ Commit: v1.7.599 / `4e5585905caf6e369bc12c656c24a88fa03575d7`.
 
 ### Recommended next task
 
-- Po kontrolach i audycie: decyzja operatora o scaleniu oraz uruchomieniu
-  poprawionego API w widocznym terminalu operatora.
+- Po zatwierdzonym wdrożeniu: zwykłe używanie Jobs; poprzednie nieudane
+  zadania zachowują rzeczywiste błędy i nie są automatycznie ponawiane.
+
+### Deployment — 2026-11-10
+
+- Operator zaakceptował merge/push/cleanup i widoczny terminal API. main/origin
+  fc37f563 po fast-forward; schemat matched, bez migracji i konfliktów.
+- API działa w widocznym oknie `Game Predictor - API (Ctrl+C)`. Health200,
+  lista200 zadań HTTP200, wszystkie4 szczegóły readability HTTP200 z zachowanymi
+  licznikami/błędami. Bez zapisu danych i restartu pozostałych usług.
+- Szczegóły: quality/TASK-1181_VERIFICATION.md oraz root artifacts/jobs-readability-fix-20261110/.
 
 ## Przypisanie modeli do zadań
 

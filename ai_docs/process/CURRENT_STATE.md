@@ -12,6 +12,8 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
+- **777 a2:** model symboli5 `9afa868a` aktywny. Źródło: TASK-1179.
+
 - **Audyt Claude (operator2026-11-08):** terminal/polecenia są wymaganym sposobem. Desktop wyłącznie na nowe, jawne polecenie dla danego audytu. Operator loguje CLI sam; nie sterujemy logowaniem ani nie kopiujemy tokenów. Limit Opus pozwala odłożyć audyty i kontynuować kod, bez PASS/commita oczekującego taska.
 
 - **Mumie A2 / TASK-1176:** wdrożenie v1.7.591–592, OpusR2 PASS; API/general działają. bf601495:691 zdjęć,6219 plansz,93285 pending/0%, deferred rozwiązane, korekty zachowane. Default3ed60010 rev2, trening42012366 zablokowanyA. Źródło: `quality/TASK-1176_VERIFICATION.md`.
@@ -97,6 +99,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 - **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 / `1a0e4961` — tasks/completed/1178-grid-learning-readiness-guidance.md
 - **TASK-1177** — Wydajny zapis symboli i manifest — v1.7.594 / `0e1a02ec` — tasks/completed/1177-symbol-review-performance-freeze.md
+- **TASK-1179** — Nieprzypisane zdjęcia importu 777 a2 — v1.7.594 / `b23f3563` — tasks/completed/1179-neural-unbound-preview.md
 - **TASK-1176** — Przekazanie siatek do weryfikacji symboli — v1.7.591 / `ccedfdbe` — tasks/completed/1176-symbol-review-routing.md
 - **TASK-1175** — Pełne pola symboli bez marginesu 8% — v1.7.588 / `6a560516` — tasks/completed/1175-full-cell-render-policy.md
 - **TASK-1174** — Następna plansza i szybka kolejka — v1.7.587 / `1181797c` — tasks/completed/1174-geometry-review-navigation.md
@@ -104,4 +107,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1172** — Powiązanie renderowania i danych z uczeniem — v1.7.584 / `aeae6012` — tasks/completed/1172-content-render-training-binding.md
 - **TASK-1171** — Porównanie produkcyjnych wycinków 8% i 0% — v1.7.583 / `14fcfb4e` — tasks/completed/1171-production-crop-comparison.md
 - **TASK-1170** — Czytelny podgląd siatki i obrysów — v1.7.582 / `23055b1e` — tasks/completed/1170-grid-content-preview.md
-- **TASK-1169** — Zgodność schematu przy cutover — v1.7.579 / `a5e78251` — tasks/completed/1169-schema-head-cutover.md

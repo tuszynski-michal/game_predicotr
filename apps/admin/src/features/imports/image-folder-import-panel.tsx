@@ -287,6 +287,9 @@ export function ImageFolderImportPanel({
   const [neuralPreviewJobId, setNeuralPreviewJobId] = useState<string | null>(
     null,
   );
+  const [neuralUnboundPreviewJobId, setNeuralUnboundPreviewJobId] = useState<
+    string | null
+  >(null);
   const [neuralUnboundConfirmation, setNeuralUnboundConfirmation] =
     useState<NeuralUnboundSkipConfirmation | null>(null);
   const [pendingGeometryCorrectionState, setPendingGeometryCorrectionState] =
@@ -2077,9 +2080,14 @@ export function ImageFolderImportPanel({
                               <button
                                 className="secondaryButton"
                                 disabled={busy}
-                                onClick={() =>
-                                  setNeuralPreviewJobId(geometryPreflightJob.id)
-                                }
+                                onClick={() => {
+                                  setNeuralUnboundPreviewJobId(
+                                    geometryPreflightJob.id,
+                                  );
+                                  setNeuralPreviewJobId(
+                                    geometryPreflightJob.id,
+                                  );
+                                }}
                                 type="button"
                               >
                                 Przypisz plansze ręcznie
@@ -2191,14 +2199,42 @@ export function ImageFolderImportPanel({
                                     ? geometryPreflightJob.id
                                     : null,
                                 );
+                              if (!event.currentTarget.open)
+                                setNeuralUnboundPreviewJobId(null);
                             }}
                           >
                             <summary>
                               {isNeuralGeometryPreflight(geometryPreflightJob)
-                                ? 'Podgląd propozycji sieci i numeracji zdjęć'
+                                ? neuralUnboundPreviewJobId ===
+                                  geometryPreflightJob.id
+                                  ? 'Zdjęcia bez przypisania plansz'
+                                  : 'Podgląd propozycji sieci i numeracji zdjęć'
                                 : 'Ręczna korekta zdjęć geometrii — zostaw na koniec'}{' '}
-                              ({visibleGeometryCorrectionCount})
+                              (
+                              {neuralUnboundPreviewJobId ===
+                              geometryPreflightJob.id
+                                ? neuralUnboundSourceCount
+                                : visibleGeometryCorrectionCount}
+                              )
                             </summary>
+                            {neuralUnboundPreviewJobId ===
+                            geometryPreflightJob.id ? (
+                              <>
+                                <p className="curatedImportStatus">
+                                  Pokazujemy tylko zdjęcia bez jednoznacznego
+                                  przypisania plansz do numerów sekwencji.
+                                </p>
+                                <button
+                                  className="secondaryButton"
+                                  onClick={() =>
+                                    setNeuralUnboundPreviewJobId(null)
+                                  }
+                                  type="button"
+                                >
+                                  Pokaż wszystkie propozycje sieci
+                                </button>
+                              </>
+                            ) : null}
                             <p className="curatedImportStatus">
                               {isNeuralGeometryPreflight(geometryPreflightJob)
                                 ? 'Licznik obejmuje propozycje sieci, a nie liczbę błędnych zdjęć. Rozpocznij import bez zatwierdzania każdej planszy. Pełne, przypisane siatki zostaną automatycznie pocięte i rozpoznane. Brakujące lub częściowe siatki znajdziesz w Korekcie cięcia siatki; tutaj poprawiaj niejednoznaczną numerację zdjęcia.'
@@ -2209,7 +2245,10 @@ export function ImageFolderImportPanel({
                             replacementPreview?.uploadId === ready.uploadId ||
                             neuralPreviewJobId === geometryPreflightJob.id ? (
                               <PageGeometryCorrectionPanel
-                                allowRegisteredSourceInspection
+                                allowRegisteredSourceInspection={
+                                  neuralUnboundPreviewJobId !==
+                                  geometryPreflightJob.id
+                                }
                                 api={api}
                                 apiBaseUrl={apiBaseUrl}
                                 focusSourceChecksumSha256={
@@ -2221,7 +2260,14 @@ export function ImageFolderImportPanel({
                                 gameId={gameId}
                                 geometryEngineVariant={geometryEngineVariant}
                                 onPendingSourceCountChange={
-                                  handlePendingGeometryCorrectionCountChange
+                                  neuralUnboundPreviewJobId ===
+                                  geometryPreflightJob.id
+                                    ? undefined
+                                    : handlePendingGeometryCorrectionCountChange
+                                }
+                                onlyNeuralUnboundSources={
+                                  neuralUnboundPreviewJobId ===
+                                  geometryPreflightJob.id
                                 }
                                 onSubmitSaved={
                                   rerunGeometryPreflightAfterCorrection

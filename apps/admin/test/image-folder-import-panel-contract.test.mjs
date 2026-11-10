@@ -167,7 +167,7 @@ test('shows the real geometry phase and distinguishes provisional from final cou
   );
   assert.match(
     panelSource,
-    /onPendingSourceCountChange=\{\s*handlePendingGeometryCorrectionCountChange\s*\}/,
+    /onPendingSourceCountChange=\{\s*neuralUnboundPreviewJobId ===\s*geometryPreflightJob\.id\s*\? undefined\s*:\s*handlePendingGeometryCorrectionCountChange\s*\}/,
   );
   assert.match(
     panelSource,
@@ -520,7 +520,11 @@ test('V3 unbound sources are shown, confirmed and reported instead of skipped si
   assert.match(panelSource, /Importuj bez tych/);
   assert.match(
     panelSource,
-    /setNeuralPreviewJobId\(geometryPreflightJob\.id\)/,
+    /setNeuralPreviewJobId\(\s*geometryPreflightJob\.id,?\s*\)/,
+  );
+  assert.match(
+    panelSource,
+    /setNeuralUnboundPreviewJobId\(\s*geometryPreflightJob\.id,?\s*\)/,
   );
   assert.match(
     panelSource,

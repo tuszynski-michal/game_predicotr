@@ -104,6 +104,7 @@ interface PageGeometryCorrectionPanelProps {
   readonly gameId: string;
   readonly geometryEngineVariant?: GeometryEngineVariant;
   readonly neuralPreflight?: boolean;
+  readonly onlyNeuralUnboundSources?: boolean;
   readonly onPendingSourceCountChange?: (count: number) => void;
   readonly onDraftSaved?: () => void;
   readonly onSubmitSaved: (managedSourceJobId?: string) => Promise<void>;
@@ -347,7 +348,7 @@ export function PageGeometryCorrectionPanel(
 ) {
   return (
     <PageGeometryCorrectionPanelContent
-      key={`${props.gameId}:${props.uploadId}:${props.preflightJobId}`}
+      key={`${props.gameId}:${props.uploadId}:${props.preflightJobId}:${props.onlyNeuralUnboundSources === true ? 'unbound' : 'all'}`}
       {...props}
     />
   );
@@ -363,6 +364,7 @@ function PageGeometryCorrectionPanelContent({
   gameId,
   geometryEngineVariant,
   neuralPreflight = false,
+  onlyNeuralUnboundSources = false,
   onPendingSourceCountChange,
   onDraftSaved,
   onSubmitSaved,
@@ -511,6 +513,14 @@ function PageGeometryCorrectionPanelContent({
       const pendingSources = result.data.sources.filter(
         (item) => !item.savedSincePreflight,
       );
+      const visibleSources = onlyNeuralUnboundSources
+        ? pendingSources.filter(
+            (item) =>
+              item.rejectionReasonCode ===
+                'NEURAL_GRID_SLOT_BINDING_REQUIRED' ||
+              item.rejectionReasonCode === 'NEURAL_GRID_SOURCE_TIME_LIMIT',
+          )
+        : pendingSources;
       setManagedSourceJobId(result.data.managedSourceJobId ?? undefined);
       if (
         inspectionSourceChecksumSha256 !== null &&
@@ -535,19 +545,19 @@ function PageGeometryCorrectionPanelContent({
       }
       const focusedSources =
         inspectionSourceChecksumSha256 !== null
-          ? pendingSources.filter(
+          ? visibleSources.filter(
               (item) =>
                 item.sourceChecksumSha256 === inspectionSourceChecksumSha256,
             )
           : activeFocusSourceChecksumSha256 === undefined
-            ? pendingSources
+            ? visibleSources
             : [
-                ...pendingSources.filter(
+                ...visibleSources.filter(
                   (item) =>
                     item.sourceChecksumSha256 ===
                     activeFocusSourceChecksumSha256,
                 ),
-                ...pendingSources.filter(
+                ...visibleSources.filter(
                   (item) =>
                     item.sourceChecksumSha256 !==
                     activeFocusSourceChecksumSha256,
@@ -579,6 +589,7 @@ function PageGeometryCorrectionPanelContent({
     initialReplacementSource,
     inspectionSourceChecksumSha256,
     onPendingSourceCountChange,
+    onlyNeuralUnboundSources,
     preflightJobId,
     uploadId,
   ]);

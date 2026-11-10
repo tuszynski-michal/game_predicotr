@@ -9,6 +9,54 @@ import type {
 
 /** TASK-1000: readable reasons; an unknown code is never hidden, only labelled. */
 export const REASON_LABELS: Readonly<Record<string, string>> = {
+  GRID_LEARNING_HISTORY_COHORT_UNVERIFIED:
+    'Wybrana historyczna kohorta nie ma dowodu w publikacji bazy. Wybierz potwierdzoną kohortę tej gry.',
+  GRID_LEARNING_HISTORY_BASE_MISMATCH:
+    'Baza historycznej kohorty nie jest przodkiem modelu domyślnego. Przygotuj zgodną kohortę.',
+  GRID_LEARNING_IMPORT_SCOPE_INVALID:
+    'Wybierz od 1 do 100 importów z dostępnymi źródłami; większego zakresu system nie pomniejsza sam.',
+  GRID_LEARNING_BASE_MISSING:
+    'Nie znaleziono przypiętej wersji domyślnej. Przywróć jej wpis lub wybierz dostępną opublikowaną bazę.',
+  GRID_LEARNING_BASE_UNPUBLISHED:
+    'Baza nie ma potwierdzonej publikacji. Wybierz opublikowaną wersję domyślną.',
+  GRID_LEARNING_RECOMMENDED_POINTS:
+    'Ten cel uczy położenia siatki na zatwierdzonych planszach.',
+  GRID_LEARNING_RECOMMENDED_DETECTOR:
+    'Pełne dane pozwalają uczyć także wykrywania położenia plansz na zdjęciu.',
+  GRID_LEARNING_PARTIAL_TRAIN_PRESENT:
+    'Zbiór zawiera częściowo opisane zdjęcia. Uczenie punktów zachowuje także te pojedyncze korekty; detektor wymaga pełnych zdjęć.',
+  GRID_CORRECTION_SPLIT_MINIMA:
+    'Za mało zatwierdzonych plansz lub zdjęć do trzech osobnych ról. Uzupełnij braki pokazane w licznikach.',
+  GRID_CORRECTION_SPLIT_INFEASIBLE:
+    'Nie można zachować osobnych kontroli i buforów przy obecnych danych. Dodaj korekty na innych zdjęciach lub nowy import.',
+  GRID_CORRECTION_SPLIT_WORK_LIMIT:
+    'Podział przekroczył limit obliczeń. Nie wybrano mniejszego zbioru; zakres wymaga sprawdzenia.',
+  GRID_LEARNING_HISTORY_STALE:
+    'Ponownie używana kohorta ma nieaktualne etykiety. Przygotuj świeżą kohortę wymaganej gry.',
+  GRID_LEARNING_HISTORY_UNAVAILABLE:
+    'Brak dostępnej, zgodnej kohorty wymaganej innej gry. Sprawdź zakres i jej dane.',
+  GRID_LEARNING_HISTORY_COHORT_REQUIRED:
+    'Wymagana gra nie ma przypiętej kohorty do nowej oceny. Uzupełnij ją w szczegółach zakresu.',
+  GRID_LEARNING_DEFAULT_REQUIRED:
+    'Nie wybrano wspólnego modelu bazowego. Ustaw opublikowaną wersję domyślną.',
+  GRID_LEARNING_BASE_UNAVAILABLE:
+    'Pliki modelu bazowego są niedostępne. Przywróć je przed uczeniem.',
+  GRID_LEARNING_TRAINING_ARTIFACTS_REQUIRED:
+    'Baza nie ma wszystkich oryginalnych plików potrzebnych do doszkalania.',
+  GRID_RUN_COHORT_COST_EXCEEDS_BUDGET:
+    'Ten zakres przekracza budżet treningu. System nie zmniejszył zbioru ani nie zwiększył limitu.',
+  GRID_COHORT_TIMEOUT:
+    'Odczyt danych przekroczył limit czasu. Odśwież po zakończeniu bieżących zapisów; powtarzający się błąd wymaga diagnozy.',
+  SOURCE_METADATA_MISSING:
+    'Brakuje kanonicznej tożsamości części zdjęć. Uzupełnij metadane przed bezpiecznym podziałem.',
+  SCREEN_FULL_PHOTOS_REQUIRED:
+    'Do uczenia detektora potrzeba co najmniej 15 zdjęć z zatwierdzoną geometrią wszystkich dziewięciu plansz.',
+  SCREEN_FULL_TRAIN_REQUIRED:
+    'Detektor wymaga 10 pełnych zdjęć w TRAIN. Pojedyncze korekty mogą uczyć punkty siatki.',
+  SCREEN_FULL_VALIDATION_REQUIRED:
+    'Detektor wymaga 5 pełnych zdjęć walidacyjnych. Kontrole pozostają oddzielne od TRAIN.',
+  SCREEN_PARTIAL_PHOTO_EXCLUDED:
+    'Częściowe zdjęcie nie uczy detektora; jego nieopisane plansze nie są traktowane jako tło.',
   CONTENT_SEQUENCE_CONFLICT:
     'Bieżąca etykieta dotyczy innego numeru planszy. Plansza pozostaje nieoznaczona w tym odczycie; zamrożone etykiety są sprawdzane osobno.',
   CONTENT_SEQUENCE_UNRESOLVED:
@@ -141,7 +189,6 @@ export const REASON_LABELS: Readonly<Record<string, string>> = {
   GRID_RUN_COHORT_NOT_QUALIFIED: 'Kohorta nie kwalifikuje się do treningu',
   GRID_RUN_PRESET_NOT_APPROVED: 'Brak zatwierdzonego presetu dla trybu',
   GRID_RUN_COHORT_EMPTY: 'Kohorta nie ma danych TRAIN',
-  GRID_RUN_COHORT_COST_EXCEEDS_BUDGET: 'Koszt przekracza budżet runu',
   GRID_RUN_LEASE_BUSY: 'GPU jest zajęte — run poczeka w kolejce',
   GRID_RUN_LEASE_UNKNOWN: 'Stan GPU jest nieustalony — run poczeka w kolejce',
   GRID_RUN_NOT_FOUND: 'Nie znaleziono runu',
@@ -176,7 +223,6 @@ export const REASON_LABELS: Readonly<Record<string, string>> = {
   GRID_COHORT_MINIMUM_NOT_MET: 'Za mało danych w którejś roli',
   GRID_COHORT_DEPENDENCY_UNRESOLVED:
     'Nie udało się odczytać zależności kohorty',
-  GRID_COHORT_TIMEOUT: 'Polecenie przekroczyło limit czasu',
   COHORT_NOT_FROZEN: 'Kohorta nie jest zamrożona',
   COHORT_NO_USED_TARGETS: 'Kohorta nie ma użytych etykiet',
   SOURCE_REMOVED_NEW_USE_BLOCKED: 'Usunięte zdjęcie blokuje nowe użycie',

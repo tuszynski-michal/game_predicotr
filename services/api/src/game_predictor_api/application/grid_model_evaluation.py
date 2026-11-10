@@ -266,9 +266,9 @@ class GridModelEvaluationService:
             )
             history = None
             if correction:
-                from .grid_correction_history import verified_history
+                from .grid_correction_history import verified_publication_scope
 
-                history = verified_history(
+                history = verified_publication_scope(
                     SqlAlchemyGridModelRegistryRepository(session), UUID(manifest["baseVersionId"])
                 )
         absent = sorted(trained - {(str(game), str(cohort)) for game, cohort in requested})

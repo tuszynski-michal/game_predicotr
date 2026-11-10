@@ -169,6 +169,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const [trainingMode, setTrainingMode] = useState<'grid-only' | 'screen+grid'>(
     'grid-only',
   );
+  const [manualTrainingMode, setManualTrainingMode] = useState(false);
   const [historicalCohorts, setHistoricalCohorts] = useState<
     GridModelEvaluationCohortPin[]
   >([]);
@@ -223,7 +224,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     setCurrentnessNotice('');
   }
 
-  async function refresh() {
+  async function refresh(useRecommendedMode: boolean = !manualTrainingMode) {
     setBudgetRefresh((value) => value + 1);
     previewSequence.current += 1;
     invalidateCurrentnessCheck();
@@ -242,7 +243,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     }
     try {
       const results = await Promise.allSettled([
-        (purposeAware
+        (purposeAware || !useRecommendedMode
           ? api.previewGridCorrectionLearning(gameId, {
               ...requestOptions,
               importJobIds: [],
@@ -251,7 +252,9 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 ...value,
               })),
             })
-          : api.getGridCorrectionLearningReady(gameId)
+          : api.getGridCorrectionLearningReady(gameId, {
+              recommendTrainingMode: true,
+            })
         )
           .then((result) => {
             if (!current()) return;
@@ -260,15 +263,20 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             if (result.data.gameId !== gameId)
               throw new Error('Odpowiedź dotyczy innej gry.');
             setReady(result.data);
+            const recommendedMode = result.data.trainingMode ?? 'grid-only';
+            if (!purposeAware && useRecommendedMode) {
+              setTrainingMode(recommendedMode);
+              setHistoricalCohorts([]);
+            }
             setPreviewedOptions(
-              purposeAware
+              purposeAware || !useRecommendedMode
                 ? optionsKey
                 : JSON.stringify({
-                    trainingMode: 'grid-only',
+                    trainingMode: recommendedMode,
                     historicalCohorts: [],
                   }),
             );
-            if (!purposeAware) setExclusions({});
+            if (!purposeAware && useRecommendedMode) setExclusions({});
           })
           .finally(() => {
             if (current()) setLoading(false);
@@ -640,6 +648,34 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         a.gameId.localeCompare(b.gameId),
       ),
     );
+  const optionsChanged =
+    ready !== null &&
+    ((ready.trainingMode ?? 'grid-only') !== trainingMode ||
+      (ready.policyVersion ?? null) !==
+        (purposeAware ? VALIDATION_POLICY : null) ||
+      (ready.contentExperiment ?? null) !==
+        (contentExperiment ? 'full-symbol-content-experiment-v1' : null) ||
+      previewedOptions !== optionsKey ||
+      !exclusionsMatch);
+  const startGuardReasons = [
+    ...(corrupt
+      ? ['Zapisane polecenie jest nieczytelne; sprawdź komunikat powyżej']
+      : []),
+    ...(pending !== null
+      ? ['Najpierw rozstrzygnij zapisane polecenie lub ponów jego odczyt']
+      : []),
+    ...(busy ? ['Trwa wykonywanie polecenia'] : []),
+    ...(refreshing ? ['Trwa odczyt aktualnych korekt'] : []),
+    ...(optionsChanged
+      ? ['Wybór zmienił się; kliknij „Sprawdź zakres/podział”']
+      : []),
+    ...(runs.some((item) => learningActive(item.status))
+      ? ['Trwa już uczenie tej gry; sprawdź jego przebieg']
+      : []),
+    ...(ready && !ready.canStart && ready.blockers.length === 0
+      ? ['Dane nie są gotowe; odśwież stan']
+      : []),
+  ];
   return (
     <section
       className="gridCorrectionLearning"
@@ -662,6 +698,12 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         potwierdzenia i dotyczy nowych importów.
       </p>
       {loading ? <p aria-busy="true">Sprawdzanie dostępnych korekt…</p> : null}
+      {loading || refreshing ? (
+        <p>
+          Dokładny podział dużego zbioru i dobór celu mogą potrwać około 1–2
+          minut. Historia przebiegów jest odczytywana osobno.
+        </p>
+      ) : null}
       {error ? <p role="alert">{error}</p> : null}
       {corrupt ? (
         <p role="alert">
@@ -739,27 +781,71 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             >
               Sprawdź zakres/podział
             </button>
-            <label>
-              Cel uczenia{' '}
-              <select
-                aria-label="Cel uczenia"
-                disabled={disabled}
-                value={trainingMode}
-                onChange={(event) => {
-                  setContentExperiment(false);
-                  setTrainingMode(
-                    event.target
-                      .value as GridCorrectionLearningPreviewCommand['trainingMode'] &
-                      string,
-                  );
-                  setHistoricalCohorts([]);
-                  setValidationAssignments({});
-                }}
-              >
-                <option value="grid-only">Punkty siatki</option>
-                <option value="screen+grid">Detektor i punkty siatki</option>
-              </select>
-            </label>
+            <p>
+              {!manualTrainingMode &&
+              !purposeAware &&
+              ready.trainingRecommendation
+                ? 'Zalecany cel'
+                : 'Wybrany cel'}
+              :{' '}
+              {trainingMode === 'screen+grid'
+                ? 'Detektor i punkty siatki'
+                : 'Punkty siatki'}
+              .
+              {!manualTrainingMode &&
+              !purposeAware &&
+              !optionsChanged &&
+              ready.trainingRecommendation?.mode === trainingMode
+                ? ready.trainingRecommendation.reasonCodes.map((code) => (
+                    <span key={code}> {reasonLabel(code)}</span>
+                  ))
+                : null}
+            </p>
+            <p>
+              Zapisane korekty są materiałem do następnej iteracji. Przycisk
+              uruchamia trening i porównanie; same korekty ani odświeżenie nie
+              uruchamiają uczenia i nie zmieniają aktywnego modelu.
+            </p>
+            <details>
+              <summary>Zaawansowane: ręczny cel uczenia</summary>
+              <label>
+                Cel uczenia{' '}
+                <select
+                  aria-label="Cel uczenia"
+                  disabled={disabled || refreshing}
+                  value={trainingMode}
+                  onChange={(event) => {
+                    setManualTrainingMode(true);
+                    setContentExperiment(false);
+                    setTrainingMode(
+                      event.target
+                        .value as GridCorrectionLearningPreviewCommand['trainingMode'] &
+                        string,
+                    );
+                    setHistoricalCohorts([]);
+                    setValidationAssignments({});
+                  }}
+                >
+                  <option value="grid-only">Punkty siatki</option>
+                  <option value="screen+grid">Detektor i punkty siatki</option>
+                </select>
+              </label>
+              {manualTrainingMode && !purposeAware ? (
+                <button
+                  type="button"
+                  className="secondaryButton"
+                  disabled={disabled || refreshing}
+                  onClick={() => {
+                    setManualTrainingMode(false);
+                    void refresh(true).catch((failure) =>
+                      setError(String(failure)),
+                    );
+                  }}
+                >
+                  Przywróć automatyczny dobór i odśwież
+                </button>
+              ) : null}
+            </details>
             <label>
               <input
                 type="checkbox"
@@ -1086,23 +1172,15 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               {ready.pendingWorkerChecks.map(reasonLabel).join('; ')}.
             </p>
           ) : null}
+          {startGuardReasons.length ? (
+            <p role="status">
+              Start jest niedostępny: {startGuardReasons.join('; ')}.
+            </p>
+          ) : null}
           <button
             className="primaryButton"
             type="button"
-            disabled={
-              disabled ||
-              !ready.canStart ||
-              (ready.trainingMode ?? 'grid-only') !== trainingMode ||
-              (ready.policyVersion ?? null) !==
-                (purposeAware ? VALIDATION_POLICY : null) ||
-              (ready.contentExperiment ?? null) !==
-                (contentExperiment
-                  ? 'full-symbol-content-experiment-v1'
-                  : null) ||
-              previewedOptions !== optionsKey ||
-              !exclusionsMatch ||
-              runs.some((item) => learningActive(item.status))
-            }
+            disabled={!ready.canStart || startGuardReasons.length > 0}
             onClick={() => {
               const key = crypto.randomUUID();
               void send({

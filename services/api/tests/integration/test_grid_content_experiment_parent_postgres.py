@@ -382,7 +382,7 @@ def _exercise_parent(
         )
         monkeypatch.setattr(
             learning,
-            "verified_history",
+            "verified_publication_scope",
             lambda *a: {"documented": True, "gameIds": [str(game)], "cohorts": []},
         )
         service = learning.GridCorrectionLearningService(

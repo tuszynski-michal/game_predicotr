@@ -27,6 +27,7 @@ from game_predictor_api.domain.grid_correction_policy import (
 )
 from game_predictor_api.domain.grid_correction_progress import correction_progress_counts
 from game_predictor_api.domain.grid_correction_split import correction_data_availability
+from game_predictor_api.domain.grid_detector_readiness import detector_readiness
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError, descriptor_sha256
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError
 from game_predictor_api.domain.jobs import (
@@ -54,7 +55,7 @@ from game_predictor_api.storage.grid_training_run_jobs import SqlAlchemyGridTrai
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository, job_from_record
 from game_predictor_api.storage.models import JobModel
 
-from .grid_correction_history import verified_history
+from .grid_correction_history import verified_publication_scope
 from .grid_model_evaluation import GridModelEvaluationService
 from .grid_model_registry import GridModelRegistryService
 from .grid_training_cohorts import GridTrainingCohortService
@@ -93,8 +94,32 @@ class GridCorrectionLearningService:
             self.provider_index_sha256,
         )
 
-    def ready(self, game: UUID) -> dict[str, Any]:
-        return self.preview(game, {"importJobIds": [], "exclusions": []})
+    def ready(self, game: UUID, *, recommend_training_mode: bool = False) -> dict[str, Any]:
+        points = self.preview(game, {"importJobIds": [], "exclusions": []})
+        if not recommend_training_mode:
+            return points
+        chosen = points
+        reasons = ["GRID_LEARNING_RECOMMENDED_POINTS"]
+        readiness = points.get("detectorReadiness")
+        # Preserve partial TRAIN corrections: the screen trainer must not turn
+        # their unlabelled boards into background or silently omit their labels.
+        partial_train = points.get("partialTrainingPhotos", 0)
+        if partial_train:
+            reasons.append("GRID_LEARNING_PARTIAL_TRAIN_PRESENT")
+        elif readiness is not None and not readiness["reasonCodes"]:
+            screen = self.preview(
+                game, {"trainingMode": "screen+grid", "importJobIds": [], "exclusions": []}
+            )
+            if screen["canStart"]:
+                chosen, reasons = screen, ["GRID_LEARNING_RECOMMENDED_DETECTOR"]
+            else:
+                reasons.extend(screen["blockers"])
+        else:
+            reasons.extend((readiness or {}).get("reasonCodes", []))
+        return {
+            **chosen,
+            "trainingRecommendation": {"mode": chosen["trainingMode"], "reasonCodes": reasons},
+        }
 
     def _split(
         self,
@@ -272,7 +297,7 @@ class GridCorrectionLearningService:
                         "GRID_LEARNING_BASE_UNAVAILABLE", "The default artifacts are unavailable."
                     )
                 manifest = base["manifest"]
-                history = verified_history(repository, default.version_id)
+                history = verified_publication_scope(repository, default.version_id)
                 # The artifact inspector verifies every listed training artifact's bytes.
                 training = manifest.get("trainingArtifacts") or []
                 if not {"weights.pt", "checkpoint.pt", "bundle.json", "preset.json"} <= {
@@ -351,8 +376,23 @@ class GridCorrectionLearningService:
                 view["importJobIds"] = imports
             pins["splitSha256"] = split["sha256"]
             representatives = [item for item in split["sources"] if item["representative"]]
+            detector_sources = [
+                {
+                    **item,
+                    "qualifiedBoards": item.get("qualifiedBoards", item["eligibleBoards"]),
+                    "role": item.get("role"),
+                }
+                for item in representatives
+            ]
             view.update(
-                detectorReadiness=split.get("detectorReadiness"),
+                detectorReadiness=split.get("detectorReadiness")
+                or detector_readiness(
+                    [item["qualifiedBoards"] for item in detector_sources], detector_sources
+                ),
+                partialTrainingPhotos=sum(
+                    item["role"] == "TRAIN" and 0 < item["qualifiedBoards"] < 9
+                    for item in detector_sources
+                ),
                 dataAvailability=correction_data_availability(
                     sum(
                         item.get("qualifiedBoards", item["eligibleBoards"]) > 0
@@ -447,9 +487,7 @@ class GridCorrectionLearningService:
                         else "GRID_LEARNING_HISTORY_UNAVAILABLE",
                         "A required historical cohort is unavailable or incompatible.",
                     )
-                if (screen or purpose_aware) and str(header["baseVersionId"]) != manifest[
-                    "versionId"
-                ]:
+                if str(header["baseVersionId"]) != manifest["versionId"]:
                     from .grid_correction_history import require_historical_cohort
 
                     with Session(self.engine) as history_session:

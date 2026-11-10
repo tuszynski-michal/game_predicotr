@@ -2044,6 +2044,7 @@ export type {
   GridTrainingJobPayload,
   GridTrainingLeaseView,
   GridTrainingPresetView,
+  GridTrainingRecommendation,
   GridTrainingRunBudget,
   GridTrainingRunCost,
   GridTrainingRunCreate,

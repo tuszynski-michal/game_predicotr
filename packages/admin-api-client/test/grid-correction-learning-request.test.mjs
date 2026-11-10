@@ -2,6 +2,41 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('recommended readiness is an opt-in GET and legacy callers keep their query', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      const url = new URL(request.url);
+      requests.push({ method: request.method, query: url.search });
+      return Response.json({
+        trainingMode: 'grid-only',
+        partialTrainingPhotos: 12,
+        trainingRecommendation: url.searchParams.has('recommendTrainingMode')
+          ? {
+              mode: 'grid-only',
+              reasonCodes: ['GRID_LEARNING_PARTIAL_TRAIN_PRESENT'],
+            }
+          : undefined,
+      });
+    },
+  });
+  const game = '11111111-1111-4111-8111-111111111111';
+  const recommended = await client.getGridCorrectionLearningReady(game, {
+    recommendTrainingMode: true,
+  });
+  const legacy = await client.getGridCorrectionLearningReady(game);
+  assert.deepEqual(recommended.data.trainingRecommendation.reasonCodes, [
+    'GRID_LEARNING_PARTIAL_TRAIN_PRESENT',
+  ]);
+  assert.equal(recommended.data.partialTrainingPhotos, 12);
+  assert.equal(legacy.data.trainingRecommendation, undefined);
+  assert.deepEqual(requests, [
+    { method: 'GET', query: '?recommendTrainingMode=true' },
+    { method: 'GET', query: '' },
+  ]);
+});
+
 test('content experiment exact preview/start retry keeps server pending checks separate', async () => {
   const calls = [];
   const client = createAdminApiClient({

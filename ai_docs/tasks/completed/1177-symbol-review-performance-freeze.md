@@ -68,7 +68,7 @@ Każda komenda ma timeout<=120s; audyt1800s. Wyniki w raporcie jakości taska.
 
 ## Outcome
 
-Commit: v1.7.594 (hash dopisuje kolejny commit).
+Commit: v1.7.594 / `0e1a02ec916629508570ee6570ded38d4df92817`.
 
 Implementacja gotowa do końcowej kontroli. Zachowano transakcję planszy,
 własność i zgodę na aktualny manifest. Szczegóły, pomiary i ograniczenia:

@@ -192,7 +192,16 @@ class GridValidationPurposeCount(CorrectionLearningClosedModel):
     fullPhotos: int = Field(ge=0)
 
 
+class GridTrainingRecommendation(CorrectionLearningClosedModel):
+    mode: Literal["grid-only", "screen+grid"]
+    reasonCodes: list[str]
+
+
 class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
+    trainingRecommendation: GridTrainingRecommendation | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
+    partialTrainingPhotos: int = Field(0, ge=0, exclude_if=lambda value: value == 0)
     contentExperiment: Literal["full-symbol-content-experiment-v1"] | None = Field(
         None, exclude_if=lambda value: value is None
     )

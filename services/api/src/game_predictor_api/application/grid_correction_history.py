@@ -1,7 +1,8 @@
 """Verified publication scope and immutable historical cohorts for corrections.
 
 Dataset labels never establish game identity. Missing legacy scope is explicit;
-an invalid or stale explicit proof fails closed instead of becoming empty history.
+an invalid explicit proof fails closed instead of becoming empty history.
+Historical scope and current admission of reused labels are separate decisions.
 """
 
 from __future__ import annotations
@@ -42,7 +43,7 @@ def select_historical_cohorts(
     return [result[game] for game in sorted(result)]
 
 
-def verified_history(
+def verified_publication_scope(
     repository: SqlAlchemyGridModelRegistryRepository, version_id: UUID
 ) -> dict[str, Any]:
     version = repository.version(version_id)
@@ -74,13 +75,6 @@ def verified_history(
         base_sha256=base.manifest_sha256,
         game_id=None,
     )
-    if any(
-        item["state"] != "current"
-        for item in repository.cohort_currentness(proof.report_id, proof.cohorts)
-    ):
-        raise GridModelRegistryError(
-            "GRID_LEARNING_HISTORY_STALE", "A historical cohort needs a current proof."
-        )
     return {
         "documented": True,
         "gameIds": sorted(str(game) for game in proof.games),
@@ -89,11 +83,33 @@ def verified_history(
     }
 
 
+def verified_history(
+    repository: SqlAlchemyGridModelRegistryRepository, version_id: UUID
+) -> dict[str, Any]:
+    """Legacy strict reader: all pinned labels must still be current."""
+    history = verified_publication_scope(repository, version_id)
+    if history["reportId"] is not None:
+        _require_current_cohorts(repository, UUID(history["reportId"]), history["cohorts"])
+    return history
+
+
+def _require_current_cohorts(
+    repository: SqlAlchemyGridModelRegistryRepository,
+    report: UUID,
+    cohorts: Sequence[Mapping[str, Any]],
+) -> None:
+    states = repository.cohort_currentness(report, cohorts)
+    if len(states) != len(cohorts) or any(item["state"] != "current" for item in states):
+        raise GridModelRegistryError(
+            "GRID_LEARNING_HISTORY_STALE", "A historical cohort needs a current proof."
+        )
+
+
 def require_historical_cohort(
     repository: SqlAlchemyGridModelRegistryRepository, base: UUID, header: dict[str, Any]
 ) -> None:
     """Reuse the original snapshot without rewriting its original training base."""
-    history = verified_history(repository, base)
+    history = verified_publication_scope(repository, base)
     expected = {
         "gameId": str(header["gameId"]),
         "cohortId": str(header["id"]),
@@ -104,6 +120,7 @@ def require_historical_cohort(
             "GRID_LEARNING_HISTORY_COHORT_UNVERIFIED",
             "This historical cohort is not pinned by the base publication.",
         )
+    _require_current_cohorts(repository, UUID(history["reportId"]), [expected])
     ancestors = repository.lineage(base)["ancestors"]
     if str(header["baseVersionId"]) not in {entry["versionId"] for entry in ancestors}:
         raise GridModelRegistryError(

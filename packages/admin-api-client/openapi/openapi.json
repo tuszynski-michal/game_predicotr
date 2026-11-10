@@ -15250,6 +15250,12 @@
             "title": "Limitations",
             "type": "array"
           },
+          "partialTrainingPhotos": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Partialtrainingphotos",
+            "type": "integer"
+          },
           "pendingWorkerChecks": {
             "items": {
               "type": "string"
@@ -15350,6 +15356,16 @@
             ],
             "title": "Trainingmode",
             "type": "string"
+          },
+          "trainingRecommendation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridTrainingRecommendation"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "validationAssignments": {
             "anyOf": [
@@ -21747,6 +21763,32 @@
           "runtime"
         ],
         "title": "GridTrainingPresetView",
+        "type": "object"
+      },
+      "GridTrainingRecommendation": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "grid-only",
+              "screen+grid"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "reasonCodes"
+        ],
+        "title": "GridTrainingRecommendation",
         "type": "object"
       },
       "GridTrainingRunBudget": {
@@ -56428,6 +56470,7 @@
     },
     "/api/v1/admin/games/{game_id}/grid-correction-learning/ready": {
       "get": {
+        "description": "Read current corrections. recommendTrainingMode opts into a data-based mode recommendation; legacy reads retain grid-only. No write or training starts.",
         "operationId": "getGridCorrectionLearningReady",
         "parameters": [
           {
@@ -56438,6 +56481,16 @@
               "format": "uuid",
               "title": "Game Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recommendTrainingMode",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Recommendtrainingmode",
+              "type": "boolean"
             }
           }
         ],

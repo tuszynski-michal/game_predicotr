@@ -10,6 +10,7 @@ from game_predictor_api.application import grid_correction_learning as learning
 from game_predictor_api.application.grid_correction_history import (
     require_historical_cohort,
     verified_history,
+    verified_publication_scope,
 )
 from game_predictor_api.domain.grid_correction_evaluation import CHECKPOINT_RULE, build_report
 from game_predictor_api.domain.grid_model_publication import require_evaluation_evidence
@@ -110,7 +111,7 @@ def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(
     )
     monkeypatch.setattr(
         learning,
-        "verified_history",
+        "verified_publication_scope",
         lambda *args: {
             "documented": True,
             "gameIds": sorted([str(game), str(other)]),
@@ -376,8 +377,9 @@ def test_old_start_command_replays_with_additive_screen_defaults(monkeypatch, tm
     )
 
 
+@pytest.mark.parametrize("full_train", [False, True])
 def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_population(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, full_train
 ):
     game, base, family, import_id = [uuid4() for _ in range(4)]
     catalogue = SimpleNamespace(
@@ -408,7 +410,7 @@ def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_populatio
     )
     monkeypatch.setattr(
         learning,
-        "verified_history",
+        "verified_publication_scope",
         lambda *args: {"documented": False, "gameIds": [], "cohorts": []},
     )
     monkeypatch.setattr(
@@ -420,7 +422,7 @@ def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_populatio
             {
                 "buffer": index == 0,
                 "representative": True,
-                "eligibleBoards": 3,
+                "eligibleBoards": 9 if full_train and 1 <= index <= 10 else 3,
                 "role": None
                 if index == 0
                 else "TRAIN"
@@ -431,11 +433,11 @@ def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_populatio
             }
             for index in range(21)
         ]
-        + [{"buffer": False, "representative": False, "eligibleBoards": 3}],
+        + [{"buffer": False, "representative": False, "eligibleBoards": 3, "role": "TRAIN"}],
         "roleCounts": [
             {"role": role, "photos": photos, "boards": boards}
             for role, photos, boards in (
-                ("TRAIN", 10, 30),
+                ("TRAIN", 10, 90 if full_train else 30),
                 ("VALIDATION", 5, 15),
                 ("REGRESSION", 5, 15),
             )
@@ -454,7 +456,7 @@ def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_populatio
     assert first["bufferPhotos"] == 1 and first["pendingWorkerChecks"]
     assert first["dataAvailability"] == {
         "photos": 21,
-        "boards": 63,
+        "boards": 123 if full_train else 63,
         "minimumPhotos": 20,
         "minimumBoards": 60,
         "photoDeficit": 0,
@@ -462,6 +464,60 @@ def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_populatio
         "splitStatus": "ready",
     }
     assert sum(item["photos"] for item in first["roleCounts"]) == 20
+    assert first["partialTrainingPhotos"] == (0 if full_train else 10)
+    readiness = first["detectorReadiness"]
+    assert readiness["fullPhotos"] == (10 if full_train else 0)
+    assert readiness["partialPhotos"] == (11 if full_train else 21)
+    assert "SCREEN_FULL_PHOTOS_REQUIRED" in readiness["reasonCodes"]
+    roles = {item["role"]: item for item in readiness["roles"]}
+    assert roles["TRAIN"]["eligibleFullPhotos"] == (10 if full_train else 0)
+    assert roles["VALIDATION"]["eligibleFullPhotos"] == 0
+    assert roles["VALIDATION"]["missingFullPhotos"] == 5
+    # New publication scope is valid, but a selected old cohort's own proof
+    # must already be current in grid-only preview, not only at run creation.
+    from game_predictor_api.application import grid_correction_history as history_module
+
+    other, old_cohort, old_base = [uuid4() for _ in range(3)]
+    pin = {"gameId": str(other), "cohortId": str(old_cohort), "manifestSha256": "d" * 64}
+    checked = []
+
+    def stale_history(repository, pinned_base, header):
+        checked.append((pinned_base, header["id"]))
+        raise GridModelRegistryError("GRID_LEARNING_HISTORY_STALE", "Stale selected proof")
+
+    with monkeypatch.context() as nested:
+        nested.setattr(
+            learning,
+            "verified_publication_scope",
+            lambda *args: {
+                "documented": True,
+                "gameIds": [str(other)],
+                "cohorts": [pin],
+            },
+        )
+        nested.setattr(
+            learning,
+            "SharedGridCandidateService",
+            lambda *args: SimpleNamespace(
+                _cohort=lambda *args: (
+                    {
+                        "id": str(old_cohort),
+                        "gameId": str(other),
+                        "baseVersionId": str(old_base),
+                        "manifestSha256": "d" * 64,
+                        "familyId": str(family),
+                        "mode": "grid-only",
+                        "status": "frozen",
+                    },
+                    {"qualification": "eligible"},
+                    None,
+                ),
+            ),
+        )
+        nested.setattr(history_module, "require_historical_cohort", stale_history)
+        refused = service.preview(game, command)
+        assert not refused["canStart"] and refused["blockers"] == ["GRID_LEARNING_HISTORY_STALE"]
+    assert checked == [(base, str(old_cohort))]
     split["sha256"] = "c" * 64
     assert service.preview(game, command)["previewSha256"] != first["previewSha256"]
     from game_predictor_api.domain.grid_correction_split import CorrectionSplitError
@@ -675,3 +731,53 @@ def test_legacy_dataset_labels_are_not_a_game_scope():
         "cohorts": [],
         "reportId": None,
     }
+
+
+def test_new_training_keeps_verified_scope_after_labels_change_but_reuse_stays_current():
+    repo, _, _, pin = history_fixture()
+    repo.cohort_currentness = lambda *args: [{"state": "stale"}]
+    history = verified_publication_scope(repo, UUID(int=1))
+    assert history["gameIds"] == [uid(5)] and history["cohorts"] == [pin]
+    with pytest.raises(GridModelRegistryError, match="current proof"):
+        require_historical_cohort(
+            repo,
+            UUID(int=1),
+            {
+                "gameId": uid(5),
+                "id": uid(4),
+                "manifestSha256": "c" * 64,
+                "baseVersionId": uid(2),
+            },
+        )
+    repo.cohort_currentness = lambda *args: []
+    with pytest.raises(GridModelRegistryError, match="current proof"):
+        verified_history(repo, UUID(int=1))
+
+
+def test_publication_scope_still_rejects_an_explicitly_invalidated_report():
+    repo, report, _, _ = history_fixture()
+    repo.evaluation = lambda *args: (report, True)
+    with pytest.raises(GridModelRegistryError):
+        verified_publication_scope(repo, UUID(int=1))
+
+
+def test_reuse_requests_currentness_of_only_the_selected_historical_pin():
+    repo, _, _, pin = history_fixture()
+    checked = []
+
+    def currentness(report, cohorts):
+        checked.append(cohorts)
+        return [{"state": "current"} for _ in cohorts]
+
+    repo.cohort_currentness = currentness
+    require_historical_cohort(
+        repo,
+        UUID(int=1),
+        {
+            "gameId": uid(5),
+            "id": uid(4),
+            "manifestSha256": "c" * 64,
+            "baseVersionId": uid(2),
+        },
+    )
+    assert checked == [[pin]]

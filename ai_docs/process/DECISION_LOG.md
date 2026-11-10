@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-601](decisions/DECISION_LOG_2026.md#d-601--zakres-publikacji-i-bieżąca-gotowość-nowego-uczenia) | Zakres publikacji i gotowość nowego uczenia | accepted | 2026-11-10 | Nowe etykiety nie unieważniają historycznego zakresu; reuse i apply wymagają aktualności; zalecany cel opt-in. |
 | [D-600](decisions/DECISION_LOG_2026.md#d-600--krótki-zapis-manifestu-i-koszt-zależny-od-planszy) | Krótki zapis manifestu i koszt zależny od planszy | accepted | 2026-11-10 | Attestation poza blokadą, fence rewizji pod krótką blokadą; bez rozluźniania własności lub zgody. |
 | [D-599](decisions/DECISION_LOG_2026.md#d-599--propozycje-siatek-do-ludzkiej-weryfikacji-symboli) | Propozycje do weryfikacji symboli | accepted | 2026-11-09 | Osobny cel zapisu pending, bez human GT i kwalifikowania automatu. |
 | [D-598](decisions/DECISION_LOG_2026.md#d-598--pełne-pola-w-nowych-wycinkach-i-jawnej-korekcie) | Pełne pola w nowych wycinkach | accepted | 2026-11-09 | Jawny full-cell-v2 wiąże0% w nowych snapshotach i korekcie; historia i dowody zachowane. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-575](decisions/DECISION_LOG_2026.md#d-575--powrót-do-wyszukiwania-jednej-planszy) | Powrót do wyszukiwania jednej planszy | accepted | 2026-10-30 | TASK-1114 usuwa wiele wzorów; jedna plansza, ±15 i historia pozostają. |
 | [D-574](decisions/DECISION_LOG_2026.md#d-574--przypięty-wybór-i-optymistyczna-nawigacja-selektora) | Przypięty wybór i optymistyczna nawigacja Selektora | accepted | 2026-10-29 | Jeden writer, przypięte F, timeout i handshake przed close; bez zmian trwałego formatu. |
 | [D-573](decisions/DECISION_LOG_2026.md#d-573--wyszukiwanie-po-kolejnych-układach) | Wyszukiwanie po kolejnych układach | accepted | 2026-10-24 | 1–4 spiny, ranking cykliczny, historia v2, wygrane od końca; od 2026-10-27 wzory przed szukaniem, podgląd +10 zdjęć i limit 60 s. |
-| [D-572](decisions/DECISION_LOG_2026.md#d-572--nazwa-folderu-wynikowego-selektora) | Nazwa folderu wynikowego selektora | accepted | 2026-10-23 | Nowe partie: gra aktualizacja pierwsza-ostatnia; stary outputRoot i nazwy JPEG bez zmian; zastępuje regułę folderu D-571. |

@@ -20,7 +20,7 @@ from game_predictor_api.schemas.grid_model_evaluations import GridModelEvaluatio
 class _LearningService(Protocol):
     """Structural boundary implemented by GridCorrectionLearningService."""
 
-    def ready(self, game_id: UUID) -> object: ...
+    def ready(self, game_id: UUID, *, recommend_training_mode: bool = False) -> object: ...
     def preview(self, game_id: UUID, command: dict[str, Any]) -> object: ...
     def start(self, game_id: UUID, command: dict[str, Any], actor: str) -> object: ...
     def get(self, game_id: UUID, learning_id: UUID) -> object: ...
@@ -51,11 +51,20 @@ def create_grid_correction_learning_router(dependency: Callable[..., object]) ->
         "/ready",
         operation_id="getGridCorrectionLearningReady",
         response_model=GridCorrectionLearningPreview,
+        description="Read current corrections. recommendTrainingMode opts into a data-based "
+        "mode recommendation; legacy reads retain grid-only. No write or training starts.",
     )
     def ready(
-        game_id: UUID, service: Annotated[_LearningService, parameter]
+        game_id: UUID,
+        service: Annotated[_LearningService, parameter],
+        recommendTrainingMode: bool = False,
     ) -> GridCorrectionLearningPreview:
-        return GridCorrectionLearningPreview.model_validate(service.ready(game_id))
+        view = (
+            service.ready(game_id, recommend_training_mode=True)
+            if recommendTrainingMode
+            else service.ready(game_id)
+        )
+        return GridCorrectionLearningPreview.model_validate(view)
 
     @router.post(
         "/preview",

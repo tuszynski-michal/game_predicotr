@@ -8346,6 +8346,10 @@ export type GridCorrectionLearningPreview = {
    */
   limitations: Array<string>;
   /**
+   * Partialtrainingphotos
+   */
+  partialTrainingPhotos?: number;
+  /**
    * Pendingworkerchecks
    */
   pendingWorkerChecks: Array<string>;
@@ -8391,6 +8395,7 @@ export type GridCorrectionLearningPreview = {
    * Trainingmode
    */
   trainingMode?: 'grid-only' | 'screen+grid';
+  trainingRecommendation?: GridTrainingRecommendation | null;
   /**
    * Validationassignments
    */
@@ -11989,6 +11994,20 @@ export type GridTrainingPresetView = {
    * Version
    */
   version: number;
+};
+
+/**
+ * GridTrainingRecommendation
+ */
+export type GridTrainingRecommendation = {
+  /**
+   * Mode
+   */
+  mode: 'grid-only' | 'screen+grid';
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
 };
 
 /**
@@ -31186,7 +31205,12 @@ export type GetGridCorrectionLearningReadyData = {
      */
     game_id: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * Recommendtrainingmode
+     */
+    recommendTrainingMode?: boolean;
+  };
   url: '/api/v1/admin/games/{game_id}/grid-correction-learning/ready';
 };
 

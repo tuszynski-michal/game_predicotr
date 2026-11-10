@@ -6,6 +6,21 @@ last_updated: 2026-10-16
 
 # Import i rozpoznawanie zdjęć
 
+## Następna iteracja uczenia z bieżących korekt — D-601
+
+Nowe ręczne korekty geometrii są kwalifikowane do kolejnego treningu bez
+żądania aktualności etykiet z poprzedniej publikacji. Historia zachowuje
+zatwierdzony zakres gier; ponownie używane kohorty i zastosowanie modelu
+nadal przechodzą ścisłe kontrole. Podgląd pokazuje aktualne TRAIN, nowe i
+wcześniej użyte etykiety, osobne kontrole oraz wyłączenia i bufory.
+
+Panel domyślnie zaleca cel na podstawie danych. Częściowe zdjęcia TRAIN uczą
+punkty siatki; detektor wymaga pełnych zdjęć i zgodnego zakresu. Ręczny wybór
+jest zaawansowany i nie znika po odświeżeniu. Każdy niedostępny start ma
+czytelny powód i dalsze działanie. Korekta zapisuje materiał, a jawny przycisk
+uruchamia odtwarzalny trening i ocenę. Nie wprowadzamy uczenia w tle ani
+samoczynnego przełączania modelu po zapisaniu korekty.
+
 ## Bezpieczna akceptacja nowych operacji V3 — D-584 (TASK-1154)
 
 Nowe importy i przygotowania reinferencji przypinają `neural-auto-crop-v2`

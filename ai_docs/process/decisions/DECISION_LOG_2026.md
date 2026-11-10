@@ -16,6 +16,28 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-601 — Zakres publikacji i bieżąca gotowość nowego uczenia
+
+Status: accepted. Data:2026-11-10. TASK-1178; zatwierdzony cały plan.
+
+Nowy trening odczytuje historycznie zweryfikowany zakres publikacji z
+niezmiennych dowodów modelu. Aktualne zmiany etykiet kohort poprzedniej
+publikacji nie blokują policzenia nowych korekt bieżącej gry. To nie jest
+ponowne dopuszczenie starego raportu: publikacja/aktywacja/default zachowują
+pełne bariery aktualności. Jawne unieważnienie lub uszkodzenie dowodu nadal
+blokuje. Dane innych wymaganych gier nadal muszą przejść bieżącą kwalifikację;
+ponowne użycie starszej kohorty sprawdza aktualność konkretnego wybranego
+pinu oraz pochodzenie w przodkach, bez globalnej blokady przez inną kohortę.
+
+GET ready otrzymuje opcjonalny recommendTrainingMode=false. Domyślny odczyt
+oraz istniejące polecenia zachowują grid-only. Nowy panel prosi o dobór:
+detektor+punkty wyłącznie po sprawdzeniu pełnych zdjęć TRAIN/VALIDATION,
+zgodności zakresu i budżetu; częściowy TRAIN pozostaje przy punktach, żeby
+nie pomijać pojedynczych korekt. Inaczej punkty z jawnym powodem. Ręczny wybór
+jest zaawansowany i pozostaje przypięty podczas odświeżania. Każdy start
+nadal wymaga aktualnego podglądu i dokładnego polecenia. Żaden refresh ani
+korekta nie uruchamia GPU, nie zmienia ról, minimów i defaultu.
+
 ## D-600 — Krótki zapis manifestu i koszt zależny od planszy
 
 **Status:** accepted. **Data:** 2026-11-10. **Task:** TASK-1177.

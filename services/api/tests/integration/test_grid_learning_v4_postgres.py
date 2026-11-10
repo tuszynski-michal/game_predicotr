@@ -106,7 +106,7 @@ def test_v4_preview_parent_freeze_training_evaluation_bind_exact_purposes(tmp_pa
         )
         monkeypatch.setattr(
             learning,
-            "verified_history",
+            "verified_publication_scope",
             lambda *args: {"documented": True, "gameIds": [str(game)], "cohorts": []},
         )
         service = learning.GridCorrectionLearningService(db.app_engine, factory, tmp_path)
@@ -236,7 +236,7 @@ def test_v4_preview_parent_freeze_training_evaluation_bind_exact_purposes(tmp_pa
 
         monkeypatch.setattr(
             grid_correction_history,
-            "verified_history",
+            "verified_publication_scope",
             lambda *args: {"documented": True, "gameIds": [str(game)], "cohorts": []},
         )
         stage("enter real evaluation cohort read")

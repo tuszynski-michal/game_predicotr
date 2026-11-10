@@ -206,6 +206,128 @@ async function mount(api, saved = {}, gameId = GAME) {
     },
   };
 }
+
+test('recommended mode is adopted without writes and its exact preview can start', async () => {
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: (_game, options) => {
+      assert.equal(options.recommendTrainingMode, true);
+      return {
+        data: {
+          ...readiness,
+          trainingMode: 'screen+grid',
+          trainingRecommendation: {
+            mode: 'screen+grid',
+            reasonCodes: ['GRID_LEARNING_RECOMMENDED_DETECTOR'],
+          },
+        },
+      };
+    },
+    startGridCorrectionLearning: async () => ({ error: { code: 'LOST' } }),
+  });
+  const ui = await mount(api);
+  try {
+    assert.match(
+      document.body.textContent,
+      /Zalecany cel: Detektor i punkty siatki/,
+    );
+    assert.equal(
+      document.querySelector('select[aria-label="Cel uczenia"]').value,
+      'screen+grid',
+    );
+    assertOnlyReads(calls);
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, false);
+    await click('Ulepsz siatki z korekt');
+    const command = calls.find(
+      ([name]) => name === 'startGridCorrectionLearning',
+    )[2];
+    assert.equal(command.trainingMode, 'screen+grid');
+    assert.equal(command.previewSha256, readiness.previewSha256);
+  } finally {
+    await ui.close();
+  }
+});
+
+test('refresh keeps a manual goal and fetches current counts for that goal', async () => {
+  const { api, calls } = fixture({
+    previewGridCorrectionLearning: async (_game, body) => ({
+      data: {
+        ...readiness,
+        trainingMode: body.trainingMode,
+        roleCounts: [{ role: 'TRAIN', photos: 30, boards: 120 }],
+      },
+    }),
+  });
+  const ui = await mount(api);
+  try {
+    const select = document.querySelector('select[aria-label="Cel uczenia"]');
+    await act(async () => {
+      select.value = 'screen+grid';
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    assert.match(document.body.textContent, /Wybór zmienił się; kliknij/);
+    await click('Odśwież stan uczenia');
+    assert.equal(select.value, 'screen+grid');
+    assert.equal(
+      calls.filter(([name]) => name === 'getGridCorrectionLearningReady')
+        .length,
+      1,
+    );
+    assert.equal(
+      calls
+        .filter(([name]) => name === 'previewGridCorrectionLearning')
+        .at(-1)[2].trainingMode,
+      'screen+grid',
+    );
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, false);
+    assert.match(document.body.textContent, /120/);
+    await click('Przywróć automatyczny dobór i odśwież');
+    assert.equal(select.value, 'grid-only');
+    assert.equal(
+      calls.filter(([name]) => name === 'getGridCorrectionLearningReady')
+        .length,
+      2,
+    );
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, false);
+  } finally {
+    await ui.close();
+  }
+});
+
+test('manual goal hides explanations from the previous automatic recommendation', async () => {
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        trainingMode: 'grid-only',
+        trainingRecommendation: {
+          mode: 'grid-only',
+          reasonCodes: ['GRID_LEARNING_RECOMMENDED_POINTS'],
+        },
+      },
+    }),
+  });
+  const ui = await mount(api);
+  try {
+    assert.match(document.body.textContent, /Ten cel uczy położenia siatki/);
+    const select = document.querySelector('select[aria-label="Cel uczenia"]');
+    await act(async () => {
+      select.value = 'screen+grid';
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    assert.match(
+      document.body.textContent,
+      /Wybrany cel: Detektor i punkty siatki/,
+    );
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Ten cel uczy położenia siatki/,
+    );
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, true);
+    assertOnlyReads(calls);
+  } finally {
+    await ui.close();
+  }
+});
 async function click(text) {
   const button = [...document.querySelectorAll('button')].find(
     (item) => item.textContent === text,
@@ -2104,7 +2226,7 @@ test('refresh excludes an explicit preview and retains the refreshed list and se
   }
 });
 
-test('legacy refresh restores the grid-only options key after returning from screen mode', async () => {
+test('manual refresh rechecks grid-only after returning from screen mode', async () => {
   const { api, calls } = fixture({
     previewGridCorrectionLearning: (_game, body) => ({
       data: { ...readiness, trainingMode: body.trainingMode },
@@ -2127,6 +2249,17 @@ test('legacy refresh restores the grid-only options key after returning from scr
     assert.equal(findButton('Ulepsz siatki z korekt').disabled, false);
     assert.equal(
       calls.filter(([name]) => name === 'previewGridCorrectionLearning').length,
+      2,
+    );
+    assert.equal(
+      calls
+        .filter(([name]) => name === 'previewGridCorrectionLearning')
+        .at(-1)[2].trainingMode ?? 'grid-only',
+      'grid-only',
+    );
+    assert.equal(
+      calls.filter(([name]) => name === 'getGridCorrectionLearningReady')
+        .length,
       1,
     );
   } finally {

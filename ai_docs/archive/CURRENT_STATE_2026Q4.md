@@ -6,10 +6,22 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1178 — Gotowość korekt i zalecany cel uczenia (done)
+
+- Plik: `tasks/completed/1178-grid-learning-readiness-guidance.md`.
+- Commit: **v1.7.595**.
+- Historyczny zakres nie blokuje nowych korekt ani nowej oceny; strict reuse
+  zachowany. Rekomendowany cel, ręczny override i aktualne liczniki. Rzeczywisty
+  read-only ready MumieA2:276 TRAIN/75 nowych, canStart=true.
+- PASS64 Python+2 PG+56 UI+164 SDK; kontrole jakości, build/docs/map;
+  terminal OpusR2 PASS. P2 latency/wyświetlanie zapisane,6 baseline FAIL jawne.
+- Cały plan gotowy do akceptacji. Bez wdrożenia, treningu i zmian danych
+  operatora; osobna zgoda na scalenie. Raport odbioru w quality/.
+
 ### TASK-1177 — Wydajny zapis symboli i manifest (done)
 
 - Plik: `tasks/completed/1177-symbol-review-performance-freeze.md`.
-- Commit: **v1.7.594** (hash dopisuje kolejny commit).
+- Commit: **v1.7.594 / `0e1a02ec916629508570ee6570ded38d4df92817`**.
 - Bulk: mniej SQL, gra w cleanup; freeze poza długą blokadą, fence/replay,
   odświeżenie manifestu z nową zgodą. PASS56 Python+14 PG+12 UI, lint/scoped
   typecheck/build/format/OpenAPI/docs/map. Terminal Opus5.5/high PASS.

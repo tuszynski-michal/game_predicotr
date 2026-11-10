@@ -6,6 +6,26 @@ last_updated: 2026-11-09
 
 # Kontrakty API i danych mobilnych
 
+## Gotowość korekt i zalecany cel (TASK-1178, D-601)
+
+GET `/api/v1/admin/games/{game_id}/grid-correction-learning/ready` przyjmuje
+opcjonalne `recommendTrainingMode=false`. Brak parametru zachowuje odczyt
+grid-only; true dobiera przygotowany tryb według rzeczywistych danych.
+Odpowiedź może zawierać `trainingRecommendation: {mode, reasonCodes}` oraz
+`partialTrainingPhotos` (pominięte przy0). `detectorReadiness` jest dostępne
+także przy grid-only i opisuje braki osobnej możliwości uczenia detektora,
+nie blokadę uczenia punktów. `trainingMode`, koszt i previewSha256 dotyczą
+jednego wybranego podglądu. Dekoracyjna rekomendacja nie zmienia jego SHA.
+Pełny tryb wymaga pełnych zdjęć TRAIN/VALIDATION i zaliczonego preflightu;
+częściowe TRAIN zachowujemy w punktach zamiast pomijać te korekty. GET niczego
+nie zamraża i nie uruchamia treningu. Stare POST-y zachowują swoje domyślne
+oraz jawnie przypięte tryby, a start nadal sprawdza aktualny checksum.
+
+Zakres poprzednio opublikowanego modelu jest dowodem historycznym. Zmiana
+etykiet nie blokuje przygotowania nowej kohorty bieżącej gry. Ponowne użycie
+konkretnej starej kohorty, publikacja i zastosowanie nadal wymagają aktualnych
+dowodów; jawnie unieważniony lub uszkodzony raport nie ustala zakresu.
+
 ## Cele oznaczeń i izolowany pomiar (TASK-1168, D-593)
 
 Istniejący prefix grid-quality-measurements udostępnia GET content-targets:

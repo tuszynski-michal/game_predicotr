@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-572](DECISION_LOG_2026.md#d-572--nazwa-folderu-wynikowego-selektora) | Nazwa folderu wynikowego selektora | accepted | 2026-10-23 | Nowe partie: gra aktualizacja pierwsza-ostatnia; stary outputRoot i nazwy JPEG bez zmian; zastępuje regułę folderu D-571. |
 | [D-571](DECISION_LOG_2026.md#d-571--trwały-katalog-gier-i-aktualizacja-partii-selektora) | Trwały katalog gier i aktualizacja partii selektora | accepted | 2026-10-23 | Katalog niezależny od historii; aktualizacja a+cyfry lub z_a+cyfry w etykietach, bez zmiany nazw eksportu. |
 | [D-570](DECISION_LOG_2026.md#d-570--nierozpoznane-pozycje-jako-wildcard-w-wyszukiwaniu-777a2) | Nierozpoznane pozycje jako wildcard w wyszukiwaniu 777a2 | accepted | 2026-10-23 | Tylko 777a2: brak dowodu daje punkt, nadal unknown; czerwony licznik w wynikach, bez zmiany wypłat. |
 | [D-568](DECISION_LOG_2026.md#d-568--zachowanie-wygranych-sprzed-rozwinięcia-super-symbolu) | Zachowanie wygranych sprzed rozwinięcia super symbolu | accepted | 2026-10-21 | Większa wypłata per (linia, symbol), sztuki raz; próg rozwinięcia i bazowa plansza uruchamiająca bez zmian. |

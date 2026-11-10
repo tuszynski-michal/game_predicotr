@@ -126,8 +126,16 @@ class Service:
         self.view_result = view_value()
         self.has_evaluation = True
 
-    def ready(self, game: UUID) -> dict[str, Any]:
-        self.calls.append(("ready", (game,)))
+    def ready(self, game: UUID, *, recommend_training_mode: bool = False) -> dict[str, Any]:
+        self.calls.append(("ready", (game, True) if recommend_training_mode else (game,)))
+        if recommend_training_mode:
+            return {
+                **deepcopy(self.preview_result),
+                "trainingRecommendation": {
+                    "mode": "grid-only",
+                    "reasonCodes": ["GRID_LEARNING_RECOMMENDED_POINTS"],
+                },
+            }
         return deepcopy(self.preview_result)
 
     def preview(self, game: UUID, command: dict[str, Any]) -> dict[str, Any]:
@@ -178,6 +186,20 @@ def app_for(service: Service, tmp_path: Path, *, security: bool = True) -> FastA
 
 def start_body() -> dict[str, Any]:
     return {"idempotencyKey": str(UUID(int=20)), "previewSha256": "c" * 64}
+
+
+def test_recommended_ready_is_explicit_read_only_opt_in_and_roundtrips_reason(tmp_path):
+    service = Service()
+    with TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345)) as client:
+        recommended = client.get(f"{PATH}/ready", params={"recommendTrainingMode": True})
+        legacy = client.get(f"{PATH}/ready")
+    assert recommended.status_code == 200
+    assert recommended.json()["trainingRecommendation"] == {
+        "mode": "grid-only",
+        "reasonCodes": ["GRID_LEARNING_RECOMMENDED_POINTS"],
+    }
+    assert "trainingRecommendation" not in legacy.json()
+    assert service.calls == [("ready", (GAME, True)), ("ready", (GAME,))]
 
 
 def test_explicit_v4_pair_and_component_projection_roundtrip_without_persistence(tmp_path):
@@ -577,6 +599,8 @@ def test_openapi_has_eight_operations_and_closed_preview_view_schemas(tmp_path: 
                 "validationPurposeCounts",
                 "contentExperiment",
                 "contentExperimentReadiness",
+                "trainingRecommendation",
+                "partialTrainingPhotos",
             }
             if name == "GridCorrectionLearningPreview"
             else {"contentExperiment", "contentExperimentPlanSha256"}

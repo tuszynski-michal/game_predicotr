@@ -7,6 +7,26 @@ release: "0.7"
 
 # Architektura iteracyjnego importu
 
+## Gotowość nowej iteracji a historia publikacji — D-601
+
+`verified_publication_scope` weryfikuje immutable manifest, report checksum,
+producer i jawne unieważnienie, bez żądania obecnej identyczności dawnych
+etykiet. `verified_history` zachowuje wcześniejszy ścisły odczyt dla zgodności
+i testów; nie ma bieżącego konsumenta produkcyjnego. Produkcyjne bariery
+publikacji są niezależne w grid_model_publication/registry. Reuse
+historycznej kohorty wymaga aktualnego proof konkretnego wybranego pinu,
+bieżącej kwalifikacji i oryginalnej bazy z przodków. Nie zmienia to readera
+raportów, publikacji/aktywacji/defaultu, ról, buforów i dowodu wcześniejszego
+użycia. `_preview` nadal liczy kwalifikowane etykiety przez wspólny reader.
+
+Opt-in ready dobiera istniejący przygotowany kontrakt: częściowy TRAIN
+zachowuje grid-only, pełny tryb musi mieć pełne TRAIN/VALIDATION i przejść
+swój preflight. Rekomendacja jest metadanymi, nie nowym poleceniem treningu.
+Stare GET/POST i trwałe joby zachowują interpretację. Admin rozróżnia dobór
+automatyczny od ręcznego; refresh ręcznego wyboru przelicza ten sam zakres
+i tryb zamiast pobierać domyślny grid-only. Wymagania API/OpenAPI/SDK są
+opisane w API_CONTRACT; szkolenie i zastosowanie nadal jawne.
+
 ## Kontrastowa ramka i siatka V1.2 — TASK-0613
 
 V1.2 jest oddzielną gałęzią preflightu o polityce

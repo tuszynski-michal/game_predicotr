@@ -1742,10 +1742,14 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { game_id: gameId, learning_id: learningId, apply_id: applyId },
       }),
-    getGridCorrectionLearningReady: (gameId: string) =>
+    getGridCorrectionLearningReady: (
+      gameId: string,
+      options?: { recommendTrainingMode?: boolean },
+    ) =>
       getGeneratedGridCorrectionLearningReady({
         client,
         path: { game_id: gameId },
+        ...(options ? { query: options } : {}),
       }),
     previewGridCorrectionLearning: (
       gameId: string,

@@ -2539,6 +2539,8 @@ export const previewGridCorrectionLearning = <
 
 /**
  * Ready
+ *
+ * Read current corrections. recommendTrainingMode opts into a data-based mode recommendation; legacy reads retain grid-only. No write or training starts.
  */
 export const getGridCorrectionLearningReady = <
   ThrowOnError extends boolean = false,

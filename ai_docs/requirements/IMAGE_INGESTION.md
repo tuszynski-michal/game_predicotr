@@ -74,6 +74,10 @@ ciche:
   plansz ich zakresów (bez zdjęć wykluczonych przez operatora); Admin pokazuje
   ostrzeżenie, przycisk „Przypisz plansze ręcznie” (podgląd propozycji sieci z
   ręcznym wiązaniem) i pole „Importuj bez tych N zdjęć”;
+- przycisk „Przypisz plansze ręcznie” zawęża podgląd do niezapisanych źródeł
+  bez przypisania plansz, w tym zdjęć z przekroczonym czasem analizy. Akcja
+  „Pokaż wszystkie propozycje sieci” przywraca pełny podgląd. Zamknięcie panelu
+  usuwa filtr; globalny licznik propozycji pozostaje niezależny od filtra;
 - start importu bez potwierdzenia dokładnie tej liczby kończy się konfliktem
   `NEURAL_GRID_UNBOUND_SOURCES_CONFIRMATION_REQUIRED`, także przy ponowieniu
   istniejącego runu; nowy preflight po ręcznym wiązaniu wymaga nowego

@@ -133,6 +133,7 @@ async function mount(prior = null, processing = false, options = {}) {
     skippedSourceCount: 0,
     warnings: [],
     existingImportJob: prior,
+    ...options.reportOverrides,
   };
   const unavailable = async () => ({
     error: { message: 'fixture unrelated section' },
@@ -209,6 +210,101 @@ async function mount(prior = null, processing = false, options = {}) {
     await act(async () => button('Pokaż raport').click());
   return { root, calls, reportCalls, preflightCalls, api, source };
 }
+
+test('unbound warning opens only the affected photo and restores the full preview explicitly or after reopening', async () => {
+  for (const reason of [
+    'NEURAL_GRID_SLOT_BINDING_REQUIRED',
+    'NEURAL_GRID_SOURCE_TIME_LIMIT',
+  ]) {
+    localStorage.clear();
+    const sources = [
+      'seq_1-9.jpg',
+      'seq_10657-10665.jpg',
+      'seq_10-18.jpg',
+      'saved.jpg',
+    ].map((name, index) => ({
+      sourceRelativePath: name,
+      sourceChecksumSha256: String(index).repeat(64),
+      expectedBoardCount: 9,
+      reviewReason: 'review_required',
+      rejectionReasonCode: index === 1 || index === 3 ? reason : null,
+      savedSincePreflight: index === 3,
+      neuralProposalBinding: null,
+      neuralProposal: {
+        sourceWidth: 600,
+        sourceHeight: 400,
+        detections: [],
+        originalRange: { sequenceRangeStart: 1, sequenceRangeEnd: 9 },
+        engineSnapshot: snapshot,
+      },
+    }));
+    const { root, calls, preflightCalls } = await mount(null, false, {
+      reportOverrides: {
+        neuralUnboundSourceCount: 1,
+        neuralUnboundAttestedBoardCount: 9,
+        neuralUnboundCountPreflightJobId: geometry.id,
+      },
+      clientOverrides: {
+        listBrowserPageGeometryReviewSources: async () => ({
+          data: {
+            sources,
+            geometryManifestChecksumSha256: 'c'.repeat(64),
+          },
+        }),
+      },
+    });
+    try {
+      await act(async () => button('Przypisz plansze ręcznie').click());
+      const filtered = document.querySelector(
+        '[aria-label="Propozycje sieci zdjęcia"]',
+      );
+      assert.match(filtered.textContent, /Zdjęcie 1\/1/);
+      assert.match(filtered.textContent, /seq_10657-10665\.jpg/);
+      assert.doesNotMatch(
+        filtered.textContent,
+        /seq_1-9\.jpg|seq_10-18\.jpg|saved\.jpg/,
+      );
+      assert.equal(button('Następne zdjęcie').disabled, true);
+      assert.match(document.body.textContent, /propozycje sieci dla zdjęć 99/);
+      assert.match(
+        document.body.textContent,
+        /Zdjęcia bez przypisania plansz \(1\)/,
+      );
+      await act(async () => button('Pokaż wszystkie propozycje sieci').click());
+      assert.match(
+        document.querySelector('[aria-label="Propozycje sieci zdjęcia"]')
+          .textContent,
+        /Zdjęcie 1\/3.*seq_1-9\.jpg/,
+      );
+      await act(async () => button('Przypisz plansze ręcznie').click());
+      assert.match(
+        document.querySelector('[aria-label="Propozycje sieci zdjęcia"]')
+          .textContent,
+        /Zdjęcie 1\/1.*seq_10657-10665\.jpg/,
+      );
+      const details = document
+        .querySelector('[aria-label="Propozycje sieci zdjęcia"]')
+        .closest('details');
+      await act(async () => {
+        details.open = false;
+        details.dispatchEvent(new Event('toggle'));
+      });
+      await act(async () => {
+        details.open = true;
+        details.dispatchEvent(new Event('toggle'));
+      });
+      assert.match(
+        document.querySelector('[aria-label="Propozycje sieci zdjęcia"]')
+          .textContent,
+        /Zdjęcie 1\/3/,
+      );
+      assert.deepEqual(calls, []);
+      assert.deepEqual(preflightCalls, []);
+    } finally {
+      await act(async () => root.unmount());
+    }
+  }
+});
 
 test('existing Import button is enabled for a completed 99-review neural report and sends pinned manifest only on explicit click', async () => {
   const { root, calls, reportCalls } = await mount();

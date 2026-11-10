@@ -52,8 +52,9 @@ This is a new-interpreter read, not a restarted production API or new server.
 
 ## Boundaries
 
-No service restart, operator mutation, merge/push, training or deployment.
-Running API remains on main and may still return500 until explicitly deployed.
+The implementation verification above did not restart services, mutate operator
+data, merge/push, train or deploy. At that point the running API still used
+old main and returned500. The separately authorized deployment is recorded below.
 All finite commands bounded to120s; audit uses the
 repository terminal runner,1800s with stream idle guard60s.
 
@@ -72,3 +73,24 @@ no separate handwritten satisfies-JobResponse fixture.
 P2-3 accepted: operator data remain in local ignored evidence; aggregate
 population and READ ONLY method are committed here. Preserve artifacts on
 future authorized worktree cleanup rather than publishing private operator rows.
+
+## Authorized deployment — 2026-11-10
+
+Operator explicitly accepted merge, push, branch cleanup and API restart in a
+visible terminal. Preflight: clean worktree, fast-forward, no collisions or
+migrations, startup schema matched. main/origin advanced from a9af0032 to
+fc37f563d25c2d464a0a2b7655f122021e97f128 (implementation + hash receipt).
+
+Only the verified old API processes34400/27832 were stopped. The new API runs
+in foreground in PowerShell24924, inside a visible WindowsTerminal26452,
+title `Game Predictor - API (Ctrl+C)`, nonzero window handle724858. Native
+API logs are not redirected; Ctrl+C stops API and NoExit retains the terminal.
+Standard `python -m game_predictor_api --reload` watches the main API sources.
+Admin, Reviewer and general worker were not restarted.
+
+Actual HTTP checks after startup: health200; GET /api/v1/admin/jobs?limit=200
+returned200 with200 jobs. All4 readability detail endpoints returned200 and
+exactly matched their list entries, including saved errors and progress.
+No job was retried or changed. Local evidence/control scripts:
+`D:/game_predicotr/artifacts/jobs-readability-fix-20261110/` and
+`.runtime/api-visible-terminal.json`. Preserve worktree evidence on cleanup.

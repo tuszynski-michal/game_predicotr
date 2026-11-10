@@ -95,6 +95,12 @@ Implementacja gotowa do niezależnego audytu; nie została scalona ani wdrożona
 - W trakcie pracy main przesunął się do fc37f563 (TASK-1181, v1.7.600). Własne zmiany zachowano w odwracalnym stash, roboczą gałąź przesunięto fast-forward do main, przywrócono zmiany i zregenerowano konfliktującą mapę. Kod taska porównany z zapisem sprzed synchronizacji. Numer commita taska wynika z aktualnego brancha: v1.7.601; brak kolizji 599/600. API i usługi nadal nie były sterowane przez ten task.
 - Definition of Done: zmieniony pion zweryfikowany, snapshoty/kolejność i gałęzie current pokryte, kontrakt API i schemat bez zmian, kod trwały sprawdzony z nowego procesu, dokumentacja i audyt rozliczone. Pełny pilot oraz scalenie/push/restart są wyraźnie oddzielonym odbiorem po zgodzie operatora.
 
+### Końcowa synchronizacja przed decyzją o wdrożeniu
+
+- Kontrola integracji przy pierwszej próbie przekroczyła 120 s; własny proces zakończony, brak pozostawionego procesu preflight. Odczytowa próba ze śladem zapytań git ukończyła się w 57,2 s. Opóźnienie dotyczyło licznych odczytów repozytorium, w tym całego grafu migracji, a nie pilota. Kod skryptu repozytorium nie był zmieniany.
+- Main przesunął się następnie do 6ee170d5 (dokumentacja wdrożenia TASK-1181). Uwzględniono go w roboczym merge v1.7.603; jedyne zmiany main to dwa dokumenty TASK-1181, bez zmian kodu produkcyjnego. Końcowy docs:check oraz preflight są rozliczone przy decyzji o wdrożeniu.
+- Równoległy zapis wdrożenia ma również numer v1.7.601. Kolizja wersji została odnotowana zgodnie z merge-to-main, bez przepisywania historii: naprawa pilota to 97bb80bf, zapis drugiego czatu to 6ee170d5. Numery tasków, decyzji i migracji nie kolidują. Commit taska pozostaje v1.7.601/97bb80bf; metadane v1.7.602, synchronizacja v1.7.603.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

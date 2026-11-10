@@ -64,7 +64,7 @@ Wyniki dopiero po wykonaniu; nie przedstawiać brakujących danych jako PASS.
 
 ## Outcome
 
-Commit: v1.7.595 (hash dopisuje kolejny commit).
+Commit: v1.7.595 / `1a0e4961989e0e15315486b87be929182b829a9d`.
 
 T1 zamknięty v1.7.594/0e1a02ec, Opus PASS. Przed kodowaniem: rzeczywisty
 GET ready blokuje GRID_LEARNING_HISTORY_STALE przed zliczeniem nowych etykiet.

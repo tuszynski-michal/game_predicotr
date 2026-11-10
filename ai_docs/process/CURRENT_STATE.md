@@ -95,7 +95,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 — tasks/completed/1178-grid-learning-readiness-guidance.md
+- **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 / `1a0e4961` — tasks/completed/1178-grid-learning-readiness-guidance.md
 - **TASK-1177** — Wydajny zapis symboli i manifest — v1.7.594 / `0e1a02ec` — tasks/completed/1177-symbol-review-performance-freeze.md
 - **TASK-1176** — Przekazanie siatek do weryfikacji symboli — v1.7.591 / `ccedfdbe` — tasks/completed/1176-symbol-review-routing.md
 - **TASK-1175** — Pełne pola symboli bez marginesu 8% — v1.7.588 / `6a560516` — tasks/completed/1175-full-cell-render-policy.md

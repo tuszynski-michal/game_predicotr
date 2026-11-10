@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1178 — Gotowość korekt i zalecany cel uczenia (done)
 
 - Plik: `tasks/completed/1178-grid-learning-readiness-guidance.md`.
-- Commit: **v1.7.595**.
+- Commit: **v1.7.595 / `1a0e4961989e0e15315486b87be929182b829a9d`**.
 - Historyczny zakres nie blokuje nowych korekt ani nowej oceny; strict reuse
   zachowany. Rekomendowany cel, ręczny override i aktualne liczniki. Rzeczywisty
   read-only ready MumieA2:276 TRAIN/75 nowych, canStart=true.

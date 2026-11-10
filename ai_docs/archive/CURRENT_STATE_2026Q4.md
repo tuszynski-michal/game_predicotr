@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1180 — Wydajny wybór próbki pilota jakości 777 A2 (done)
+
+- Plik: `tasks/completed/1180-readability-pilot-inventory-timeout.md`.
+- Commit: **v1.7.601** (hash dopisuje kolejny commit).
+- Przyczyna czterech failed pilotów: SQLSTATE 57014 przed pierwszym polem. Wybór metadanych partiami źródeł i prefiksów hashy oraz późna hydratacja do 250 pól zachowują dotychczasową kolejność, rodziny, kwoty i snapshoty. Pusta historia podmian sprawdzana pod EXCLUSIVE fence; niepusta zachowuje current guard. Dzierżawa odnawiana podczas przygotowania.
+- Weryfikacja: 50 różnych testów PASS, ruff/mypy/docs/map PASS. Rozbudowany PostgreSQL sprawdza trzy seedy i retired/reserved/restored oraz rejected, stale geometry i oznaczone RGB. Ograniczone odczyty READONLY: pierwsze 250 pól pilota 1,843 s, audytu 18,204 s; nowy proces potwierdza kompletność RGB pierwszych 250 rzeczywistych pól. Brak pełnego joba na danych operatora.
+- Audyt Opus 5.5/high: R1 REVISE (test), jedna runda poprawek, R2 PASS/0 P0/0 P1. Raporty i receipts w `quality/TASK-1180_AUDIT_claude-opus-5-5*`. Ryzyka P2: izolacja READ COMMITTED, zapas czasu prefiksu audytu, brak osobnego testu zegara heartbeat; odnotowane w Outcome.
+- Synchronizacja roboczej gałęzi z main v1.7.600 zachowała TASK-1181 i własny kod; mapa zregenerowana. Bez nowej migracji, aktywacji modelu, mutacji danych gry, usuwania zdjęć, restartów i wdrożenia. Pierwszy pełny pilot po wdrożeniu jest osobnym odbiorem operatorskim.
+
 ### TASK-1181 — Odczyt zadań jakości symboli w Jobs (done)
 
 - Plik: `tasks/completed/1181-jobs-readability-response.md`.

@@ -97,6 +97,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1180** — Wydajny pilot jakości 777 A2 — v1.7.601 — tasks/completed/1180-readability-pilot-inventory-timeout.md
 - **TASK-1181** — Odczyt zadań jakości symboli w Jobs — v1.7.599 / `4e558590` — tasks/completed/1181-jobs-readability-response.md
 - **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 / `1a0e4961` — tasks/completed/1178-grid-learning-readiness-guidance.md
 - **TASK-1177** — Wydajny zapis symboli i manifest — v1.7.594 / `0e1a02ec` — tasks/completed/1177-symbol-review-performance-freeze.md
@@ -106,4 +107,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1174** — Następna plansza i szybka kolejka — v1.7.587 / `1181797c` — tasks/completed/1174-geometry-review-navigation.md
 - **TASK-1173** — HTML i końcowy odbiór pełnych wycinków — v1.7.585 / `ae323963` — tasks/completed/1173-crop-preview-acceptance.md
 - **TASK-1172** — Powiązanie renderowania i danych z uczeniem — v1.7.584 / `aeae6012` — tasks/completed/1172-content-render-training-binding.md
-- **TASK-1171** — Porównanie produkcyjnych wycinków 8% i 0% — v1.7.583 / `14fcfb4e` — tasks/completed/1171-production-crop-comparison.md

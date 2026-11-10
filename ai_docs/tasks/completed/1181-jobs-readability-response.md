@@ -72,7 +72,7 @@ i istniejące etykiety UI. Nie zmieniać plików równoległego taska1180.
 
 ## Outcome
 
-Commit: v1.7.599 (hash dopisuje kolejny commit).
+Commit: v1.7.599 / `4e5585905caf6e369bc12c656c24a88fa03575d7`.
 
 ### Changed
 

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1181 — Odczyt zadań jakości symboli w Jobs (done)
 
 - Plik: `tasks/completed/1181-jobs-readability-response.md`.
-- Commit: **v1.7.599** (hash dopisuje kolejny commit).
+- Commit: **v1.7.599 / `4e5585905caf6e369bc12c656c24a88fa03575d7`** (hash dopisuje kolejny commit).
 - Ścisły format prepare/fit/scan usuwa błędny fallback Androida; lista mieszana,
   szczegóły, zapisane błędy i liczniki zachowane. Backend/OpenAPI/SDK/wrapper zgodne.
 - PASS9 nowych Python,37 istniejących (36+1 po korekcie starej asercji),165 SDK;

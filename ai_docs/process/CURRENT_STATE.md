@@ -97,7 +97,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1181** — Odczyt zadań jakości symboli w Jobs — v1.7.599 — tasks/completed/1181-jobs-readability-response.md
+- **TASK-1181** — Odczyt zadań jakości symboli w Jobs — v1.7.599 / `4e558590` — tasks/completed/1181-jobs-readability-response.md
 - **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 / `1a0e4961` — tasks/completed/1178-grid-learning-readiness-guidance.md
 - **TASK-1177** — Wydajny zapis symboli i manifest — v1.7.594 / `0e1a02ec` — tasks/completed/1177-symbol-review-performance-freeze.md
 - **TASK-1179** — Nieprzypisane zdjęcia importu 777 a2 — v1.7.594 / `b23f3563` — tasks/completed/1179-neural-unbound-preview.md

@@ -60,7 +60,7 @@ Fences nie mogą być pomijane bez istniejącego gameownershiplocka. Jedna trans
 
 ## Outcome
 
-Commit: v1.7.601 (hash dopisuje kolejny commit).
+Commit: v1.7.601 / `97bb80bf210d31de3dd0a1463596f19b219d1c1e`.
 
 Implementacja gotowa do niezależnego audytu; nie została scalona ani wdrożona.
 

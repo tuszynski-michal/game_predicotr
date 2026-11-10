@@ -97,7 +97,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1180** — Wydajny pilot jakości 777 A2 — v1.7.601 — tasks/completed/1180-readability-pilot-inventory-timeout.md
+- **TASK-1180** — Wydajny pilot jakości 777 A2 — v1.7.601 / `97bb80bf` — tasks/completed/1180-readability-pilot-inventory-timeout.md
 - **TASK-1181** — Odczyt zadań jakości symboli w Jobs — v1.7.599 / `4e558590` — tasks/completed/1181-jobs-readability-response.md
 - **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 / `1a0e4961` — tasks/completed/1178-grid-learning-readiness-guidance.md
 - **TASK-1177** — Wydajny zapis symboli i manifest — v1.7.594 / `0e1a02ec` — tasks/completed/1177-symbol-review-performance-freeze.md

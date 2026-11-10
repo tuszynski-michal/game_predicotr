@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import pytest
 import test_virtual_deferred_resolution_postgres as deferred_fixture
 from fastapi.testclient import TestClient
+from game_predictor_api.domain.image_reviews import ImageReviewConflictError
 from game_predictor_api.storage import game_partition_lifecycle
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.image_symbol_review_repository import (
@@ -23,6 +24,9 @@ from game_predictor_api.storage.models import (
     JobModel,
     RecognizedBoardModel,
     SymbolModel,
+)
+from game_predictor_api.storage.symbol_cell_training_source_repository import (
+    SqlAlchemySymbolCellTrainingSourceRepository,
 )
 from sqlalchemy import select, text
 from test_reviewer_operational_geometry_postgres import _add_symbols, _app
@@ -133,6 +137,9 @@ def test_new_full_cells_preserve_old_pins_and_reopen_changed_symbols_after_resta
         old_events = dict(session.execute(event_sql, {"game": game}).all())
         assert old_events
         assert old.cells["cells"][0]["renderSpec"]["configuration"]["paddingFraction"] == 0.08
+        freeze_fence = SqlAlchemySymbolCellTrainingSourceRepository(
+            session, tmp_path
+        ).capture_freeze_fence(game_id=game)
     files = {
         str(p): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in tmp_path.rglob("*")
@@ -164,6 +171,12 @@ def test_new_full_cells_preserve_old_pins_and_reopen_changed_symbols_after_resta
     assert preview.status_code == 200, preview.text
     assert saved.status_code == 200, saved.text
     assert saved.json()["created"] is True
+    with game_storage_scope(game), factory() as session:
+        with pytest.raises(ImageReviewConflictError) as stale:
+            SqlAlchemySymbolCellTrainingSourceRepository(session, tmp_path).require_freeze_fence(
+                game_id=game, expected=freeze_fence
+            )
+        assert stale.value.code == "VERIFIED_TRAINING_COHORT_PREVIEW_STALE"
     # Real new interpreter: neither ORM objects nor module globals survive.
     command_path = tmp_path.parent / "cold-command.json"
     response_path = tmp_path.parent / "cold-response.json"

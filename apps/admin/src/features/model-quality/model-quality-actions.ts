@@ -381,7 +381,7 @@ export type ModelQualityFreezeResult =
       readonly training: CreateSymbolTrainingResponse;
       readonly ok: true;
     }
-  | { readonly error: string; readonly ok: false };
+  | { readonly error: string; readonly errorCode?: string; readonly ok: false };
 
 export type ModelActivationPreviewResult =
   | {
@@ -637,11 +637,27 @@ export async function freezeModelQualityCohort(
       idempotencyKey: input.idempotencyKey,
     });
     if (result.error !== undefined || result.data === undefined) {
+      const errorCode =
+        typeof result.error === 'object' &&
+        result.error !== null &&
+        'code' in result.error &&
+        typeof result.error.code === 'string'
+          ? result.error.code
+          : undefined;
       return {
-        error: apiErrorMessage(
-          result.error,
-          'Nie udało się zamrozić kohorty treningowej.',
-        ),
+        errorCode,
+        error:
+          errorCode === 'VERIFIED_TRAINING_COHORT_PREVIEW_STALE'
+            ? 'Zatwierdzenia lub geometria zmieniły się od przygotowania podglądu. Potwierdź aktualny manifest.'
+            : errorCode === 'VERIFIED_TRAINING_COHORT_WRITE_BUSY' ||
+                errorCode === 'VERIFIED_TRAINING_COHORT_HEAVY_JOB_ACTIVE'
+              ? 'Trwa zapis zatwierdzeń, import lub trening tej gry. Poczekaj na zakończenie, a potem przygotuj dane ponownie.'
+              : errorCode === 'VERIFIED_TRAINING_COHORT_PROJECTION_NOT_READY'
+                ? 'Katalog weryfikacji symboli nie jest jeszcze gotowy. Dokończ jego przygotowanie, odśwież stan i przygotuj nowy manifest.'
+                : apiErrorMessage(
+                    result.error,
+                    'Nie udało się zamrozić kohorty treningowej.',
+                  ),
         ok: false,
       };
     }

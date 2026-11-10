@@ -6,6 +6,32 @@ last_updated: 2026-10-07
 
 # Architektura iteracyjnego ulepszania modelu symboli
 
+## Przygotowanie poza blokadą i fence zapisu — D-600
+
+Produkcyjny provider symbol-cell odczytuje monotoniczną rewizję katalogu oraz
+odciski symboli i chronionych źródeł, a następnie materializuje/poświadcza
+inwentarz bez blokady własności. Freeze porównuje manifest z potwierdzonym
+podglądem, próbuje ownership lock i NOWAIT game/state, ponownie sprawdza fence
+i dopiero utrwala niezmienny snapshot. Zmienione dane lub serializacja RR
+dają PREVIEW_STALE; zajęty zapis WRITE_BUSY. Pozostali providerzy zachowują
+dotychczasowy lock_game. Idempotentny replay odczytuje istniejący receipt.
+Admin po STALE przygotowuje nowy podgląd wymagający ponownego potwierdzenia.
+
+Inwariant pisarzy: każda zmiana wejść manifestu pod blokadą własności musi
+zmienić catalog_revision lub unieważnić gotowość projekcji w tej samej
+transakcji. Lista kontrolna obejmuje etykiety komórek, geometrię/referencję
+źródłową planszy, właściciela fast documents, stan source replacement oraz
+render manifest. Testy PG TASK-1177 pokrywają rzeczywiste bulk i manualną
+geometrię. Pozostałe ścieżki wymagają zachowania tego inwariantu; pełne
+pokrycie wszystkich pisarzy nie jest potwierdzone (jawne ryzyko P2 audytu).
+
+Inwentarz kwalifikuje bieżącego właściciela raz na planszę w materializowanym
+CTE i łączy wynik z komórkami po pełnym kluczu. Jawne game_id pozwala odciąć
+obce partycje. Bulk zachowuje transakcję na planszę i blokady własności;
+jednym zapytaniem blokuje cele planszy, nalicza wyłącznie zatwierdzone
+przejścia pending→terminal i uzgadnia agregaty na granicach partii. Projekcja
+wyszukiwania ogranicza cleanup przeniesionej sekwencji do znanej gry.
+
 ## Jawne pochodzenie kandydata pilota Mumii — D-521
 
 Adapter eksportu laboratorium rejestruje niezmienny pakiet w istniejącym

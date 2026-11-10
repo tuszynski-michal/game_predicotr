@@ -175,7 +175,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/unreadable_board_reviews.py: class UnreadableBoardReviewView, class UnreadableBoardReviewListItem, class UnreadableBoardReviewCell, class UnreadableBoardReviewDetail, class UnreadableBoardReviewSlice, class UnreadableBoardReviewPage, class ResolveUnreadableCellCommand, class SaveUnreadableBoardCellCommand, class SaveUnreadableBoardCommand, class SaveUnreadableBoardResult, class UnreadableBoardReviewRepository, class UnreadableBoardReviewService, encode_unreadable_board_cursor, decode_unreadable_board_cursor
 - application/v7_label_geometry_calibration.py: class V7LabelGeometryCalibrationApiError, class V7CanonicalLabelGeometryAsset, class V7LabelGeometryProfileRecord, class V7LabelGeometryCalibrationService, read_immutable_v7_geometry_profile
 - application/v7_label_geometry_validation.py: class V7ValidationRegistryError, class V7ValidationReport, class V7ValidationReceipt, class V7AdoptionReceipt, class V7ValidationRegistry
-- application/verified_training_cohorts.py: class VerifiedTrainingCohortSourceRepository, class VerifiedTrainingCohortRepository, class SymbolCellTrainingSourceInventory, class SymbolCellTrainingSourceRepository, class VerifiedTrainingCohortArtifactStore, class VerifiedTrainingCohortService
+- application/verified_training_cohorts.py: class VerifiedTrainingCohortSourceRepository, class VerifiedTrainingCohortRepository, class SymbolCellTrainingSourceInventory, class SymbolCellTrainingFreezeFence, class SymbolCellTrainingSourceRepository, class VerifiedTrainingCohortArtifactStore, class VerifiedTrainingCohortService
 - application/verified_training_datasets.py: class TrainingDatasetCatalog, class TrainingDatasetCohortRepository, class TrainingDatasetCatalogRepository, class VerifiedTrainingDatasetService
 - application/virtual_cell_previews.py: class VirtualCellPreviewTarget, class SymbolCellPreviewTarget, class VirtualCellPreviewTile, class VirtualCellPreviewBatch, class VirtualCellPreviewService, render_virtual_symbol_cell_png, class VirtualSymbolCellImageRenderer, render_spec_cell_rgb, symbol_cell_preview_renderer_version, symbol_cell_preview_renderer_fingerprint
 - application/virtual_grid_geometry.py: class VirtualGridGeometryContext, class VirtualGridGeometryCell, class VirtualSlotPrediction, class PreparedVirtualGridGeometry, class VirtualGridGeometryPreview, class VirtualGridGeometryRevision, class VirtualGridGeometrySaveResult, class VirtualGridGeometrySourceCommand, class VirtualGridCellSymbol, class VirtualGridCellSymbolSuggestion, class PreparedVirtualGridGeometrySource, class VirtualGridGeometrySourceSaveResult, class LegacyConversionTarget, class VirtualGridGeometryRepository, class VirtualGridGeometryService, bind_manual_crop_policy
@@ -525,7 +525,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/rules_repository.py: class SqlAlchemyRulesRepository
 - storage/schema_readiness.py: class AlembicHeadMismatchError, database_alembic_revision, require_alembic_head
 - storage/semi_automatic_image_selection_repository.py: class SqlAlchemySemiAutomaticSelectionRepository
-- storage/sequence_ownership_lock.py: class SequenceOwnershipLockMode, sequence_ownership_lock_key, held_sequence_ownership_lock, acquire_sequence_ownership_lock, ensure_sequence_ownership_lock, require_exclusive_sequence_ownership, cell_decision_lock_mode
+- storage/sequence_ownership_lock.py: class SequenceOwnershipLockMode, sequence_ownership_lock_key, held_sequence_ownership_lock, acquire_sequence_ownership_lock, try_acquire_sequence_ownership_lock, ensure_sequence_ownership_lock, require_exclusive_sequence_ownership, cell_decision_lock_mode
 - storage/source_crop_run_repository.py: job_type_for_kind, source_crop_job_payload, assert_job_lease, class SqlAlchemySourceCropRunRepository, synchronize_source_crop_job
 - storage/source_image_crop_models.py: class SourceImageCropModel, class SourceCropRunModel
 - storage/source_image_crop_repository.py: class SourceImageCropRepository
@@ -569,6 +569,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/symbol_readability_jobs.py: synchronize_readability_job
 - storage/symbol_references_repository.py: class SqlAlchemyApprovedSymbolReferenceRepository
 - storage/symbol_review_statistics.py: class SymbolReviewStatisticsRefreshError, refresh_symbol_review_query_statistics
+- storage/symbol_training_board_owners.py: current_symbol_board_owners_sql
 - storage/training_dataset_catalog_repository.py: class SqlAlchemyTrainingDatasetCatalogRepository
 - storage/v3_engine_acceptance_repository.py: finalize_v3_engine_acceptance
 - storage/v7_pilot_acceptances.py: class V7PilotAcceptanceExecution, apply_v7_pilot_acceptance, execute_v7_pilot_acceptance

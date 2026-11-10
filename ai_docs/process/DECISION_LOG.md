@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-600](decisions/DECISION_LOG_2026.md#d-600--krótki-zapis-manifestu-i-koszt-zależny-od-planszy) | Krótki zapis manifestu i koszt zależny od planszy | accepted | 2026-11-10 | Attestation poza blokadą, fence rewizji pod krótką blokadą; bez rozluźniania własności lub zgody. |
 | [D-599](decisions/DECISION_LOG_2026.md#d-599--propozycje-siatek-do-ludzkiej-weryfikacji-symboli) | Propozycje do weryfikacji symboli | accepted | 2026-11-09 | Osobny cel zapisu pending, bez human GT i kwalifikowania automatu. |
 | [D-598](decisions/DECISION_LOG_2026.md#d-598--pełne-pola-w-nowych-wycinkach-i-jawnej-korekcie) | Pełne pola w nowych wycinkach | accepted | 2026-11-09 | Jawny full-cell-v2 wiąże0% w nowych snapshotach i korekcie; historia i dowody zachowane. |
 | [D-597](decisions/DECISION_LOG_2026.md#d-597--diagnostyka-kontraktu-wycinków-niezależna-od-jego-dopuszczenia) | Diagnostyka a kwalifikacja cropu | accepted | 2026-11-09 | Poprawne u/δ dostępne do diagnozy rzeczywistego clipping, produkcyjne bariery pozostają. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-574](decisions/DECISION_LOG_2026.md#d-574--przypięty-wybór-i-optymistyczna-nawigacja-selektora) | Przypięty wybór i optymistyczna nawigacja Selektora | accepted | 2026-10-29 | Jeden writer, przypięte F, timeout i handshake przed close; bez zmian trwałego formatu. |
 | [D-573](decisions/DECISION_LOG_2026.md#d-573--wyszukiwanie-po-kolejnych-układach) | Wyszukiwanie po kolejnych układach | accepted | 2026-10-24 | 1–4 spiny, ranking cykliczny, historia v2, wygrane od końca; od 2026-10-27 wzory przed szukaniem, podgląd +10 zdjęć i limit 60 s. |
 | [D-572](decisions/DECISION_LOG_2026.md#d-572--nazwa-folderu-wynikowego-selektora) | Nazwa folderu wynikowego selektora | accepted | 2026-10-23 | Nowe partie: gra aktualizacja pierwsza-ostatnia; stary outputRoot i nazwy JPEG bez zmian; zastępuje regułę folderu D-571. |
-| [D-571](decisions/DECISION_LOG_2026.md#d-571--trwały-katalog-gier-i-aktualizacja-partii-selektora) | Trwały katalog gier i aktualizacja partii selektora | accepted | 2026-10-23 | Katalog niezależny od historii; aktualizacja a+cyfry lub z_a+cyfry w etykietach, bez zmiany nazw eksportu. |

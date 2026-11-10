@@ -4725,8 +4725,10 @@ próbki po źródle: do siedmiu wykonaniowych klatek RGB, jeden decode na grupę
 wspólna atomowa kontrola bajtów/pikseli źródła i deskryptory bez round trip PNG.
 Kolejność, selekcja, checksum manifestu i kwalifikacja są zachowane. Odczyt
 nie wymaga rozgrzanego cache; `pending`, `?`, grid issue oraz
-stary właściciel sekwencji nie są wybierane. Jawny POST blokuje grę i
-ponownie weryfikuje bajty przed zapisem.
+stary właściciel sekwencji nie są wybierane. Produkcyjny POST (D-600)
+poświadcza pliki bez blokady własności, następnie pod krótką blokadą sprawdza
+fence rewizji katalogu, symboli i ochrony źródeł przed utrwaleniem manifestu.
+Pozostałe providery zachowują dotychczasowe poświadczenie pod blokadą.
 
 ### POST `/api/v1/admin/games/{game_id}/verified-training-cohorts`
 
@@ -4734,7 +4736,15 @@ Body zawiera `idempotencyKey`, `createdBy` i
 `expectedManifestChecksumSha256` pochodzące z jawnie potwierdzonego preview.
 Komenda zamraża ograniczoną, różnorodną kohortę cropów jednej gry. Zmiana stanu po preview
 zwraca `VERIFIED_TRAINING_COHORT_PREVIEW_STALE`, a aktywna ciężka operacja tej
-gry zwraca `VERIFIED_TRAINING_COHORT_HEAVY_JOB_ACTIVE`. Identyczny stan zwraca
+gry zwraca `VERIFIED_TRAINING_COHORT_HEAVY_JOB_ACTIVE`. Dotyczy CREATED/PROCESSING
+typów SYMBOL_TRAINING, IMAGE_SYMBOL_REVIEW_BULK, IMPORT i IMAGE_GRID_REINFERENCE;
+WAITING_FOR_REVIEW i stany końcowe nie blokują. Zajęta blokada własności lub
+wiersza gry/katalogu daje409 `VERIFIED_TRAINING_COHORT_WRITE_BUSY`, a brak
+gotowej projekcji symboli409 `VERIFIED_TRAINING_COHORT_PROJECTION_NOT_READY`.
+Konflikt serializacji RR jest PREVIEW_STALE. Admin po STALE odczytuje nowy
+podgląd, wymagający ponownego potwierdzenia; nie uruchamia sam treningu.
+WRITE_BUSY/HEAVY_JOB_ACTIVE wymagają dokończenia bieżących zapisów, a
+PROJECTION_NOT_READY — przygotowania katalogu weryfikacji. Identyczny stan zwraca
 istniejącą kohortę, a zmiana stanu tworzy kolejną iterację. Nie uruchamia
 treningu i nie zmienia review.
 

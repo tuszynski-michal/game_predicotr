@@ -400,6 +400,12 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
         if not 1 <= max_boards <= MAX_BULK_OPERATION_BOARDS_PER_BATCH:
             raise ValueError("max_boards must be between 1 and 100")
         operation_id = _operation_id_from_job(job)
+        # Reconcile once at the batch boundary, including historical jobs.
+        # Board transactions advance the counters together with their target
+        # transitions instead of rescanning the whole operation after each board.
+        with self._session_factory() as session, session.begin():
+            operation = _locked_operation_for_job(session, job=job, operation_id=operation_id)
+            _refresh_operation_counts(session, operation)
         board_targets = self._next_pending_board_targets(
             operation_id=operation_id,
             max_boards=max_boards,
@@ -527,15 +533,11 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
                 mutation_repository = SqlAlchemySymbolCellReviewMutationRepository(session)
                 commands: list[SymbolCellReviewMutationCommand] = []
                 persisted_targets: list[ImageSymbolReviewBulkTargetModel] = []
+                locked_targets = _locked_targets(
+                    session, operation_id=operation_id, targets=targets
+                )
                 for target in targets:
-                    persisted_target = session.get(
-                        ImageSymbolReviewBulkTargetModel,
-                        {
-                            "operation_id": operation_id,
-                            "cell_review_id": target.cell_review_id,
-                        },
-                        with_for_update=True,
-                    )
+                    persisted_target = locked_targets.get(target.cell_review_id)
                     if (
                         persisted_target is None
                         or persisted_target.status != SymbolCellReviewBulkTargetStatus.PENDING.value
@@ -565,7 +567,11 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
                     persisted_target.applied_cell_revision = result.cell_revision
                     persisted_target.error_code = None
                     persisted_target.error_message = None
-                _refresh_operation_counts(session, operation)
+                _advance_operation_counts(
+                    operation,
+                    status=SymbolCellReviewBulkTargetStatus.APPLIED.value,
+                    count=len(persisted_targets),
+                )
         except SymbolCellReviewError as error:
             self._record_board_error(
                 job=job,
@@ -601,12 +607,13 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
         )
         with self._session_factory() as session, session.begin():
             operation = _locked_operation_for_job(session, job=job, operation_id=operation_id)
-            for target in targets:
-                persisted_target = session.get(
-                    ImageSymbolReviewBulkTargetModel,
-                    {"operation_id": operation_id, "cell_review_id": target.cell_review_id},
-                    with_for_update=True,
-                )
+            changed_count = 0
+            frozen_targets = tuple(targets)
+            locked_targets = _locked_targets(
+                session, operation_id=operation_id, targets=frozen_targets
+            )
+            for target in frozen_targets:
+                persisted_target = locked_targets.get(target.cell_review_id)
                 if (
                     persisted_target is not None
                     and persisted_target.status == SymbolCellReviewBulkTargetStatus.PENDING.value
@@ -614,7 +621,28 @@ class SqlAlchemySymbolCellReviewBulkOperationWorker:
                     persisted_target.status = status
                     persisted_target.error_code = code[:100]
                     persisted_target.error_message = message[:1000]
-            _refresh_operation_counts(session, operation)
+                    changed_count += 1
+            _advance_operation_counts(operation, status=status, count=changed_count)
+
+
+def _locked_targets(
+    session: Session, *, operation_id: UUID, targets: tuple[_FrozenTarget, ...]
+) -> dict[UUID, ImageSymbolReviewBulkTargetModel]:
+    if not targets:
+        return {}
+    records = session.scalars(
+        select(ImageSymbolReviewBulkTargetModel)
+        .where(
+            ImageSymbolReviewBulkTargetModel.operation_id == operation_id,
+            ImageSymbolReviewBulkTargetModel.cell_review_id.in_(
+                target.cell_review_id for target in targets
+            ),
+        )
+        .order_by(ImageSymbolReviewBulkTargetModel.cell_review_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).all()
+    return {record.cell_review_id: record for record in records}
 
 
 def _require_ready_state(
@@ -813,6 +841,25 @@ def _action_from_model(
             "SYMBOL_CELL_REVIEW_BULK_ACTION_INVALID",
             "The stored bulk operation contains an unsupported action.",
         ) from error
+
+
+def _advance_operation_counts(
+    operation: ImageSymbolReviewBulkOperationModel,
+    *,
+    status: str,
+    count: int,
+) -> None:
+    """Advance only target transitions committed in this locked transaction."""
+    if count < 0:
+        raise ValueError("A target count delta cannot be negative.")
+    attribute = {
+        SymbolCellReviewBulkTargetStatus.APPLIED.value: "applied_count",
+        SymbolCellReviewBulkTargetStatus.CONFLICT.value: "conflict_count",
+        SymbolCellReviewBulkTargetStatus.FAILED.value: "failed_count",
+    }[status]
+    setattr(operation, attribute, int(getattr(operation, attribute)) + count)
+    if _pending_target_count(operation) < 0:
+        raise ValueError("Committed target counts exceed the frozen operation size.")
 
 
 def _refresh_operation_counts(

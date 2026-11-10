@@ -104,6 +104,28 @@ def acquire_sequence_ownership_lock(
 ) -> SequenceOwnershipLockMode:
     """Take the game's ownership lock in ``mode`` (re-entrant, never upgrades)."""
 
+    result = _acquire_sequence_ownership_lock(session, game_id=game_id, mode=mode, wait=True)
+    assert result is not None
+    return result
+
+
+def try_acquire_sequence_ownership_lock(
+    session: Session,
+    *,
+    game_id: UUID,
+    mode: SequenceOwnershipLockMode = SequenceOwnershipLockMode.EXCLUSIVE,
+) -> SequenceOwnershipLockMode | None:
+    """Use the same lock protocol, returning immediately when another writer owns it."""
+    return _acquire_sequence_ownership_lock(session, game_id=game_id, mode=mode, wait=False)
+
+
+def _acquire_sequence_ownership_lock(
+    session: Session,
+    *,
+    game_id: UUID,
+    mode: SequenceOwnershipLockMode,
+    wait: bool,
+) -> SequenceOwnershipLockMode | None:
     # Begin the transaction first so the registry is bound to it.
     session.connection()
     registry = _registry(session)
@@ -116,12 +138,21 @@ def acquire_sequence_ownership_lock(
             "This operation would touch another image while holding only the shared "
             "sequence-ownership lock; retry it.",
         )
-    lock = (
-        func.pg_advisory_xact_lock
-        if mode is SequenceOwnershipLockMode.EXCLUSIVE
-        else func.pg_advisory_xact_lock_shared
-    )
-    session.execute(select(lock(sequence_ownership_lock_key(game_id))))
+    if wait:
+        lock = (
+            func.pg_advisory_xact_lock
+            if mode is SequenceOwnershipLockMode.EXCLUSIVE
+            else func.pg_advisory_xact_lock_shared
+        )
+        session.execute(select(lock(sequence_ownership_lock_key(game_id))))
+    else:
+        lock = (
+            func.pg_try_advisory_xact_lock
+            if mode is SequenceOwnershipLockMode.EXCLUSIVE
+            else func.pg_try_advisory_xact_lock_shared
+        )
+        if not session.scalar(select(lock(sequence_ownership_lock_key(game_id)))):
+            return None
     if registry is not None:
         registry[game_id] = mode
     return mode

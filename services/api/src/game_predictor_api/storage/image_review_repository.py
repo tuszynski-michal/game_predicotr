@@ -710,7 +710,14 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     select(JobModel.id)
                     .where(
                         JobModel.game_id == game_id,
-                        JobModel.job_type == JobType.SYMBOL_TRAINING,
+                        JobModel.job_type.in_(
+                            (
+                                JobType.SYMBOL_TRAINING,
+                                JobType.IMAGE_SYMBOL_REVIEW_BULK,
+                                JobType.IMPORT,
+                                JobType.IMAGE_GRID_REINFERENCE,
+                            )
+                        ),
                         JobModel.status.in_((JobStatus.CREATED, JobStatus.PROCESSING)),
                     )
                     .exists()

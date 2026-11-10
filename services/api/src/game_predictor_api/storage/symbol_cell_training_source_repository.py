@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from collections import defaultdict
@@ -22,9 +23,11 @@ from game_predictor_worker.symbols.protected_sources import (
 )
 from PIL import Image, ImageStat
 from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.verified_training_cohorts import (
+    SymbolCellTrainingFreezeFence,
     SymbolCellTrainingSourceInventory,
     SymbolCellTrainingSourceRepository,
 )
@@ -56,7 +59,11 @@ from game_predictor_api.storage.cell_render_specs import (
     CellRenderSpecKey,
     load_cell_render_specs,
 )
-from game_predictor_api.storage.models import GameModel, SymbolModel
+from game_predictor_api.storage.models import GameModel, ImageSymbolReviewStateModel, SymbolModel
+from game_predictor_api.storage.symbol_training_board_owners import (
+    CURRENT_SYMBOL_BOARD_OWNER_JOIN,
+    current_symbol_board_owners_sql,
+)
 
 _SOURCE_SAMPLE_CAP = 64
 _SYMBOL_PREPOOL_CAP = 4_000
@@ -64,9 +71,89 @@ _MAX_DESCRIPTOR_WORKERS = 7
 
 
 class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepository):
+    supports_unlocked_attestation = True
+
     def __init__(self, session: Session, artifact_root: Path) -> None:
         self._session = session
         self._artifact_root = artifact_root.resolve()
+
+    def capture_freeze_fence(
+        self, *, game_id: UUID, lock_state: bool = False
+    ) -> SymbolCellTrainingFreezeFence:
+        query = select(
+            ImageSymbolReviewStateModel.status, ImageSymbolReviewStateModel.catalog_revision
+        ).where(ImageSymbolReviewStateModel.game_id == game_id)
+        if lock_state:
+            query = query.with_for_update(nowait=True)
+        state = self._session.execute(query).one_or_none()
+        if state is None or state.status != "ready":
+            raise ImageReviewConflictError(
+                "VERIFIED_TRAINING_COHORT_PROJECTION_NOT_READY",
+                "The current symbol review catalog is not ready for training.",
+            )
+        symbols = self._session.execute(
+            select(SymbolModel.id, SymbolModel.code, SymbolModel.status)
+            .where(SymbolModel.game_id == game_id)
+            .order_by(SymbolModel.id)
+        ).all()
+        symbol_content = json.dumps([(str(i), code, str(status)) for i, code, status in symbols])
+        try:
+            protected = load_protected_sources(self._artifact_root, str(game_id))
+            protection = None if protected is None else protected.reference()
+        except ProtectedSourceError as error:
+            raise ImageReviewConflictError(error.code, str(error)) from error
+        return SymbolCellTrainingFreezeFence(
+            catalog_revision=int(state.catalog_revision),
+            symbols_sha256=hashlib.sha256(symbol_content.encode()).hexdigest(),
+            protection_sha256=hashlib.sha256(
+                json.dumps(protection, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
+        )
+
+    def require_freeze_fence(
+        self, *, game_id: UUID, expected: SymbolCellTrainingFreezeFence
+    ) -> None:
+        from game_predictor_api.storage.sequence_ownership_lock import (
+            try_acquire_sequence_ownership_lock,
+        )
+
+        if try_acquire_sequence_ownership_lock(self._session, game_id=game_id) is None:
+            raise ImageReviewConflictError(
+                "VERIFIED_TRAINING_COHORT_WRITE_BUSY",
+                "Symbol or geometry changes are being saved; retry after they finish.",
+            )
+        # Preserve the existing ownership -> game lock order. The expensive
+        # inventory above has finished; only metadata checks and persistence remain.
+        try:
+            if (
+                self._session.scalar(
+                    select(GameModel.id).where(GameModel.id == game_id).with_for_update(nowait=True)
+                )
+                is None
+            ):
+                raise ImageReviewConflictError(
+                    "VERIFIED_TRAINING_COHORT_GAME_NOT_FOUND", "The selected game no longer exists."
+                )
+            current = self.capture_freeze_fence(game_id=game_id, lock_state=True)
+        except DBAPIError as error:
+            if getattr(error.orig, "sqlstate", None) == "55P03":
+                raise ImageReviewConflictError(
+                    "VERIFIED_TRAINING_COHORT_WRITE_BUSY",
+                    "The game or symbol review catalog is being saved; retry after it finishes.",
+                ) from error
+            if getattr(error.orig, "sqlstate", None) != "40001":
+                raise
+            # A repeatable-read caller must not accept its historical catalog.
+            raise ImageReviewConflictError(
+                "VERIFIED_TRAINING_COHORT_PREVIEW_STALE",
+                "The symbol review catalog changed during preparation.",
+            ) from error
+        if current != expected:
+            raise ImageReviewConflictError(
+                "VERIFIED_TRAINING_COHORT_PREVIEW_STALE",
+                "Approved crops, geometry, symbols or source protections changed "
+                "during preparation.",
+            )
 
     def active_symbol_codes(self, game_id: UUID) -> tuple[str, ...]:
         return tuple(
@@ -90,23 +177,24 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
         # contribute here and are independently excluded by exact preview.
         rows = tuple(
             self._session.execute(
-                text("""
+                text(
+                    current_symbol_board_owners_sql(approved_only=True)
+                    + """
                 SELECT s.code AS symbol_code, count(*) AS cell_count,
                        count(DISTINCT c.recognized_board_id) AS layout_count,
                        count(DISTINCT rb.source_image_id) AS source_count
                 FROM image_symbol_review_cells c
                 JOIN symbols s ON s.id = c.assigned_symbol_id AND s.game_id = c.game_id
-                JOIN recognized_boards rb ON rb.id = c.recognized_board_id
-                JOIN source_images src ON src.id = rb.source_image_id
-                JOIN image_board_search_fast_documents d
-                  ON d.game_id = c.game_id AND d.sequence_number = c.sequence_number
-                 AND d.review_item_id = c.review_item_id
+                JOIN recognized_boards rb ON rb.game_id = :game_id
+                  AND rb.id = c.recognized_board_id
+                """
+                    + CURRENT_SYMBOL_BOARD_OWNER_JOIN
+                    + """
                 WHERE c.game_id = :game_id AND c.review_state = 'approved'
-                  AND public.source_replacement_current_v1(
-                  c.game_id,src.id,src.checksum_sha256,c.sequence_number,c.review_item_id)
                   AND s.status = 'active' AND s.code <> '?'
                 GROUP BY GROUPING SETS ((s.code), ())
-                """),
+                """
+                ),
                 {"game_id": game_id},
             ).mappings()
         )
@@ -178,8 +266,9 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
         selected = tuple(
             self._session.execute(
                 text(
-                    """
-                WITH eligible AS (
+                    current_symbol_board_owners_sql(approved_only=True)
+                    + """
+                , eligible AS (
                   -- D-467 S7: explicit columns; the render specification is
                   -- read from the board render manifest below, not the cell.
                   SELECT c.id, c.game_id, c.import_job_id, c.review_item_id, c.recognized_board_id,
@@ -207,17 +296,16 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                          ) AS source_rank
                   FROM image_symbol_review_cells c
                   JOIN symbols s ON s.id = c.assigned_symbol_id
-                  JOIN recognized_boards rb ON rb.id = c.recognized_board_id
-                  JOIN source_images src ON src.id = rb.source_image_id
+                  JOIN recognized_boards rb ON rb.game_id = :game_id
+                    AND rb.id = c.recognized_board_id
+                  JOIN source_images src ON src.game_id = :game_id
+                    AND src.id = rb.source_image_id
                   LEFT JOIN image_source_geometry_revisions sgr
                     ON sgr.id = c.source_geometry_revision_id
-                  JOIN image_board_search_fast_documents d
-                    ON d.game_id = c.game_id
-                   AND d.sequence_number = c.sequence_number
-                   AND d.review_item_id = c.review_item_id
+                  """
+                    + CURRENT_SYMBOL_BOARD_OWNER_JOIN
+                    + """
                   WHERE c.game_id = :game_id
-                    AND public.source_replacement_current_v1(
-                    c.game_id,src.id,src.checksum_sha256,c.sequence_number,c.review_item_id)
                     AND NOT (src.checksum_sha256 = ANY(CAST(:protected_bytes AS text[])))
                     AND NOT COALESCE(
                       sgr.source_checksum_sha256 = src.checksum_sha256
@@ -363,8 +451,9 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
         values = (
             self._session.execute(
                 text(
-                    """
-                WITH current_cells AS (
+                    current_symbol_board_owners_sql(approved_only=False)
+                    + """
+                , current_cells AS (
                   SELECT c.quality_issue, c.assigned_symbol_id, c.review_state,
                          c.crop_sample_id, c.crop_checksum_sha256, c.geometry_revision,
                          c.asset_mode, c.source_geometry_revision_id,
@@ -376,16 +465,11 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                          c.approved_rendered_pixel_checksum_sha256,
                          s.status AS symbol_status
                   FROM image_symbol_review_cells c
-                  JOIN image_board_search_fast_documents d
-                    ON d.game_id = c.game_id
-                   AND d.sequence_number = c.sequence_number
-                   AND d.review_item_id = c.review_item_id
+                  """
+                    + CURRENT_SYMBOL_BOARD_OWNER_JOIN
+                    + """
                   LEFT JOIN symbols s ON s.id = c.assigned_symbol_id
-                  JOIN recognized_boards rb ON rb.id=c.recognized_board_id
-                  JOIN source_images src ON src.id=rb.source_image_id
                   WHERE c.game_id = :game_id
-                    AND public.source_replacement_current_v1(
-                    c.game_id,src.id,src.checksum_sha256,c.sequence_number,c.review_item_id)
                     AND c.source_available = true
                     AND (c.source_visibility IS NULL OR c.source_visibility = 'full')
                 )

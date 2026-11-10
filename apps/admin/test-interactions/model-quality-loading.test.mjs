@@ -150,6 +150,192 @@ test('training requires the attested full checksum and never freezes overview co
   }
 });
 
+test('stale freeze refreshes the manifest and requires a new explicit confirmation', async () => {
+  const commands = [];
+  let fullReads = 0;
+  let trainings = 0;
+  const root = await mount(
+    client({
+      getModelQuality: async (gameId, options) => ({
+        data:
+          options.view === 'overview'
+            ? quality(gameId)
+            : {
+                ...fullQuality(gameId),
+                manifestChecksumSha256: (++fullReads === 1 ? 'a' : 'b').repeat(
+                  64,
+                ),
+              },
+      }),
+      freezeVerifiedTrainingCohort: async (_game, command) => {
+        commands.push(command);
+        return commands.length === 1
+          ? {
+              error: {
+                code: 'VERIFIED_TRAINING_COHORT_PREVIEW_STALE',
+                message: 'Changed',
+              },
+            }
+          : {
+              data: {
+                cohort: { id: 'cohort-2', gameId: 'one' },
+                created: true,
+              },
+            };
+      },
+      createSymbolTraining: async () => {
+        trainings++;
+        return { data: { iteration: { iterationNumber: 2 }, job: {} } };
+      },
+    }),
+  );
+  const button = (text) =>
+    [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === text,
+    );
+  try {
+    await act(async () => button('Ulepsz rozpoznawanie').click());
+    await act(async () => button('Potwierdź manifest').click());
+    assert.equal(fullReads, 2);
+    assert.equal(commands.length, 1);
+    assert.equal(trainings, 0);
+    assert.match(document.body.textContent, /Odczytano nowy manifest/);
+    assert.match(document.body.textContent, new RegExp('b'.repeat(64)));
+    await act(async () => button('Potwierdź manifest').click());
+    assert.equal(trainings, 1);
+    assert.equal(commands[1].expectedManifestChecksumSha256, 'b'.repeat(64));
+    assert.notEqual(commands[0].idempotencyKey, commands[1].idempotencyKey);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('busy freeze shows pending writes and offers no stale confirmation', async () => {
+  let busy = false;
+  let trainings = 0;
+  const root = await mount(
+    client({
+      getModelQuality: async (gameId, options) => ({
+        data:
+          options.view === 'overview'
+            ? { ...quality(gameId), activeHeavyJob: busy }
+            : fullQuality(gameId),
+      }),
+      freezeVerifiedTrainingCohort: async () => {
+        busy = true;
+        return {
+          error: {
+            code: 'VERIFIED_TRAINING_COHORT_WRITE_BUSY',
+            message: 'Busy',
+          },
+        };
+      },
+      createSymbolTraining: async () => {
+        trainings++;
+      },
+    }),
+  );
+  const button = (text) =>
+    [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === text,
+    );
+  try {
+    await act(async () => button('Ulepsz rozpoznawanie').click());
+    await act(async () => button('Potwierdź manifest').click());
+    assert.equal(trainings, 0);
+    assert.equal(button('Potwierdź manifest'), undefined);
+    assert.equal(button('Ulepsz rozpoznawanie').disabled, true);
+    assert.match(document.body.textContent, /Trwa zapis zatwierdzeń/);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('stale freeze keeps its explanation when the refreshed data cannot freeze', async () => {
+  let reads = 0;
+  const root = await mount(
+    client({
+      getModelQuality: async (gameId, options) => ({
+        data:
+          options.view === 'overview'
+            ? quality(gameId)
+            : {
+                ...fullQuality(gameId),
+                canFreeze: ++reads === 1,
+              },
+      }),
+      freezeVerifiedTrainingCohort: async () => ({
+        error: {
+          code: 'VERIFIED_TRAINING_COHORT_PREVIEW_STALE',
+          message: 'Changed',
+        },
+      }),
+    }),
+  );
+  const button = (text) =>
+    [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === text,
+    );
+  try {
+    await act(async () => button('Ulepsz rozpoznawanie').click());
+    await act(async () => button('Potwierdź manifest').click());
+    assert.match(document.body.textContent, /potwierdzenie odrzucono/);
+    assert.match(document.body.textContent, /Nowy zestaw nie jest gotowy/);
+    assert.equal(button('Potwierdź manifest'), undefined);
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('late freeze conflict cannot refresh the previous game after changing games', async () => {
+  let resolveFreeze;
+  const reads = [];
+  const api = client({
+    getModelQuality: async (gameId, options) => {
+      if (options.view === 'overview') return { data: quality(gameId) };
+      reads.push(gameId);
+      return { data: fullQuality(gameId) };
+    },
+    freezeVerifiedTrainingCohort: () =>
+      new Promise((resolve) => {
+        resolveFreeze = resolve;
+      }),
+  });
+  const root = await mount(api);
+  const button = (text) =>
+    [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === text,
+    );
+  try {
+    await act(async () => button('Ulepsz rozpoznawanie').click());
+    await act(async () => button('Potwierdź manifest').click());
+    await act(async () =>
+      root.render(
+        React.createElement(ModelQualityWorkspace, {
+          apiBaseUrl: '',
+          client: api,
+          gameId: 'two',
+        }),
+      ),
+    );
+    await flush();
+    await act(async () =>
+      resolveFreeze({
+        error: {
+          code: 'VERIFIED_TRAINING_COHORT_PREVIEW_STALE',
+          message: 'Changed',
+        },
+      }),
+    );
+    assert.deepEqual(reads, ['one']);
+    assert.match(document.body.textContent, /class-two/);
+    assert.doesNotMatch(document.body.textContent, /Odczytano nowy manifest/);
+    assert.equal(button('Ulepsz rozpoznawanie').disabled, false);
+  } finally {
+    await unmount(root);
+  }
+});
+
 test('an empty exact cohort does not offer confirmation despite metadata approvals', async () => {
   const root = await mount(
     client({

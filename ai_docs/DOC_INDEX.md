@@ -66,6 +66,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Wydajna weryfikacja i uczenie z korekt](delivery/REVIEW_LEARNING_RELIABILITY_PLAN_20261110.md) — TASK-1177–1178, bulk/manifest i gotowość/zalecany cel.
+
 - [Sprawna korekta i pełne pola0%](delivery/FULL_FIELD_CORRECTION_FLOW_PLAN_20261109.md) — accepted; TASK-1174–1175.
 
 - [Poprawa siatek, obrysów i wycinków](delivery/GRID_SYMBOL_CROP_PREVIEW_PLAN_20261109.md) — accepted; TASK-1170–1173.

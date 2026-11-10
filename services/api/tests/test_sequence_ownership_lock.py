@@ -14,6 +14,7 @@ from game_predictor_api.storage.sequence_ownership_lock import (
     ensure_sequence_ownership_lock,
     held_sequence_ownership_lock,
     require_exclusive_sequence_ownership,
+    try_acquire_sequence_ownership_lock,
 )
 from sqlalchemy.dialects import postgresql
 
@@ -34,6 +35,30 @@ class _Session:
 
     def execute(self, statement: Any) -> None:
         self.statements.append(str(statement.compile(dialect=postgresql.dialect())))
+
+
+def test_busy_nonblocking_attempt_is_not_cached_as_an_owned_lock() -> None:
+    session = _Session()
+    answers = iter((False, True))
+
+    def scalar(statement):
+        session.execute(statement)
+        return next(answers)
+
+    session.scalar = scalar
+    game = uuid4()
+    assert try_acquire_sequence_ownership_lock(session, game_id=game) is None
+    assert held_sequence_ownership_lock(session, game_id=game) is None
+    assert (
+        try_acquire_sequence_ownership_lock(session, game_id=game)
+        is SequenceOwnershipLockMode.EXCLUSIVE
+    )
+    assert (
+        held_sequence_ownership_lock(session, game_id=game) is SequenceOwnershipLockMode.EXCLUSIVE
+    )
+    acquire_sequence_ownership_lock(session, game_id=game)
+    assert len(session.statements) == 2
+    assert all("pg_try_advisory_xact_lock(" in sql for sql in session.statements)
 
 
 def test_a_nested_request_of_the_same_or_a_weaker_mode_takes_no_second_lock() -> None:

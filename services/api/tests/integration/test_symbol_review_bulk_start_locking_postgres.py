@@ -82,7 +82,7 @@ def locking_database() -> Iterator[Engine]:
         maintenance.dispose()
 
 
-def _source(session_factory):
+def _source(session_factory, *, board_count=1):
     now = datetime(2026, 10, 7, tzinfo=UTC)
     with session_factory() as session:
         catalog = CatalogService(SqlAlchemyCatalogRepository(session))
@@ -105,26 +105,35 @@ def _source(session_factory):
         job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
         session.commit()
     store = SqlAlchemyImageBatchStore(session_factory)
-    execution = store.register_file(
-        job.id,
-        source_checksum_sha256="1" * 64,
-        pipeline_fingerprint=PIPELINE,
-        source_relative_path="locking.jpg",
-        order_index=0,
-        registered_at=now,
-    )
-    with game_storage_scope(game.id), session_factory() as session, session.begin():
-        _add_review_projection_source(
-            session,
-            job_id=job.id,
-            file_execution_key=execution.file_execution_key,
-            source_checksum="1" * 64,
-            source_name="locking.jpg",
-            position_index=0,
-            sequence_number=1,
-            status="pending",
-            created_at=now,
+    assert 1 <= board_count <= 9
+    files = [
+        (index, str(index + 1) * 64, "locking.jpg" if index == 0 else f"locking-{index}.jpg")
+        for index in range(board_count)
+    ]
+    executions = [
+        store.register_file(
+            job.id,
+            source_checksum_sha256=checksum,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path=name,
+            order_index=index,
+            registered_at=now,
         )
+        for index, checksum, name in files
+    ]
+    with game_storage_scope(game.id), session_factory() as session, session.begin():
+        for (index, checksum, name), execution in zip(files, executions, strict=True):
+            _add_review_projection_source(
+                session,
+                job_id=job.id,
+                file_execution_key=execution.file_execution_key,
+                source_checksum=checksum,
+                source_name=name,
+                position_index=0,
+                sequence_number=index + 1,
+                status="pending",
+                created_at=now,
+            )
         session.get(JobModel, job.id).status = JobStatus.WAITING_FOR_REVIEW
         SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game.id)
     with game_storage_scope(game.id), session_factory() as session, session.begin():
@@ -137,7 +146,7 @@ def _source(session_factory):
             .where(ImageSymbolReviewCellModel.game_id == game.id)
             .order_by(ImageSymbolReviewCellModel.cell_index)
         ).all()
-        assert len(cells) == 15
+        assert len(cells) == 15 * board_count
         for cell in cells:
             cell.assigned_symbol_id = symbol.id
         session.flush()

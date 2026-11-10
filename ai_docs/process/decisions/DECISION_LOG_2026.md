@@ -16,6 +16,38 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-600 — Krótki zapis manifestu i koszt zależny od planszy
+
+**Status:** accepted. **Data:** 2026-11-10. **Task:** TASK-1177.
+
+**Kontekst:** operator zatwierdził plan REVIEW_LEARNING_RELIABILITY_PLAN_20261110.
+Zaobserwowano długie zapytanie inwentarza, czekające zapisy i PREVIEW_STALE.
+
+**Decyzja:** nie zmieniamy atomowości pojedynczej planszy ani ochrony własności.
+Zapis bulk blokuje cele jednym odczytem na planszę, aktualizuje liczniki razem
+z zapisami celów i uzgadnia agregaty na granicach partii. Indeks wyszukiwania
+ogranicza usuwanie do znanej gry, umożliwiając odcięcie obcych partycji.
+Inwentarz sprawdza dotychczasowy guard bieżącego źródła raz na planszę;
+wszystkie warunki rewizji, plików, etykiet i ochrony holdoutów pozostają.
+
+Produkcja przygotowuje i poświadcza pliki manifestu bez blokady własności.
+Przed zapisem próbuje uzyskać tę blokadę i NOWAIT na grze/katalogu, sprawdza
+monotoniczną rewizję katalogu, odcisk symboli i dowodów chronionych źródeł.
+Konflikt współbieżny daje VERIFIED_TRAINING_COHORT_PREVIEW_STALE; zajęty zapis
+daje VERIFIED_TRAINING_COHORT_WRITE_BUSY. Brak gotowej projekcji daje
+VERIFIED_TRAINING_COHORT_PROJECTION_NOT_READY. Oczekujące/aktywne ciężkie joby
+dają VERIFIED_TRAINING_COHORT_HEAVY_JOB_ACTIVE. Pełne warunki błędów409:
+architecture/API_CONTRACT.md, verified-training-cohorts. Dla izolacji
+REPEATABLE READ konflikt serializacji również oznacza nieaktualny podgląd.
+Istniejące providery bez tego protokołu zachowują stary zablokowany odczyt.
+Aktywne lub oczekujące bulk/import/ponowne wyznaczanie blokują przygotowanie.
+
+Admin po STALE pobiera nowy podgląd i wymaga ponownego potwierdzenia.
+Nie zamraża nowych danych pod zgodą na stary manifest; retry po utracie
+odpowiedzi nadal korzysta z trwałej idempotencji. Brak zmian schematu,
+historycznych formatów i publicznych pól API. Opis procedury i testy
+w raporcie TASK-1177_VERIFICATION.md.
+
 ## D-599 — Propozycje siatek do ludzkiej weryfikacji symboli
 
 Status: accepted. Data:2026-11-09. TASK-1176, jawne polecenie operatora.

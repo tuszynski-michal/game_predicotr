@@ -116,12 +116,27 @@ class SymbolCellTrainingSourceInventory:
     protected_cell_count: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class SymbolCellTrainingFreezeFence:
+    catalog_revision: int
+    symbols_sha256: str
+    protection_sha256: str
+
+
 class SymbolCellTrainingSourceRepository(Protocol):
+    supports_unlocked_attestation: bool
+
     def active_symbol_codes(self, game_id: UUID) -> Sequence[str]: ...
 
     def approval_summary(self, *, game_id: UUID) -> SymbolApprovalSummary: ...
 
     def inventory(self, *, game_id: UUID, lock_game: bool) -> SymbolCellTrainingSourceInventory: ...
+
+    def capture_freeze_fence(self, *, game_id: UUID) -> SymbolCellTrainingFreezeFence: ...
+
+    def require_freeze_fence(
+        self, *, game_id: UUID, expected: SymbolCellTrainingFreezeFence
+    ) -> None: ...
 
 
 class VerifiedTrainingCohortArtifactStore:
@@ -301,7 +316,22 @@ class VerifiedTrainingCohortService:
                 review_states=snapshot.review_states,
             )
         else:
-            source = self._symbol_cell_source(game_id=game_id, lock_game=True)
+            repository = self._symbol_cell_source_repository
+            if getattr(repository, "supports_unlocked_attestation", False) is True:
+                # Original reads, rendering and descriptors must not hold the
+                # game's write lock. Every supported geometry/cell writer bumps
+                # catalog_revision; compare its fence after acquiring ownership.
+                fence = repository.capture_freeze_fence(game_id=game_id)
+                source = self._symbol_cell_source(game_id=game_id, lock_game=False)
+                if source.manifest_checksum_sha256 != expected_manifest_checksum_sha256:
+                    raise ImageReviewConflictError(
+                        "VERIFIED_TRAINING_COHORT_PREVIEW_STALE",
+                        "The verified training cohort changed after the preview; reload it.",
+                    )
+                repository.require_freeze_fence(game_id=game_id, expected=fence)
+            else:
+                # Legacy/custom providers retain their original locked contract.
+                source = self._symbol_cell_source(game_id=game_id, lock_game=True)
         if source.manifest_checksum_sha256 != expected_manifest_checksum_sha256:
             raise ImageReviewConflictError(
                 "VERIFIED_TRAINING_COHORT_PREVIEW_STALE",

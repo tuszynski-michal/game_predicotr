@@ -34,7 +34,7 @@ const OWNER_ACTOR = 'local-owner';
 
 const WARNING_LABELS: Readonly<Record<string, string>> = {
   ACTIVE_HEAVY_JOB_BLOCKS_COHORT_FREEZE:
-    'Inna ciężka operacja tej gry jest aktywna. Poczekaj na jej zakończenie.',
+    'Trwa zapis zatwierdzeń, import lub trening tej gry. Poczekaj na zakończenie przed przygotowaniem danych.',
   INCOMPLETE_HUMAN_DECISIONS_EXCLUDED:
     'Niekompletne decyzje człowieka zostały wykluczone z danych treningowych.',
   LOW_SOURCE_IMAGE_COVERAGE: 'Dane pochodzą z małej liczby zdjęć źródłowych.',
@@ -105,6 +105,11 @@ function SymbolQualityWorkspace({
   const activationIdempotencyKeyRef = useRef<string | null>(null);
   const refreshControllerRef = useRef<AbortController | null>(null);
   const prepareControllerRef = useRef<AbortController | null>(null);
+  const currentScope = `${apiBaseUrl}:${gameId}`;
+  const currentScopeRef = useRef(currentScope);
+  useEffect(() => {
+    currentScopeRef.current = currentScope;
+  }, [currentScope]);
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
@@ -158,6 +163,8 @@ function SymbolQualityWorkspace({
     idempotencyKeyRef.current = null;
     queueMicrotask(() => {
       if (controller.signal.aborted) return;
+      setFreezing(false);
+      setNotice('');
       setQuality(null);
       setPreview(null);
       setIterations([]);
@@ -172,7 +179,7 @@ function SymbolQualityWorkspace({
   }, [refresh]);
 
   async function prepareCohort() {
-    if (preparing || quality === null || quality.activeHeavyJob) return;
+    if (preparing || quality === null || quality.activeHeavyJob) return false;
     prepareControllerRef.current?.abort();
     const controller = new AbortController();
     prepareControllerRef.current = controller;
@@ -186,11 +193,11 @@ function SymbolQualityWorkspace({
       gameId,
       controller.signal,
     );
-    if (controller.signal.aborted) return;
+    if (controller.signal.aborted) return false;
     setPreparing(false);
     if (!result.ok) {
       if (result.error !== 'REQUEST_ABORTED') setError(result.error);
-      return;
+      return false;
     }
     setPreparedQuality(result.quality);
     setPreview(result.preview);
@@ -198,9 +205,10 @@ function SymbolQualityWorkspace({
     else
       setNotice(
         result.quality.activeHeavyJob
-          ? 'Inna ciężka operacja tej gry jest aktywna. Poczekaj na jej zakończenie.'
+          ? 'Trwa zapis zatwierdzeń, import lub trening tej gry. Poczekaj na zakończenie.'
           : 'Brak wycinków spełniających warunki treningu. Sprawdź wykluczenia poniżej.',
       );
+    return result.quality.canFreeze;
   }
 
   async function confirmFreeze() {
@@ -221,9 +229,36 @@ function SymbolQualityWorkspace({
       idempotencyKey: idempotencyKeyRef.current,
       manifestChecksumSha256: preview.manifestChecksumSha256,
     });
+    if (
+      currentScopeRef.current !== currentScope ||
+      refreshControllerRef.current?.signal.aborted
+    )
+      return;
     if (!result.ok) {
-      setError(result.error);
       setFreezing(false);
+      if (result.errorCode === 'VERIFIED_TRAINING_COHORT_PREVIEW_STALE') {
+        idempotencyKeyRef.current = null;
+        setConfirming(false);
+        const prepared = await prepareCohort();
+        if (currentScopeRef.current !== currentScope) return;
+        setNotice(
+          prepared
+            ? 'Dane zmieniły się od poprzedniego podglądu. Odczytano nowy manifest; sprawdź go i potwierdź ponownie. Trening nie został uruchomiony.'
+            : 'Dane zmieniły się od poprzedniego podglądu, więc potwierdzenie odrzucono. Nowy zestaw nie jest gotowy; sprawdź powód poniżej. Trening nie został uruchomiony.',
+        );
+      } else if (
+        result.errorCode === 'VERIFIED_TRAINING_COHORT_WRITE_BUSY' ||
+        result.errorCode === 'VERIFIED_TRAINING_COHORT_HEAVY_JOB_ACTIVE'
+      ) {
+        idempotencyKeyRef.current = null;
+        setConfirming(false);
+        setPreview(null);
+        setPreparedQuality(null);
+        setNotice(result.error);
+        await refresh();
+      } else {
+        setError(result.error);
+      }
       return;
     }
     setNotice(
@@ -766,6 +801,12 @@ function SymbolQualityWorkspace({
           </div>
         ) : null}
 
+        {quality.activeHeavyJob ? (
+          <p role="status">
+            Trwa zapis zatwierdzeń, import lub trening tej gry. Poczekaj na
+            zakończenie i odśwież stan przed przygotowaniem manifestu.
+          </p>
+        ) : null}
         {preparing ? (
           <p role="status">
             Sprawdzanie wycinków do treningu… Możesz korzystać z sekcji siatki.

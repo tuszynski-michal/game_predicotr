@@ -636,6 +636,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
         fast_values = _fast_document_values(selected_candidate)
         self._session.execute(
             delete(ImageBoardSearchFastDocumentModel).where(
+                ImageBoardSearchFastDocumentModel.game_id == game_id,
                 ImageBoardSearchFastDocumentModel.review_item_id == selection.review_item_id,
                 ImageBoardSearchFastDocumentModel.sequence_number != sequence_number,
             )

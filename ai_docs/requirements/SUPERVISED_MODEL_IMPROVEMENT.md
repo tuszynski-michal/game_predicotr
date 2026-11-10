@@ -6,6 +6,16 @@ last_updated: 2026-10-07
 
 # Iteracyjne ulepszanie rozpoznawania symboli
 
+## Spójny manifest bez długiej blokady zapisu — D-600
+
+Przygotowanie i sprawdzenie plików nie może blokować zatwierdzania symboli
+przez cały czas odczytu. Przed utrwaleniem kohorty system sprawdza pod krótką
+blokadą, czy zatwierdzenia, geometria, katalog symboli i ochrona źródeł są nadal
+aktualne. Zajęta blokada daje czytelne oczekiwanie zamiast długiego freeze.
+Oczekujące lub wykonywane zbiorcze zapisy/importy blokują przygotowanie.
+Zmiana danych po podglądzie nadal wymaga nowego podglądu i jawnego
+potwierdzenia operatora; odświeżenie nigdy samo nie rozpoczyna treningu.
+
 ## Jawny pilot Mumii — D-521
 
 Operator wybrał wcześniejszy R2 RGB do pilota w głównej aplikacji.

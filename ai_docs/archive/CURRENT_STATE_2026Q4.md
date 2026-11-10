@@ -6,6 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1177 — Wydajny zapis symboli i manifest (done)
+
+- Plik: `tasks/completed/1177-symbol-review-performance-freeze.md`.
+- Commit: **v1.7.594** (hash dopisuje kolejny commit).
+- Bulk: mniej SQL, gra w cleanup; freeze poza długą blokadą, fence/replay,
+  odświeżenie manifestu z nową zgodą. PASS56 Python+14 PG+12 UI, lint/scoped
+  typecheck/build/format/OpenAPI/docs/map. Terminal Opus5.5/high PASS.
+- P2-1/P2-2/P2-6 zapisane w Outcome/raporcie; bez wdrożenia lub zmian danych
+  operatora. Następne T2/TASK-1178: gotowość korekt i zalecany cel uczenia.
+
 ### TASK-1176 — Przekazanie siatek do weryfikacji symboli (done)
 
 - Plik: `tasks/completed/1176-symbol-review-routing.md`.

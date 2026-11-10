@@ -64,7 +64,9 @@ def test_approval_overview_aggregates_current_owner_metadata_without_image_reads
     query, bindings = session.execute.call_args.args
     assert bindings == {"game_id": game_id}
     sql = str(query)
-    assert "d.review_item_id = c.review_item_id" in sql
+    assert "d.review_item_id = k.review_item_id" in sql
+    assert "owner.review_item_id = c.review_item_id" in sql
+    assert "owner.recognized_board_id = c.recognized_board_id" in sql
     assert "s.game_id = c.game_id" in sql
     assert "c.review_state = 'approved'" in sql
     assert "s.status = 'active'" in sql

@@ -46,3 +46,7 @@ Agent nie wykonuje restartów bez osobnego polecenia dla tego zadania.
 Katalog roboczy ma junctiony node_modules,.venv i lokalny klient Admina
 apps/admin/node_modules/@game-predictor/admin-api-client. Przed cleanup
 odpiąć same junctiony; nie usuwać rekurencyjnie ich celów.
+
+Operator następnie zaakceptował wynik i wdrożenie. Stan po scaleniu,
+restartach i odczytach API opisuje [raport wdrożenia](REVIEW_LEARNING_RELIABILITY_DEPLOYMENT_20261110.md).
+Powyższe granice operacyjne opisują stan przed tą osobną zgodą.

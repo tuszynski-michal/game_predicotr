@@ -12,11 +12,12 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 ## Obowiązujące ograniczenia
 
+
 - **777 a2:** model symboli5 `9afa868a` aktywny. Źródło: TASK-1179.
 
 - **Audyt Claude (operator2026-11-08):** terminal/polecenia są wymaganym sposobem. Desktop wyłącznie na nowe, jawne polecenie dla danego audytu. Operator loguje CLI sam; nie sterujemy logowaniem ani nie kopiujemy tokenów. Limit Opus pozwala odłożyć audyty i kontynuować kod, bez PASS/commita oczekującego taska.
 
-- **Mumie A2 / TASK-1176:** wdrożenie v1.7.591–592, OpusR2 PASS; API/general działają. bf601495:691 zdjęć,6219 plansz,93285 pending/0%, deferred rozwiązane, korekty zachowane. Default3ed60010 rev2, trening42012366 zablokowanyA. Źródło: `quality/TASK-1176_VERIFICATION.md`.
+- **Mumie A2 / TASK-1176–1178:** kod v1.7.597 wdrożony; API/Admin/general po restarcie. bf601495:691 zdjęć/6219 plansz/0%. Ready276 TRAIN/75 nowych (~58s), canStart=true; bez nowego treningu. Źródło: `quality/REVIEW_LEARNING_RELIABILITY_DEPLOYMENT_20261110.md`.
 
 
 

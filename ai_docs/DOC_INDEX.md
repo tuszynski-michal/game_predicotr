@@ -207,7 +207,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Proces i jakość
 
-- [Odbiór wydajności weryfikacji i gotowości uczenia](quality/REVIEW_LEARNING_RELIABILITY_ACCEPTANCE_20261110.md) — TASK-1177–1178, dwa Opus PASS, rzeczywiste korekty i jawne granice pomiarów; bez wdrożenia.
+- [Odbiór wydajności weryfikacji i gotowości uczenia](quality/REVIEW_LEARNING_RELIABILITY_ACCEPTANCE_20261110.md) — TASK-1177–1178, dwa Opus PASS; [wdrożenie i kontrola działającej aplikacji](quality/REVIEW_LEARNING_RELIABILITY_DEPLOYMENT_20261110.md).
 - [Przekazanie propozycji do weryfikacji symboli](quality/TASK-1176_VERIFICATION.md) — nowy import i zaległe plansze, testy PostgreSQL, granice dowodu oraz stan wdrożenia.
 - [Poprawki po audycie kierowania symboli](quality/TASK-1176_AUDIT_FIXES.md) — P0/P1 i P2, zachowanie kwalifikowanego automatu oraz jawne baseline testów.
 - [Audyt Opus kierowania symboli](quality/TASK-1176_AUDIT_claude-opus-5-5.md) — kontrolny R2 PASS, receipt oraz przyjęte ryzyka P2.

@@ -1,7 +1,7 @@
 ---
 title: TASK-1176 — Istniejące siatki do weryfikacji symboli
 status: done
-last_updated: 2026-11-09
+last_updated: 2026-11-10
 ---
 
 # TASK-1176 — Istniejące siatki do weryfikacji symboli
@@ -99,6 +99,18 @@ operacje tego zadania; wyłączył scalenie do czasu końcowego pytania.
 Restart API/general workera oraz przetworzenie zaległej partii są zatwierdzone,
 ale zależą od osobnej zgody na merge. Brak migracji. Po scaleniu nowa operacja
 obejmie tylko import bf601495, z kontrolą wyników i zachowaniem ręcznych zmian.
+
+### Odbiór operacyjny 2026-11-10
+
+Po jawnej zgodzie operatora: merge v1.7.591–592 i push main/origin6da65caa,
+cleanup gałęzi/worktree, restart API/general, bez migracji. Dwa przebiegi
+istniejącej reinferencji zakończone:691 zdjęć,6219 plansz,93285 pending
+symboli z padding0.0; wszystkie deferred resolved. API kolejki potwierdza
+93285 pending/0 approved. Zachowano wcześniejsze źródła i ręczne geometrie;
+oryginalna partia1000 zdjęć obecna, numery plansz unikalne. Produkcyjny replay
+pilota bez nowego joba/komórek. Model/default i trening bez zmian.
+Pełny odbiór i ścieżki dowodów dopisano na końcu TASK-1176_VERIFICATION.md.
+Wynik nie oznacza zatwierdzenia poprawności symboli przez człowieka.
 
 ## Przypisanie modeli do zadań
 

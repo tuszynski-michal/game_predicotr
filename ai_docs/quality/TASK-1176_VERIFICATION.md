@@ -1,12 +1,13 @@
 ---
 title: TASK-1176 — Bieżąca weryfikacja domknięcia symboli
-status: in_progress
-last_updated: 2026-11-09
+status: accepted
+last_updated: 2026-11-10
 ---
 
 # TASK-1176 — Stan wykonania
 
-Zmiana robocza w codex/symbol-review-routing. Nie jest wdrożona.
+Poniżej zachowano historyczny odbiór kodu przed integracją. Wdrożenie i pełna
+partia zakończyły się 2026-11-10; wynik operacyjny znajduje się na końcu raportu.
 Nowe niekwalifikowane piny oznaczają cel ręcznej weryfikacji symboli, bez
 zmiany kwalifikacji modelu. Zapis wykorzystuje istniejący automatic=True,
 renderer full-cell-v2 i klasyfikator źródłowego snapshotu, bez human approval.
@@ -111,7 +112,7 @@ Końcowe scenariusze mają cleanup receipts z databaseRemaining=0.
   Jawna transakcja READ ONLY. Bez zapisu geometrii, klas lub ocen.
   `artifacts/real-classifier-preview.json`; wynik nie jest human ground truth.
 
-## Pozostaje wdrożenie
+## Warunki wdrożenia — zapis sprzed integracji
 
 Audyt i odbiór kodu zakończone. Operator polecił dokończyć całość z audytami
 i wyraził zgodę na wszystko poza scaleniem, o które mamy zapytać na końcu.
@@ -131,3 +132,50 @@ Nie deklarujemy ukończonego przetworzenia6219 przed odbiorem wdrożenia.
 Logi i pakiety audytów przed usunięciem worktree są zachowywane w głównym
 checkout, `artifacts/symbol-review-routing-20261109/` (ścieżki powyżej
 wskazują pliki wewnątrz tej kopii, jeżeli worktree już nie istnieje).
+
+
+## Odbiór wdrożenia — 2026-11-10
+
+Operator jawnie zaakceptował merge/push, cleanup, restart potrzebnych usług
+i przetworzenie6219. Fast-forward v1.7.591–592 do main oraz push origin
+zakończone; kod wdrożenia: `6da65caa38e948f8815c4d83a13a935e55ce65b6`.
+Gałąź codex/symbol-review-routing i jej worktree usunięte po odpięciu
+junction, z zachowaniem wspólnych zależności oraz pozostałych worktrees.
+Migracja nie była potrzebna (head0183). API i general worker z7 wątkami
+uruchomione z main; Admin/Reviewer bez zbędnego restartu, HTTP200.
+Reviewer pozostał lokalny. Domyślny model i MumieA2 nadal3ed60010/rev2;
+nie uruchamiano treningu ani nie kwalifikowano automatu.
+
+Istniejące API przygotowania/freeze/start wykonało dwa przypięte przebiegi
+z selektorem deferred tylko importu bf601495-df47-45e4-ae5d-8b98176fb46f:
+
+- Pilot d0a0a019-0647-41b3-bc07-b2e91f27fa58:100 zdjęć,900 plansz,
+  13500 symboli; completed, wyłącznie automatic_written.
+- Szerszy041bb1a9-1a80-4cff-bb10-90436f0dd64f:591 zdjęć,5319 plansz,
+  79785 symboli; completed, wyłącznie automatic_written. Przypięty raport
+  pilota oraz jawne broadScopeConfirmed; żadnej zmiany starego pinu importu.
+
+Końcowy odczyt w nowym procesie i produkcyjne API potwierdzają:
+
+- 691 zdjęć,6219 unikalnych numerów plansz,93285 komórek pending/model/full.
+- Wszystkie93285 aktualnych specyfikacji renderowania mają paddingFraction0.0.
+- 6219 dawnych deferred ma status resolved; zero nowych human approvals.
+- API weryfikacji symboli zwraca allCount93285, pendingCount93285,
+  approvedCount0. Podgląd rzeczywistego symbolu: HTTP200 image/webp.
+- Zachowano1000 różnych zdjęć pierwotnej partii, bez duplikatów źródeł.
+- Porównanie przed/po:788 wcześniejszych źródeł,293 ręcznie zatwierdzone
+  plansze,1774 wcześniejsze rewizje źródłowe i295 rewizji plansz niezmienione.
+- Powtórzenie identycznej komendy start zakończonego pilota zwraca ten sam
+  operationId/jobId, raport i liczniki; bez nowego joba i komórek.
+- API, Admin i lokalny Reviewer odpowiadają HTTP200; worker bez błędów.
+  docs:check po integracji i po uzupełnieniu tego odbioru PASS.
+
+To odbiór przepływu i dostępności propozycji, nie93285 ludzkich ocen jakości.
+Złe siatki i nieczytelne symbole operator może oznaczać w istniejącej
+weryfikacji symboli, bez wcześniejszego zatwierdzania każdej geometrii.
+
+Dowody: root `artifacts/symbol-review-deployment-20261110/RESULT.json`,
+`statistics-final.json`, `preservation-before.json`, `preservation-after.json`,
+`pending-symbols-final.json`, `queue-counts-final.json`, `pilot-replay.json`,
+`broader-latest.json` oraz komendy i odpowiedzi HTTP. Audyt kodu pozostaje
+Opus R2 PASS; niniejszy dopisek opisuje operacje, bez zmian implementacji.

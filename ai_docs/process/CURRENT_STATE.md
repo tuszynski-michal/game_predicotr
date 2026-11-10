@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-11-09
+last_updated: 2026-11-10
 ---
 
 # Current State
@@ -14,7 +14,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 - **Audyt Claude (operator2026-11-08):** terminal/polecenia są wymaganym sposobem. Desktop wyłącznie na nowe, jawne polecenie dla danego audytu. Operator loguje CLI sam; nie sterujemy logowaniem ani nie kopiujemy tokenów. Limit Opus pozwala odłożyć audyty i kontynuować kod, bez PASS/commita oczekującego taska.
 
-- **Mumie A2 / TASK-1176:** kod OpusR2 PASS, czeka na merge. Operator zgodził się na restart API/general i przetworzenie bf601495;6219 nadal deferred. Default3ed60010 rev2, trening42012366 zablokowany błędemA, stare309 zachowane. Źródło: `quality/TASK-1176_VERIFICATION.md`, root artifacts/staging-691-import-20261109/RESULT.json.
+- **Mumie A2 / TASK-1176:** wdrożenie v1.7.591–592, OpusR2 PASS; API/general działają. bf601495:691 zdjęć,6219 plansz,93285 pending/0%, deferred rozwiązane, korekty zachowane. Default3ed60010 rev2, trening42012366 zablokowanyA. Źródło: `quality/TASK-1176_VERIFICATION.md`.
 
 
 

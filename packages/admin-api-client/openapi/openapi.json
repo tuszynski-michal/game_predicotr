@@ -29109,6 +29109,9 @@
                 "$ref": "#/components/schemas/AndroidBuildJobPayload"
               },
               {
+                "$ref": "#/components/schemas/SymbolReadabilityJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/SymbolTrainingJobPayload"
               },
               {
@@ -48501,6 +48504,43 @@
           "inferenceFingerprint"
         ],
         "title": "SymbolModelJobSnapshotPayload",
+        "type": "object"
+      },
+      "SymbolReadabilityJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "prepare",
+              "fit",
+              "scan"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "identifier": {
+            "format": "uuid",
+            "title": "Identifier",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "workflow": {
+            "const": "symbol_readability",
+            "title": "Workflow",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow",
+          "action",
+          "identifier"
+        ],
+        "title": "SymbolReadabilityJobPayload",
         "type": "object"
       },
       "SymbolResponse": {

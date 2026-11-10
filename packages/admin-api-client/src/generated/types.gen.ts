@@ -15983,6 +15983,7 @@ export type JobResponse = {
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
+    | SymbolReadabilityJobPayload
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
@@ -26864,6 +26865,28 @@ export type SymbolModelJobSnapshotPayload = {
    * Temperature
    */
   temperature: number;
+};
+
+/**
+ * SymbolReadabilityJobPayload
+ */
+export type SymbolReadabilityJobPayload = {
+  /**
+   * Action
+   */
+  action: 'prepare' | 'fit' | 'scan';
+  /**
+   * Identifier
+   */
+  identifier: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Workflow
+   */
+  workflow: 'symbol_readability';
 };
 
 /**

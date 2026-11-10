@@ -81,7 +81,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (526 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (527 plików w katalogu testów, rekurencyjnie)
 - `services/api/tests/integration/` (164 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -245,7 +245,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 - `packages/board-search-ui/test/` (12 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
-- `packages/admin-api-client/test/` (39 plików w katalogu testów, rekurencyjnie)
+- `packages/admin-api-client/test/` (40 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (21 plików w katalogu testów, rekurencyjnie)
 - `packages/vision-lab-api-client/test/` (3 plików w katalogu testów, rekurencyjnie)
 

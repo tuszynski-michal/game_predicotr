@@ -1129,27 +1129,14 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
             limit=20,
         )
     )
-    assert {job.job_type for job in jobs} == set(JobType) - {
-        JobType.IMAGE_SELECTION,
-        JobType.SEMI_AUTOMATIC_IMAGE_SELECTION,
-        JobType.SYMBOL_TRAINING,
-        JobType.IMAGE_SYMBOL_REINFERENCE,
-        JobType.IMAGE_GRID_REINFERENCE,
-        JobType.IMAGE_SYMBOL_REVIEW_BULK,
-        JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
-        JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL,
-        JobType.STORAGE_GC,
-        JobType.STORAGE_INVENTORY,
-        JobType.STORAGE_PIPELINE_COMPACTION,
-        # TASK-0933: queued only by its own route and by input changes.
-        JobType.SUPER_GAME_SERIES_DERIVE,
-        # TASK-0996: queued only by the grid-training run route.
-        JobType.GRID_TRAINING,
-        # TASK-0997: queued only by the grid-model evaluation route.
-        JobType.GRID_MODEL_EVALUATION,
-        # TASK-1047: queued only by the source crop run routes.
-        JobType.SOURCE_CROP,
-        JobType.SOURCE_ORIGINAL_DELETION,
+    # The generic create endpoint has exactly these five alternatives.
+    # Adding a type to the Jobs read model must not expand its enqueue contract.
+    assert {job.job_type for job in jobs} == {
+        JobType.IMPORT,
+        JobType.VALIDATE,
+        JobType.PAYOUT,
+        JobType.SNAPSHOT,
+        JobType.ANDROID_BUILD,
     }
     assert all(job.status is JobStatus.CREATED for job in jobs)
 

@@ -661,6 +661,13 @@ class AndroidBuildJobPayload(ApiModel):
     mobile_release_id: UUID
 
 
+class SymbolReadabilityJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    workflow: Literal["symbol_readability"]
+    action: Literal["prepare", "fit", "scan"]
+    identifier: UUID
+
+
 class SymbolTrainingJobPayload(ApiModel):
     schema_version: Literal[1, 2]
     cohort_id: UUID
@@ -973,6 +980,7 @@ JobPayloadResponse = (
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
+    | SymbolReadabilityJobPayload
     | SymbolTrainingJobPayload
     | SymbolCellReviewBulkJobPayload
     | SymbolCellReviewBackfillJobPayload
@@ -1534,6 +1542,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return SnapshotJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.SYMBOL_TRAINING:
         return SymbolTrainingJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.SYMBOL_READABILITY:
+        return SymbolReadabilityJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REVIEW_BULK:
         return SymbolCellReviewBulkJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REVIEW_BACKFILL:

@@ -962,6 +962,7 @@ export type {
   GridCorrectionSymbolsResponse,
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
+  SymbolReadabilityJobPayload,
   BrowserImageImportPreflightResponse,
   BrowserImageImportJobPayload,
   BrowserImageImportStart,

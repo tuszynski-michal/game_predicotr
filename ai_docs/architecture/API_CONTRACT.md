@@ -2730,6 +2730,12 @@ Payload `image_selection` jest widoczny w odpowiedziach wspólnego monitora
 jobów, ale nie może być utworzony przez ogólne `POST /jobs`; enqueue należy do
 dedykowanego `POST /image-selections`, a poświadczenie stagingu do TASK-0152.
 
+TASK-1181: istniejący `symbol_readability` ma w odczycie Jobs ścisły
+`inputPayload`: `schemaVersion=1`, `workflow=symbol_readability`,
+`action=prepare|fit|scan`, `identifier` UUID. Lista mieszana i szczegóły
+zachowują postęp oraz błąd zadania; nie interpretują go jako budowy Androida.
+Nie rozszerza to ogólnego `POST /jobs`; enqueue nadal należy do procesu jakości.
+
 Odpowiedź joba może zawierać `imageGeometryRollout` w historycznej wersji
 `virtual-geometry-rollout-snapshot-v1` albo w addytywnej wersji v2/v3. V2 jest
 dopuszczona wyłącznie dla `geometryMode = structured_shadow` i zawiera jedno

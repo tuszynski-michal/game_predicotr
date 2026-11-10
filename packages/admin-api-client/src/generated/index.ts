@@ -3624,6 +3624,7 @@ export type {
   SymbolModelDeactivationCommand,
   SymbolModelIterationResponse,
   SymbolModelJobSnapshotPayload,
+  SymbolReadabilityJobPayload,
   SymbolResponse,
   SymbolStatus,
   SymbolTrainingConfigurationCommand,

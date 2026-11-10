@@ -438,6 +438,10 @@ automatyczne cięcie lub brak ręcznej akceptacji nie dowodzą jakości pikseli.
 
 ### Jobs
 
+Zadania oceny jakości symboli (`symbol_readability`: przygotowanie, dopasowanie,
+skan) są widoczne razem z pozostałymi typami. Zachowują zapisane liczniki,
+status i przyczynę błędu; ich obecność nie blokuje odczytu całej listy (TASK-1181).
+
 Administrator widzi zadania typu:
 
 - import,

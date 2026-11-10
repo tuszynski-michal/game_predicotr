@@ -6,6 +6,19 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1181 — Odczyt zadań jakości symboli w Jobs (done)
+
+- Plik: `tasks/completed/1181-jobs-readability-response.md`.
+- Commit: **v1.7.599** (hash dopisuje kolejny commit).
+- Ścisły format prepare/fit/scan usuwa błędny fallback Androida; lista mieszana,
+  szczegóły, zapisane błędy i liczniki zachowane. Backend/OpenAPI/SDK/wrapper zgodne.
+- PASS9 nowych Python,37 istniejących (36+1 po korekcie starej asercji),165 SDK;
+  scoped mypy, Ruff, Admin types/build, drift/docs/map. Nowy READ ONLY proces
+  odczytał50 rzeczywistych jobów, w tym4 readability. Opus5.5 CLI R1 PASS,
+  High requested,0 P0/P1; P2-1 uzupełnione testem, P2-2/P2-3 jawnie przyjęte.
+- Bez migracji, restartów, treningu lub zapisów operatora. Gotowe do decyzji
+  o scalenie i zastosowaniu w API; działający main nie został zmieniony.
+
 ### TASK-1178 — Gotowość korekt i zalecany cel uczenia (done)
 
 - Plik: `tasks/completed/1178-grid-learning-readiness-guidance.md`.

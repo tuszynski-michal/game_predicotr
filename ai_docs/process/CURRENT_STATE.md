@@ -96,7 +96,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1179** — Nieprzypisane zdjęcia importu 777 a2 — v1.7.594 — tasks/completed/1179-neural-unbound-preview.md
+- **TASK-1179** — Nieprzypisane zdjęcia importu 777 a2 — v1.7.594 / `b23f3563` — tasks/completed/1179-neural-unbound-preview.md
 - **TASK-1176** — Przekazanie siatek do weryfikacji symboli — v1.7.591 / `ccedfdbe` — tasks/completed/1176-symbol-review-routing.md
 - **TASK-1175** — Pełne pola symboli bez marginesu 8% — v1.7.588 / `6a560516` — tasks/completed/1175-full-cell-render-policy.md
 - **TASK-1174** — Następna plansza i szybka kolejka — v1.7.587 / `1181797c` — tasks/completed/1174-geometry-review-navigation.md

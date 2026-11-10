@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1179 — Nieprzypisane zdjęcia importu 777 a2 (done)
 
 - Plik: `ai_docs/tasks/completed/1179-neural-unbound-preview.md`.
-- Commit: **v1.7.594** (hash dopisuje kolejny commit).
+- Commit: **v1.7.594 / `b23f356341b3374a0682ed3f8196a75631f98655`** (hash dopisuje kolejny commit).
 - Przycisk ostrzeżenia pokazuje tylko niezapisane źródła bez przypisania slotów; pełny podgląd i globalny licznik zachowane. Dwa powody, zapisane źródło i ponowne otwarcie pokryte testem interakcji.
 - Na jawne polecenie operatora aktywowano własny model symboli 777 a2, iteracja5 9afa868a; zdarzenie1 0a80edd0. Nowy proces i raport be8b7266 potwierdzają gotowy model i geometrię, jedno zdjęcie/9plansz do poprawy albo jawnego pominięcia. Import nieuruchomiony.
 - 22 testy interakcji i 57 regresyjnych PASS; format, lint bez błędów (4 zastane warningi), typecheck i mapa PASS. Dalsze wyniki kontroli w Outcome. Brak planu wymagającego audytu. Bez migracji, treningu, restartu, merge i push; Admin next dev3000.

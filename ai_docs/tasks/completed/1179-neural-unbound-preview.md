@@ -123,7 +123,7 @@ nie restartować działającej usługi bez zgody.
 
 ## Outcome
 
-Commit: v1.7.594 (hash dopisuje kolejny commit).
+Commit: v1.7.594 / `b23f356341b3374a0682ed3f8196a75631f98655`.
 
 ### Changed
 

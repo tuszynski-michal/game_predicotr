@@ -42,6 +42,8 @@ def resolve_content_sampling(
     resolved = resolve_ancestor_references(lineage, providers)
     return {
         "policy": CONTENT_SAMPLING_POLICY,
+        "baseVersionId": str(base),
+        "selectionVersion": "stratified-fresh-content-regression-v2",
         "ancestrySha256": digest([resolved.lineage_sha256, resolved.references])
         if resolved.complete
         else None,
@@ -58,6 +60,8 @@ def constrain_content_regression(
     contexts: dict[str, dict[str, Any]],
     policy: dict[str, Any],
     deadline: Any = None,
+    *,
+    references: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[list[CorrectionSplitSource], dict[str, Any]]:
     if policy.get("policy") != CONTENT_SAMPLING_POLICY:
         raise GridCohortError("CONTENT_SAMPLING_POLICY_INVALID", "Unknown content sampling policy.")
@@ -135,9 +139,12 @@ def constrain_content_regression(
         frozenset(complete),
         ancestry_sha256=policy["ancestrySha256"],
         source_content_counts=content_counts,
+        references=references,
+        stratified=policy.get("selectionVersion") == "stratified-fresh-content-regression-v2",
     )
     report["contentReferenceFailures"] = failures
     report["contentReferenceFailureCount"] = len(failures)
+    report["baseVersionId"] = policy.get("baseVersionId")
     report["sha256"] = digest({k: v for k, v in report.items() if k != "sha256"})
     if report["state"] != "ready":
         raise ContentSamplingPreparationError(report)

@@ -1067,3 +1067,33 @@ preservation. Incorrect matched geometry and full-photo false detections must
 remain visible; partial whole-photo metrics stay unavailable. File-only visual
 protection reflects capture time, not later blind sessions. Make a fresh capture
 before exporting another gallery; the HTML renderer performs no current DB lookup.
+
+## Materiał i niezależny podział skutecznego uczenia (TASK-1183)
+
+Nowe przygotowanie v4 jawnie wyklucza całe konfliktujące grupy z nowego użycia.
+Domknięcie obejmuje kopie, znane sesje i cały import bez dowiedzionej kolejności,
+również przez aliasy w innych importach. Historyczne role i atesty pozostają.
+Manifest zachowuje całą populację, piny ochron i liczniki wykluczeń; zmiana
+domknięcia blokuje freeze i późniejszą aktualność.
+Wykluczona grupa zostaje na swojej pozycji w kolejności importu. Ona i po10
+sąsiednich zdjęć z każdej strony nie dostają nowej roli. Historyczne role i cele
+A/B, także wykluczonych zdjęć, nadal wymagają10-zdjęciowego bufora. Gdy minima są
+niewykonalne, raport podaje dokładne braki każdej roli; podział nie jest luzowany.
+
+Wagi aktualnych human-approved korekt i niezmienionych zatwierdzeń wynoszą4:1.
+Plansze liczą się raz na zdjęcie kanoniczne; liczby zdjęć corrected/good mogą
+się nakładać. Minimum20zdjęć/60plansz jest jedynie dolnym ograniczeniem
+geometrii trzech ról, nie dowodem gotowości pełnego eksperymentu.
+
+Nowy content sampling wybiera zwykłą próbkę REG seed20261108 po całych grupach
+bez zależności od dobrych/złych wyników i dostępności content labels.
+Osobna trudna próbka wymaga dowiedzionej predykcji przypiętej bazy i aktualnej
+geometrii człowieka przed treningiem. Zmiana punktów nie rozstrzyga kategorii
+missing-row/shifted-board/clipped-edge/neighbor-takeover/perspective/incomplete-image:
+bez osobnego dowodu pozostaje unknown; brak reprezentacji jest jawny.
+Brakujące obrysy wskazywane są dla wybranego zestawu, bez zamiany na AI GT.
+Minimum5pełnych opisanych REG, ślepy pomiar30plansz/10zdjęć i caps u/δ pozostają.
+
+Tylko jawny content opt-in dopuszcza dodatkowe partial TRAIN do uczenia punktów.
+Nie są tłem detektora i nie zastępują10pełnych TRAIN ani5pełnych A.
+Wymagana migracja0184 jest operacją wdrożeniową za osobną zgodą.

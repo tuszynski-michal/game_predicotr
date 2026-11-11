@@ -58,11 +58,21 @@ def correction_data_availability(
 class CorrectionSplitError(ValueError):
     """Fail closed with a stable code and machine-readable observed counts."""
 
-    def __init__(self, code: str, message: str, *, photos: int = 0, boards: int = 0):
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        photos: int = 0,
+        boards: int = 0,
+        role_counts: tuple[CorrectionRoleCount, ...] = (),
+    ):
         super().__init__(message)
         self.code = code
         self.photos = photos
         self.boards = boards
+        # Protected per-role counts reached before failing, when the solver knows them.
+        self.role_counts = role_counts
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +93,8 @@ class CorrectionSplitSource:
     frozen_role: str | None = None
     frozen_buffer: bool = False
     pending_correction: bool = False
+    # Retain the original order/closure, but never assign new use to this source.
+    new_use_excluded: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,13 +243,12 @@ def _validate(sources: tuple[CorrectionSplitSource, ...]) -> None:
             )
 
 
-def _prepare(
+def _prepare_groups(
     sources: tuple[CorrectionSplitSource, ...],
 ) -> tuple[
     _DisjointSet,
     _DisjointSet,
     tuple[CorrectionImportOrder, ...],
-    dict[str, frozenset[int]],
     dict[str, int],
     dict[str, int],
 ]:
@@ -295,10 +306,30 @@ def _prepare(
                 import_id, method, tuple(ordered), tuple(ranges[key] for key in ordered)
             )
         )
+    owner_indices = {photo: list(sorted(imports)).index(value) for photo, value in owner.items()}
+    return copies, components, tuple(orders), boards, owner_indices
+
+
+def _prepare(
+    sources: tuple[CorrectionSplitSource, ...],
+) -> tuple[
+    _DisjointSet,
+    _DisjointSet,
+    tuple[CorrectionImportOrder, ...],
+    dict[str, frozenset[int]],
+    dict[str, int],
+    dict[str, int],
+]:
+    copies, components, orders, boards, owner_indices = _prepare_groups(sources)
     allowed: dict[str, frozenset[int]] = {}
     fixed: dict[str, int] = {}
+    excluded = {components.find(s.source_id) for s in sources if s.new_use_excluded}
     for source in sources:
         component = components.find(source.source_id)
+        if component in excluded:
+            allowed[component] = frozenset(range(4))
+            boards[copies.find(source.source_id)] = 0
+            continue
         permitted = frozenset(ROLES.index(role) for role in source.allowed_roles) | {3}
         allowed[component] = allowed.get(component, frozenset(range(4))) & permitted
         frozen = (
@@ -320,8 +351,7 @@ def _prepare(
             )
         allowed[component] = frozenset((frozen,))
     # Count a duplicate photo once globally, in a stable owning import.
-    owner_indices = {photo: list(sorted(imports)).index(value) for photo, value in owner.items()}
-    return copies, components, tuple(orders), allowed, boards, owner_indices
+    return copies, components, orders, allowed, boards, owner_indices
 
 
 def _candidates(
@@ -335,6 +365,7 @@ def _candidates(
     work: _Work,
     *,
     full_training: bool = False,
+    excluded_components: frozenset[str] = frozenset(),
 ) -> tuple[_Candidate, ...]:
     size = len(order.photo_keys)
     photo_prefix, board_prefix = [[0] for _ in range(3)], [[0] for _ in range(3)]
@@ -353,7 +384,11 @@ def _candidates(
             # Buffers may never consume a source with a previously frozen role.
             blocked = role not in permitted
             forbidden[role].append(forbidden[role][-1] + int(blocked))
-    multiple = {key: value for key, value in positions.items() if len(value) > 1}
+    multiple = {
+        key: value
+        for key, value in positions.items()
+        if len(value) > 1 and key not in excluded_components
+    }
     cross = {key: value[0] for key, value in positions.items() if key in shared_components}
     candidate_work = 1 + sum(map(len, multiple.values())) + len(cross)
     found: dict[tuple[tuple[int, ...], tuple[tuple[str, int], ...]], _Candidate] = {}
@@ -443,7 +478,14 @@ def solve_correction_split(
     component_imports: dict[str, set[str]] = defaultdict(set)
     for source in ordered_sources:
         component_imports[components.find(source.source_id)].add(source.import_id)
-    shared = frozenset(key for key, imports in component_imports.items() if len(imports) > 1)
+    excluded = frozenset(
+        components.find(s.source_id) for s in ordered_sources if s.new_use_excluded
+    )
+    shared = frozenset(
+        key
+        for key, imports in component_imports.items()
+        if len(imports) > 1 and key not in excluded
+    )
     work = _Work(max_work)
     # Exact dynamic programming retains counts, capped minima and cross-import
     # equality obligations. Identical states retain the smallest full tie key.
@@ -460,6 +502,7 @@ def solve_correction_split(
             shared,
             work,
             full_training=full_training,
+            excluded_components=excluded,
         )
         next_states: dict[StateKey, tuple[_Candidate, ...]] = {}
         for (counts, pins), path in states.items():
@@ -511,7 +554,7 @@ def solve_correction_split(
             for photo in order.photo_keys[start:end]:
                 photo_roles[photo] = role
     assignments = tuple(
-        (source.source_id, ROLES[role] if role < 3 else None)
+        (source.source_id, ROLES[role] if role < 3 and not source.new_use_excluded else None)
         for source in ordered_sources
         for role in (photo_roles[copies.find(source.source_id)],)
     )
@@ -543,11 +586,21 @@ def solve_correction_split(
             representatives[photo] = source
     return CorrectionSplitResult(
         assignments,
-        tuple(source for source, role in assignments if role is None),
+        tuple(
+            source.source_id
+            for source in ordered_sources
+            if not source.new_use_excluded and photo_roles[copies.find(source.source_id)] == 3
+        ),
         orders,
         role_counts,
         limitations,
         best[0].numerator,
         best[0].denominator,
-        tuple(sorted(source.source_id for source in representatives.values())),
+        tuple(
+            sorted(
+                source.source_id
+                for source in representatives.values()
+                if not source.new_use_excluded
+            )
+        ),
     )

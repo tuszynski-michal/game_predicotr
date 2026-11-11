@@ -216,6 +216,31 @@ def refine_validation_purposes(
                     "GRID_VALIDATION_BUFFER_REQUIRED", "Ten unique photos separate roles."
                 )
             previous = index, role
+    # A source excluded from new use keeps its historical role and purpose as a
+    # neighborhood anchor; legacy VALIDATION without a purpose served as A.
+    anchors: dict[str, set[str]] = defaultdict(set)
+    for source in sources:
+        if not source.new_use_excluded:
+            continue
+        context = contexts[source.source_id]
+        purposes = set(context.get("validationPurposes", [])) & {"A", "B"} or {"A"}
+        for prior_role in set(context.get("priorRoles", [])) - {"BUFFER"}:
+            anchors[copies.find(source.source_id)].update(
+                {f"VALIDATION-{value}" for value in purposes}
+                if prior_role == "VALIDATION"
+                else {prior_role}
+            )
+    for order in orders:
+        for index, photo in enumerate(order.photo_keys):
+            for label in anchors.get(photo, ()):
+                for neighbor in order.photo_keys[
+                    max(0, index - BUFFER_PHOTOS) : index + BUFFER_PHOTOS + 1
+                ]:
+                    if by_photo[neighbor] not in (None, label):
+                        raise GridCohortError(
+                            "GRID_VALIDATION_BUFFER_REQUIRED",
+                            "Ten unique photos separate a new role from an excluded anchor.",
+                        )
     for role, photos, boards in (("TRAIN", 10, 30), ("VALIDATION-A", 5, 15), ("REGRESSION", 5, 15)):
         if counts[role]["photos"] < photos or counts[role]["boards"] < boards:
             raise GridCohortError(

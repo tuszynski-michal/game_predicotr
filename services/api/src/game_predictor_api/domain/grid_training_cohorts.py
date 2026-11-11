@@ -30,6 +30,7 @@ class GridCohortError(ValueError):
     def __init__(self, code: str, message: str, status: int = 409) -> None:
         super().__init__(message)
         self.code, self.message, self.status = code, message, status
+        self.learning_material: dict[str, Any] | None = None
 
 
 def canonical(value: object) -> bytes:

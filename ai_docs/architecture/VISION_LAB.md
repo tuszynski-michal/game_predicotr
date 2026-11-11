@@ -1792,3 +1792,36 @@ Plikowy HTML chroni na moment capture i nie sprawdza późniejszych sesji blind;
 przed kolejną galerią należy przygotować świeży capture. Zapisuje tylko agregat
 pominiętych TRAIN, bez identyfikatorów. Stałe etykiety8%/0% wymagają dokładnie
 paddingFraction0.08/0.0; niezgodny wariant dostaje lokalne unavailable.
+
+## Effective learning material (TASK-1183)
+
+`grid_correction_split._prepare_groups` builds structural closure independently
+of role validation. New v4 preparation applies `grid_learning_material.conflicting_groups`
+to the complete population before solving. Excluded pins retain original identity,
+registry proof and population membership with null new role, `newUseExcluded`,
+and no BUFFER reservation. The manifest's `learningMaterial` has deduplicated
+corrected/good/unknown board and overlapping photo counters plus whole-group reasons.
+The population fence and excluded registry proofs are checked at freeze/currentness.
+`protect_excluded_neighborhoods` keeps excluded sources in the import orders as
+`new_use_excluded` neutral positions, masks the closure plus ten canonical photos on
+each side, and narrows `allowed_roles` within ten photos of every single-role
+historical anchor. `refine_validation_purposes` checks the historical A/B purpose of
+excluded anchors. Solver failures carry `role_counts`, exposed as `roleShortfalls`.
+
+New content sampling resolves the base version and uses
+`stratified-fresh-content-regression-v2`: seeded ordinary groups do not depend on
+content annotation availability or candidate results. Additional hard groups require
+`grid_quality_observations.original_target` provenance for the pinned base compared
+with actual current approved nodes. Failure categories remain unknown without
+measured category evidence. Selection pins exact references, missing content sources
+and representation counts; no new ledger or approval source exists.
+
+`geometryOnlyTraining` is an opt-in snapshot pin for partial TRAIN, paired with
+the existing content sampling policy. The solver and SQL retain ten full TRAIN and
+five full A; capture/materialization preserve the partial geometry targets.
+Alembic0184 creates `recording_photo_cohort_v4`, private
+`recording_correction_report_bind_v5` and public wrapper command v7, leaving
+historical functions byte-identical. v7 routes register, validate and
+`bind_existing_report` of effective-material cohorts to v4/bind v5. Private helpers retain capability-only
+permissions. Exclusions append neither new role nor release evidence; downgrade
+refuses any new-policy cohort history. Public reporting is implemented by TASK-1185.

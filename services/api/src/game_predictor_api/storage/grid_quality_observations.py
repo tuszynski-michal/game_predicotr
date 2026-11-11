@@ -173,7 +173,10 @@ def original_target(
     session: Session, game: UUID, metadata: dict[str, Any], target: dict[str, Any]
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, list[dict[str, Any]]]:
     """Follow explicit per-cell previous-source edges, never chronology or node similarity."""
-    from game_predictor_api.domain.neural_grid_proposal import validate_neural_source_binding
+    from game_predictor_api.domain.neural_grid_proposal import (
+        NeuralGridProposalError,
+        validate_neural_source_binding,
+    )
 
     board, review = target.get("board") or {}, target.get("review") or {}
     pointer, number = board.get("source_geometry_revision_id"), board.get("geometry_revision")
@@ -210,7 +213,7 @@ def original_target(
             (
                 value
                 for value in revision["board_geometries"]
-                if value.get("positionIndex") == board["position_index"]
+                if isinstance(value, dict) and value.get("positionIndex") == board["position_index"]
             ),
             None,
         )
@@ -223,6 +226,11 @@ def original_target(
                 or initialization.get("v3EngineAcceptance")
                 or {}
             )
+            if not isinstance(proof, dict):
+                # Stored historical JSON, not a programming error: callers map it.
+                raise NeuralGridProposalError(
+                    "NEURAL_GRID_PROOF_INVALID", "The historical producer proof is malformed."
+                )
             proposal, binding = proof.get("proposal"), proof.get("binding")
             if not proposal or not binding:
                 return geometry, None, []

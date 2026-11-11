@@ -6,10 +6,17 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1183 — Przykłady korekt i niezależne kontrole (done)
+
+- Plik: `tasks/completed/1183-grid-learning-reference-split.md`.
+- Commit: **v1.7.603** (hash dopisuje kolejny commit).
+- learningMaterial, wykluczenie konfliktu z sąsiedztwem10 bez nowej roli, stratified REG, partial TRAIN content opt-in, Alembic0184 (v4, bind v5, wrapper v7).
+- R1 Opus REVISE poprawione (Claude); audyt Codex niewykonany — kontynuacja na polecenie operatora po wyczerpaniu limitu. 141 testów, PG2, mypy/Ruff PASS; dane operatora: A 4/4, podział niewykonalny.
+
 ### TASK-1182 — Zgodność oceny checkpointu i ONNX (done)
 
 - Plik: `tasks/completed/1182-grid-evaluation-consistency.md`.
-- Commit: **v1.7.602** (hash dopisuje kolejny commit).
+- Commit: **v1.7.602 / `3991ff749f6af3a58c4f2e0bf6c5208c1b8392cb`** (hash dopisuje kolejny commit).
 - TF32 odtworzony na13zdjęciach; FP32 i pełny A guard;33testy, mypy, Ruff, docs/map PASS; Opus R2 PASS0P0/0P1.
 - P2-2/5 ryzyka opisane; operator/default/historyczny REVISE bez zmian.
 

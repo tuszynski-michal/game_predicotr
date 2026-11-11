@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-11-09
+last_updated: 2026-11-11
 ---
 
 # Decision Log — wpisy 2026
@@ -15,6 +15,49 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+
+## D-602 — Skuteczne uczenie korekt i niezależny pomiar pełnych wycinków
+
+Status: accepted. Data:2026-11-11. TASK-1183–1185; operator zatwierdził cały plan T1–T4.
+
+Nowe v4 przygotowanie zamyka kopie, sesje i nierozdzielane importy przed
+rozpatrzeniem konfliktów. Cała konfliktująca grupa jest wykluczona z nowego
+użycia; pełna populacja i dowody rejestru pozostają przypięte do freeze oraz
+currentness. Grupa i po10 sąsiednich zdjęć zostają w kolejności importu bez
+nowej roli; historyczne role i cele A/B nadal wymagają bufora. Niewykonalny
+podział podaje braki każdej roli. Nie przepisujemy historycznych ról ani zatwierdzeń. Dokładne
+liczniki oddzielają TRAIN, A, B, REG, BUFFER i wykluczenia; podstawowe minima
+geometrii są tylko dolnymi granicami, nie gotowością pełnego eksperymentu.
+
+Nowy opt-in stratified-fresh-content-regression-v2 utrwala przed treningiem
+zwykłą próbkę całych grup losowaną seed20261108 niezależnie od trudności
+oraz oddzielną trudną próbkę z dowiedzionych predykcji przypiętej bazy i
+zatwierdzonej geometrii. Kopie i bufory pozostają chronione. Nieznane
+odniesienie nie staje się kategorią błędu; obrysy AI nie stają się human GT.
+Próbka trudna nie szacuje częstości błędów populacji. Braki etykiet i źródeł
+pozostają jawne; stary REG zachowuje ochronę i nie udaje świeżego testu.
+
+Tylko nowy content opt-in może użyć częściowego TRAIN do strat punktów;
+nieopisane plansze nie są tłem detektora. Alembic0184 wersjonuje istniejącą
+capability bez zmiany tabel, bez release historii i bez zmiany starych planów.
+Pełne zdjęcia nadal spełniają wymagania uczenia i wyboru detektora. Worker
+oddziela screen forward/BN/stratę od częściowych przykładów board.
+
+Nowe zamknięte plany przypinają full-cell-v2/0%, warunkowe R3 przy gotowych
+etykietach i politykę pełnej kontroli A po eksporcie. Stare plany zachowują
+swoją interpretację. Brak R3 nie tworzy PASS; wybrany ukończony model musi
+przejść wszystkie właściwe bariery A/B/REG. Niezaliczone A dopuszcza wyłącznie
+informacyjny eksport propozycji. Budżet i historia wznowień nie są odnawiane.
+Pomiar preflight obejmuje pełny koszt kontroli eksportu wszystkich gier.
+
+Nowe publiczne podsumowania są projekcją istniejących dowodów, nie drugim
+rejestrem ról. Raport oddziela gotowość kodu, dostępność danych, jakość modelu
+i kwalifikację automatu. Pokazuje nowe uszkodzenia symboli bez kompensowania
+ich naprawą innych instancji. Jakość pozostaje dowodzona osobno dla każdej gry.
+
+Alternatywy odrzucone: obniżenie progów po zobaczeniu wyniku; uczenie na
+kontrolach; arbitralne rozdzielenie importu po UUID; cichy powrót do grid-only
+pod nazwą pełnego ulepszenia; przedstawienie AI jako zatwierdzenia człowieka.
 
 ## D-601 — Zakres publikacji i bieżąca gotowość nowego uczenia
 

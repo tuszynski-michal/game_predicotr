@@ -352,6 +352,7 @@ class GridCohortEvidenceReader:
             identity, metadata_missing = None, True
         targets = current_targets(self.session, game, source_id)
         positions, reasons = [], set(recording.get("reasonCodes", []))
+        learning_references = []
         for index in range(9):
             target = targets.get(index)
             label, reason = None, None
@@ -440,6 +441,35 @@ class GridCohortEvidenceReader:
                         "targetFence": target_fence(target),
                         "approvalFence": _approval_projection(geometry_approval_fence(target)),
                     }
+                    if recording.get("learningReferenceBaseVersionId"):
+                        from game_predictor_api.domain.grid_learning_reference import (
+                            baseline_reference,
+                        )
+                        from game_predictor_api.domain.neural_grid_proposal import (
+                            NeuralGridProposalError,
+                        )
+                        from game_predictor_api.storage.grid_quality_observations import (
+                            original_target,
+                        )
+
+                        failure = None
+                        try:
+                            original, producer, _ = original_target(
+                                self.session, game, source, target
+                            )
+                        except NeuralGridProposalError as error:
+                            # Only the validated historical-proof boundary maps to
+                            # unknown; other exceptions are programming errors.
+                            original, producer, failure = None, None, error.code
+                        learning_references.append(
+                            baseline_reference(
+                                label,
+                                original,
+                                producer,
+                                recording["learningReferenceBaseVersionId"],
+                                failure,
+                            )
+                        )
                     from .grid_cell_content_pins import content_pin
 
                     if recording.get("contentSamplingPolicy"):
@@ -480,6 +510,11 @@ class GridCohortEvidenceReader:
         used = ready and (
             full
             or (
+                role == "TRAIN"
+                and recording.get("geometryOnlyTraining") is True
+                and recording.get("contentSamplingPolicy") == "full-symbol-content-sampling-v1"
+            )
+            or (
                 (
                     role == "REGRESSION"
                     or (role == "VALIDATION" and recording.get("validationPurpose") == "B")
@@ -494,6 +529,11 @@ class GridCohortEvidenceReader:
         if not used and ready:
             reasons.add("FULL_PHOTO_REQUIRED_FOR_ROLE")
         return {
+            **(
+                {"learningReferences": learning_references}
+                if recording.get("learningReferenceBaseVersionId")
+                else {}
+            ),
             "dependencyCellIds": [
                 cell["id"] for target in targets.values() for cell in target.get("cells", [])
             ],

@@ -28,6 +28,7 @@ def solve_incremental_split(
     *,
     max_work: int = 3_000_000,
     full_training: bool = False,
+    include_partial_train: bool = False,
 ) -> CorrectionSplitResult:
     values = tuple(sorted(sources, key=lambda item: item.source_id))
     if not isinstance(max_work, int) or isinstance(max_work, bool) or max_work < 1:
@@ -38,7 +39,9 @@ def solve_incremental_split(
     copies, components, orders, allowed, boards, _ = _prepare(values)
     work = _Work(max_work)
     members: dict[str, set[str]] = defaultdict(set)
-    pending_photos = {copies.find(s.source_id) for s in values if s.pending_correction}
+    pending_photos = {
+        copies.find(s.source_id) for s in values if s.pending_correction and not s.new_use_excluded
+    }
     for photo in boards:
         members[components.find(photo)].add(photo)
     roles: dict[str, int] = {
@@ -64,7 +67,12 @@ def solve_incremental_split(
         )
 
     if any(c.photos < 5 or c.boards < 15 for c in counts()[1:]):
-        initial = solve_correction_split(values, max_work=max_work, full_training=full_training)
+        try:
+            initial = solve_correction_split(values, max_work=max_work, full_training=full_training)
+        except CorrectionSplitError as error:
+            # Report the exact protected counts which the fallback could not complete.
+            error.role_counts = error.role_counts or counts()
+            raise
         # Keep complete labelled components, not unlabelled tails of a role.
         for source_id, initial_role in initial.assignments:
             group = components.find(source_id)
@@ -97,7 +105,12 @@ def solve_incremental_split(
     for group in sorted(members):
         if (
             group not in roles
-            and any(role_boards(boards[p], 0, full_training=full_training) for p in members[group])
+            and any(
+                boards[p]
+                if include_partial_train
+                else role_boards(boards[p], 0, full_training=full_training)
+                for p in members[group]
+            )
             and safe(group, 0)
         ):
             roles[group] = 0
@@ -178,6 +191,7 @@ def solve_incremental_split(
             "Protected islands do not meet role minima.",
             photos=sum(n > 0 for n in boards.values()),
             boards=sum(boards.values()),
+            role_counts=measured,
         )
     representatives: dict[str, CorrectionSplitSource] = {}
     for value in values:
@@ -190,11 +204,15 @@ def solve_incremental_split(
             representatives[photo] = value
     return CorrectionSplitResult(
         assignments=tuple(
-            (s.source_id, ROLES[r] if r is not None and r < 3 else None)
+            (s.source_id, ROLES[r] if r is not None and r < 3 and not s.new_use_excluded else None)
             for s in values
             for r in (roles.get(components.find(s.source_id)),)
         ),
-        buffers=tuple(s.source_id for s in values if roles.get(components.find(s.source_id)) == 3),
+        buffers=tuple(
+            s.source_id
+            for s in values
+            if not s.new_use_excluded and roles.get(components.find(s.source_id)) == 3
+        ),
         import_orders=orders,
         role_counts=measured,
         limitations=(
@@ -204,7 +222,9 @@ def solve_incremental_split(
         ),
         objective_numerator=0,
         objective_denominator=1,
-        representative_sources=tuple(sorted(s.source_id for s in representatives.values())),
+        representative_sources=tuple(
+            sorted(s.source_id for s in representatives.values() if not s.new_use_excluded)
+        ),
         schema_version="grid-correction-split-v3" if full_training else "grid-correction-split-v2",
         solver_version="full-train-selection-islands-v1"
         if full_training

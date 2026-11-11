@@ -209,6 +209,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Proces i jakość
 
+- [Dane i niezależne kontrole uczenia](quality/TASK-1183_VERIFICATION.md) — TASK-1183, trwały podział, migracja0184 i ograniczony odczyt operatora.
+
 - [Zgodność oceny checkpointu i ONNX](quality/GRID_EVALUATION_CONSISTENCY_20261111.md) — TASK-1182, diagnoza TF32 i pełna kontrola A.
 
 - [Naprawa odczytu Jobs](quality/TASK-1181_VERIFICATION.md) — istniejące zadania jakości symboli i ścisły kontrakt odpowiedzi.

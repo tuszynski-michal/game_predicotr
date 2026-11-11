@@ -25,6 +25,13 @@ from game_predictor_api.domain.grid_correction_split import (
     solve_correction_split,
 )
 from game_predictor_api.domain.grid_detector_readiness import detector_readiness
+from game_predictor_api.domain.grid_learning_material import (
+    conflicting_groups,
+    material_report,
+    protect_excluded_neighborhoods,
+    role_shortfalls,
+)
+from game_predictor_api.domain.grid_learning_reference import source_reference
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError, digest
 from game_predictor_api.storage.grid_training_cohort_evidence import GridCohortEvidenceReader
 
@@ -240,6 +247,8 @@ def prepare_split(
     reader = GridCohortEvidenceReader(repo.session, repo.artifact_root)
     sources, pins = [], []
     target_nodes: dict[str, dict[int, Any]] = {}
+    source_labels: dict[str, list[dict[str, Any]]] = {}
+    references: dict[str, dict[str, Any]] = {}
     for index, row in enumerate(rows):
         deadline.check(repo.session)
         source, revs = row["source"], row["revisions"]
@@ -279,16 +288,32 @@ def prepare_split(
                 game,
                 UUID(key),
                 index,
-                {"role": "TRAIN", "qualification": "eligible", "reasonCodes": []},
+                {
+                    "role": "TRAIN",
+                    "qualification": "eligible",
+                    "reasonCodes": [],
+                    **(
+                        {"learningReferenceBaseVersionId": content_sampling["baseVersionId"]}
+                        if content_sampling and content_sampling.get("baseVersionId")
+                        else {}
+                    ),
+                },
                 "grid-only",
             )
             count = measured["boardEligibleCount"]
             labels = [p["label"] for p in measured["positions"] if p["label"] is not None]
+            references[key] = source_reference(
+                measured.get("learningReferences", []),
+                content_sampling.get("baseVersionId") if content_sampling else None,
+            )
         target_nodes[key] = {label["positionIndex"]: label["nodes"] for label in labels}
+        source_labels[key] = labels
         context = metadata[key]
         roles = context["priorRoles"]
-        if incremental and (
-            len(roles) > 1 or (not context["allowedRoles"] and roles != ["BUFFER"])
+        if (
+            incremental
+            and not purpose_aware
+            and (len(roles) > 1 or (not context["allowedRoles"] and roles != ["BUFFER"]))
         ):
             raise GridCohortError(
                 "GRID_CORRECTION_PROTECTION_CONFLICT",
@@ -345,16 +370,38 @@ def prepare_split(
                 "rangeEnd": first.get("sequence_range_end"),
             }
         )
+    all_sources = sources
+    exclusions = conflicting_groups(sources, metadata) if purpose_aware else []
+    sources, exclusions = protect_excluded_neighborhoods(sources, metadata, exclusions)
+    excluded_ids = {key for group in exclusions for key in group["sourceIds"]}
+    if excluded_ids:
+        for pin in pins:
+            if pin["sourceId"] in excluded_ids:
+                pin.update(role=None, buffer=False, representative=False, newUseExcluded=True)
+        if set(validation_assignments or {}) & excluded_ids:
+            raise GridCohortError(
+                "GRID_VALIDATION_EXCLUDED_COMPONENT",
+                "A requested component is excluded from new use.",
+            )
+    learning_material = (
+        material_report(all_sources, source_labels, exclusions) if purpose_aware else None
+    )
     if purpose_aware:
         if validation_components is not None:
             from game_predictor_api.domain.grid_validation_purpose import (
                 validation_component_choices,
             )
 
-            validation_components.extend(validation_component_choices(sources, metadata))
+            validation_components.extend(
+                choice
+                for choice in validation_component_choices(sources, metadata)
+                if not any(item["sourceId"] in excluded_ids for item in choice["sources"])
+            )
         copies, _, _, _, _, _ = _prepare(tuple(sources))
         seen_labels: dict[tuple[str, int], Any] = {}
         for source in sources:
+            if source.new_use_excluded:
+                continue
             for position, nodes in target_nodes[source.source_id].items():
                 alias_key = copies.find(source.source_id), position
                 if alias_key in seen_labels and seen_labels[alias_key] != nodes:
@@ -371,9 +418,19 @@ def prepare_split(
             )
         from .grid_content_sampling import constrain_content_regression
 
-        sources, content_selection = constrain_content_regression(
-            repo, game, sources, metadata, content_sampling, deadline
-        )
+        try:
+            sources, content_selection = constrain_content_regression(
+                repo,
+                game,
+                sources,
+                {source.source_id: metadata[source.source_id] for source in sources},
+                content_sampling,
+                deadline,
+                references=references,
+            )
+        except GridCohortError as error:
+            error.learning_material = learning_material
+            raise
     try:
         readiness = None
         if screen:
@@ -394,12 +451,21 @@ def prepare_split(
 
             solver_sources = constrain_validation_sources(sources, validation_assignments or {})
         solved = (
-            solve_incremental_split(solver_sources, full_training=screen)
+            solve_incremental_split(
+                solver_sources,
+                full_training=screen,
+                include_partial_train=content_sampling is not None,
+            )
             if incremental
             else solve_correction_split(sources)
         )
     except CorrectionSplitError as error:
         wrapped = GridCorrectionSplitPreparationError(error)
+        wrapped.learning_material = (
+            {**learning_material, "roleShortfalls": role_shortfalls(error.role_counts)}
+            if learning_material is not None and error.role_counts
+            else learning_material
+        )
         if screen:
             wrapped.detector_readiness = readiness
             wrapped.data_availability = correction_data_availability(
@@ -412,6 +478,8 @@ def prepare_split(
     buffers = set(solved.buffers)
     representatives = set(solved.representative_sources)
     for pin in pins:
+        if pin.get("newUseExcluded"):
+            continue
         if (
             content_selection is not None
             and pin["sourceId"] in content_selection["excludedLegacyRegressionSourceIds"]
@@ -426,12 +494,18 @@ def prepare_split(
         if screen:
             count = pin["eligibleBoards"]
             role = pin["role"]
+            partial_train = bool(
+                content_selection is not None and role == "TRAIN" and 0 < count < 9
+            )
             pin.update(
                 qualifiedBoards=count,
-                eligibleBoards=role_boards(count, ROLES.index(role), full_training=True)
+                eligibleBoards=count
+                if partial_train
+                else role_boards(count, ROLES.index(role), full_training=True)
                 if role
                 else 0,
-                detectorExcluded=0 < count < 9 and role != "REGRESSION",
+                detectorExcluded=0 < count < 9 and role != "REGRESSION" and not partial_train,
+                **({"geometryOnlyTraining": True} if partial_train else {}),
             )
     result: dict[str, Any] = {
         "schemaVersion": solved.schema_version,
@@ -491,6 +565,12 @@ def prepare_split(
                 )
             pin["qualifiedLabelsSha256"] = digest(labels)
         result["sha256"] = digest({k: v for k, v in result.items() if k != "sha256"})
+    if purpose_aware:
+        result["sources"] = sorted(result["sources"], key=lambda pin: pin["sourceId"])
+        result["learningMaterial"] = material_report(
+            all_sources, source_labels, exclusions, result["sources"]
+        )
+        result["sha256"] = digest({k: v for k, v in result.items() if k != "sha256"})
     return result
 
 
@@ -503,6 +583,19 @@ def validate_population(
             "GRID_CORRECTION_POPULATION_CHANGED",
             "Source population or attested order changed; create a new preview.",
         )
+    excluded = [pin for pin in split["sources"] if pin.get("newUseExcluded")]
+    if excluded:
+        # New aliases/sessions outside the selected imports are covered by the
+        # registry closure, unlike a population-only fence. No historical row is edited.
+        current = contexts(repo, game, [pin["sourceId"] for pin in excluded], purpose_aware=True)
+        if any(
+            current[pin["sourceId"]]["proofSha256"] != pin["registryProofSha256"]
+            for pin in excluded
+        ):
+            raise GridCohortError(
+                "GRID_CORRECTION_REGISTRY_CHANGED",
+                "An excluded component changed; create a fresh preview.",
+            )
     if for_freeze and split.get("schemaVersion") in (
         "grid-correction-split-v2",
         "grid-correction-split-v3",
@@ -536,7 +629,9 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             and not item.get("detectorExcluded")
             and not item.get("contentExcluded")
             else "blocked",
-            "reasonCodes": ["CONTENT_LEGACY_REG_EXCLUDED"]
+            "reasonCodes": ["GRID_CORRECTION_NEW_USE_EXCLUDED"]
+            if item.get("newUseExcluded")
+            else ["CONTENT_LEGACY_REG_EXCLUDED"]
             if item.get("contentExcluded")
             else ["GRID_CORRECTION_BUFFER"]
             if item["buffer"]
@@ -567,6 +662,11 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
                     "purposeProofSha256": item["purposeProofSha256"],
                 }
                 if "validationPurpose" in item
+                else {}
+            ),
+            **(
+                {"geometryOnlyTraining": True}
+                if item.get("geometryOnlyTraining") and "contentSampling" in split
                 else {}
             ),
             **(

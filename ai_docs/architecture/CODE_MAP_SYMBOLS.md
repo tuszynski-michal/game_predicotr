@@ -224,6 +224,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/grid_correction_split.py: role_boards, correction_data_availability, class CorrectionSplitError, class CorrectionSplitSource, class CorrectionImportOrder, class CorrectionRoleCount, class CorrectionSplitResult, solve_correction_split
 - domain/grid_detector_readiness.py: detector_readiness
 - domain/grid_engine_profiles.py: class GridEngineModelStatus, class GridEngineModelError, class GridEngineModelFile, class GridEngineReportResult, class GridEngineModelVersion, class GridEngineProfile, class GridEngineModelFileState, class GridEngineModelState, grid_engine_profile_for, neural_import_profile, grid_engine_manifest
+- domain/grid_learning_material.py: conflicting_groups, protect_excluded_neighborhoods, role_shortfalls, material_report
+- domain/grid_learning_reference.py: baseline_reference, source_reference
 - domain/grid_model_evaluation.py: class GridEvaluationReportError, require_metrics, decide_game, verdict_of, build_report, require_report, proof_state
 - domain/grid_model_publication.py: class GridEvaluationEvidence, require_evaluation_evidence
 - domain/grid_model_registry.py: class GridModelRegistryError, canonical_json, descriptor_sha256, catalogue_id, validate_manifest, historical_catalogue
@@ -535,6 +537,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/source_recording_groups.py: class SqlAlchemySourceRecordingRepository
 - storage/source_recording_lab_import.py: lab_group_id, lab_photo_group_id, class MetadataPin, class LabGroup, class LabImportManifest, read_lab_import_manifest, read_lab_import_page, import_lab_page, finalize_lab_import, install_provider_proof
 - storage/source_recording_permissions.py: provision_recording_capability, validate_recording_capability, enforce_recording_permissions, grant_recording_capability_dependencies, recording_permission_errors
+- storage/source_recording_permissions_v10.py: recording_permission_errors, enforce_recording_permissions
 - storage/source_recording_permissions_v2.py: recording_permission_errors, enforce_recording_permissions
 - storage/source_recording_permissions_v3.py: grant_recording_capability_dependencies, recording_permission_errors, enforce_recording_permissions
 - storage/source_recording_permissions_v4.py: recording_permission_errors, enforce_recording_permissions

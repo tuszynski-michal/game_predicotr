@@ -85,9 +85,11 @@ per gra, brak obietnicy dowolnych przyszłych gier. REVISE historii nie przepisy
 
 ## Przypisanie modeli do zadań
 
+Operator2026-11-11: z powodu4% pozostałego limitu Codex przekazuje dokończenie otwartychT2–T4 do Claude Code Opus5.5/high. Codex audytuje zmiany Claude; odziedziczone fragmenty Codex wymagają niezależnego przeglądu Claude przed ich zmianą. Dotychczasowe audyty i autorstwo pozostają w historii.
+
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
 | T1 / TASK-1182 | gpt-6-astra | high | Trening/ONNX/ocena | Claude Code claude-opus-5-5/high |
-| T2 / TASK-1183 | gpt-6-astra | high | Źródła, role i niezależne odniesienie | Claude Code claude-opus-5-5/high |
-| T3 / TASK-1184 | gpt-6-astra | high | Pełne uczenie i bramka zawartości | Claude Code claude-opus-5-5/high |
-| T4 / TASK-1185 | gpt-6.1-sol | high | Panel/HTML/integracja | Claude Code claude-opus-5-5/high |
+| T2 / TASK-1183 | claude-opus-5-5 | high | Źródła, role i niezależne odniesienie | gpt-6.1-sol/high — audyt zmian Claude |
+| T3 / TASK-1184 | claude-opus-5-5 | high | Pełne uczenie i bramka zawartości | gpt-6.1-sol/high — audyt zmian Claude |
+| T4 / TASK-1185 | claude-opus-5-5 | high | Panel/HTML/integracja | gpt-6.1-sol/high — audyt zmian Claude |

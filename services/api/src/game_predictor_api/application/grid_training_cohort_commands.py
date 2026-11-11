@@ -441,6 +441,11 @@ def _materialize(
                 if frozen["used"]
                 else [],
                 "screenEligible": frozen["screenEligible"],
+                **(
+                    {"geometryOnlyTraining": True}
+                    if frozen["recording"].get("geometryOnlyTraining") is True
+                    else {}
+                ),
             }
         )
     published = service.artifacts.publish_json(

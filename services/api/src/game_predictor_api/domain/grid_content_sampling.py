@@ -6,6 +6,7 @@ from typing import Any
 
 from .grid_cell_content import REGRESSION_SEED, ContentError
 from .grid_correction_split import BUFFER_PHOTOS, CorrectionSplitSource, _prepare
+from .grid_learning_material import ERROR_CATEGORIES
 from .grid_training_cohorts import digest
 
 CONTENT_SAMPLING_POLICY = "full-symbol-content-sampling-v1"
@@ -18,6 +19,8 @@ def fresh_regression_preview(
     *,
     ancestry_sha256: str | None,
     source_content_counts: Mapping[str, tuple[int, int]] | None = None,
+    references: Mapping[str, Mapping[str, Any]] | None = None,
+    stratified: bool = False,
 ) -> dict[str, Any]:
     """The storage adapter supplies complete authority facts; this does not assign roles.
 
@@ -48,7 +51,8 @@ def fresh_regression_preview(
         for entry in entries:
             facts = contexts[entry.source_id]
             if (
-                entry.frozen_role is not None
+                entry.new_use_excluded
+                or entry.frozen_role is not None
                 or entry.frozen_buffer
                 or facts.get("priorRoles")
                 or facts.get("validationPurposes")
@@ -67,13 +71,17 @@ def fresh_regression_preview(
                 max(0, index - BUFFER_PHOTOS) : index + BUFFER_PHOTOS + 1
             ]:
                 neighbor = components.find(photo)
+                # Excluded anchors constrain neighbors through their unchanged
+                # historical roles (allowed roles above); exclusion itself does not
+                # widen the ten-photo buffer to twenty.
                 if any(
                     s.frozen_role in {"TRAIN", "VALIDATION"} or s.frozen_buffer
                     for s in members[neighbor]
                 ):
                     blocked.add("CONTENT_REG_BUFFER_PROTECTED")
         if not any(
-            s.source_id in fully_labelled_sources and s.eligible_boards == 9 for s in entries
+            (stratified or s.source_id in fully_labelled_sources) and s.eligible_boards == 9
+            for s in entries
         ):
             blocked.add("CONTENT_REG_FULL_LABELS_MISSING")
         if blocked:
@@ -95,9 +103,37 @@ def fresh_regression_preview(
         photos.update(
             copies.find(s.source_id)
             for s in members[key]
-            if s.source_id in fully_labelled_sources and s.eligible_boards == 9
+            if (stratified or s.source_id in fully_labelled_sources) and s.eligible_boards == 9
         )
+    ordinary = list(chosen)
+    hard: list[str] = []
+    hard_photos: set[str] = set()
+    if stratified:
+        for key in eligible:
+            if len(hard_photos) >= 5:
+                break
+            if key in ordinary or not any(
+                (references or {}).get(s.source_id, {}).get("state") == "hard" for s in members[key]
+            ):
+                continue
+            hard.append(key)
+            hard_photos.update(
+                copies.find(s.source_id) for s in members[key] if s.eligible_boards == 9
+            )
+        chosen.extend(hard)
     selected = {s.source_id for key in chosen for s in members[key]}
+    selected_geometry_photos = {
+        copies.find(s.source_id)
+        for s in sources
+        if s.source_id in selected and s.eligible_boards == 9
+    }
+    photos = {
+        copies.find(s.source_id)
+        for s in sources
+        if s.source_id in selected
+        and s.source_id in fully_labelled_sources
+        and s.eligible_boards == 9
+    }
     # Whole components remain in the denominator, including unlabelled photos.
     # Copies count once; missing source geometry conservatively retains nine slots.
     population_cells: dict[str, tuple[int, int]] = {}
@@ -138,7 +174,10 @@ def fresh_regression_preview(
         "version": "fresh-content-regression-selection-v1",
         "seed": REGRESSION_SEED,
         "state": "ready" if len(photos) >= 5 and not unknown_excess else "not_evaluable",
-        "selectionState": "ready" if len(photos) >= 5 else "not_evaluable",
+        # Legacy v1 keeps its historical meaning: five fully content-labelled photos.
+        "selectionState": "ready"
+        if (len(selected_geometry_photos) if stratified else len(photos)) >= 5
+        else "not_evaluable",
         "populationCellSlots": total_cells,
         "unknownCellSlots": unknown_cells,
         "sourceIds": sorted(selected),
@@ -161,4 +200,58 @@ def fresh_regression_preview(
         "recordingIndependence": "not_claimed",
         "roleWrites": False,
     }
+    if stratified:
+        reference_photos: dict[str, str] = {}
+        for source in sorted(sources, key=lambda item: (-item.eligible_boards, item.source_id)):
+            if source.source_id in selected:
+                reference_photos.setdefault(copies.find(source.source_id), source.source_id)
+        category_counts = {
+            category: sum(
+                (references or {}).get(key, {}).get("categoryCounts", {}).get(category, 0)
+                for key in reference_photos.values()
+            )
+            for category in ERROR_CATEGORIES
+        }
+        body.update(
+            version="stratified-fresh-content-regression-v2",
+            strata={
+                name: {
+                    "sourceIds": sorted(s.source_id for key in keys for s in members[key]),
+                    "geometryFullPhotos": len(
+                        {
+                            copies.find(s.source_id)
+                            for key in keys
+                            for s in members[key]
+                            if s.eligible_boards == 9
+                        }
+                    ),
+                    "contentFullPhotos": len(
+                        {
+                            copies.find(s.source_id)
+                            for key in keys
+                            for s in members[key]
+                            if s.eligible_boards == 9 and s.source_id in fully_labelled_sources
+                        }
+                    ),
+                }
+                for name, keys in (("ordinary", ordinary), ("hard", hard))
+            },
+            selectionBasis="frozen-base-and-current-human-geometry-before-training",
+            ordinarySelection="seeded-whole-groups-independent-of-difficulty-and-content-labels",
+            difficultyReferences={
+                key: (references or {}).get(key, {"state": "unknown", "boards": []})
+                for key in sorted(selected)
+            },
+            categoryCounts=category_counts,
+            unrepresentedCategories=[key for key, count in category_counts.items() if count == 0],
+            hardSampleAvailable=bool(hard),
+            unknownReferencePhotos=sum(
+                (references or {}).get(key, {}).get("state", "unknown") == "unknown"
+                for key in reference_photos.values()
+            ),
+            missingContentSourceIds=sorted(
+                key for key in selected if key not in fully_labelled_sources
+            ),
+            geometryFullPhotos=len(selected_geometry_photos),
+        )
     return {**body, "sha256": digest(body)}

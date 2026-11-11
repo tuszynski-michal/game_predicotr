@@ -6,6 +6,47 @@ last_updated: 2026-11-11
 
 # Architektura laboratorium wizji
 
+## Effective content training and full-A export (TASK-1184, D-602)
+
+New content runs retain the existing experiment, trainer and role ledger. The
+sealed plan additionally pins `cropPolicyVersion=full-cell-v2`,
+`r3AdmissionPolicy=human-labels-conditional-v1` and
+`exportEvaluationPolicy=full-a-content-v1`. Absent pins preserve historical
+render, required-R3 and sampled-export interpretation. Base version, weights,
+default revision and frozen cohort revisions remain existing immutable pins.
+
+`ContentTrainingDataset` admits partial TRAIN only under the v4 content policy
+and the explicit frozen `geometryOnlyTraining` source pin. `ScreenGridBatches`
+keeps the existing photo/step budget and human weights; `screen_eligible`
+filters partial sources before detector forward, BatchNorm and loss. Their
+approved board crops still train geometry and available human content targets.
+Unknown labels stay masked. An all-partial draw replaces one slot with a
+deterministically selected full source; an entirely partial dataset is rejected.
+Screen/board exposure receipts use the respective participating sources. The
+networks have separate feature extractors, so partial board training cannot
+silently update detector statistics.
+
+Conditional R3 uses state-v2 with a durable `skipped_not_ready` and
+`CONTENT_EXPERIMENT_R3_LABELS_REQUIRED` when R2 fails A and human head labels
+are missing. No optimizer step or new allowance is granted. Completed R0–R2
+remain eligible under the existing A ranking; this does not manufacture an A
+PASS or bypass publication, content or automatic-calibration gates. Old plans
+still require R3 in the same situation.
+
+`ContentSelectionEvaluator.measure` is shared by checkpoint and exported
+engines. The new export proof evaluates every frozen A source of every game,
+with the same baseline, routing, human reference and production renderer.
+`grid_content_consistency` checks raw outputs on every actual runtime input,
+including the R3 head, and fingerprints per-target assignments, usable boards
+and 15 cell outcomes. A raw delta inside tolerance cannot excuse changed cell
+decisions, per-game NME gates or checkpoint/arm preference. The exact A roster,
+six checkpoint evaluations and arm selections are bound in
+`content-runtime-parity-v2.fullA`; API inspection validates these against the
+existing plan/input evidence. A failure prevents export installation and saves
+its diagnostic receipt. Device preflight includes this full export cost within
+the unchanged 4800-step/7200-second durable budget. This is code verification,
+not evidence that operator data or a newly trained model passes quality gates.
+
 ## Correction evaluation consistency (TASK-1182)
 
 `training_core/evaluation_precision.py` scopes FP32 inference: cuDNN/matmul

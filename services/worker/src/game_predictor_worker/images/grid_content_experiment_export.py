@@ -14,10 +14,22 @@ from ..training_core.grid_training import raw_parity
 
 
 def content_parity(
-    network: Any, directory: Any, photos: Any, recipe: Any, arm: str
+    network: Any,
+    directory: Any,
+    photos: Any,
+    recipe: Any,
+    arm: str,
+    include_legacy_parity: bool = False,
 ) -> dict[str, Any]:
     from .grid_training_child import sha256_file
 
+    if include_legacy_parity:
+        from .grid_training_data import parity_inputs, validation_crops
+
+        crops, _ = validation_crops(photos, recipe)
+        board_inputs, screen_inputs = parity_inputs(crops, photos, recipe)
+        if not raw_parity(network, directory, board_inputs, screen_inputs)["passed"]:
+            raise ValueError("CONTENT_EXPERIMENT_RUNTIME_PARITY_FAILED")
     rgb = photos.rgb(0)
     nodes = photos.targets(0)[0][0]
     variant = GridRescueVariantV2()

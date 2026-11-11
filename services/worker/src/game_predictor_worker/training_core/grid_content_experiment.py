@@ -18,6 +18,8 @@ from .grid_training_admission import SCREEN_GRID_CORRECTIONS_V1, GridTrainingPre
 
 EXPERIMENT_VERSION = "full-symbol-content-experiment-v1"
 STATE_VERSION = "full-symbol-content-experiment-state-v1"
+CONDITIONAL_STATE_VERSION = "full-symbol-content-experiment-state-v2"
+R3_ADMISSION_POLICY = "human-labels-conditional-v1"
 RANK_VERSION = "production-content-a-rank-v1"
 CONTENT_HEAD_VERSION = "local-content-quads-visibility-v1"
 ARMS = ("R0", "R1", "R2", "R3")
@@ -74,12 +76,18 @@ def build_plan(
     calibration_roster_sha256: str,
     regression_roster_sha256: str,
     seed: int = 20261108,
+    r3_admission_policy: str | None = None,
+    crop_policy_version: str | None = None,
+    export_evaluation_policy: str | None = None,
 ) -> dict[str, Any]:
     if (
         not isinstance(base_version_id, str)
         or not base_version_id
         or type(seed) is not int
         or seed != 20261108
+        or r3_admission_policy not in (None, R3_ADMISSION_POLICY)
+        or crop_policy_version not in (None, "full-cell-v2")
+        or export_evaluation_policy not in (None, "full-a-content-v1")
     ):
         raise ValueError("CONTENT_EXPERIMENT_IDENTITY_INVALID")
     pins = [dict(item) for item in cohorts]
@@ -108,6 +116,13 @@ def build_plan(
             "arms": [_spec(arm) for arm in ARMS],
             "maxSteps": 4800,
             "maxSeconds": 7200,
+            **({"r3AdmissionPolicy": r3_admission_policy} if r3_admission_policy else {}),
+            **({"cropPolicyVersion": crop_policy_version} if crop_policy_version else {}),
+            **(
+                {"exportEvaluationPolicy": export_evaluation_policy}
+                if export_evaluation_policy
+                else {}
+            ),
         }
     )
 
@@ -124,6 +139,9 @@ def require_plan(plan: Mapping[str, Any]) -> dict[str, Any]:
             calibration_roster_sha256=plan["calibrationRosterSha256"],
             regression_roster_sha256=plan["regressionRosterSha256"],
             seed=plan["seed"],
+            r3_admission_policy=plan.get("r3AdmissionPolicy"),
+            crop_policy_version=plan.get("cropPolicyVersion"),
+            export_evaluation_policy=plan.get("exportEvaluationPolicy"),
         )
         if dict(plan) != expected:
             raise ValueError("CONTENT_EXPERIMENT_PLAN_CHANGED")
@@ -317,7 +335,10 @@ def init_state(plan: Mapping[str, Any], bank_sha256: str) -> dict[str, Any]:
     frozen = require_plan(plan)
     return _sealed(
         {
-            "schemaVersion": STATE_VERSION,
+            "schemaVersion": CONDITIONAL_STATE_VERSION
+            if frozen.get("r3AdmissionPolicy") == R3_ADMISSION_POLICY
+            else STATE_VERSION,
+            **({"r3SkipReason": None} if frozen.get("r3AdmissionPolicy") else {}),
             "planSha256": frozen["sha256"],
             "bankSha256": _sha(bank_sha256),
             "chargedSeconds": 0.0,
@@ -338,10 +359,19 @@ def init_state(plan: Mapping[str, Any], bank_sha256: str) -> dict[str, Any]:
 
 def require_state(plan: Mapping[str, Any], state: Mapping[str, Any]) -> dict[str, Any]:
     frozen, body = require_plan(plan), _body(state)
+    conditional = frozen.get("r3AdmissionPolicy") == R3_ADMISSION_POLICY
     if (
         set(body)
-        != {"schemaVersion", "planSha256", "bankSha256", "chargedSeconds", "selectedArm", "arms"}
-        or body["schemaVersion"] != STATE_VERSION
+        != {
+            "schemaVersion",
+            "planSha256",
+            "bankSha256",
+            "chargedSeconds",
+            "selectedArm",
+            "arms",
+            *({"r3SkipReason"} if conditional else set()),
+        }
+        or body["schemaVersion"] != (CONDITIONAL_STATE_VERSION if conditional else STATE_VERSION)
         or body["planSha256"] != frozen["sha256"]
         or set(body["arms"]) != set(ARMS)
     ):
@@ -355,7 +385,12 @@ def require_state(plan: Mapping[str, Any], state: Mapping[str, Any]) -> dict[str
             "chargedSeconds",
             "checkpointSha256",
             "selection",
-        } or row["status"] not in {"pending", "running", "complete"}:
+        } or row["status"] not in {
+            "pending",
+            "running",
+            "complete",
+            *({"skipped_not_ready"} if conditional else set()),
+        }:
             raise ValueError("CONTENT_EXPERIMENT_STATE_INVALID")
         steps = _count(row["completedSteps"], ARM_STEPS)
         total += _number(row["chargedSeconds"], ARM_SECONDS[_arm(arm)])
@@ -371,9 +406,11 @@ def require_state(plan: Mapping[str, Any], state: Mapping[str, Any]) -> dict[str
                 != [c["gameId"] for c in frozen["cohorts"]]
             ):
                 raise ValueError("CONTENT_EXPERIMENT_SELECTION_INVALID")
-        if row["status"] == "pending" and (
+        if row["status"] in ("pending", "skipped_not_ready") and (
             steps or row["chargedSeconds"] or row["checkpointSha256"] or row["selection"]
         ):
+            raise ValueError("CONTENT_EXPERIMENT_STATE_INVALID")
+        if row["status"] == "skipped_not_ready" and arm != "R3":
             raise ValueError("CONTENT_EXPERIMENT_STATE_INVALID")
         if row["status"] == "complete" and (
             steps != ARM_STEPS or row["checkpointSha256"] is None or row["selection"] is None
@@ -394,6 +431,12 @@ def require_state(plan: Mapping[str, Any], state: Mapping[str, Any]) -> dict[str
             raise ValueError("CONTENT_EXPERIMENT_ARM_ORDER_INVALID")
     if body["arms"]["R3"]["status"] != "pending" and body["arms"]["R2"]["selection"]["gatePassed"]:
         raise ValueError("CONTENT_EXPERIMENT_R3_NOT_ELIGIBLE")
+    if conditional and body["r3SkipReason"] != (
+        "CONTENT_EXPERIMENT_R3_LABELS_REQUIRED"
+        if body["arms"]["R3"]["status"] == "skipped_not_ready"
+        else None
+    ):
+        raise ValueError("CONTENT_EXPERIMENT_STATE_INVALID")
     if body["selectedArm"] is not None and body["selectedArm"] != _winner(body):
         raise ValueError("CONTENT_EXPERIMENT_WINNER_CHANGED")
     return _sealed(body)
@@ -412,7 +455,11 @@ def start_arm(
     index = _arm(arm)
     row = body["arms"][arm]
     estimate = _number(feasible_seconds)
-    if estimate <= 0 or row["status"] == "complete" or body["selectedArm"] is not None:
+    if (
+        estimate <= 0
+        or row["status"] not in ("pending", "running")
+        or body["selectedArm"] is not None
+    ):
         raise ValueError("CONTENT_EXPERIMENT_START_INVALID")
     if any(body["arms"][a]["status"] != "complete" for a in ARMS[:index]) or any(
         body["arms"][a]["status"] == "running" for a in ARMS if a != arm
@@ -481,9 +528,9 @@ def _winner(body: Mapping[str, Any]) -> str:
         raise ValueError("CONTENT_EXPERIMENT_ARM_RUNNING")
     if any(body["arms"][arm]["status"] != "complete" for arm in ARMS[:3]):
         raise ValueError("CONTENT_EXPERIMENT_REQUIRED_ARM_INCOMPLETE")
-    if (
-        not body["arms"]["R2"]["selection"]["gatePassed"]
-        and body["arms"]["R3"]["status"] != "complete"
+    if not body["arms"]["R2"]["selection"]["gatePassed"] and body["arms"]["R3"]["status"] not in (
+        "complete",
+        "skipped_not_ready",
     ):
         raise ValueError("CONTENT_EXPERIMENT_REQUIRED_ARM_INCOMPLETE")
     passed = [
@@ -499,6 +546,25 @@ def _winner(body: Mapping[str, Any]) -> str:
     if not eligible:
         raise ValueError("CONTENT_EXPERIMENT_NO_COMPLETE_ARM")
     return str(min(eligible)[1])
+
+
+def skip_unready_r3(
+    plan: Mapping[str, Any], state: Mapping[str, Any], *, human_labels_ready: bool
+) -> dict[str, Any]:
+    """New-policy only: missing human labels do not discard completed legal arms."""
+    body = _body(require_state(plan, state))
+    if (
+        plan.get("r3AdmissionPolicy") != R3_ADMISSION_POLICY
+        or human_labels_ready is not False
+        or body["selectedArm"] is not None
+        or body["arms"]["R3"]["status"] != "pending"
+        or any(body["arms"][arm]["status"] != "complete" for arm in ARMS[:3])
+        or body["arms"]["R2"]["selection"]["gatePassed"]
+    ):
+        raise ValueError("CONTENT_EXPERIMENT_R3_NOT_ELIGIBLE")
+    body["arms"]["R3"]["status"] = "skipped_not_ready"
+    body["r3SkipReason"] = "CONTENT_EXPERIMENT_R3_LABELS_REQUIRED"
+    return require_state(plan, _sealed(body))
 
 
 def select_winner(plan: Mapping[str, Any], state: Mapping[str, Any]) -> dict[str, Any]:

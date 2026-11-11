@@ -652,7 +652,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/global_symbol_lattice.py: class GlobalSymbolCandidate, class GlobalSymbolLattice, detect_global_symbol_candidates, refine_global_symbol_center, locate_global_symbol_lattice
 - images/grid_calibration.py: class GridCalibrationError, local_corner_offsets, apply_local_corner_offsets, build_profile_document, class CalibrationAnchor, class CalibrationProfile, class CalibrationApplication, class GridCalibrationProfiles, profile_document_bytes
 - images/grid_cell_content_reference.py: run_blind_content_oracle, frozen_content_reference, content_oracle
-- images/grid_cohort_dataset.py: class GridCohortDatasetError, class GridCohortSnapshot, frame_rgb_and_box, has_full_geometry, class GridBoardDataset, class GridAssessmentDataset, class GridScreenDataset
+- images/grid_cohort_dataset.py: class GridCohortDatasetError, class GridCohortSnapshot, frame_rgb_and_box, has_full_geometry, class GridBoardDataset, class ContentTrainingDataset, class GridAssessmentDataset, class GridScreenDataset
+- images/grid_content_consistency.py: class ContentConsistencyError, photo_outcome, verify_content_export
 - images/grid_content_experiment_data.py: class ContentAssessmentEngine, verify_inputs, require_render_preflight, torch_engine, measure_bank, auxiliary, class ContentSelectionEvaluator
 - images/grid_content_experiment_export.py: content_parity
 - images/grid_content_experiment_run.py: class ExperimentLedger, class ArmControl, require_head_exposure, run_experiment
@@ -886,7 +887,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - training_core/checkpoint.py: capture_rng, restore_rng, make_checkpoint, checkpoint_bytes, write_checkpoint, load_checkpoint, restore_checkpoint
 - training_core/evaluation_precision.py: evaluation_precision
 - training_core/gpu_lease.py: class GpuLeaseError, class LeaseRecord, class LeaseObservation, lease_path, class GpuLease
-- training_core/grid_content_experiment.py: build_plan, require_plan, arm_spec, arm_preset, selection_record, require_selection, selection_key, content_rank, init_state, require_state, start_arm, advance_state, select_winner, charge_selected_export
+- training_core/grid_content_consistency.py: selection_preserved
+- training_core/grid_content_experiment.py: build_plan, require_plan, arm_spec, arm_preset, selection_record, require_selection, selection_key, content_rank, init_state, require_state, start_arm, advance_state, skip_unready_r3, select_winner, charge_selected_export
 - training_core/grid_correction_metrics.py: class CorrectionControlPhoto, class CorrectionPhotoEvaluation, evaluate_photo, measure, checkpoint_metrics, aggregate_checkpoint_metrics, photo_selection_key, selection_key, measure_role
 - training_core/grid_evaluation.py: class Engine, class ControlPhoto, predictions, measure, input_sha256, measure_role
 - training_core/grid_rescue_training.py: class ContentTrainingExposure, selection_input, rescue_recipe, require_recipe, variant_step, class TrainingExposure

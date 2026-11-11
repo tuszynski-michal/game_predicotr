@@ -209,6 +209,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Proces i jakość
 
+- [Pełne uczenie i kontrola eksportu A](quality/TASK-1184_VERIFICATION.md) — TASK-1184, partial TRAIN geometrii, warunkowe R3 i pełny A ONNX.
+
 - [Dane i niezależne kontrole uczenia](quality/TASK-1183_VERIFICATION.md) — TASK-1183, trwały podział, migracja0184 i ograniczony odczyt operatora.
 
 - [Zgodność oceny checkpointu i ONNX](quality/GRID_EVALUATION_CONSISTENCY_20261111.md) — TASK-1182, diagnoza TF32 i pełna kontrola A.

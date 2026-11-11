@@ -635,6 +635,34 @@ class GridBoardDataset:
         raise IndexError(index)
 
 
+class ContentTrainingDataset(GridBoardDataset):
+    """Opt-in partial human targets, never detector background supervision."""
+
+    def __init__(self, snapshot: GridCohortSnapshot, role: str = "TRAIN") -> None:
+        manifest = snapshot.manifest
+        if (
+            role != "TRAIN"
+            or manifest.get("schemaVersion") != "application-grid-snapshot-v4"
+            or manifest.get("policyVersion") != "application-grid-corrections-v4"
+            or manifest.get("photoSplit", {}).get("contentSampling", {}).get("policy")
+            != "full-symbol-content-sampling-v1"
+        ):
+            _fail("CONTENT_EXPERIMENT_TRAINING_POLICY_REQUIRED", "Content TRAIN policy required.")
+        super().__init__(snapshot, role)
+
+    def _partial_assessment(self) -> bool:
+        return True
+
+    def _sources(self) -> Iterator[dict[str, Any]]:
+        for source in super()._sources():
+            if not has_full_geometry(source) and source.get("geometryOnlyTraining") is not True:
+                _fail(
+                    "CONTENT_PARTIAL_TRAIN_PIN_REQUIRED",
+                    "Partial TRAIN requires an explicit geometry-only snapshot pin.",
+                )
+            yield source
+
+
 class GridAssessmentDataset(GridBoardDataset):
     """Versioned REG target assessment; never an optimizer or checkpoint dataset."""
 

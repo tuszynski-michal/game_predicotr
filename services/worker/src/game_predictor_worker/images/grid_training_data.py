@@ -78,9 +78,18 @@ class CohortPhotos:
         *,
         full_only: bool,
         content_selection: bool = False,
+        content_training: bool = False,
     ) -> None:
         self.snapshot, self.role = snapshot, role
-        dataset = ContentSelectionDataset if content_selection else GridBoardDataset
+        dataset: type[GridBoardDataset] = (
+            ContentSelectionDataset if content_selection else GridBoardDataset
+        )
+        if content_training:
+            from .grid_cohort_dataset import ContentTrainingDataset
+
+            if content_selection or full_only:
+                raise GridTrainingDataError("CONTENT_EXPERIMENT_TRAINING_POLICY_REQUIRED")
+            dataset = ContentTrainingDataset
         rows = dataset(snapshot, role).indexed()
         if full_only:
             if snapshot.manifest["policyVersion"] in (
@@ -369,10 +378,14 @@ class ScreenGridBatches(_Prefetched):
         output_contract: GridOutputContract | None = None,
         content_experiment: bool = False,
         content_auxiliary: bool = False,
+        partial_training: bool = False,
     ) -> None:
         self.photos, self.recipe, self.seed = photos, recipe, seed
         self.output_contract = output_contract
         self.content_experiment, self.content_auxiliary = content_experiment, content_auxiliary
+        self.partial_training = partial_training
+        if partial_training and not content_experiment:
+            raise ValueError("CONTENT_EXPERIMENT_TRAINING_POLICY_REQUIRED")
         if content_experiment and output_contract is None:
             raise ValueError("CONTENT_TRAINING_OUTPUT_CONTRACT_REQUIRED")
         require_visibility_contract(photos, output_contract)
@@ -380,12 +393,38 @@ class ScreenGridBatches(_Prefetched):
         if variant is not None:
             variant.require_baseline(recipe.board.margin)
         self.sampler = _sampler(len(photos), batch_photos, seed, strata)
+        self.full_indices = (
+            [index for index in range(len(photos)) if self._screen_eligible(index)]
+            if partial_training
+            else []
+        )
+        if partial_training and not self.full_indices:
+            raise ValueError("CONTENT_EXPERIMENT_FULL_TRAIN_REQUIRED")
         super().__init__(self._build, workers)
+
+    def _screen_eligible(self, index: int) -> bool:
+        from .grid_cohort_dataset import has_full_geometry
+
+        photos, local = (
+            self.photos._locate(index)
+            if isinstance(self.photos, JointPhotos)
+            else (self.photos, index)
+        )
+        return has_full_geometry(photos.rows[local][0])
+
+    def _indices(self, step: int) -> list[int]:
+        indices = list(self.sampler.indices(step))
+        if self.partial_training and not any(self._screen_eligible(index) for index in indices):
+            # Retain the existing photo budget and deterministic replay. Even an
+            # all-partial draw must include real complete detector supervision.
+            indices[0] = self.full_indices[step % len(self.full_indices)]
+        return indices
 
     def _build(self, step: int) -> dict[str, torch.Tensor]:
         items, weights = [], []
         active = self.variant if variant_step(step) else None
-        for slot, index in enumerate(self.sampler.indices(step)):
+        indices = self._indices(step)
+        for slot, index in enumerate(indices):
             rng = step_rng(self.seed, step, slot)
             targets = self.photos.targets(index)
             boards = [(label.astype(np.float32), ()) for label, _ in targets]
@@ -425,6 +464,10 @@ class ScreenGridBatches(_Prefetched):
             for key in ("image", "heat", "offsets", "offset_weight", "crops", "nodes")
         }
         batch["weights"] = torch.tensor(weights, dtype=torch.float32)
+        if self.partial_training:
+            batch["screen_eligible"] = torch.tensor(
+                [self._screen_eligible(index) for index in indices], dtype=torch.bool
+            )
         if self.output_contract is not None:
             batch.update(
                 {
@@ -458,11 +501,16 @@ class ScreenGridBatches(_Prefetched):
                 if key in batch
             ):
                 board.append(member)
-        return {"screen": members, "board": board}
+        screen = [
+            member
+            for index, member in enumerate(members)
+            if "screen_eligible" not in batch or bool(batch["screen_eligible"][index])
+        ]
+        return {"screen": screen, "board": board}
 
     def exposure_members(self, step: int) -> list[dict[str, str]]:
         result = []
-        for index in self.sampler.indices(step):
+        for index in self._indices(step):
             photos, local = (
                 self.photos._locate(index)
                 if isinstance(self.photos, JointPhotos)

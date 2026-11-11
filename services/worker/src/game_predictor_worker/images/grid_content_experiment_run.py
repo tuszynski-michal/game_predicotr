@@ -18,6 +18,7 @@ from ..geometry_core.rescue import GridRescueVariantV2
 from ..training_core.grid_content_experiment import (
     ARM_SECONDS,
     ARMS,
+    R3_ADMISSION_POLICY,
     RANK_VERSION,
     advance_state,
     arm_preset,
@@ -25,6 +26,7 @@ from ..training_core.grid_content_experiment import (
     require_plan,
     require_state,
     select_winner,
+    skip_unready_r3,
     start_arm,
 )
 from ..training_core.grid_rescue_training import ContentTrainingExposure
@@ -266,7 +268,7 @@ def run_experiment(
     pins = spec["joint"]["cohorts"] if spec.get("joint") else [spec["cohort"]]
     snapshots = [GridCohortSnapshot(root, p["manifestPath"], p["manifestSha256"]) for p in pins]
     verify_inputs(plan, inputs, snapshots)
-    require_render_preflight(snapshots)
+    require_render_preflight(snapshots, plan.get("cropPolicyVersion"))
     device = "cuda" if torch.cuda.is_available() else spec.get("device", "cpu")
     if spec.get("requireCuda", True) and device != "cuda":
         raise ValueError("GRID_RUN_GPU_UNAVAILABLE")
@@ -304,7 +306,10 @@ def run_experiment(
         for snapshot, pin in zip(snapshots, pins, strict=True)
         if snapshot.manifest["counts"]["TRAIN"]["photos"] > 0
     ]
-    parts = [CohortPhotos(snapshot, "TRAIN", full_only=True) for snapshot, _ in train_pairs]
+    parts = [
+        CohortPhotos(snapshot, "TRAIN", full_only=False, content_training=True)
+        for snapshot, _ in train_pairs
+    ]
     if not parts:
         raise ValueError("CONTENT_EXPERIMENT_TRAIN_REQUIRED")
     photos = (
@@ -327,6 +332,10 @@ def run_experiment(
     )
     for arm in ARMS:
         row = ledger.state["arms"][arm]
+        if row["status"] == "skipped_not_ready":
+            if labels_ready:
+                raise ValueError("CONTENT_EXPERIMENT_R3_READINESS_CHANGED")
+            break
         if row["status"] == "complete":
             if arm == "R3":
                 if not labels_ready:
@@ -340,7 +349,13 @@ def run_experiment(
             if ledger.state["arms"]["R2"]["selection"]["gatePassed"]:
                 break
             if not labels_ready:
-                raise ValueError("CONTENT_EXPERIMENT_R3_LABELS_REQUIRED")
+                if plan.get("r3AdmissionPolicy") != R3_ADMISSION_POLICY:
+                    raise ValueError("CONTENT_EXPERIMENT_R3_LABELS_REQUIRED")
+                ledger.value["state"] = skip_unready_r3(
+                    plan, ledger.state, human_labels_ready=False
+                )
+                ledger.save()
+                break
         network = _network(recipe, weights, device, arm)
         preset = arm_preset(arm)
         batches = ScreenGridBatches(
@@ -354,6 +369,7 @@ def run_experiment(
             output_contract=contract,
             content_experiment=True,
             content_auxiliary=arm == "R3",
+            partial_training=True,
         )
         control = ArmControl(parent, ledger, arm)
         evaluate = ContentSelectionEvaluator(
@@ -414,7 +430,7 @@ def run_experiment(
                 )
                 started = time.monotonic()
                 with torch.inference_mode():
-                    timed(network)
+                    preflight_selection = timed(network)
                 validation_seconds = time.monotonic() - started
                 from ..training_core.grid_training import export_graphs
                 from .grid_content_experiment_export import content_parity
@@ -439,7 +455,20 @@ def run_experiment(
                         ),
                         recipe,
                         arm,
+                        plan.get("exportEvaluationPolicy") == "full-a-content-v1",
                     )
+                    if plan.get("exportEvaluationPolicy") == "full-a-content-v1":
+                        from .grid_content_consistency import verify_content_export
+
+                        verify_content_export(
+                            timed,
+                            network,
+                            Path(temporary),
+                            roster_sha256=plan["selectionRosterSha256"],
+                            selected=preflight_selection,
+                            history=[],
+                            arm_selections=[],
+                        )
                 export_seconds = time.monotonic() - started
                 estimate = step_seconds * 1200 + validation_seconds * 6 + export_seconds
                 ledger.value["preflight"][arm] = {
@@ -534,6 +563,42 @@ def run_experiment(
         ledger.save()
         return {**proof, "state": ledger.state}
 
+    def verify_selected(network: Any, directory: Path) -> Any:
+        from .grid_content_consistency import ContentConsistencyError, verify_content_export
+
+        def before_photo() -> None:
+            parent.check()
+            if ledger.arm_seconds(selected) >= ARM_SECONDS[ARMS.index(selected)]:
+                raise TrainingInterrupted("CONTENT_EXPERIMENT_ARM_BUDGET_EXHAUSTED")
+
+        evaluator = ContentSelectionEvaluator(
+            snapshots,
+            base_engine,
+            recipe,
+            device,
+            selected,
+            lambda: result.best_step,
+            before_photo,
+            routing,
+        )
+        try:
+            return verify_content_export(
+                evaluator,
+                network,
+                directory,
+                roster_sha256=plan["selectionRosterSha256"],
+                selected=result.checkpoint_selection,
+                history=result.history,
+                arm_selections=[
+                    row["selection"]
+                    for row in ledger.state["arms"].values()
+                    if row["status"] == "complete"
+                ],
+            )
+        except ContentConsistencyError as error:
+            write_json_atomic(run_dir / "content-evaluation-consistency-failed.json", error.proof)
+            raise
+
     if not (run_dir / f"export-{result.checkpoint_sha256[:16]}" / "bundle.json").exists() and (
         ledger.arm_seconds(selected) + ledger.value["preflight"][selected]["exportSeconds"]
         > ARM_SECONDS[ARMS.index(selected)]
@@ -551,6 +616,11 @@ def run_experiment(
         (crops, validation),
         content_experiment=proof,
         content_finalize=finalize,
+        **(
+            {"content_verify": verify_selected}
+            if plan.get("exportEvaluationPolicy") == "full-a-content-v1"
+            else {}
+        ),
     )
     return {
         "status": "exported",

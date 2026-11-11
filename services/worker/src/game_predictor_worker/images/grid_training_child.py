@@ -630,6 +630,7 @@ def _export(
     content_experiment: Any = None,
     content_finalize: Any = None,
     correction_evaluator: Any = None,
+    content_verify: Any = None,
 ) -> dict[str, Any]:
     """Immutable export directory named by the final checkpoint; re-use an identical one."""
     import torch
@@ -811,6 +812,15 @@ def _export(
             from .grid_rescue_strategy import completeness_routing
 
             runtime_parity = content_parity(network, staging, photos, recipe, cast(str, arm))
+            if content_experiment["plan"].get("exportEvaluationPolicy") == "full-a-content-v1":
+                if content_verify is None:
+                    raise ChildError("CONTENT_EXPERIMENT_FULL_A_PARITY_REQUIRED")
+                extended = {
+                    **{key: value for key, value in runtime_parity.items() if key != "sha256"},
+                    "schemaVersion": "content-runtime-parity-v2",
+                    "fullA": content_verify(network, staging),
+                }
+                runtime_parity = {**extended, "sha256": digest(extended)}
             variant = GridRescueVariantV2() if arm in ("R2", "R3") else None
             routing = (
                 None

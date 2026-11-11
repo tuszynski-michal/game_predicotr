@@ -98,7 +98,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1183** — Przykłady korekt i niezależne kontrole — v1.7.603 — tasks/completed/1183-grid-learning-reference-split.md
+- **TASK-1184** — Pełne uczenie i odbiór zawartości — v1.7.604 — tasks/completed/1184-grid-full-learning-admission.md
+- **TASK-1183** — Przykłady korekt i niezależne kontrole — v1.7.603 / `e4bba0bd` — tasks/completed/1183-grid-learning-reference-split.md
 - **TASK-1182** — Zgodność oceny checkpointu i ONNX — v1.7.602 / `3991ff74` — tasks/completed/1182-grid-evaluation-consistency.md
 - **TASK-1181** — Odczyt zadań jakości symboli w Jobs — v1.7.599 / `4e558590` — tasks/completed/1181-jobs-readability-response.md
 - **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 / `1a0e4961` — tasks/completed/1178-grid-learning-readiness-guidance.md
@@ -107,4 +108,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1176** — Przekazanie siatek do weryfikacji symboli — v1.7.591 / `ccedfdbe` — tasks/completed/1176-symbol-review-routing.md
 - **TASK-1175** — Pełne pola symboli bez marginesu 8% — v1.7.588 / `6a560516` — tasks/completed/1175-full-cell-render-policy.md
 - **TASK-1174** — Następna plansza i szybka kolejka — v1.7.587 / `1181797c` — tasks/completed/1174-geometry-review-navigation.md
-- **TASK-1173** — HTML i końcowy odbiór pełnych wycinków — v1.7.585 / `ae323963` — tasks/completed/1173-crop-preview-acceptance.md

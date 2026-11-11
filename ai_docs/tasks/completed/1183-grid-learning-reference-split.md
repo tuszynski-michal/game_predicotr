@@ -90,7 +90,7 @@ są raportowane, bez dopisywania diagnozy heurystycznej.
 
 ## Outcome
 
-Commit: v1.7.603 (hash dopisuje kolejny commit).
+Commit: v1.7.603 / `e4bba0bdc173a36aaeaf06947a9d20c3d4d3c421`.
 
 ### Changed
 

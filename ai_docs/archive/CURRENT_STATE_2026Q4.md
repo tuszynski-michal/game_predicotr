@@ -6,10 +6,17 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1184 — Pełne uczenie i odbiór zawartości (done)
+
+- Plik: `tasks/completed/1184-grid-full-learning-admission.md`.
+- Commit: **v1.7.604** (hash dopisuje kolejny commit).
+- Partial TRAIN tylko do geometrii (detektor/BatchNorm pełne), plany full-cell-v2, warunkowe R3 i pełny A ONNX przy eksporcie; stare plany bez zmian.
+- Kod Codex, przegląd i integracja Claude; audyt Codex niewykonany — kontynuacja na polecenie operatora po wyczerpaniu limitu. Testy T3 i powiązane PASS; bez treningu operatora.
+
 ### TASK-1183 — Przykłady korekt i niezależne kontrole (done)
 
 - Plik: `tasks/completed/1183-grid-learning-reference-split.md`.
-- Commit: **v1.7.603** (hash dopisuje kolejny commit).
+- Commit: **v1.7.603 / `e4bba0bdc173a36aaeaf06947a9d20c3d4d3c421`** (hash dopisuje kolejny commit).
 - learningMaterial, wykluczenie konfliktu z sąsiedztwem10 bez nowej roli, stratified REG, partial TRAIN content opt-in, Alembic0184 (v4, bind v5, wrapper v7).
 - R1 Opus REVISE poprawione (Claude); audyt Codex niewykonany — kontynuacja na polecenie operatora po wyczerpaniu limitu. 141 testów, PG2, mypy/Ruff PASS; dane operatora: A 4/4, podział niewykonalny.
 

@@ -959,6 +959,9 @@ class GridCorrectionLearningService:
                     selection_roster_sha256=inputs["selectionRoster"]["sha256"],
                     calibration_roster_sha256=inputs["calibrationRoster"]["sha256"],
                     regression_roster_sha256=inputs["regressionRoster"]["sha256"],
+                    r3_admission_policy="human-labels-conditional-v1",
+                    crop_policy_version="full-cell-v2",
+                    export_evaluation_policy="full-a-content-v1",
                 )
                 require_inputs(inputs, plan)
                 state["contentExperimentPlanSha256"] = plan["sha256"]

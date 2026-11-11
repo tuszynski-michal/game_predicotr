@@ -98,7 +98,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Katalogi
 
-- `services/worker/src/game_predictor_worker/images/` (170 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
+- `services/worker/src/game_predictor_worker/images/` (171 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
 - `services/worker/src/game_predictor_worker/symbols/` (19 py) - klasyfikacja symboli, biblioteka referencyjna, RGB v2; Versioned symbol-training dataset tools.
 - `services/worker/src/game_predictor_worker/payouts/` (6 py) - wypłaty: kontrakty, handler, gotowość, audyt; Batch payout precomputation for durable worker jobs.
 - `services/worker/src/game_predictor_worker/domain/super_games/` (4 py) - supergry: definicje, rejestr, Wild; Code-defined super game kinds (D-535).
@@ -109,7 +109,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 - `services/worker/src/game_predictor_worker/domain/` (10 py) - kontrakty, sygnatury, wypłaty (czysta domena); Framework-independent Game Predictor domain contracts.
 - `services/worker/src/game_predictor_worker/semi_automatic_selection/` (46 py) - półautomatyczna selekcja obrazów; Pure contracts for the independent semi-automatic image selection workflow.
 - `services/worker/src/game_predictor_worker/geometry_core/` (14 py) - wspólny rdzeń geometrii; Neutral V3 geometry inference: no storage, training or laboratory dependencies.
-- `services/worker/src/game_predictor_worker/training_core/` (15 py) - wspólny rdzeń treningu modeli; Neutral training primitives; no application, database or laboratory imports.
+- `services/worker/src/game_predictor_worker/training_core/` (16 py) - wspólny rdzeń treningu modeli; Neutral training primitives; no application, database or laboratory imports.
 - `services/worker/src/game_predictor_worker/vision_lab/` (76 py) - laboratorium wizji (izolowane); Standalone, file-backed vision laboratory; no production entry-point imports.
 - `services/worker/src/game_predictor_worker/releases/` (6 py) - wydania modeli/aplikacji; Resumable mobile release workflow and controlled Android publication.
 - `services/worker/src/game_predictor_worker/benchmarks/` (4 py) - benchmarki (nie uruchamiać bez polecenia); Deterministic datasets and verification helpers for performance benchmarks.
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (320 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (324 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

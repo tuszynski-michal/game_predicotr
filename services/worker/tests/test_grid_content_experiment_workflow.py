@@ -287,6 +287,7 @@ class WorkflowFixture:
             *,
             content_experiment,
             content_finalize,
+            content_verify=None,
         ):
             directory = run_dir / f"export-{result.checkpoint_sha256[:16]}"
             path = directory / "bundle.json"
@@ -294,6 +295,8 @@ class WorkflowFixture:
                 fixture.cached_exports += 1
                 return json.loads(path.read_text())["export"]
             fixture.final_exports += 1
+            if content_verify is not None:
+                content_verify(network, run_dir)
             fixture.clock.advance(0.4)
             proof = content_finalize(content_experiment)
             directory.mkdir()
@@ -412,7 +415,7 @@ def test_infeasible_preflight_never_reaches_optimizer_or_candidate(tmp_path, mon
 def test_render_preflight_failure_precedes_network_bank_and_optimizer(tmp_path, monkeypatch):
     fixture = WorkflowFixture(tmp_path, monkeypatch)
 
-    def reject(_snapshots):
+    def reject(_snapshots, _crop_policy):
         raise ValueError("CONTENT_SELECTION_REFERENCE_NOT_EVALUABLE")
 
     monkeypatch.setattr(workflow, "require_render_preflight", reject)

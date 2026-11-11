@@ -11,6 +11,7 @@ from game_predictor_api.domain.grid_content_experiment_inputs import require_inp
 from game_predictor_api.domain.grid_training_cohorts import digest
 
 from ..geometry_core.inference import DecodeSettings, NeuralGridEngine
+from ..training_core.evaluation_precision import evaluation_precision
 from ..training_core.grid_content_experiment import selection_record
 from ..training_core.grid_correction_metrics import (
     CorrectionControlPhoto,
@@ -19,7 +20,7 @@ from ..training_core.grid_correction_metrics import (
 )
 from ..training_core.grid_evaluation import predictions
 from ..training_core.neural_grid_network import BoardExport, ScreenExport
-from .grid_cohort_dataset import GridBoardDataset, has_full_geometry
+from .grid_cohort_dataset import ContentTrainingDataset, GridBoardDataset, has_full_geometry
 from .grid_model_evaluation_handler import GridModelEvaluationJobHandler
 from .production_cell_run import ProductionContentRun, summarize_content
 
@@ -130,7 +131,7 @@ def verify_inputs(
                     raise ValueError("CONTENT_BANK_SOURCE_PROOF_CHANGED")
 
 
-def require_render_preflight(snapshots: Sequence[Any]) -> None:
+def require_render_preflight(snapshots: Sequence[Any], crop_policy: str | None = None) -> None:
     """Metadata-only guard before any network, bank measurement or optimizer work."""
     from game_predictor_api.domain.grid_render_reference import require_reference_v2
 
@@ -140,6 +141,13 @@ def require_render_preflight(snapshots: Sequence[Any]) -> None:
         expected = (
             snapshot.manifest["photoSplit"].get("contentSampling", {}).get("evaluationContract")
         )
+        if crop_policy is not None and (
+            crop_policy != "full-cell-v2"
+            or expected is None
+            or expected.get("classifier", {}).get("cropPolicyVersion") != crop_policy
+            or expected.get("renderConfiguration", {}).get("paddingFraction") != 0
+        ):
+            raise ValueError("CONTENT_FULL_CELL_RENDER_REQUIRED")
         configurations: set[str] = set()
         for source in snapshot.sources() if expected is not None else ():
             if not source.get("used"):
@@ -181,12 +189,14 @@ def torch_engine(network: Any, recipe: Any, device: str) -> NeuralGridEngine:
 
     @torch.inference_mode()
     def screen(pixels: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        outputs = screen_graph(torch.from_numpy(pixels).to(device))
+        with evaluation_precision():
+            outputs = screen_graph(torch.from_numpy(pixels).to(device))
         return tuple(v.float().cpu().numpy() for v in outputs)
 
     @torch.inference_mode()
     def board(pixels: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        outputs = board_graph(torch.from_numpy(pixels).to(device))
+        with evaluation_precision():
+            outputs = board_graph(torch.from_numpy(pixels).to(device))
         return tuple(v.float().cpu().numpy() for v in outputs)
 
     return NeuralGridEngine(screen, board, DecodeSettings.of(recipe))
@@ -207,7 +217,7 @@ def measure_bank(
         proof = next(g for g in inputs["trainEligibility"]["games"] if g["gameId"] == game)
         allowed = {s["sourceId"]: s for s in proof["sources"]}
         rows = []
-        for source, labels in GridBoardDataset(snapshot, "TRAIN").indexed():
+        for source, labels in ContentTrainingDataset(snapshot, "TRAIN").indexed():
             if source["sourceId"] not in allowed:
                 continue
             before_photo()
@@ -324,12 +334,21 @@ class ContentSelectionEvaluator:
         }
 
     def __call__(self, network: Any) -> dict[str, Any]:
-        candidate: Any = torch_engine(network, self.recipe, self.device)
+        return cast(
+            dict[str, Any],
+            self.measure(torch_engine(network, self.recipe, self.device))["selection"],
+        )
+
+    def measure(self, candidate: Any) -> dict[str, Any]:
+        """The same frozen A and production crops for checkpoint and exported engines."""
+        from .grid_content_consistency import photo_outcome
+
         if self.arm in ("R2", "R3"):
             if self.routing is None:
                 raise ValueError("CONTENT_EXPERIMENT_ROUTING_REQUIRED")
             candidate = ContentAssessmentEngine(candidate, self.routing)
-        rows = []
+        rows: list[dict[str, Any]] = []
+        photos_proof: list[dict[str, Any]] = []
         for snapshot in sorted(self.snapshots, key=lambda s: s.manifest["gameId"]):
             reference = self.references[snapshot.manifest["gameId"]]
             if reference.reasons:
@@ -349,6 +368,16 @@ class ContentSelectionEvaluator:
                 content_observation=reference.observer("VALIDATION"),
             )
             observed = [d["contentEvaluation"] for d in details]
+            photos_proof.extend(
+                {
+                    "gameId": snapshot.manifest["gameId"],
+                    "manifestSha256": snapshot.manifest_sha256,
+                    "sourceId": detail["sourceId"],
+                    "referenceSha256": detail["contentEvaluation"]["referenceSha256"],
+                    "outcomeSha256": digest(photo_outcome(detail)),
+                }
+                for detail in details
+            )
             rows.append(
                 {
                     "gameId": snapshot.manifest["gameId"],
@@ -360,4 +389,4 @@ class ContentSelectionEvaluator:
                     "auxiliary": auxiliary(observed),
                 }
             )
-        return selection_record(rows, self.arm, self.step())
+        return {"selection": selection_record(rows, self.arm, self.step()), "photos": photos_proof}

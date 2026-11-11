@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
+import numpy as np
 import pytest
 import torch
 from game_predictor_api.domain.grid_cell_content import ContentRevision, content_source_identity
@@ -221,7 +222,17 @@ def test_real_selected_r3_export_install_and_lost_response_reuse(tmp_path, monke
     assert len(validation) == 1 and len(validation.targets(0)) == 1
     assert validation.rows[0][0]["validationPurpose"] == "A"
     # All actual A consumers now share the same explicit content-policy gate.
-    assert CohortPhotos(snapshot, "VALIDATION", full_only=False).rows == validation.rows
+    ordinary = CohortPhotos(snapshot, "VALIDATION", full_only=False)
+    assert len(ordinary.rows) == len(validation.rows)
+    for (source, targets), (expected_source, expected_targets) in zip(
+        ordinary.rows, validation.rows, strict=True
+    ):
+        assert source == expected_source
+        for (nodes, weight), (expected_nodes, expected_weight) in zip(
+            targets, expected_targets, strict=True
+        ):
+            np.testing.assert_array_equal(nodes, expected_nodes)
+            assert weight == expected_weight
     crops, _ = validation_crops(validation, recipe)
     exported = _export(
         spec,

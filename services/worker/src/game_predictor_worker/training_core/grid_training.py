@@ -317,6 +317,16 @@ def screen_grid_losses(
     heat = batch["heat"].to(device, non_blocking=True)
     offsets = batch["offsets"].to(device, non_blocking=True)
     offset_weight = batch["offset_weight"].to(device, non_blocking=True)
+    if "screen_eligible" in batch:
+        eligible = batch["screen_eligible"].to(device)
+        if eligible.dtype != torch.bool or eligible.shape != (images.shape[0],):
+            raise ValueError("CONTENT_SCREEN_MASK_INVALID")
+        if not bool(eligible.any()):
+            raise ValueError("CONTENT_EXPERIMENT_FULL_TRAIN_REQUIRED")
+        # Partial annotations contain no negative evidence for unlabelled boards.
+        # Filter before inference so they cannot update detector BatchNorm either.
+        images, heat = images[eligible], heat[eligible]
+        offsets, offset_weight = offsets[eligible], offset_weight[eligible]
     crops = batch["crops"].to(device, non_blocking=True).flatten(0, 1).float()
     nodes = batch["nodes"].to(device, non_blocking=True).flatten(0, 1)
     weights = batch["weights"].to(device, non_blocking=True).flatten(0, 1).float()

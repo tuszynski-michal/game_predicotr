@@ -6,6 +6,27 @@ last_updated: 2026-11-11
 
 # Laboratorium wizji
 
+## Skuteczne pełne uczenie (TASK-1184, D-602)
+
+Nowe pełne uczenie przypina pełne pole0% i aktualną wersję bazy wraz z rewizjami.
+Pełne, zatwierdzone zdjęcia uczą detektor, a dodatkowe legalne partial TRAIN
+uczą wyłącznie opisane punkty plansz i dostępne ludzkie etykiety zawartości.
+Nieopisane plansze nie są tłem detektora; brak obrysów nie staje się visibility GT.
+Liczba zdjęć w kroku,1200kroków na ramię i wspólny4800/7200s budżet nie rosną.
+
+Nowy pin warunkowego R3 zapisuje jawny brak wymaganych etykiet zamiast wyrzucać
+ukończone R0–R2. R3 nie uruchamia się bez gotowych ludzkich danych. Wybór nadal
+używa wyłącznie A, a brak A blokuje wybór. Niezaliczony A daje tylko propozycję;
+brak kalibracji automatu nie nadaje mu uprawnień ani nie blokuje legalnych
+propozycji. Historyczne plany zachowują wymagany R3 i swoje reguły.
+
+Nowy eksport sprawdza całe zamrożone A wszystkich gier. Nawet drobna różnica
+Torch/ONNX blokuje odbiór, jeśli zmienia dopasowanie, werdykt pola lub planszy,
+bramkę NME albo wybór checkpointu/ramienia. Dowód obejmuje prawdziwe15wycinków
+produkcyjnych i osobno rzeczywiste wejścia sieci; pominięcie drugiego zdjęcia
+lub innej gry nie może dać PASS. Testy kodu i brakujące dane są raportowane
+oddzielnie od zmierzonej poprawy modelu operatora.
+
 ## Zgodność oceny korekt (TASK-1182)
 
 Ocena PyTorch korekt używa jawnego FP32 bez TF32 i autocast, niezależnie od

@@ -9,14 +9,17 @@ from typing import Any
 
 from game_predictor_worker.geometry_core.rescue import GridRescueVariantV2
 from game_predictor_worker.images.grid_rescue_strategy import require_completeness_routing
+from game_predictor_worker.training_core.grid_content_consistency import selection_preserved
 from game_predictor_worker.training_core.grid_content_experiment import (
     require_plan,
+    require_selection,
     require_state,
     select_winner,
 )
 from game_predictor_worker.training_core.grid_rescue_training import ContentTrainingExposure
 
 from .grid_content_experiment_inputs import checked, require_inputs
+from .grid_training_cohorts import digest
 
 POLICY = "grid-content-rescue-policy-v1"
 
@@ -214,10 +217,14 @@ def _require_rescue(bundle: Mapping[str, Any], proof: Mapping[str, Any]) -> None
     elif rescue["routing"] is not None:
         raise ValueError("CONTENT_EXPERIMENT_ROUTING_CHANGED")
     parity = rescue["parity"]
-    checked(parity, {"schemaVersion", "cases", "graphs"})
+    full_a = plan.get("exportEvaluationPolicy") == "full-a-content-v1"
+    checked(parity, {"schemaVersion", "cases", "graphs", *({"fullA"} if full_a else set())})
+    if full_a:
+        _require_full_a(parity["fullA"], proof)
     expected = [(768, [320, 192], 0.15)] + ([(1280, [480, 288], 0.30)] if variant else [])
     if (
-        parity["schemaVersion"] != "content-runtime-parity-v1"
+        parity["schemaVersion"]
+        != ("content-runtime-parity-v2" if full_a else "content-runtime-parity-v1")
         or [(r["screenLongSide"], r["boardCanvas"], r["boardMargin"]) for r in parity["cases"]]
         != expected
         or set(parity["graphs"])
@@ -265,6 +272,117 @@ def _require_rescue(bundle: Mapping[str, Any], proof: Mapping[str, Any]) -> None
             raise ValueError("CONTENT_EXPERIMENT_PARITY_INVALID")
         for value in result["maxDelta"].values():
             _number(value)
+
+
+def _require_full_a(value: Mapping[str, Any], proof: Mapping[str, Any]) -> None:
+    checked(
+        value,
+        {
+            "version",
+            "precision",
+            "selectionRosterSha256",
+            "selectedSha256",
+            "historySha256",
+            "history",
+            "armSelectionsSha256",
+            "reference",
+            "onnx",
+            "inputs",
+            "passed",
+            "reasonCodes",
+        },
+    )
+    selected = proof["state"]["arms"][proof["selectedArm"]]["selection"]
+    if (
+        value["version"] != "full-a-content-v1"
+        or value["precision"] != "torch-fp32-no-tf32-v1"
+        or value["selectionRosterSha256"] != proof["plan"]["selectionRosterSha256"]
+        or value["selectedSha256"] != selected["sha256"]
+        or value["passed"] is not True
+        or value["reasonCodes"] != []
+    ):
+        raise ValueError("CONTENT_EXPERIMENT_FULL_A_PARITY_INVALID")
+    for key in ("historySha256", "armSelectionsSha256"):
+        _sha(value[key])
+    arms = [
+        row["selection"] for row in proof["state"]["arms"].values() if row["status"] == "complete"
+    ]
+    if value["historySha256"] != digest(value["history"]) or value["armSelectionsSha256"] != digest(
+        arms
+    ):
+        raise ValueError("CONTENT_EXPERIMENT_FULL_A_SELECTION_CHANGED")
+    history = [require_selection(item["contentSelection"]) for item in value["history"]]
+    if (
+        not history
+        or selected not in history
+        or any(item["arm"] != selected["arm"] for item in history)
+        or [item["step"] for item in history] != list(range(200, 1201, 200))
+    ):
+        raise ValueError("CONTENT_EXPERIMENT_FULL_A_SELECTION_CHANGED")
+    expected = {
+        (game["gameId"], source["sourceId"])
+        for game in proof["inputs"]["selectionRoster"]["games"]
+        for source in game["sources"]
+    }
+    manifests = {pin["gameId"]: pin["manifestSha256"] for pin in proof["plan"]["cohorts"]}
+    for backend in ("reference", "onnx"):
+        result = value[backend]
+        if set(result) != {"selection", "photos"}:
+            raise ValueError("CONTENT_EXPERIMENT_FULL_A_PARITY_INVALID")
+        selection = require_selection(result["selection"])
+        if not selection_preserved(selected, selection, [*history, *arms]):
+            raise ValueError("CONTENT_EXPERIMENT_FULL_A_SELECTION_CHANGED")
+        if (selection["arm"], selection["step"], selection["gatePassed"]) != (
+            selected["arm"],
+            selected["step"],
+            selected["gatePassed"],
+        ):
+            raise ValueError("CONTENT_EXPERIMENT_FULL_A_PARITY_INVALID")
+        if (
+            len(result["photos"]) != len(expected)
+            or {(row["gameId"], row["sourceId"]) for row in result["photos"]} != expected
+        ):
+            raise ValueError("CONTENT_EXPERIMENT_FULL_A_ROSTER_CHANGED")
+        for row in result["photos"]:
+            if (
+                set(row)
+                != {"gameId", "manifestSha256", "sourceId", "referenceSha256", "outcomeSha256"}
+                or row["manifestSha256"] != manifests[row["gameId"]]
+            ):
+                raise ValueError("CONTENT_EXPERIMENT_FULL_A_ROSTER_CHANGED")
+            _sha(row["referenceSha256"])
+            _sha(row["outcomeSha256"])
+    if value["reference"]["photos"] != value["onnx"]["photos"]:
+        raise ValueError("CONTENT_EXPERIMENT_FULL_A_PARITY_INVALID")
+    if not value["inputs"] or sum(row["stage"] == "screen" for row in value["inputs"]) < len(
+        expected
+    ):
+        raise ValueError("CONTENT_EXPERIMENT_FULL_A_INPUTS_REQUIRED")
+    for row in value["inputs"]:
+        if set(row) != {"stage", "shape", "inputSha256", "verdict"} or row["stage"] not in (
+            "screen",
+            "board",
+        ):
+            raise ValueError("CONTENT_EXPERIMENT_FULL_A_PARITY_INVALID")
+        _sha(row["inputSha256"])
+        if len(row["shape"]) != 4 or any(type(n) is not int or n < 1 for n in row["shape"]):
+            raise ValueError("CONTENT_EXPERIMENT_FULL_A_PARITY_INVALID")
+        verdict = row["verdict"]
+        keys = {f"{row['stage']}.{i}" for i in range(2 if row["stage"] == "screen" else 3)}
+        if row["stage"] == "board" and proof["selectedArm"] == "R3":
+            keys |= {"content.0", "content.1"}
+        if (
+            set(verdict) != {"tolerance", "toleranceScale", "maxDelta", "maxScaledDelta", "passed"}
+            or verdict["passed"] is not True
+            or verdict["tolerance"] != 1e-4
+            or verdict["toleranceScale"] != "max(1,|torch|)"
+            or set(verdict["maxDelta"]) != keys
+            or set(verdict["maxScaledDelta"]) != keys
+            or any(_number(n) > 1e-4 for n in verdict["maxScaledDelta"].values())
+        ):
+            raise ValueError("CONTENT_EXPERIMENT_FULL_A_PARITY_INVALID")
+        for number in verdict["maxDelta"].values():
+            _number(number)
 
 
 def require_content_rescue_pin(value: Mapping[str, Any], *, bundle_sha: str) -> dict[str, Any]:

@@ -654,6 +654,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/grid_content_experiment_export.py: content_parity
 - images/grid_content_experiment_run.py: class ExperimentLedger, class ArmControl, require_head_exposure, run_experiment
 - images/grid_correction_apply_handler.py: class GridCorrectionApplyJobHandler
+- images/grid_correction_consistency.py: class CorrectionConsistencyError, proof_binding, discrete_outcome, checkpoint_order_preserved, class CorrectionEvaluator
 - images/grid_correction_learning_handler.py: class GridCorrectionLearningJobHandler
 - images/grid_correction_workflow_handler.py: class GridCorrectionWorkflowJobHandler
 - images/grid_model_evaluation_handler.py: class GridModelEvaluationStore, detail_path, class GridModelEvaluationJobHandler
@@ -880,6 +881,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - symbols/training_job.py: class SymbolTrainingJobStore, class SymbolTrainingJobHandler
 - symbols/v19_candidate.py: class V19SymbolCandidateError, class V19SampleIdentity, class V19CandidateDataset, class V19CandidateRun, load_v19_candidate_dataset, train_v19_symbol_candidate
 - training_core/checkpoint.py: capture_rng, restore_rng, make_checkpoint, checkpoint_bytes, write_checkpoint, load_checkpoint, restore_checkpoint
+- training_core/evaluation_precision.py: evaluation_precision
 - training_core/gpu_lease.py: class GpuLeaseError, class LeaseRecord, class LeaseObservation, lease_path, class GpuLease
 - training_core/grid_content_experiment.py: build_plan, require_plan, arm_spec, arm_preset, selection_record, require_selection, selection_key, content_rank, init_state, require_state, start_arm, advance_state, select_winner, charge_selected_export
 - training_core/grid_correction_metrics.py: class CorrectionControlPhoto, class CorrectionPhotoEvaluation, evaluate_photo, measure, checkpoint_metrics, aggregate_checkpoint_metrics, photo_selection_key, selection_key, measure_role

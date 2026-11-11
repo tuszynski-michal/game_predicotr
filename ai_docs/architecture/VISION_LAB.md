@@ -1,10 +1,38 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-11-09
+last_updated: 2026-11-11
 ---
 
 # Architektura laboratorium wizji
+
+## Correction evaluation consistency (TASK-1182)
+
+`training_core/evaluation_precision.py` scopes FP32 inference: cuDNN/matmul
+TF32 and autocast are disabled, then restored in `finally`. The shared
+`grid_rescue_evaluation.torch_engine` applies this context to both graph calls.
+`grid_training_data.correction_evaluator` delegates to `CorrectionEvaluator`
+in `images/grid_correction_consistency.py`; training and export use the same
+frozen-A loading, target preparation, matching and photo/game aggregation.
+
+For grid-only corrections the child verifies every A photo of every game
+against the selected exported ONNX graphs. It compares raw outputs on each
+actual ONNX graph input using the existing scaled1e-4 rule, independently
+compares complete inference/matching/fit decisions, and checks selected-step
+preference against recorded history. Per-game A normalized-error nonregression
+against the pinned ONNX base must have the same truth value in both runtimes;
+the existing gate epsilon is reused. Small floating-point deltas remain evidence,
+not an increased product tolerance. This does not claim that every historical
+alternative checkpoint has been re-evaluated during each future export.
+
+The checksummed `evaluationConsistency` bundle field binds graphs, source pixels,
+labels, manifest hashes, metrics, selected step and history. A mismatch writes
+`evaluation-consistency-failed.json` and fails with
+`GRID_TRAINING_EVALUATION_INCONSISTENT` before publishing the directory.
+Recovery rechecks the immutable export and its input binding; missing or changed
+proof blocks reuse without rewriting a historical bundle. No database migration
+or API contract change is involved. Full-content runtime parity is a separate
+workflow and extends this protection in TASK-1184.
 
 ## Pinned ordinary overlays (D-594, TASK-1170)
 

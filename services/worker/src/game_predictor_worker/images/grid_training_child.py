@@ -590,6 +590,7 @@ def _train(
         preset_bytes,
         result,
         (crops, None if not screen_mode else validation),
+        correction_evaluator=evaluate if corrections and not screen_corrections else None,
         **(
             {"screen_evaluator": evaluate, "selection_binding": selection_binding}
             if screen_corrections
@@ -628,6 +629,7 @@ def _export(
     selection_binding: Any = None,
     content_experiment: Any = None,
     content_finalize: Any = None,
+    correction_evaluator: Any = None,
 ) -> dict[str, Any]:
     """Immutable export directory named by the final checkpoint; re-use an identical one."""
     import torch
@@ -656,6 +658,19 @@ def _export(
         if existing["provenance"]["checkpointSha256"] != result.checkpoint_sha256:
             raise ChildError("GRID_TRAINING_EXPORT_CONFLICT")
         _verify_recovered(destination, existing, preset_bytes, result.checkpoint_path)
+        if correction_evaluator is not None:
+            from .grid_correction_consistency import proof_binding
+
+            proof = existing.get("evaluationConsistency", {})
+            if not proof.get("passed") or proof.get("sha256") != digest(
+                {key: value for key, value in proof.items() if key != "sha256"}
+            ):
+                raise ChildError("GRID_TRAINING_EVALUATION_PROOF_REQUIRED")
+            fresh_proof = _correction_consistency(
+                correction_evaluator, network, destination, result, run_dir, spec
+            )
+            if proof_binding(proof) != proof_binding(fresh_proof):
+                raise ChildError("GRID_TRAINING_EVALUATION_PROOF_CHANGED")
         from game_predictor_api.domain.grid_visibility_contract import require_output_contract
 
         require_output_contract(existing, spec.get("gridOutputContract"), require_expected=True)
@@ -761,6 +776,10 @@ def _export(
             output_contract=output_contract,
             **({"model_version": "neural-grid-v2"} if output_contract is not None else {}),
         )
+        if correction_evaluator is not None:
+            bundle["evaluationConsistency"] = _correction_consistency(
+                correction_evaluator, network, staging, result, run_dir, spec
+            )
         if screen_evaluator is not None:
             from .grid_rescue_export import RescueParity
 
@@ -832,6 +851,48 @@ def _export(
         if staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
     return _export_view(destination, bundle)
+
+
+def _correction_consistency(
+    evaluator: Any,
+    network: Any,
+    directory: Path,
+    result: Any,
+    run_dir: Path,
+    spec: Mapping[str, Any],
+) -> dict[str, Any]:
+    from ..geometry_core.inference import onnx_engine
+    from .grid_correction_consistency import CorrectionConsistencyError
+
+    if result.checkpoint_selection is None:
+        raise ChildError("GRID_TRAINING_SELECTION_REQUIRED")
+    base_directory = Path(spec["artifactRoot"]) / spec["base"]["managedDirectory"]
+    base_bytes = (base_directory / "bundle.json").read_bytes()
+    base_bundle = json.loads(base_bytes)
+    baseline_identity = {
+        "bundleSha256": sha256_bytes(base_bytes),
+        **{name: base_bundle["files"][name] for name in ("screen.onnx", "board.onnx")},
+    }
+    baseline = onnx_engine(
+        base_directory,
+        expected_bundle_sha256=baseline_identity["bundleSha256"],
+        bundle_bytes=base_bytes,
+    )
+    try:
+        return cast(
+            dict[str, Any],
+            evaluator.verify_export(
+                network,
+                directory,
+                result.checkpoint_selection,
+                result.history,
+                baseline=baseline,
+                baseline_identity=baseline_identity,
+            ),
+        )
+    except CorrectionConsistencyError as error:
+        write_json_atomic(run_dir / "evaluation-consistency-failed.json", error.proof)
+        raise ChildError("GRID_TRAINING_EVALUATION_INCONSISTENT") from error
 
 
 def _verify_recovered(

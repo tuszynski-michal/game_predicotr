@@ -66,6 +66,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Skuteczne uczenie i test poprawy](delivery/EFFECTIVE_GRID_LEARNING_PLAN_20261111.md) — TASK-1182–1185, accepted2026-11-11.
+
 - [Wydajna weryfikacja i uczenie z korekt](delivery/REVIEW_LEARNING_RELIABILITY_PLAN_20261110.md) — TASK-1177–1178, bulk/manifest i gotowość/zalecany cel.
 
 - [Sprawna korekta i pełne pola0%](delivery/FULL_FIELD_CORRECTION_FLOW_PLAN_20261109.md) — accepted; TASK-1174–1175.
@@ -206,6 +208,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 - [Version 0.6 execution plan](delivery/VERSION_0_6_EXECUTION_PLAN.md)
 
 ### Proces i jakość
+
+- [Zgodność oceny checkpointu i ONNX](quality/GRID_EVALUATION_CONSISTENCY_20261111.md) — TASK-1182, diagnoza TF32 i pełna kontrola A.
 
 - [Naprawa odczytu Jobs](quality/TASK-1181_VERIFICATION.md) — istniejące zadania jakości symboli i ścisły kontrakt odpowiedzi.
 - [Odbiór wydajności weryfikacji i gotowości uczenia](quality/REVIEW_LEARNING_RELIABILITY_ACCEPTANCE_20261110.md) — TASK-1177–1178, dwa Opus PASS; [wdrożenie i kontrola działającej aplikacji](quality/REVIEW_LEARNING_RELIABILITY_DEPLOYMENT_20261110.md).

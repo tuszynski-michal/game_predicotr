@@ -102,9 +102,9 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1184** — Pełne uczenie i odbiór zawartości — v1.7.604 / `5b50244c` — tasks/completed/1184-grid-full-learning-admission.md
 - **TASK-1183** — Przykłady korekt i niezależne kontrole — v1.7.603 / `e4bba0bd` — tasks/completed/1183-grid-learning-reference-split.md
 - **TASK-1182** — Zgodność oceny checkpointu i ONNX — v1.7.602 / `3991ff74` — tasks/completed/1182-grid-evaluation-consistency.md
+- **TASK-1180** — Wydajny pilot jakości 777 A2 — v1.7.601 / `97bb80bf` — tasks/completed/1180-readability-pilot-inventory-timeout.md
 - **TASK-1181** — Odczyt zadań jakości symboli w Jobs — v1.7.599 / `4e558590` — tasks/completed/1181-jobs-readability-response.md
 - **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 / `1a0e4961` — tasks/completed/1178-grid-learning-readiness-guidance.md
 - **TASK-1177** — Wydajny zapis symboli i manifest — v1.7.594 / `0e1a02ec` — tasks/completed/1177-symbol-review-performance-freeze.md
 - **TASK-1179** — Nieprzypisane zdjęcia importu 777 a2 — v1.7.594 / `b23f3563` — tasks/completed/1179-neural-unbound-preview.md
 - **TASK-1176** — Przekazanie siatek do weryfikacji symboli — v1.7.591 / `ccedfdbe` — tasks/completed/1176-symbol-review-routing.md
-- **TASK-1175** — Pełne pola symboli bez marginesu 8% — v1.7.588 / `6a560516` — tasks/completed/1175-full-cell-render-policy.md

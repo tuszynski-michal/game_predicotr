@@ -34,21 +34,25 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
 
-SNAPSHOT_SQL = """SELECT to_jsonb(c) || jsonb_build_object(
+_SNAPSHOT_PROJECTION_SQL = """SELECT to_jsonb(c) || jsonb_build_object(
   'cell_id',c.id,'source_id',s.id,'source_sha256',s.checksum_sha256,
 'source_path',s.relative_path,'normalized_pixel_checksum_sha256',s.normalized_pixel_checksum_sha256,
   'board_geometry_revision',b.geometry_revision,
   'board_source_geometry_revision_id',b.source_geometry_revision_id,
   'board_status',r.status,'symbol_class',COALESCE(sym.code,c.prediction_symbol_code,'unknown'))
-AS snapshot
- FROM image_symbol_review_cells c
+AS snapshot """
+
+SNAPSHOT_FROM_SQL = """ FROM image_symbol_review_cells c
  JOIN recognized_boards b ON b.id=c.recognized_board_id AND b.game_id=c.game_id
  JOIN image_review_items r ON r.id=c.review_item_id AND r.game_id=c.game_id
  JOIN source_images s ON s.id=b.source_image_id AND s.game_id=c.game_id
  LEFT JOIN public.symbols sym ON sym.id=c.assigned_symbol_id AND sym.game_id=c.game_id
- WHERE c.game_id=:game AND r.status<>'rejected'
- AND public.source_replacement_current_v1(
+ WHERE c.game_id=:game AND r.status<>'rejected' """
+
+SNAPSHOT_CURRENT_SQL = """ AND public.source_replacement_current_v1(
  c.game_id,s.id,s.checksum_sha256,c.sequence_number,r.id) """
+
+SNAPSHOT_SQL = _SNAPSHOT_PROJECTION_SQL + SNAPSHOT_FROM_SQL + SNAPSHOT_CURRENT_SQL
 
 
 class SqlAlchemyReadabilityRepository:

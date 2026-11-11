@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
@@ -63,6 +64,10 @@ from game_predictor_worker.symbols.readability_features import (
     fingerprint,
     managed_path,
     preflight_base,
+)
+from game_predictor_worker.symbols.readability_inventory import (
+    candidate_snapshots,
+    has_replacement_fences,
 )
 from game_predictor_worker.symbols.readability_selection import (
     base_aliases,
@@ -354,37 +359,37 @@ jsonb),:identity,
                 return
             base_recordings: dict[str, set[str]] = {}
             recordings: dict[str, str | None] = {}
+            last_heartbeat = time.monotonic()
+
+            def progress() -> None:
+                nonlocal last_heartbeat
+                if context is not None and time.monotonic() - last_heartbeat >= 10:
+                    context.heartbeat()
+                    last_heartbeat = time.monotonic()
+
             for source in sorted({row["sourceId"] for row in base.members}):
+                progress()
                 group = self._recording(session, job.game_id, source)
                 if group:
                     base_recordings.setdefault(group, set()).update(
                         row["split"] for row in base.members if row["sourceId"] == source
                     )
-            candidates = (
-                "SELECT snapshot FROM (SELECT snapshot,row_number() OVER (PARTITION BY "
-                "snapshot->>'source_id',snapshot->>'import_job_id',snapshot->>'symbol_class' "
-                "ORDER BY md5(:seed||(snapshot->>'cell_id'))) AS position FROM ("
-                + SNAPSHOT_SQL
-                + " AND c.source_available AND c.asset_mode='virtual_source' AND "
-                "c.geometry_revision=b.geometry_revision "
-                "AND c.source_geometry_revision_id=b.source_geometry_revision_id) "
-                "inventory) strata "
-                "ORDER BY "
-                "position,md5(:seed||(snapshot->>'source_id')),md5(:seed||(snapsho"
-                "t->>'cell_id'))"
-            )
+            replacement_fences = has_replacement_fences(session, job.game_id)
 
             game_id = job.game_id
 
             def eligible_rows() -> Iterator[dict[str, Any]]:
-                stream = session.execute(
-                    text(candidates),
-                    {"game": job.game_id, "seed": run["seed"]},
-                    execution_options={"stream_results": True, "yield_per": 250},
-                ).mappings()
+                stream = candidate_snapshots(
+                    session,
+                    game_id,
+                    run["seed"],
+                    audit=False,
+                    replacement_fences=replacement_fences,
+                    progress=progress,
+                )
                 try:
-                    for value in stream:
-                        row = dict(value["snapshot"])
+                    for row in stream:
+                        progress()
                         source = row["source_id"]
                         if source not in recordings:
                             recordings[source] = self._recording(session, game_id, source)
@@ -414,45 +419,38 @@ jsonb),:identity,
             # The random order is frozen before labels. Filtering defines a limited,
             # independent population; its noise report never describes the whole game.
             audit = []
-            statement = (
-                SNAPSHOT_SQL + " AND c.source_available AND c.asset_mode='virtual_source' AND "
-                "c.quality_issue IS NULL "
-                "AND c.geometry_revision=b.geometry_revision AND "
-                "c.source_geometry_revision_id=b.source_geometry_revision_id "
-                "AND NOT EXISTS(SELECT 1 FROM symbol_readability_items old WHERE "
-                "old.game_id=c.game_id "
-                "AND old.ever_labelled AND "
-                "old.snapshot->>'rendered_pixel_checksum_sha256'=c.rendered_pixel_che"
-                "cksum_sha256) "
-                "ORDER BY md5(:seed||c.id::text),c.id"
+            stream = candidate_snapshots(
+                session,
+                game_id,
+                run["seed"] + ":audit",
+                audit=True,
+                replacement_fences=replacement_fences,
+                progress=progress,
             )
-            stream = session.execute(
-                text(statement),
-                {"game": job.game_id, "seed": run["seed"] + ":audit"},
-                execution_options={"stream_results": True, "yield_per": 250},
-            ).mappings()
-            for value in stream:
-                row = dict(value["snapshot"])
-                if (
-                    row["source_id"] in forbidden_sources
-                    or row["source_sha256"] in forbidden_sha
-                    or row["rendered_pixel_checksum_sha256"] in forbidden_rgb
-                ):
-                    continue
-                source = row["source_id"]
-                if source not in recordings:
-                    recordings[source] = self._recording(session, job.game_id, source)
-                row["recording_id"] = recordings[source]
-                keys = source_keys(row)
-                keys |= set().union(*(aliases.get(key, set()) for key in keys))
-                if keys & reserved_keys:
-                    continue
-                if row["recording_id"] in excluded_recordings:
-                    continue
-                audit.append(row)
-                if len(audit) == 200:
-                    break
-            stream.close()
+            try:
+                for row in stream:
+                    progress()
+                    if (
+                        row["source_id"] in forbidden_sources
+                        or row["source_sha256"] in forbidden_sha
+                        or row["rendered_pixel_checksum_sha256"] in forbidden_rgb
+                    ):
+                        continue
+                    source = row["source_id"]
+                    if source not in recordings:
+                        recordings[source] = self._recording(session, job.game_id, source)
+                    row["recording_id"] = recordings[source]
+                    keys = source_keys(row)
+                    keys |= set().union(*(aliases.get(key, set()) for key in keys))
+                    if keys & reserved_keys:
+                        continue
+                    if row["recording_id"] in excluded_recordings:
+                        continue
+                    audit.append(row)
+                    if len(audit) == 200:
+                        break
+            finally:
+                stream.close()
             if len(audit) != 200:
                 raise ReadabilityError(
                     "READABILITY_PILOT_STOP",

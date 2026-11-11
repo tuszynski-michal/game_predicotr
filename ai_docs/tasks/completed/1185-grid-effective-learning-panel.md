@@ -74,7 +74,7 @@ Brak danych operatora może blokować trening lub pomiar, nigdy zastępczy PASS 
 
 ## Outcome
 
-Commit: v1.7.605 (hash dopisuje kolejny commit).
+Commit: v1.7.605 / `fc149f9bbd859cc20b1b25e27ccf40d2347727e0`.
 
 ### Changed
 

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1185 — Panel i porównanie skutecznego uczenia (done)
 
 - Plik: `tasks/completed/1185-grid-effective-learning-panel.md`.
-- Commit: **v1.7.605** (hash dopisuje kolejny commit).
+- Commit: **v1.7.605 / `fc149f9bbd859cc20b1b25e27ccf40d2347727e0`** (hash dopisuje kolejny commit).
 - Pion learningMaterial/testSample z typowanymi roleShortfalls (bez 500), oznaczenia źródeł przed zamrożeniem, panel z czterema wynikami zawartości i HTML naprawione/bez zmian/pogorszone/nierozstrzygnięte.
 - Audyt Codex niewykonany — kontynuacja na polecenie operatora po wyczerpaniu limitu. Testy, build, openapi, Ruff i scoped mypy PASS; dane A operatora niewystarczające (brak 1 zdjęcia/11 plansz); bez treningu.
 

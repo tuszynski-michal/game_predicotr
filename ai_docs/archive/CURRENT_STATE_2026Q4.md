@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1186 — Pozycja kopii bez plansz i dłuższy odczyt podziału (done)
+
+- Plik: `tasks/completed/1186-grid-copy-attestation-split.md`.
+- Commit: **v1.7.608** (hash dopisuje kolejny commit).
+- Kopia bez plansz przejmuje jednoznaczny atest kopii (D-603); podział korekt 120 s. Mumie a2: canStart=true, TRAIN 178/293 (nowe 18/19), A 13/51, REG 13/21.
+- Testy podziału 20 PASS, 6 zastanych FAIL cohort_core jak na main; bez audytu, treningu i restartu.
+
 ### TASK-1185 — Panel i porównanie skutecznego uczenia (done)
 
 - Plik: `tasks/completed/1185-grid-effective-learning-panel.md`.

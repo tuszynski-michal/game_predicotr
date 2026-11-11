@@ -24,6 +24,8 @@ SOURCE_BYTE_LIMIT = 64 * 1024 * 1024
 METADATA_PAGE_SIZE = 200
 MATERIALIZATION_PAGE_SIZE = 5
 COMMAND_SECONDS = 60
+# The protected learning split reads every approved correction; the panel promises 1-2 min.
+LEARNING_SPLIT_SECONDS = 120
 
 
 class GridCohortError(ValueError):

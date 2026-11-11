@@ -30,7 +30,10 @@ from game_predictor_api.domain.grid_correction_split import correction_data_avai
 from game_predictor_api.domain.grid_detector_readiness import detector_readiness
 from game_predictor_api.domain.grid_learning_sample_view import learning_test_sample
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError, descriptor_sha256
-from game_predictor_api.domain.grid_training_cohorts import GridCohortError
+from game_predictor_api.domain.grid_training_cohorts import (
+    LEARNING_SPLIT_SECONDS,
+    GridCohortError,
+)
 from game_predictor_api.domain.jobs import (
     Job,
     JobStatus,
@@ -179,7 +182,9 @@ class GridCorrectionLearningService:
                     UUID(base["familyId"]),
                     self.provider_index_sha256,
                 )
-            return imports, prepare_split(repository, game, imports, CohortDeadline(), **options)
+            return imports, prepare_split(
+                repository, game, imports, CohortDeadline(LEARNING_SPLIT_SECONDS), **options
+            )
 
     def _preview(
         self, game: UUID, command: Mapping[str, Any]

@@ -328,7 +328,11 @@ Logical `seq_*` names must agree with current geometry attestations. Where only
 managed SHA names survive, the operator-approved `verified-attestation-order-v1`
 uses checksums, slots, sequence bindings and nonoverlapping ranges. UUIDs, times
 and ordinals prove no chronology. Unordered imports remain indivisible; contradictory
-sequence names block. Each ordered import permits one to three consecutive blocks,
+sequence names block. A boardless source without its own attestation (no eligible
+boards, no bindings) inherits the position of its exact byte/pixel copy only when
+every attested copy agrees on one range; such an import is recorded as
+`copy-inherited-attestation-order-v1` (D-603). Ambiguous, missing or board-carrying
+cases keep the import indivisible. Each ordered import permits one to three consecutive blocks,
 each role once, with ten unique source photos between blocks. Exact bounded search
 minimizes total deviation from 70/15/15 after buffers in this class of partitions.
 Resource exhaustion reports a limit, never an incomplete optimum.

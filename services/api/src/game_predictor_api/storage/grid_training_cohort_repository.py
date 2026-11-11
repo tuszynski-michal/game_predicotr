@@ -45,14 +45,17 @@ from game_predictor_api.storage.models import GameModel
 
 
 class CohortDeadline:
-    def __init__(self) -> None:
-        self.end = time.monotonic() + COMMAND_SECONDS
+    def __init__(self, seconds: float = COMMAND_SECONDS) -> None:
+        self.seconds = seconds
+        self.end = time.monotonic() + seconds
 
     def check(self, session: Session | None = None) -> None:
         remaining = self.end - time.monotonic()
         if remaining <= 0:
             raise GridCohortError(
-                "GRID_COHORT_TIMEOUT", "The command exceeded its 60 second budget.", 503
+                "GRID_COHORT_TIMEOUT",
+                f"The command exceeded its {self.seconds:g} second budget.",
+                503,
             )
         if session is not None and session.get_bind().dialect.name == "postgresql":
             session.execute(

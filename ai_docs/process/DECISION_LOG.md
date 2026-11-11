@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-603](decisions/DECISION_LOG_2026.md#d-603--pozycja-kopii-bez-plansz-i-dłuższy-odczyt-podziału) | Pozycja kopii bez plansz i dłuższy odczyt podziału | accepted | 2026-11-11 | Kopia bez plansz przejmuje jednoznaczny atest oryginału; podział korekt ma 120 s. |
 | [D-602](decisions/DECISION_LOG_2026.md#d-602--skuteczne-uczenie-korekt-i-niezależny-pomiar-pełnych-wycinków) | Skuteczne uczenie i niezależny test wycinków | accepted | 2026-11-11 | Nowe v4 wyklucza konfliktujące grupy, rozdziela próbki i używa partial TRAIN tylko do punktów; pełny A i jawne braki. |
 | [D-601](decisions/DECISION_LOG_2026.md#d-601--zakres-publikacji-i-bieżąca-gotowość-nowego-uczenia) | Zakres publikacji i gotowość nowego uczenia | accepted | 2026-11-10 | Nowe etykiety nie unieważniają historycznego zakresu; reuse i apply wymagają aktualności; zalecany cel opt-in. |
 | [D-600](decisions/DECISION_LOG_2026.md#d-600--krótki-zapis-manifestu-i-koszt-zależny-od-planszy) | Krótki zapis manifestu i koszt zależny od planszy | accepted | 2026-11-10 | Attestation poza blokadą, fence rewizji pod krótką blokadą; bez rozluźniania własności lub zgody. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-577](decisions/DECISION_LOG_2026.md#d-577--podział-korekt-geometrii-z-atestów-i-trwała-ochrona-zdjęć) | Podział korekt geometrii z atestów i trwała ochrona zdjęć | accepted | 2026-11-02 | Photo-only, atesty SHA, trzy bloki i trwałe role/bufory; stare polityki bez zmian. |
 | [D-576](decisions/DECISION_LOG_2026.md#d-576--uproszczenie-wyszukiwarki-i-modal-supergry-w-adminie) | Uproszczenie wyszukiwarki i modal supergry w Adminie | accepted | 2026-11-01 | TASK-1115: tabela pod wykresem, PLN i najnowsze reguły; modal w miejscu, 0 dla dziesiątego symbolu. |
 | [D-575](decisions/DECISION_LOG_2026.md#d-575--powrót-do-wyszukiwania-jednej-planszy) | Powrót do wyszukiwania jednej planszy | accepted | 2026-10-30 | TASK-1114 usuwa wiele wzorów; jedna plansza, ±15 i historia pozostają. |
-| [D-574](decisions/DECISION_LOG_2026.md#d-574--przypięty-wybór-i-optymistyczna-nawigacja-selektora) | Przypięty wybór i optymistyczna nawigacja Selektora | accepted | 2026-10-29 | Jeden writer, przypięte F, timeout i handshake przed close; bez zmian trwałego formatu. |

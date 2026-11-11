@@ -268,3 +268,73 @@ def test_ratio_is_global_minimum_for_contiguous_three_block_class():
                         )
                     )
     assert Fraction(result.objective_numerator, result.objective_denominator) == min(scores)
+
+
+def _boardless_copy(original: CorrectionSplitSource, source_id: str) -> CorrectionSplitSource:
+    """A re-import of the same pixels whose own board geometry was never attested."""
+    return replace(
+        original,
+        source_id=source_id,
+        import_id="n-reimport",
+        eligible_boards=0,
+        attested_start=None,
+        attested_end=None,
+        attested_slots=(),
+        attestation_checksum_sha256=None,
+        board_bindings=(),
+        frozen_role=None,
+    )
+
+
+def _reimport_with_pinned_copies() -> list[CorrectionSplitSource]:
+    roles = {"a": "TRAIN", "b": "VALIDATION", "c": "REGRESSION"}
+    pinned = [
+        replace(source(i, import_id=name), frozen_role=roles[name])
+        for name, size in (("a", 24), ("b", 20), ("c", 5))
+        for i in range(size)
+    ]
+    train_photo = next(item for item in pinned if item.source_id == "a-0000")
+    control_photo = next(item for item in pinned if item.source_id == "b-0019")
+    reimport = [
+        _boardless_copy(train_photo, "n-copy-train"),
+        *(source(i, import_id="n-reimport") for i in range(1, 15)),
+        _boardless_copy(control_photo, "n-copy-control"),
+        *(source(i, import_id="n-reimport") for i in range(21, 31)),
+    ]
+    return pinned + reimport
+
+
+def test_boardless_reimport_inherits_unique_copy_position_instead_of_joining_pins():
+    sources = _reimport_with_pinned_copies()
+    result = solve_correction_split(sources)
+    methods = {order.import_id: order.method for order in result.import_orders}
+    assert methods["n-reimport"] == "copy-inherited-attestation-order-v1"
+    assert {methods[name] for name in "abc"} == {"verified-attestation-order-v1"}
+    roles = dict(result.assignments)
+    # Each copy keeps the protected role of its pinned original; history is not rewritten.
+    assert roles["n-copy-train"] == roles["a-0000"] == "TRAIN"
+    assert roles["n-copy-control"] == roles["b-0019"] == "VALIDATION"
+
+
+def test_reimport_without_inheritable_position_stays_indivisible_and_fails_closed():
+    sources = _reimport_with_pinned_copies()
+    # A copy that itself carries boards is never given a borrowed position.
+    with_boards = [
+        replace(item, eligible_boards=1) if item.source_id == "n-copy-train" else item
+        for item in sources
+    ]
+    with pytest.raises(CorrectionSplitError) as error:
+        solve_correction_split(with_boards)
+    assert error.value.code == "GRID_CORRECTION_PROTECTION_CONFLICT"
+
+
+def test_ambiguous_copy_positions_are_not_inherited():
+    sources = independent_imports()
+    first = sources[0]
+    # The same pixels attested at two different ranges in two imports.
+    contradicting = replace(source(3, import_id="b"), byte_sha256=first.byte_sha256)
+    sources = [item for item in sources if item.source_id != "b-0003"] + [contradicting]
+    orphan = _boardless_copy(first, "n-orphan")
+    result = solve_correction_split([*sources, orphan, source(9, import_id="n-reimport")])
+    methods = {order.import_id: order.method for order in result.import_orders}
+    assert methods["n-reimport"] == "indivisible-import-v1"

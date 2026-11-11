@@ -272,13 +272,30 @@ def _prepare_groups(
         imports[source.import_id].append(source)
         for component in source.component_ids:
             components.union(source.source_id, known.setdefault(component, source.source_id))
+    # A sequence position belongs to the photo, not to the import that carries it.
+    # A boardless re-import of an attested photo (identical bytes/pixels) may inherit
+    # that position, but only when every attested copy agrees on one range.
+    attested_photos: dict[str, set[tuple[int, int]]] = defaultdict(set)
+    for source in sources:
+        verified = _attestation(source)
+        if verified is not None:
+            attested_photos[copies.find(source.source_id)].add(verified)
     orders: list[CorrectionImportOrder] = []
     for import_id, members in sorted(imports.items()):
         ranges: dict[str, tuple[int, int] | None] = {}
         reliable = True
         named = True
+        inherited = False
         for source in members:
             photo, attested = copies.find(source.source_id), _attestation(source)
+            if (
+                attested is None
+                and source.eligible_boards == 0
+                and not source.board_bindings
+                and len(attested_photos.get(photo, ())) == 1
+            ):
+                (attested,) = attested_photos[photo]
+                inherited = True
             if attested is None or (photo in ranges and ranges[photo] != attested):
                 reliable = False
             ranges[photo] = attested
@@ -297,7 +314,11 @@ def _prepare_groups(
             for source in members:
                 components.union(members[0].source_id, source.source_id)
         method = (
-            ("attested-sequence-order-v1" if named else "verified-attestation-order-v1")
+            (
+                "copy-inherited-attestation-order-v1"
+                if inherited
+                else ("attested-sequence-order-v1" if named else "verified-attestation-order-v1")
+            )
             if reliable
             else "indivisible-import-v1"
         )

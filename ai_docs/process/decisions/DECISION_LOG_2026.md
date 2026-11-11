@@ -16,6 +16,31 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-603 — Pozycja kopii bez plansz i dłuższy odczyt podziału
+
+Status: accepted. Data:2026-11-11. TASK-1186; operator zatwierdził obie zmiany.
+
+Pozycja w deterministycznej sekwencji jest cechą zdjęcia, nie importu. Źródło
+bez własnego atestu, bez kwalifikujących się plansz i bez powiązań plansz
+przejmuje zakres swojej dokładnej kopii (bajty albo piksele), ale tylko gdy
+wszystkie atestowane kopie wskazują ten sam zakres. Import zachowuje wtedy
+kolejność jako `copy-inherited-attestation-order-v1`; zakresy nadal nie mogą
+się nakładać, a kopia pozostaje w tej samej grupie co oryginał, więc dziedziczy
+jego chronioną rolę. Kopia nie dostaje plansz, historia ról i buforów się nie
+zmienia. Brak kopii z atestem, sprzeczne zakresy albo plansze na kopii
+zostawiają import niepodzielny jak dotąd.
+
+Powód: ponowny import Mumie a2 z 2026-11-10 (1121 zdjęć) zawierał 49 kopii
+bez plansz, w tym kopie zdjęć przypiętych do TRAIN i A. Reguła niepodzielności
+łączyła cały import w jedną grupę ze sprzecznymi przypięciami i blokowała każde
+nowe uczenie (`GRID_CORRECTION_PROTECTION_CONFLICT`).
+
+Odczyt i start podziału korekt mają budżet 120 s (`LEARNING_SPLIT_SECONDS`)
+zamiast wspólnych 60 s; pozostałe komendy kohort zachowują 60 s, a limit
+pojedynczej instrukcji SQL (30 s) się nie zmienia. Panel zapowiada 1–2 minuty;
+pomiar na danych operatora dał 55–64 s. Alternatywy odrzucone: wykluczenie
+całego importu (traci dzisiejsze korekty) i ręczne odpinanie historii.
+
 ## D-602 — Skuteczne uczenie korekt i niezależny pomiar pełnych wycinków
 
 Status: accepted. Data:2026-11-11. TASK-1183–1185; operator zatwierdził cały plan T1–T4.

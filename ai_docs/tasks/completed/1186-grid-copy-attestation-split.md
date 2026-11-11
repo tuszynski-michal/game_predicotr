@@ -95,7 +95,7 @@ oryginał (unia kopii), więc dziedziczy jego przypiętą rolę.
 
 ## Outcome
 
-Commit: v1.7.608 (hash dopisuje kolejny commit).
+Commit: v1.7.608 / `6d37d0dcdec0b8c39e9d199d79ec7b565799e59b`.
 
 - Kopia bez plansz przejmuje jednoznaczny atest kopii (`copy-inherited-attestation-order-v1`);
   podział korekt ma budżet 120 s, pozostałe komendy kohort 60 s. Decyzja D-603.

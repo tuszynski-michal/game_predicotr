@@ -98,7 +98,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1186** — Pozycja kopii bez plansz i 120 s podziału — v1.7.608 — tasks/completed/1186-grid-copy-attestation-split.md
+- **TASK-1186** — Pozycja kopii bez plansz i 120 s podziału — v1.7.608 / `6d37d0dc` — tasks/completed/1186-grid-copy-attestation-split.md
 - **TASK-1185** — Panel i porównanie skutecznego uczenia — v1.7.605 / `fc149f9b` — tasks/completed/1185-grid-effective-learning-panel.md
 - **TASK-1184** — Pełne uczenie i odbiór zawartości — v1.7.604 / `5b50244c` — tasks/completed/1184-grid-full-learning-admission.md
 - **TASK-1183** — Przykłady korekt i niezależne kontrole — v1.7.603 / `e4bba0bd` — tasks/completed/1183-grid-learning-reference-split.md

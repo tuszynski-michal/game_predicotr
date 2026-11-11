@@ -21,6 +21,14 @@ import { GridCorrectionApplyPanel } from './grid-correction-apply-panel';
 import { GridHistoryRecovery } from './grid-history-recovery';
 import { GridContentEvaluationSummary } from './grid-content-evaluation-summary';
 import {
+  GridContentReferenceWorkspace,
+  type GridContentClient,
+} from './grid-content-reference-workspace';
+import {
+  GridLearningMaterialSummary,
+  GridLearningTestSampleSummary,
+} from './grid-learning-material-summary';
+import {
   GridValidationPurposeSelector,
   VALIDATION_POLICY,
   orderedAssignments,
@@ -74,6 +82,7 @@ interface Props {
   readonly apiBaseUrl: string;
   readonly gameId: string;
   readonly client?: GridCorrectionLearningClient;
+  readonly annotationClient?: GridContentClient;
   readonly onChanged?: () => void;
 }
 
@@ -81,7 +90,13 @@ export function GridCorrectionLearningPanel(props: Props) {
   return <Learning key={`${props.apiBaseUrl}:${props.gameId}`} {...props} />;
 }
 
-function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
+function Learning({
+  apiBaseUrl,
+  gameId,
+  client,
+  annotationClient,
+  onChanged,
+}: Props) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
@@ -89,6 +104,9 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const storageKey = learningCommandKey(apiBaseUrl, gameId);
   const [ready, setReady] = useState<GridCorrectionLearningPreview | null>(
     null,
+  );
+  const [annotationSources, setAnnotationSources] = useState<readonly string[]>(
+    [],
   );
   const [defaults, setDefaults] = useState<GridModelDefaultResponse | null>(
     null,
@@ -213,6 +231,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const chosen = useRef('');
   const locked = useRef(false);
   const refreshInFlight = useRef(false);
+  const previewInFlight = useRef(false);
   const currentnessSequence = useRef(0);
   const currentnessInFlight = useRef(false);
 
@@ -575,14 +594,22 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     }
   }
 
-  async function previewExclusions() {
-    if (refreshInFlight.current) return;
+  async function previewExclusions(useSafeSplit = false) {
+    if (refreshInFlight.current || previewInFlight.current) return;
+    previewInFlight.current = true;
     setBusy(true);
     setError('');
     const token = ++previewSequence.current;
     try {
       const result = await api.previewGridCorrectionLearning(gameId, {
         ...requestOptions,
+        ...(useSafeSplit
+          ? {
+              trainingMode,
+              policyVersion: VALIDATION_POLICY,
+              validationAssignments: orderedAssignments(validationAssignments),
+            }
+          : {}),
         importJobIds: [],
         exclusions: Object.entries(exclusions).map(([id, value]) => ({
           gameId: id,
@@ -595,10 +622,27 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           apiErrorMessage(result.error, 'Nie udało się sprawdzić wyłączeń.'),
         );
       setReady(result.data);
-      setPreviewedOptions(optionsKey);
+      if (useSafeSplit) {
+        const assignments = result.data.validationAssignments ?? {};
+        setPurposeAware(true);
+        setManualTrainingMode(true);
+        setValidationAssignments(assignments);
+        setPreviewedOptions(
+          JSON.stringify({
+            ...(contentExperiment
+              ? { contentExperiment: 'full-symbol-content-experiment-v1' }
+              : {}),
+            trainingMode,
+            historicalCohorts,
+            policyVersion: VALIDATION_POLICY,
+            validationAssignments: orderedAssignments(assignments),
+          }),
+        );
+      } else setPreviewedOptions(optionsKey);
     } catch (failure) {
       if (token === previewSequence.current) setError(String(failure));
     } finally {
+      previewInFlight.current = false;
       setBusy(false);
     }
   }
@@ -773,14 +817,33 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             {previewedOptions !== optionsKey ? (
               <p>Wybór zmienił się. Sprawdź zakres/podział przed startem.</p>
             ) : null}
-            <button
-              className="secondaryButton"
-              type="button"
-              disabled={disabled || refreshing}
-              onClick={() => void previewExclusions()}
-            >
-              Sprawdź zakres/podział
-            </button>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {!purposeAware ? (
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  disabled={disabled || refreshing}
+                  onClick={() => void previewExclusions(true)}
+                >
+                  Przygotuj nowy podział korekt
+                </button>
+              ) : null}
+              <button
+                className="secondaryButton"
+                type="button"
+                disabled={disabled || refreshing}
+                onClick={() => void previewExclusions()}
+              >
+                Sprawdź zakres/podział
+              </button>
+            </div>
+            {!purposeAware ? (
+              <p>
+                Nowy podział pokazuje dostępne korekty i wyłączenia
+                konfliktujących grup. Samo przygotowanie nie uruchamia uczenia
+                ani nie zapisuje ról zdjęć.
+              </p>
+            ) : null}
             <p>
               {!manualTrainingMode &&
               !purposeAware &&
@@ -805,6 +868,13 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               Zapisane korekty są materiałem do następnej iteracji. Przycisk
               uruchamia trening i porównanie; same korekty ani odświeżenie nie
               uruchamiają uczenia i nie zmieniają aktywnego modelu.
+            </p>
+            <p role="note">
+              {contentExperiment
+                ? 'Wybrano pełne uczenie: detektor, punkty i ocena całych symboli. Brak wymaganych oznaczeń zostanie pokazany jako brak danych; proces nie przełączy się sam na uczenie samych punktów.'
+                : trainingMode === 'grid-only'
+                  ? 'Wybrano uczenie punktów. Detektor plansz jest zamrożony, a pełna zawartość symboli nie jest celem tego treningu. Aby naprawiać pominięte rzędy i sprawdzać całe symbole, wybierz poniżej pełne uczenie.'
+                  : 'Wybrano detektor i punkty. Aby również mierzyć zachowanie pełnych grafik w wycinkach, wybierz poniżej pełne uczenie.'}
             </p>
             <details>
               <summary>Zaawansowane: ręczny cel uczenia</summary>
@@ -861,7 +931,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                   setHistoricalCohorts([]);
                 }}
               />{' '}
-              Pełne symbole — kontrolowany eksperyment
+              Pełne uczenie plansz i całych symboli
             </label>
             {ready.contentExperimentReadiness ? (
               <section aria-label="Gotowość eksperymentu zawartości">
@@ -907,6 +977,32 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                   </p>
                 </details>
               </section>
+            ) : null}
+            <GridLearningMaterialSummary material={ready.learningMaterial} />
+            <GridLearningTestSampleSummary sample={ready.testSample} />
+            {(ready.testSample?.annotationSourceIds?.length ?? 0) > 0 ? (
+              <button
+                className="secondaryButton"
+                type="button"
+                disabled={disabled || refreshing}
+                onClick={() =>
+                  setAnnotationSources([
+                    ...(ready.testSample?.annotationSourceIds ?? []),
+                  ])
+                }
+              >
+                Oznacz zdjęcia do testu
+              </button>
+            ) : null}
+            {annotationSources.length > 0 ? (
+              <GridContentReferenceWorkspace
+                apiBaseUrl={apiBaseUrl}
+                gameId={gameId}
+                mode="ordinary"
+                client={annotationClient}
+                annotationSourceIds={annotationSources}
+                onClose={() => setAnnotationSources([])}
+              />
             ) : null}
             {ready.detectorReadiness ? (
               <p>

@@ -182,6 +182,22 @@ class SqlAlchemyGridCellContentRepository:
         self.bind(game)
         return list_targets(self, game, cohort, manifest, limit, offset)
 
+    def list_source_targets(
+        self, game: UUID, sources: list[UUID], limit: int, offset: int
+    ) -> dict[str, Any]:
+        from .grid_cell_content_targets import list_source_targets
+
+        self.bind(game)
+        return list_source_targets(self, game, sources, limit, offset)
+
+    def annotation_source_asset(
+        self, game: UUID, source: UUID, expected_source: str, expected_pixel: str
+    ) -> Path:
+        from .grid_cell_content_targets import annotation_source_asset
+
+        self.bind(game)
+        return annotation_source_asset(self, game, source, expected_source, expected_pixel)
+
     def target_source_asset(self, game: UUID, cohort: UUID, manifest: str, source: UUID) -> Path:
         from .grid_cell_content_targets import target_source_asset
 

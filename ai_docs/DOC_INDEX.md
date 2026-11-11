@@ -209,6 +209,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Proces i jakość
 
+- [Panel i porównanie skutecznego uczenia](quality/TASK-1185_VERIFICATION.md) — TASK-1185, materiał/próbka testu, oznaczenia przed zamrożeniem, cztery wyniki i HTML zawartości.
+
 - [Pełne uczenie i kontrola eksportu A](quality/TASK-1184_VERIFICATION.md) — TASK-1184, partial TRAIN geometrii, warunkowe R3 i pełny A ONNX.
 
 - [Dane i niezależne kontrole uczenia](quality/TASK-1183_VERIFICATION.md) — TASK-1183, trwały podział, migracja0184 i ograniczony odczyt operatora.

@@ -360,6 +360,97 @@ async function resolveRead(read, value) {
   await act(async () => read.resolve(value));
 }
 
+test('sampling choices open the existing ordinary editor before role freeze and preserve CAS', async () => {
+  const f = fixture();
+  const sourceTarget = { ...target, role: null };
+  const ids = [
+    source,
+    ...Array.from(
+      { length: 20 },
+      (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+    ),
+  ];
+  f.api.listGridTrainingCohorts = async () => {
+    throw new Error('No frozen cohort read before freeze');
+  };
+  f.api.getGridContentReadiness = async () => {
+    throw new Error('No frozen readiness before freeze');
+  };
+  f.api.listGridContentTargets = async (_game, filters) => {
+    f.calls.push(['source-targets', filters]);
+    return {
+      data: {
+        gameId: game,
+        cohortId: null,
+        manifestSha256: null,
+        items: filters.sourceIds.includes(source) ? [sourceTarget] : [],
+        nextOffset: null,
+      },
+    };
+  };
+  f.api.gridContentTargetSourceUrl = (_game, _source, pins) => {
+    f.calls.push(['source-asset', pins]);
+    return '/ordinary-source';
+  };
+  const m = await mount(GridContentReferenceWorkspace, {
+    apiBaseUrl,
+    gameId: game,
+    mode: 'ordinary',
+    client: f.api,
+    annotationSourceIds: ids,
+    onClose() {},
+  });
+  try {
+    assert.deepEqual(f.calls[0], [
+      'source-targets',
+      { sourceIds: ids.slice(0, 20), offset: 0, limit: 20 },
+    ]);
+    assert.equal(
+      document.querySelector('[aria-label="Zamrożony zestaw etykiet"]'),
+      null,
+    );
+    await click('Oznacz Zdjęcie 42 — pozycja 1');
+    assert.deepEqual(f.calls.find((c) => c[0] === 'normal-get').slice(1), [
+      game,
+      source,
+      0,
+      undefined,
+    ]);
+    assert.deepEqual(f.calls.find((c) => c[0] === 'source-asset')[1], {
+      expectedSourceSha256: sha,
+      expectedPixelSha256: 'b'.repeat(64),
+    });
+    await imageLoaded();
+    for (const p of [
+      [10, 10],
+      [30, 10],
+      [30, 30],
+      [10, 30],
+    ])
+      await point(...p);
+    await change('Widoczność pola', 'visible');
+    await checkContaining('Sprawdziłem zawartość');
+    await click('Zapisz i zatwierdź etykiety zawartości');
+    const command = f.calls.find((c) => c[0] === 'reference')[1];
+    assert.equal(command.sequenceNumber, 42);
+    assert.equal(command.expectedRevision, 0);
+    assert.equal(command.humanApproval, true);
+    assert.equal('cohortId' in command, false);
+    assert.equal('role' in command, false);
+    await click('Kolejne zdjęcia');
+    assert.deepEqual(
+      f.calls.filter((c) => c[0] === 'source-targets').at(-1)[1].sourceIds,
+      ids.slice(20),
+    );
+    assert.equal(
+      document.querySelector('[aria-label="Zwykłe etykiety zawartości"]'),
+      null,
+    );
+  } finally {
+    await m.cleanup();
+  }
+});
+
 test('ordinary B/REG is mounted, reads and approves content with CAS without geometry writes', async () => {
   const f = fixture();
   const m = await mount(GridContentReferenceWorkspace, {

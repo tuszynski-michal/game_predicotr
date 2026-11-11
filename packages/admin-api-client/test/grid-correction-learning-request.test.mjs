@@ -2,6 +2,52 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('blocked readiness preserves material counts and exclusions through the public wrapper', async () => {
+  const calls = [];
+  const material = {
+    version: 'effective-grid-learning-material-v1',
+    roles: { TRAIN: { correctedBoards: 12, goodBoards: 3, photos: 2 } },
+    exclusions: [{ componentKey: 'd'.repeat(64), photos: 7, boards: 14 }],
+    photoDeficit: 18,
+    boardDeficit: 45,
+    historyModified: false,
+    // An infeasible split carries exact per-role deficits from the server.
+    roleShortfalls: {
+      basis: 'protected-roles-before-infeasibility',
+      roles: {
+        VALIDATION: {
+          photos: 4,
+          boards: 4,
+          minimumPhotos: 5,
+          minimumBoards: 15,
+          photoDeficit: 1,
+          boardDeficit: 11,
+        },
+      },
+    },
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      calls.push({
+        method: request.method,
+        path: new URL(request.url).pathname,
+      });
+      return Response.json({ canStart: false, learningMaterial: material });
+    },
+  });
+  const game = '11111111-1111-4111-8111-111111111111';
+  const response = await client.getGridCorrectionLearningReady(game);
+  assert.deepEqual(response.data.learningMaterial, material);
+  assert.equal(response.data.canStart, false);
+  assert.deepEqual(calls, [
+    {
+      method: 'GET',
+      path: `/api/v1/admin/games/${game}/grid-correction-learning/ready`,
+    },
+  ]);
+});
+
 test('recommended readiness is an opt-in GET and legacy callers keep their query', async () => {
   const requests = [];
   const client = createAdminApiClient({

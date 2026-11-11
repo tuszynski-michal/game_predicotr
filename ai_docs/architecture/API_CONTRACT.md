@@ -1,10 +1,34 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-11-09
+last_updated: 2026-11-11
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Materiał uczenia, próbka testu i oznaczenia przed zamrożeniem (TASK-1185, D-602)
+
+Odpowiedź preview/ready `grid-correction-learning` może zawierać opcjonalne,
+zamknięte `learningMaterial` (`effective-grid-learning-material-v1`: wagi4:1,
+liczniki per rola corrected/good/unknown plansz i nakładających się zdjęć,
+wykluczenia całych grup z importIds/priorRoles/reasonCodes, dolne granice
+braków `photoDeficit/boardDeficit` i opcjonalne `roleShortfalls` z bazą
+`protected-roles-before-infeasibility`) oraz `testSample`
+(`effective-grid-test-sample-v1`, seed20261108, ready|not_evaluable, liczby
+zwykłych/trudnych pełnych zdjęć, brakujące źródła oznaczeń, kategorie bez
+reprezentacji). Oba są projekcją istniejącego manifestu v4 i błędów
+przygotowania; brak pól nie oznacza pokrycia. Niewykonalny podział zwraca
+blocker z typowanymi niedoborami zamiast 500. Odczyt niczego nie zamraża.
+
+GET content-targets przyjmuje alternatywnie `sourceIds` (1–20 unikalnych,
+dokładnie jeden zakres; mieszanie z pinami kohorty to
+`CONTENT_TARGET_PINS_CONFLICT`). Odpowiedź ma `cohortId/manifestSha256=null`
+i `role=null`; wymaga aktora lokalnego, ponownie używa domknięcia kopii/grup i
+odrzuca kontrole A/B/REG (`CONTENT_CONTROL_ROLE_PROTECTED`) oraz źródła
+ślepego pomiaru (`CONTENT_BLIND_SOURCE_PROTECTED`). Asset w tym zakresie
+wymaga `expectedSourceSha256` i `expectedPixelSha256`; dekoder kanoniczny
+sprawdza piksele, wymiary, adapter i EXIF. Cache-Control: no-store. Zapis
+etykiet używa istniejącej zwykłej komendy CAS.
 
 ## Gotowość korekt i zalecany cel (TASK-1178, D-601)
 

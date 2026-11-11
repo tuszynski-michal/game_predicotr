@@ -226,6 +226,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/grid_engine_profiles.py: class GridEngineModelStatus, class GridEngineModelError, class GridEngineModelFile, class GridEngineReportResult, class GridEngineModelVersion, class GridEngineProfile, class GridEngineModelFileState, class GridEngineModelState, grid_engine_profile_for, neural_import_profile, grid_engine_manifest
 - domain/grid_learning_material.py: conflicting_groups, protect_excluded_neighborhoods, role_shortfalls, material_report
 - domain/grid_learning_reference.py: baseline_reference, source_reference
+- domain/grid_learning_sample_view.py: learning_test_sample
 - domain/grid_model_evaluation.py: class GridEvaluationReportError, require_metrics, decide_game, verdict_of, build_report, require_report, proof_state
 - domain/grid_model_publication.py: class GridEvaluationEvidence, require_evaluation_evidence
 - domain/grid_model_registry.py: class GridModelRegistryError, canonical_json, descriptor_sha256, catalogue_id, validate_manifest, historical_catalogue
@@ -319,7 +320,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - schemas/grid_calibration.py: class GeometryCohortResponse, class GridCalibrationProfileResponse, class CreateGridCalibrationCandidateResponse, class GridEndToEndGateSource, class GridEndToEndGateReportCommand, class CreateGridCalibrationCandidateCommand, class GeometryCohortDiagnosticsResponse, class GridProfileActivationCommand, class GridProfileActivationPreviewResponse, class GridProfileActivationResponse, class GridProfileActivationCommandResponse, to_cohort_response, to_diagnostics_response, to_profile_response, to_activation_preview_response, to_activation_response
 - schemas/grid_cell_content.py: class ContentWriteCommand, class ContentSessionTargetSelection, class ContentSessionCreate, class ContentBlindWrite, class ContentSessionAdvance, class ContentRenderConfiguration, class ContentProductionFootprint, class ContentOrdinaryPreview, class ContentReferenceBase, class ContentReferenceResponse, class ContentWriteResponse, class ContentBlindTarget, class ContentTargetResponse, class ContentTargetPage, class ContentSessionStatus, class ContentSessionResponse, class ContentSessionCommandResponse, class ContentSessionList, class ContentSamplingPreview, class ContentRoleReadiness, class ContentReadinessSummary, class ContentReadinessResponse, class ContentSamplingResponse
 - schemas/grid_correction_apply.py: class GridCorrectionApplyTarget, class GridCorrectionApplyPreview, class GridCorrectionApplyStartCommand, class GridCorrectionApplyStep, class GridCorrectionApplyView, class GridCorrectionApplyList
-- schemas/grid_correction_learning.py: class CorrectionLearningClosedModel, class GridCorrectionLearningExclusion, class GridCorrectionLearningPreviewCommand, class GridCorrectionLearningStartCommand, class GridCorrectionLearningRoleCount, class GridCorrectionDataAvailability, class GridCorrectionLearningCount, class GridCorrectionLearningExclusionCount, class GridCorrectionLearningProgressCounts, class DetectorRoleReadiness, class GridDetectorReadiness, class GridValidationSourceChoice, class GridValidationPurposeChoice, class GridValidationComponentChoice, class GridValidationPurposeCount, class GridTrainingRecommendation, class GridCorrectionLearningPreview, class GridCorrectionLearningView, class GridCorrectionLearningList, class GridContentExperimentGameReadiness, class GridContentExperimentReadiness
+- schemas/grid_correction_learning.py: class CorrectionLearningClosedModel, class GridCorrectionLearningExclusion, class GridCorrectionLearningPreviewCommand, class GridCorrectionLearningStartCommand, class GridCorrectionLearningRoleCount, class GridCorrectionDataAvailability, class GridCorrectionLearningCount, class GridCorrectionLearningExclusionCount, class GridCorrectionLearningProgressCounts, class DetectorRoleReadiness, class GridDetectorReadiness, class GridValidationSourceChoice, class GridValidationPurposeChoice, class GridValidationComponentChoice, class GridValidationPurposeCount, class GridTrainingRecommendation, class GridLearningRoleMaterial, class GridLearningMaterialExclusion, class GridLearningWeights, class GridLearningRoleShortfall, class GridLearningRoleShortfalls, class GridLearningMaterial, class GridLearningTestSample, class GridCorrectionLearningPreview, class GridCorrectionLearningView, class GridCorrectionLearningList, class GridContentExperimentGameReadiness, class GridContentExperimentReadiness
 - schemas/grid_engine_acceptance.py: class HistoricalAcceptanceCreateCommand, class HistoricalAcceptancePreviewCommand, class HistoricalAcceptanceConfirmCommand, class HistoricalAcceptanceRunCommand, class HistoricalAcceptanceItemResponse, class HistoricalAcceptanceResponse, historical_acceptance_response
 - schemas/grid_engine_profiles.py: class GridEngineModelFileResponse, class GridEngineReportResultResponse, class GridEngineProfileResponse
 - schemas/grid_geometry_proposals.py: class ProposalCreateCommand, class ProposalAcceptCommand, class ProposalRejectCommand, class ProposalCandidateResponse, class ProposalDiscoveryResponse, class GridGeometryProposalResponse, class ProposalCommandResponse, class ProposalCandidatesResponse
@@ -432,7 +433,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_cell_content_migration.py: guard, manifest, protect, upgrade, downgrade
 - storage/grid_cell_content_models.py: class GridCellContentRevisionModel, class GridCellContentSessionModel, class GridCellContentCommandModel
 - storage/grid_cell_content_pins.py: require_content_target_identity, content_pin, apply_blind_a_geometry, require_current_content_pin
-- storage/grid_cell_content_targets.py: list_targets, target_source_asset
+- storage/grid_cell_content_targets.py: list_targets, target_source_asset, list_source_targets, annotation_source_asset, require_source_annotation_access
 - storage/grid_cohort_asset_retention.py: class AssetDeadline, class CohortAssetDeadline, cohort_asset_guard_key, acquire_cohort_asset_guard, parse_cohort_asset_path, read_cohort_asset_reference
 - storage/grid_content_bundle.py: read_content_bundle_bytes, read_content_bundle
 - storage/grid_content_diagnostic_measurement.py: diagnostic_render_oracle, diagnostic_measurement_ready
@@ -631,6 +632,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/cell_grid_golden.py: class CellGridGoldenError, class BoardCandidate, class GridReviewEntry, class CellGridGolden, class CellGridGoldenReview, build_v1_baseline_report, baseline_report_bytes
 - images/cell_grid_review_http.py: class CellGridReviewHttpError, is_loopback_host, class CellGridReviewHttpApplication, create_cell_grid_review_server
 - images/cell_grid_v2_quality.py: class CellGridV2QualityError, build_v2_quality_report, build_calibrated_quality_report, v2_quality_report_bytes, calibrated_quality_report_bytes
+- images/comparison_content_changes.py: content_change
 - images/comparison_input_diagnostics.py: diagnostic_inputs
 - images/comparison_production_bundle.py: build_production_package
 - images/comparison_production_cells.py: class ComparisonProductionCells
@@ -1068,15 +1070,17 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/model-quality/grid-content-blind.tsx: GridContentBlindClient, GridContentBlind
 - features/model-quality/grid-content-canvas.tsx: GridContentCanvas
 - features/model-quality/grid-content-command-control.tsx: useContentCommands, ContentCommandNotice
-- features/model-quality/grid-content-evaluation-summary.tsx: GridContentEvaluationSummary
+- features/model-quality/grid-content-evaluation-summary.tsx: ContentOutcome, contentOutcome, GridContentEvaluationSummary
 - features/model-quality/grid-content-ordinary.tsx: GridContentOrdinaryClient, GridContentOrdinary
 - features/model-quality/grid-content-readiness.tsx: GridContentReadiness
 - features/model-quality/grid-content-reference-workspace.tsx: GridContentClient, GridContentReferenceWorkspace
+- features/model-quality/grid-content-source-selection.tsx: GridContentSourceSelection
 - features/model-quality/grid-content-state.ts: ContentCells, ContentNodes, ContentPoint, ContentCell, ContentMode, ContentCommand, contentUuid, contentStateLabels, contentRoleLabel, emptyContentCells, convexContentQuad, validContentCells, validContentNodes, manualContentLattice, contentCommandKey, readContentCommand, saveContentCommand, clearContentCommand, archiveContentCommand
 - features/model-quality/grid-correction-apply-panel.tsx: GridCorrectionApplyPanel
 - features/model-quality/grid-correction-learning-panel.tsx: GridCorrectionLearningClient, GridCorrectionLearningPanel
 - features/model-quality/grid-correction-learning-state.ts: LearningCommand, learningCommandKey, readLearningCommand, clearLearningCommand, archiveLearningCommand, learningStatus, learningRole, learningActive, learningStage
 - features/model-quality/grid-history-recovery.tsx: GridHistoryRecovery
+- features/model-quality/grid-learning-material-summary.tsx: GridLearningTestSampleSummary, GridLearningMaterialSummary
 - features/model-quality/grid-model-comparison.tsx: GridModelComparison
 - features/model-quality/grid-model-evaluation-state.ts: GridModelEvaluationClient, evaluationVerdictLabels, evaluationDecisionLabels, currentnessLabels, comparisonMetrics, MetricChange, metricChange, formatMetric, PendingEvaluationCommand, evaluationCommand, needsCurrentnessCheck, evaluationFinished
 - features/model-quality/grid-model-state.ts: REASON_LABELS, reasonLabel, reasonList, MODE_LABELS, RUN_STATUS_LABELS, COHORT_STATUS_LABELS, shortDate, versionLabel, versionName, cohortLabel, runLabel, gameLabel, gameName, publishBlocker, PendingModelCommand, modelCommandKey, readModelCommand, saveModelCommand, clearModelCommand, answeredRefusal, COHORT_PAGE_LIMIT, RECORDING_PAGE_LIMIT, readAllPages

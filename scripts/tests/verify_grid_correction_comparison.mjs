@@ -72,15 +72,24 @@ for (const card of data) {
   for (const name of ['base', 'candidate']) {
     const model = proof.models[name];
     if (model.state !== 'available') continue;
-    assert.deepEqual(model.cells.map((cell) => cell.cellIndex), Array.from({ length: 15 }, (_, i) => i));
+    assert.deepEqual(
+      model.cells.map((cell) => cell.cellIndex),
+      Array.from({ length: 15 }, (_, i) => i),
+    );
     const available = model.cells.filter((cell) => cell.state === 'available');
-    assert.equal(new Set(available.map((cell) => cell.image)).size, available.length);
+    assert.equal(
+      new Set(available.map((cell) => cell.image)).size,
+      available.length,
+    );
     for (const cell of available) {
       const asset = path.resolve(path.dirname(file), cell.image);
       assert.ok(asset.startsWith(path.resolve(path.dirname(file)) + path.sep));
       const raw = fs.readFileSync(asset);
       assert.equal(raw.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
-      assert.equal(crypto.createHash('sha256').update(raw).digest('hex'), cell.pngFileSha256);
+      assert.equal(
+        crypto.createHash('sha256').update(raw).digest('hex'),
+        cell.pngFileSha256,
+      );
       assert.notEqual(cell.pngFileSha256, cell.renderedPixelSha256);
       rasterFiles.set(asset, raw);
     }
@@ -145,7 +154,11 @@ assert.equal(
   'framing preserves all geometry and provenance',
 );
 for (const [asset, bytes] of rasterFiles) {
-  assert.deepEqual(fs.readFileSync(asset), bytes, 'viewport preserves actual production PNG bytes');
+  assert.deepEqual(
+    fs.readFileSync(asset),
+    bytes,
+    'viewport preserves actual production PNG bytes',
+  );
 }
 elements.framing.value = 'context';
 elements.framing.handlers.change();
@@ -162,6 +175,32 @@ assert.equal(
   data.filter((row) => row.delta !== null && row.delta >= 1).length,
 );
 elements.filter.value = 'all';
+for (const state of ['improved', 'unchanged', 'degraded', 'unresolved']) {
+  elements.filter.value = state;
+  elements.filter.handlers.input();
+  assert.equal(
+    vm.runInContext('filtered().length', context),
+    data.filter((row) => (row.contentChange?.state ?? 'unresolved') === state)
+      .length,
+    `quality filter ${state} uses measured content rather than point displacement`,
+  );
+}
+assert.equal(
+  vm.runInContext(
+    "contentOutlines({humanReference:{state:'unavailable',cells:[{quad:[[0,0],[1,0],[1,1],[0,1]]}]}})",
+    context,
+  ),
+  '',
+  'missing approved reference never draws a content outline',
+);
+assert.match(
+  vm.runInContext(
+    "contentOutlines({humanReference:{state:'available',cells:[{quad:[[0,0],[1,0],[1,1],[0,1]]}]}})",
+    context,
+  ),
+  /<polygon/,
+);
+elements.filter.value = 'all';
 elements.filter.handlers.input();
 if (data.length > 12) {
   elements.next.handlers.click();
@@ -171,11 +210,23 @@ if (data.length > 12) {
 elements.lines.checked = false;
 elements.lines.handlers.change();
 assert.ok(hidden);
-const screenInput = vm.runInContext(`inputs({diagnostics:{base:{state:'available',stageLabel:'wejście ekranu',margin:null,image:'synthetic.png',tensorShape:[1,3,768,1024]}}})`, context);
+const screenInput = vm.runInContext(
+  `inputs({diagnostics:{base:{state:'available',stageLabel:'wejście ekranu',margin:null,image:'synthetic.png',tensorShape:[1,3,768,1024]}}})`,
+  context,
+);
 assert.match(screenInput, /wejście ekranu; Margin: nie dotyczy/);
 assert.doesNotMatch(screenInput, /Margin: 0\.15/);
-assert.match(vm.runInContext("productionCells({productionCells:{state:'unavailable',reason:'missing'}})", context), /Wycinki niedostępne: missing/);
-const flagged = vm.runInContext("cellCaption({assessment:{finalContentState:'preserved',wrongCell:true,tie:true,foreignFullSymbol:true}})", context);
+assert.match(
+  vm.runInContext(
+    "productionCells({productionCells:{state:'unavailable',reason:'missing'}})",
+    context,
+  ),
+  /Wycinki niedostępne: missing/,
+);
+const flagged = vm.runInContext(
+  "cellCaption({assessment:{finalContentState:'preserved',wrongCell:true,tie:true,foreignFullSymbol:true}})",
+  context,
+);
 assert.match(flagged, /obce pole/);
 assert.match(flagged, /remis/);
 assert.match(flagged, /pełny obcy symbol/);

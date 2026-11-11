@@ -55,8 +55,8 @@ export function GridContentOrdinary({
   readonly api: GridContentOrdinaryClient;
   readonly apiBaseUrl: string;
   readonly gameId: string;
-  readonly cohortId: string;
-  readonly manifestSha256: string;
+  readonly cohortId?: string;
+  readonly manifestSha256?: string;
   readonly target: ContentTargetResponse;
 }) {
   const [reference, setReference] = useState<ContentReferenceResponse | null>(
@@ -85,7 +85,7 @@ export function GridContentOrdinary({
           gameId,
           target.source.sourceId,
           target.positionIndex,
-          { cohortId, manifestSha256 },
+          cohortId && manifestSha256 ? { cohortId, manifestSha256 } : undefined,
         )
         .then((result) => {
           if (!active) return;
@@ -96,7 +96,15 @@ export function GridContentOrdinary({
                 'Nie udało się odczytać bieżących etykiet.',
               ),
             );
-          setReference(result.data);
+          setReference(
+            cohortId
+              ? result.data
+              : {
+                  annotation: result.data.annotation,
+                  contentReferenceSha256: result.data.contentReferenceSha256,
+                  revision: result.data.revision,
+                },
+          );
         })
         .catch((failure) => {
           if (active) setReadError(String(failure));
@@ -147,7 +155,10 @@ export function GridContentOrdinary({
       target.source.sourceRepresentativeSha256 &&
     annotation.source.width === target.source.width &&
     annotation.source.height === target.source.height;
-  const initialCells = sameTarget ? annotation.reference.cells : undefined;
+  const initialCells =
+    sameTarget && (cohortId || annotation.origin !== 'ai_proposal')
+      ? annotation.reference.cells
+      : undefined;
   const sourceReady =
     target.state === 'ready' &&
     target.sequenceNumber != null &&
@@ -243,12 +254,20 @@ export function GridContentOrdinary({
             sourceUrl={api.gridContentTargetSourceUrl(
               gameId,
               target.source.sourceId,
-              { cohortId, manifestSha256 },
+              cohortId && manifestSha256
+                ? { cohortId, manifestSha256 }
+                : {
+                    expectedSourceSha256: target.source.sourceSha256,
+                    expectedPixelSha256:
+                      target.source.sourceRepresentativeSha256,
+                  },
             )}
             width={target.source.width}
             height={target.source.height}
             initialCells={initialCells}
-            ordinaryPreview={reference.ordinaryPreview ?? undefined}
+            ordinaryPreview={
+              cohortId ? (reference.ordinaryPreview ?? undefined) : undefined
+            }
             disabled={control.blocked || reading}
             onChange={(c, _n, r) => {
               setCells(c);

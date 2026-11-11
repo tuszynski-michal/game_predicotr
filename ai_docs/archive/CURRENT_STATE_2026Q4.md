@@ -6,10 +6,17 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1185 — Panel i porównanie skutecznego uczenia (done)
+
+- Plik: `tasks/completed/1185-grid-effective-learning-panel.md`.
+- Commit: **v1.7.605** (hash dopisuje kolejny commit).
+- Pion learningMaterial/testSample z typowanymi roleShortfalls (bez 500), oznaczenia źródeł przed zamrożeniem, panel z czterema wynikami zawartości i HTML naprawione/bez zmian/pogorszone/nierozstrzygnięte.
+- Audyt Codex niewykonany — kontynuacja na polecenie operatora po wyczerpaniu limitu. Testy, build, openapi, Ruff i scoped mypy PASS; dane A operatora niewystarczające (brak 1 zdjęcia/11 plansz); bez treningu.
+
 ### TASK-1184 — Pełne uczenie i odbiór zawartości (done)
 
 - Plik: `tasks/completed/1184-grid-full-learning-admission.md`.
-- Commit: **v1.7.604** (hash dopisuje kolejny commit).
+- Commit: **v1.7.604 / `5b50244c5b060a1758923ed65f3ff102feef3aea`** (hash dopisuje kolejny commit).
 - Partial TRAIN tylko do geometrii (detektor/BatchNorm pełne), plany full-cell-v2, warunkowe R3 i pełny A ONNX przy eksporcie; stare plany bez zmian.
 - Kod Codex, przegląd i integracja Claude; audyt Codex niewykonany — kontynuacja na polecenie operatora po wyczerpaniu limitu. Testy T3 i powiązane PASS; bez treningu operatora.
 

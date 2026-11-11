@@ -8867,9 +8867,16 @@
         "additionalProperties": false,
         "properties": {
           "cohortId": {
-            "format": "uuid",
-            "title": "Cohortid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cohortid"
           },
           "gameId": {
             "format": "uuid",
@@ -8884,9 +8891,16 @@
             "type": "array"
           },
           "manifestSha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Manifestsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifestsha256"
           },
           "nextOffset": {
             "anyOf": [
@@ -8945,14 +8959,21 @@
             "type": "array"
           },
           "role": {
-            "enum": [
-              "TRAIN",
-              "A",
-              "B",
-              "REGRESSION"
+            "anyOf": [
+              {
+                "enum": [
+                  "TRAIN",
+                  "A",
+                  "B",
+                  "REGRESSION"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Role",
-            "type": "string"
+            "title": "Role"
           },
           "sequenceNumber": {
             "anyOf": [
@@ -15243,6 +15264,16 @@
             "title": "Importjobids",
             "type": "array"
           },
+          "learningMaterial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridLearningMaterial"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "limitations": {
             "items": {
               "type": "string"
@@ -15347,6 +15378,16 @@
             },
             "title": "Rolecounts",
             "type": "array"
+          },
+          "testSample": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridLearningTestSample"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "trainingMode": {
             "default": "grid-only",
@@ -16700,6 +16741,468 @@
           "files"
         ],
         "title": "GridInferenceManifest",
+        "type": "object"
+      },
+      "GridLearningMaterial": {
+        "additionalProperties": false,
+        "properties": {
+          "availableBoards": {
+            "minimum": 0.0,
+            "title": "Availableboards",
+            "type": "integer"
+          },
+          "availablePhotos": {
+            "minimum": 0.0,
+            "title": "Availablephotos",
+            "type": "integer"
+          },
+          "boardDeficit": {
+            "minimum": 0.0,
+            "title": "Boarddeficit",
+            "type": "integer"
+          },
+          "deficitsAreLowerBounds": {
+            "const": true,
+            "title": "Deficitsarelowerbounds",
+            "type": "boolean"
+          },
+          "excludedBoards": {
+            "minimum": 0.0,
+            "title": "Excludedboards",
+            "type": "integer"
+          },
+          "excludedPhotos": {
+            "minimum": 0.0,
+            "title": "Excludedphotos",
+            "type": "integer"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/GridLearningMaterialExclusion"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "historyModified": {
+            "const": false,
+            "title": "Historymodified",
+            "type": "boolean"
+          },
+          "minimumBasis": {
+            "const": "geometry-three-role-lower-bounds",
+            "title": "Minimumbasis",
+            "type": "string"
+          },
+          "minimumBoards": {
+            "minimum": 0.0,
+            "title": "Minimumboards",
+            "type": "integer"
+          },
+          "minimumPhotos": {
+            "minimum": 0.0,
+            "title": "Minimumphotos",
+            "type": "integer"
+          },
+          "photoDeficit": {
+            "minimum": 0.0,
+            "title": "Photodeficit",
+            "type": "integer"
+          },
+          "roleShortfalls": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridLearningRoleShortfalls"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "roles": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GridLearningRoleMaterial"
+            },
+            "title": "Roles",
+            "type": "object"
+          },
+          "version": {
+            "const": "effective-grid-learning-material-v1",
+            "title": "Version",
+            "type": "string"
+          },
+          "weights": {
+            "$ref": "#/components/schemas/GridLearningWeights"
+          }
+        },
+        "required": [
+          "version",
+          "weights",
+          "roles",
+          "exclusions",
+          "excludedPhotos",
+          "excludedBoards",
+          "availablePhotos",
+          "availableBoards",
+          "minimumPhotos",
+          "minimumBoards",
+          "minimumBasis",
+          "photoDeficit",
+          "boardDeficit",
+          "deficitsAreLowerBounds",
+          "historyModified"
+        ],
+        "title": "GridLearningMaterial",
+        "type": "object"
+      },
+      "GridLearningMaterialExclusion": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "minimum": 0.0,
+            "title": "Boards",
+            "type": "integer"
+          },
+          "componentKey": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Componentkey",
+            "type": "string"
+          },
+          "importIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Importids",
+            "type": "array"
+          },
+          "labelledPhotos": {
+            "minimum": 0.0,
+            "title": "Labelledphotos",
+            "type": "integer"
+          },
+          "orderingMethods": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "title": "Orderingmethods",
+            "type": "object"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          },
+          "priorPurposes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Priorpurposes",
+            "type": "array"
+          },
+          "priorRoles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Priorroles",
+            "type": "array"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "sourceIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Sourceids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "componentKey",
+          "sourceIds",
+          "importIds",
+          "photos",
+          "labelledPhotos",
+          "boards",
+          "priorRoles",
+          "priorPurposes",
+          "reasonCodes",
+          "orderingMethods"
+        ],
+        "title": "GridLearningMaterialExclusion",
+        "type": "object"
+      },
+      "GridLearningRoleMaterial": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "minimum": 0.0,
+            "title": "Boards",
+            "type": "integer"
+          },
+          "correctedBoards": {
+            "minimum": 0.0,
+            "title": "Correctedboards",
+            "type": "integer"
+          },
+          "correctedPhotos": {
+            "minimum": 0.0,
+            "title": "Correctedphotos",
+            "type": "integer"
+          },
+          "goodBoards": {
+            "minimum": 0.0,
+            "title": "Goodboards",
+            "type": "integer"
+          },
+          "goodPhotos": {
+            "minimum": 0.0,
+            "title": "Goodphotos",
+            "type": "integer"
+          },
+          "photoCategoriesMayOverlap": {
+            "const": true,
+            "title": "Photocategoriesmayoverlap",
+            "type": "boolean"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          },
+          "unknownBoards": {
+            "minimum": 0.0,
+            "title": "Unknownboards",
+            "type": "integer"
+          },
+          "unknownPhotos": {
+            "minimum": 0.0,
+            "title": "Unknownphotos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "correctedBoards",
+          "goodBoards",
+          "unknownBoards",
+          "correctedPhotos",
+          "goodPhotos",
+          "unknownPhotos",
+          "photos",
+          "boards",
+          "photoCategoriesMayOverlap"
+        ],
+        "title": "GridLearningRoleMaterial",
+        "type": "object"
+      },
+      "GridLearningRoleShortfall": {
+        "additionalProperties": false,
+        "properties": {
+          "boardDeficit": {
+            "minimum": 0.0,
+            "title": "Boarddeficit",
+            "type": "integer"
+          },
+          "boards": {
+            "minimum": 0.0,
+            "title": "Boards",
+            "type": "integer"
+          },
+          "minimumBoards": {
+            "minimum": 0.0,
+            "title": "Minimumboards",
+            "type": "integer"
+          },
+          "minimumPhotos": {
+            "minimum": 0.0,
+            "title": "Minimumphotos",
+            "type": "integer"
+          },
+          "photoDeficit": {
+            "minimum": 0.0,
+            "title": "Photodeficit",
+            "type": "integer"
+          },
+          "photos": {
+            "minimum": 0.0,
+            "title": "Photos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "photos",
+          "boards",
+          "minimumPhotos",
+          "minimumBoards",
+          "photoDeficit",
+          "boardDeficit"
+        ],
+        "title": "GridLearningRoleShortfall",
+        "type": "object"
+      },
+      "GridLearningRoleShortfalls": {
+        "additionalProperties": false,
+        "description": "Exact deficits of the protected role assignment reached before infeasibility.",
+        "properties": {
+          "basis": {
+            "const": "protected-roles-before-infeasibility",
+            "title": "Basis",
+            "type": "string"
+          },
+          "roles": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GridLearningRoleShortfall"
+            },
+            "title": "Roles",
+            "type": "object"
+          }
+        },
+        "required": [
+          "basis",
+          "roles"
+        ],
+        "title": "GridLearningRoleShortfalls",
+        "type": "object"
+      },
+      "GridLearningTestSample": {
+        "additionalProperties": false,
+        "properties": {
+          "annotationSourceIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Annotationsourceids",
+            "type": "array"
+          },
+          "baseVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseversionid"
+          },
+          "categoryCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Categorycounts",
+            "type": "object"
+          },
+          "hardContentPhotos": {
+            "minimum": 0.0,
+            "title": "Hardcontentphotos",
+            "type": "integer"
+          },
+          "hardGeometryPhotos": {
+            "minimum": 0.0,
+            "title": "Hardgeometryphotos",
+            "type": "integer"
+          },
+          "missingContentSources": {
+            "minimum": 0.0,
+            "title": "Missingcontentsources",
+            "type": "integer"
+          },
+          "ordinaryContentPhotos": {
+            "minimum": 0.0,
+            "title": "Ordinarycontentphotos",
+            "type": "integer"
+          },
+          "ordinaryGeometryPhotos": {
+            "minimum": 0.0,
+            "title": "Ordinarygeometryphotos",
+            "type": "integer"
+          },
+          "reasonCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Reasoncounts",
+            "type": "object"
+          },
+          "seed": {
+            "const": 20261108,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "ready",
+              "not_evaluable"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "unknownReferencePhotos": {
+            "minimum": 0.0,
+            "title": "Unknownreferencephotos",
+            "type": "integer"
+          },
+          "unrepresentedCategories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unrepresentedcategories",
+            "type": "array"
+          },
+          "version": {
+            "const": "effective-grid-test-sample-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "seed",
+          "state",
+          "baseVersionId",
+          "ordinaryGeometryPhotos",
+          "ordinaryContentPhotos",
+          "hardGeometryPhotos",
+          "hardContentPhotos",
+          "missingContentSources",
+          "annotationSourceIds",
+          "unknownReferencePhotos",
+          "categoryCounts",
+          "unrepresentedCategories",
+          "reasonCounts"
+        ],
+        "title": "GridLearningTestSample",
+        "type": "object"
+      },
+      "GridLearningWeights": {
+        "additionalProperties": false,
+        "properties": {
+          "corrected": {
+            "const": 4,
+            "title": "Corrected",
+            "type": "integer"
+          },
+          "good": {
+            "const": 1,
+            "title": "Good",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "corrected",
+          "good"
+        ],
+        "title": "GridLearningWeights",
         "type": "object"
       },
       "GridModelArtifact": {
@@ -58852,21 +59355,57 @@
           {
             "in": "query",
             "name": "cohortId",
-            "required": true,
+            "required": false,
             "schema": {
-              "format": "uuid",
-              "title": "Cohortid",
-              "type": "string"
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cohortid"
             }
           },
           {
             "in": "query",
             "name": "manifestSha256",
-            "required": true,
+            "required": false,
             "schema": {
-              "pattern": "^[0-9a-f]{64}$",
-              "title": "Manifestsha256",
-              "type": "string"
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Manifestsha256"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sourceIds",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "maxItems": 20,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sourceids"
             }
           },
           {
@@ -58978,21 +59517,69 @@
           {
             "in": "query",
             "name": "cohortId",
-            "required": true,
+            "required": false,
             "schema": {
-              "format": "uuid",
-              "title": "Cohortid",
-              "type": "string"
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cohortid"
             }
           },
           {
             "in": "query",
             "name": "manifestSha256",
-            "required": true,
+            "required": false,
             "schema": {
-              "pattern": "^[0-9a-f]{64}$",
-              "title": "Manifestsha256",
-              "type": "string"
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Manifestsha256"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedSourceSha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expectedsourcesha256"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedPixelSha256",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expectedpixelsha256"
             }
           }
         ],

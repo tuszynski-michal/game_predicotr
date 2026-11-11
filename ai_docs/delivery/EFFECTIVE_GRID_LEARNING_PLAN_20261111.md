@@ -10,7 +10,9 @@ Operator zaakceptował pełne T1–T4, koszt6–10h, testy i osobne audyty Opus
 przez terminal. Na końcu wymagane pytanie o scalenie. Bez zgody na nowy
 trening operatora, wdrożenie, migracje operatora ani zmianę defaultu.
 
-T1: kod i audyt Opus R2 PASS, v1.7.602; T2–T4 w realizacji. Historyczny model nadal REVISE.
+T1: kod i audyt Opus R2 PASS, v1.7.602. T2 v1.7.603, T3 v1.7.604, T4 v1.7.605
+zamknięte lokalnie; audyty Codex T2–T4 niewykonane (polecenie operatora po
+wyczerpaniu limitu). Dane A operatora niewystarczające. Historyczny model nadal REVISE.
 
 ## Cel
 

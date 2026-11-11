@@ -72,13 +72,32 @@ def create_grid_cell_content_router(dependency: Callable[..., object]) -> APIRou
         response_model=ContentTargetPage,
     )
     def targets(
+        request: Request,
+        response: Response,
         game_id: UUID,
-        cohort_id: Annotated[UUID, Query(alias="cohortId")],
-        manifest_sha256: Annotated[str, Query(alias="manifestSha256", pattern=r"^[0-9a-f]{64}$")],
         service: Annotated[OperationalImageReviewService, parameter],
+        cohort_id: Annotated[UUID | None, Query(alias="cohortId")] = None,
+        manifest_sha256: Annotated[
+            str | None, Query(alias="manifestSha256", pattern=r"^[0-9a-f]{64}$")
+        ] = None,
+        source_ids: Annotated[
+            list[UUID] | None, Query(alias="sourceIds", min_length=1, max_length=20)
+        ] = None,
         limit: int = Query(default=20, ge=1, le=50),
         offset: int = Query(default=0, ge=0),
     ) -> Any:
+        response.headers["Cache-Control"] = "no-store"
+        if source_ids is not None:
+            if cohort_id is not None or manifest_sha256 is not None:
+                raise ContentError("CONTENT_TARGET_PINS_CONFLICT", "Choose one target scope.", 422)
+            actor(request)
+            return invoke(
+                lambda: repo(service).list_source_targets(game_id, source_ids, limit, offset)
+            )
+        if cohort_id is None or manifest_sha256 is None:
+            raise ContentError(
+                "CONTENT_TARGET_PINS_REQUIRED", "Choose sources or exact cohort pins.", 422
+            )
         return invoke(
             lambda: repo(service).list_targets(game_id, cohort_id, manifest_sha256, limit, offset)
         )
@@ -89,17 +108,44 @@ def create_grid_cell_content_router(dependency: Callable[..., object]) -> APIRou
         response_class=FileResponse,
     )
     def target_asset(
+        request: Request,
         game_id: UUID,
         source_id: UUID,
-        cohort_id: Annotated[UUID, Query(alias="cohortId")],
-        manifest_sha256: Annotated[str, Query(alias="manifestSha256", pattern=r"^[0-9a-f]{64}$")],
         service: Annotated[OperationalImageReviewService, parameter],
+        cohort_id: Annotated[UUID | None, Query(alias="cohortId")] = None,
+        manifest_sha256: Annotated[
+            str | None, Query(alias="manifestSha256", pattern=r"^[0-9a-f]{64}$")
+        ] = None,
+        expected_source: Annotated[
+            str | None, Query(alias="expectedSourceSha256", pattern=r"^[0-9a-f]{64}$")
+        ] = None,
+        expected_pixel: Annotated[
+            str | None, Query(alias="expectedPixelSha256", pattern=r"^[0-9a-f]{64}$")
+        ] = None,
     ) -> FileResponse:
-        path = invoke(
-            lambda: repo(service).target_source_asset(
-                game_id, cohort_id, manifest_sha256, source_id
+        if expected_source is not None or expected_pixel is not None:
+            if cohort_id is not None or manifest_sha256 is not None:
+                raise ContentError("CONTENT_TARGET_PINS_CONFLICT", "Choose one asset scope.", 422)
+            if expected_source is None or expected_pixel is None:
+                raise ContentError(
+                    "CONTENT_TARGET_PINS_REQUIRED", "Both source checksums are required.", 422
+                )
+            actor(request)
+            path = invoke(
+                lambda: repo(service).annotation_source_asset(
+                    game_id, source_id, expected_source, expected_pixel
+                )
             )
-        )
+        else:
+            if cohort_id is None or manifest_sha256 is None:
+                raise ContentError(
+                    "CONTENT_TARGET_PINS_REQUIRED", "Exact cohort pins are required.", 422
+                )
+            path = invoke(
+                lambda: repo(service).target_source_asset(
+                    game_id, cohort_id, manifest_sha256, source_id
+                )
+            )
         return FileResponse(
             path,
             media_type="image/jpeg",

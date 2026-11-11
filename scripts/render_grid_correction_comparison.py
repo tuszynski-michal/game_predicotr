@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 for source_directory in ("services/api/src", "services/worker/src"):
     sys.path.insert(0, str(ROOT / source_directory))
 
+from game_predictor_worker.images.comparison_content_changes import content_change  # noqa: E402
 from game_predictor_worker.images.comparison_input_diagnostics import (  # noqa: E402
     diagnostic_inputs,
 )
@@ -91,6 +92,9 @@ def render(root: Path, *, artifact_root: Path | None = None) -> Path:
             {
                 "sequence": board["sequence_number"],
                 "productionCells": crops,
+                "contentChange": content_change(crops),
+                "reference": crops.get("referenceNodes"),
+                "humanReference": crops.get("humanReference"),
                 "diagnostics": diagnostics,
                 "boardId": board["id"],
                 "position": position,

@@ -197,7 +197,95 @@ class GridTrainingRecommendation(CorrectionLearningClosedModel):
     reasonCodes: list[str]
 
 
+class GridLearningRoleMaterial(CorrectionLearningClosedModel):
+    correctedBoards: int = Field(ge=0)
+    goodBoards: int = Field(ge=0)
+    unknownBoards: int = Field(ge=0)
+    correctedPhotos: int = Field(ge=0)
+    goodPhotos: int = Field(ge=0)
+    unknownPhotos: int = Field(ge=0)
+    photos: int = Field(ge=0)
+    boards: int = Field(ge=0)
+    photoCategoriesMayOverlap: Literal[True]
+
+
+class GridLearningMaterialExclusion(CorrectionLearningClosedModel):
+    componentKey: Sha256
+    sourceIds: list[UUID]
+    importIds: list[UUID]
+    photos: int = Field(ge=0)
+    labelledPhotos: int = Field(ge=0)
+    boards: int = Field(ge=0)
+    priorRoles: list[str]
+    priorPurposes: list[str]
+    reasonCodes: list[str]
+    orderingMethods: dict[UUID, str]
+
+
+class GridLearningWeights(CorrectionLearningClosedModel):
+    corrected: Literal[4]
+    good: Literal[1]
+
+
+class GridLearningRoleShortfall(CorrectionLearningClosedModel):
+    photos: int = Field(ge=0)
+    boards: int = Field(ge=0)
+    minimumPhotos: int = Field(ge=0)
+    minimumBoards: int = Field(ge=0)
+    photoDeficit: int = Field(ge=0)
+    boardDeficit: int = Field(ge=0)
+
+
+class GridLearningRoleShortfalls(CorrectionLearningClosedModel):
+    """Exact deficits of the protected role assignment reached before infeasibility."""
+
+    basis: Literal["protected-roles-before-infeasibility"]
+    roles: dict[str, GridLearningRoleShortfall]
+
+
+class GridLearningMaterial(CorrectionLearningClosedModel):
+    version: Literal["effective-grid-learning-material-v1"]
+    weights: GridLearningWeights
+    roles: dict[str, GridLearningRoleMaterial]
+    exclusions: list[GridLearningMaterialExclusion]
+    excludedPhotos: int = Field(ge=0)
+    excludedBoards: int = Field(ge=0)
+    availablePhotos: int = Field(ge=0)
+    availableBoards: int = Field(ge=0)
+    minimumPhotos: int = Field(ge=0)
+    minimumBoards: int = Field(ge=0)
+    minimumBasis: Literal["geometry-three-role-lower-bounds"]
+    photoDeficit: int = Field(ge=0)
+    boardDeficit: int = Field(ge=0)
+    deficitsAreLowerBounds: Literal[True]
+    historyModified: Literal[False]
+    roleShortfalls: GridLearningRoleShortfalls | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
+
+
+class GridLearningTestSample(CorrectionLearningClosedModel):
+    version: Literal["effective-grid-test-sample-v1"]
+    seed: Literal[20261108]
+    state: Literal["ready", "not_evaluable"]
+    baseVersionId: UUID | None
+    ordinaryGeometryPhotos: int = Field(ge=0)
+    ordinaryContentPhotos: int = Field(ge=0)
+    hardGeometryPhotos: int = Field(ge=0)
+    hardContentPhotos: int = Field(ge=0)
+    missingContentSources: int = Field(ge=0)
+    annotationSourceIds: list[UUID]
+    unknownReferencePhotos: int = Field(ge=0)
+    categoryCounts: dict[str, int]
+    unrepresentedCategories: list[str]
+    reasonCounts: dict[str, int]
+
+
 class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
+    testSample: GridLearningTestSample | None = Field(None, exclude_if=lambda value: value is None)
+    learningMaterial: GridLearningMaterial | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
     trainingRecommendation: GridTrainingRecommendation | None = Field(
         None, exclude_if=lambda value: value is None
     )

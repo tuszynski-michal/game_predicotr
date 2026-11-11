@@ -6,6 +6,35 @@ last_updated: 2026-11-11
 
 # Architektura laboratorium wizji
 
+## Effective learning panel and comparison (TASK-1185, D-602)
+
+`GridCorrectionLearningService` projects the v4 split's `learningMaterial` and,
+through `domain/grid_learning_sample_view.learning_test_sample`, the existing
+`stratified-fresh-content-regression-v2` report into optional closed
+`GridLearningMaterial`/`GridLearningTestSample` fields. Preparation errors carry
+the same projections; solver `role_counts` become typed
+`GridLearningRoleShortfalls`, so an infeasible split is a blocker, not a 500.
+No new registry, ledger or automatic assignment exists; legacy responses omit
+the fields and claim no coverage.
+
+`storage/grid_cell_content_targets.list_source_targets` and
+`annotation_source_asset` add a pre-freeze source scope to the existing
+content-target reader. `require_source_annotation_access` reuses the split's
+purpose-aware closure (`grid_correction_split.contexts`), the blind-copy aliases
+and `protected_source`; caller IDs are never authority and protected controls
+keep their frozen target route. Assets are served only after the canonical
+decoder matches the expected source/pixel checksums. Writes keep the ordinary
+CAS command; frozen roles are captured later by the existing register/freeze.
+
+The Admin panel derives a read-only `contentOutcome` from the persisted v6
+verdict: PASS → improvement, NOT_EVALUABLE → not-evaluable, REVISE with any
+`*_REGRESSED:*` reason or degraded instance → regression, other REVISE → no
+improvement. `images/comparison_content_changes.content_change` classifies a
+paired board from verified production-cell assessments of both models;
+any new damage makes the board degraded and any unknown cell prevents an
+improved/unchanged claim. The renderer embeds the frozen human nodes and the
+verified `humanReference` outlines from the existing content reader.
+
 ## Effective content training and full-A export (TASK-1184, D-602)
 
 New content runs retain the existing experiment, trainer and role ledger. The
@@ -1865,4 +1894,5 @@ Alembic0184 creates `recording_photo_cohort_v4`, private
 historical functions byte-identical. v7 routes register, validate and
 `bind_existing_report` of effective-material cohorts to v4/bind v5. Private helpers retain capability-only
 permissions. Exclusions append neither new role nor release evidence; downgrade
-refuses any new-policy cohort history. Public reporting is implemented by TASK-1185.
+refuses any new-policy cohort history. Public reporting is described in the
+TASK-1185 section above.

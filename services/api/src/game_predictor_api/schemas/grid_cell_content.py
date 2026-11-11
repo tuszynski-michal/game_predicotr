@@ -153,7 +153,7 @@ class ContentTargetResponse(VisibilityClosed):
     displayName: str | None = None
     positionIndex: Annotated[int, Field(strict=True, ge=0, le=8)]
     sequenceNumber: Annotated[int, Field(strict=True, ge=1)] | None
-    role: Literal["TRAIN", "A", "B", "REGRESSION"]
+    role: Literal["TRAIN", "A", "B", "REGRESSION"] | None
     state: Literal["ready", "unresolved"]
     reasonCodes: list[str]
 
@@ -161,8 +161,8 @@ class ContentTargetResponse(VisibilityClosed):
 class ContentTargetPage(VisibilityClosed):
     version: Literal["source-cell-content-targets-v1"] = "source-cell-content-targets-v1"
     gameId: UUID
-    cohortId: UUID
-    manifestSha256: Sha
+    cohortId: UUID | None
+    manifestSha256: Sha | None
     items: list[ContentTargetResponse]
     nextOffset: Annotated[int, Field(ge=0)] | None
 

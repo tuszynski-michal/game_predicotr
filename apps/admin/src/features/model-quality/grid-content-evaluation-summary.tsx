@@ -9,6 +9,37 @@ type ContentReport = Extract<
   { schemaVersion: 'grid-model-evaluation-read-v6' }
 >;
 
+export type ContentOutcome =
+  'improvement' | 'no-improvement' | 'regression' | 'not-evaluable';
+
+/**
+ * Read-only projection of the persisted content-v6 verdict. A regression of any
+ * measurement dominates; a missing usable-board gain alone is no improvement.
+ */
+export function contentOutcome(report: ContentReport): ContentOutcome {
+  if (report.verdict === 'NOT_EVALUABLE') return 'not-evaluable';
+  if (report.verdict === 'PASS') return 'improvement';
+  const regressed =
+    report.games.some((game) =>
+      game.reasons.some((reason) => reason.includes('_REGRESSED:')),
+    ) ||
+    report.contentEvaluation.some((game) =>
+      Object.values(game.roles).some((role) => role.degradedInstances > 0),
+    );
+  return regressed ? 'regression' : 'no-improvement';
+}
+
+const outcomeLabels: Record<ContentOutcome, string> = {
+  improvement:
+    'Poprawa — kandydat spełnia bramkę zawartości bez nowych uszkodzeń.',
+  'no-improvement':
+    'Brak poprawy — nie wykryto pogorszenia, ale kandydat nie dał wymaganego zysku.',
+  regression:
+    'Pogorszenie — co najmniej jeden pomiar lub symbol jest gorszy niż w bazie.',
+  'not-evaluable':
+    'Nie da się ocenić — brakuje pełnych, aktualnych danych odniesienia.',
+};
+
 export function GridContentEvaluationSummary({
   report,
   games,
@@ -19,6 +50,7 @@ export function GridContentEvaluationSummary({
   return (
     <section aria-label="Ocena końcowych wycinków symboli">
       <h4>Zawartość końcowych wycinków: {report.verdict}</h4>
+      <p>Wynik: {outcomeLabels[contentOutcome(report)]}</p>
       <p>
         To wynik rzeczywistych wycinków klasyfikatora. Kompletność wejścia sieci
         geometrii jest oceniana osobno. Szerszy podgląd zdjęcia nie zmienia

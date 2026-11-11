@@ -6,6 +6,32 @@ last_updated: 2026-11-11
 
 # Laboratorium wizji
 
+## Panel i porównanie skutecznego uczenia (TASK-1185, D-602)
+
+Panel uczenia pokazuje osobno korekty i dobre przykłady w puli „Do nauki” oraz
+kontrole A/B, końcowy test, chronione odstępy i wykluczone grupy. Braki danych
+są dolnymi granicami; gdy chronionego podziału nie da się zbudować, panel podaje
+dokładne niedobory każdej roli i nie luzuje podziału. Przycisk „Przygotuj nowy
+podział korekt” wyłącznie wywołuje podgląd v4; uczenie startuje dopiero osobnym
+przyciskiem z tymi samymi pinami. Opis celu odróżnia uczenie punktów,
+detektor z punktami i pełne uczenie z oceną całych symboli; brak danych nie
+przełącza pełnego uczenia na starszy tryb.
+
+Próbka końcowego testu pokazuje osobno zwykłe i trudne zdjęcia, brakujące
+oznaczenia i niereprezentowane kategorie. „Oznacz zdjęcia do testu” otwiera
+zwykły edytor tylko dla wskazanych zdjęć przed zamrożeniem ról; kontrole i
+ślepy pomiar pozostają chronione. Wynik zawartości ma cztery stany: poprawa,
+brak poprawy, pogorszenie i niemożliwa ocena; pogorszenie dowolnego pomiaru
+lub symbolu dominuje nad brakiem zysku. Ujawniony REG pozostaje historyczną
+kontrolą; kolejna świeża ocena wymaga nowej zamrożonej partii.
+
+HTML porównania grupuje plansze na naprawione, bez zmian, pogorszone i
+nierozstrzygnięte wyłącznie na podstawie zweryfikowanych ocen rzeczywistych
+15 wycinków. Naprawa jednego symbolu nie ukrywa uszkodzenia innego, a brak
+odniesienia nie jest sukcesem. Zamrożone odniesienie człowieka (siatka i
+zatwierdzone obrysy) jest osobnym widokiem obok zapisanego cięcia, bazy i
+kandydata. Ręczne korekty i historyczne dane pozostają bez zmian.
+
 ## Skuteczne pełne uczenie (TASK-1184, D-602)
 
 Nowe pełne uczenie przypina pełne pole0% i aktualną wersję bazy wraz z rewizjami.

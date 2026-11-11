@@ -188,6 +188,108 @@ def start_body() -> dict[str, Any]:
     return {"idempotencyKey": str(UUID(int=20)), "previewSha256": "c" * 64}
 
 
+def test_counted_learning_material_survives_blocked_readiness_http_without_role_mutation(tmp_path):
+    service = Service()
+    material = {
+        "version": "effective-grid-learning-material-v1",
+        "weights": {"corrected": 4, "good": 1},
+        "roles": {
+            "TRAIN": {
+                "correctedBoards": 12,
+                "goodBoards": 3,
+                "unknownBoards": 0,
+                "correctedPhotos": 2,
+                "goodPhotos": 1,
+                "unknownPhotos": 0,
+                "photos": 2,
+                "boards": 15,
+                "photoCategoriesMayOverlap": True,
+            }
+        },
+        "exclusions": [
+            {
+                "componentKey": "d" * 64,
+                "sourceIds": [str(OTHER)],
+                "importIds": [str(IMPORT)],
+                "photos": 1,
+                "labelledPhotos": 1,
+                "boards": 9,
+                "priorRoles": ["TRAIN", "VALIDATION"],
+                "priorPurposes": [],
+                "reasonCodes": ["GRID_CORRECTION_PROTECTION_CONFLICT"],
+                "orderingMethods": {str(IMPORT): "indivisible-import-v1"},
+            }
+        ],
+        "excludedPhotos": 1,
+        "excludedBoards": 9,
+        "availablePhotos": 2,
+        "availableBoards": 15,
+        "minimumPhotos": 20,
+        "minimumBoards": 60,
+        "minimumBasis": "geometry-three-role-lower-bounds",
+        "photoDeficit": 18,
+        "boardDeficit": 45,
+        "deficitsAreLowerBounds": True,
+        "historyModified": False,
+    }
+    service.preview_result.update(
+        learningMaterial=deepcopy(material),
+        canStart=False,
+        blockers=["GRID_CORRECTION_TOO_FEW_DATA"],
+    )
+    with TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345)) as client:
+        response = client.get(f"{PATH}/ready")
+    assert response.status_code == 200
+    assert response.json()["learningMaterial"] == material
+    assert response.json()["canStart"] is False
+    assert service.calls == [("ready", (GAME,))]
+
+
+def test_infeasible_material_role_shortfalls_roundtrip_from_the_domain_report(tmp_path):
+    # T2 attaches exact per-role deficits to an infeasible split; the closed public
+    # schema must carry them instead of failing response validation.
+    from game_predictor_api.domain.grid_correction_split import CorrectionRoleCount
+    from game_predictor_api.domain.grid_learning_material import role_shortfalls
+
+    service = Service()
+    shortfalls = role_shortfalls(
+        (
+            CorrectionRoleCount("TRAIN", 159, 271),
+            CorrectionRoleCount("VALIDATION", 4, 4),
+            CorrectionRoleCount("REGRESSION", 13, 21),
+        )
+    )
+    material = {
+        "version": "effective-grid-learning-material-v1",
+        "weights": {"corrected": 4, "good": 1},
+        "roles": {},
+        "exclusions": [],
+        "excludedPhotos": 0,
+        "excludedBoards": 0,
+        "availablePhotos": 185,
+        "availableBoards": 308,
+        "minimumPhotos": 20,
+        "minimumBoards": 60,
+        "minimumBasis": "geometry-three-role-lower-bounds",
+        "photoDeficit": 0,
+        "boardDeficit": 0,
+        "deficitsAreLowerBounds": True,
+        "historyModified": False,
+        "roleShortfalls": shortfalls,
+    }
+    service.preview_result.update(
+        learningMaterial=deepcopy(material),
+        canStart=False,
+        blockers=["GRID_CORRECTION_SPLIT_INFEASIBLE"],
+    )
+    with TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345)) as client:
+        response = client.get(f"{PATH}/ready")
+    assert response.status_code == 200
+    body = response.json()["learningMaterial"]
+    assert body == material
+    assert body["roleShortfalls"]["roles"]["VALIDATION"]["photoDeficit"] == 1
+
+
 def test_recommended_ready_is_explicit_read_only_opt_in_and_roundtrips_reason(tmp_path):
     service = Service()
     with TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345)) as client:
@@ -601,6 +703,8 @@ def test_openapi_has_eight_operations_and_closed_preview_view_schemas(tmp_path: 
                 "contentExperimentReadiness",
                 "trainingRecommendation",
                 "partialTrainingPhotos",
+                "learningMaterial",
+                "testSample",
             }
             if name == "GridCorrectionLearningPreview"
             else {"contentExperiment", "contentExperimentPlanSha256"}

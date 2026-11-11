@@ -14,6 +14,12 @@ from game_predictor_api.schemas.grid_cell_content import (
 
 
 class ContentRepository(Protocol):
+    def list_source_targets(
+        self, game: UUID, sources: list[UUID], limit: int, offset: int
+    ) -> dict[str, Any]: ...
+    def annotation_source_asset(
+        self, game: UUID, source: UUID, expected_source: str, expected_pixel: str
+    ) -> Path: ...
     def list_targets(
         self, game: UUID, cohort: UUID, manifest: str, limit: int, offset: int
     ) -> dict[str, Any]: ...

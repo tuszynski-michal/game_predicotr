@@ -481,6 +481,15 @@ def test_existing_cli_cold_process_uses_sink_and_preserves_files_and_verdict(fil
         cards = json.loads((root / "comparison-data.json").read_bytes())
         assert cards[0]["paired"] is True  # One detection is enough only with genuine T3 proof.
         assert cards[0]["productionCells"]["state"] == "available"
+        assert len(cards[0]["reference"]) == 24
+        assert cards[0]["humanReference"]["state"] == "available"
+        assert len(cards[0]["humanReference"]["cells"]) == 15
+        assert cards[0]["contentChange"]["state"] in {
+            "improved",
+            "unchanged",
+            "degraded",
+            "unresolved",
+        }
         diagnostic = cards[0]["diagnostics"]["candidate"]
         assert diagnostic["state"] == "available"
         assert diagnostic["schemaVersion"] == "frozen-a-neural-input-content-v1"

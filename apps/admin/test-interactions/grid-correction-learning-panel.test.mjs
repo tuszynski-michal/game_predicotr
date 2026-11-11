@@ -13,6 +13,8 @@ const { GridCorrectionLearningPanel } =
   await import('../src/features/model-quality/grid-correction-learning-panel.tsx');
 const { learningCommandKey } =
   await import('../src/features/model-quality/grid-correction-learning-state.ts');
+const { contentOutcome } =
+  await import('../src/features/model-quality/grid-content-evaluation-summary.tsx');
 const GAME = '11111111-1111-4111-8111-111111111111',
   OTHER = '22222222-2222-4222-8222-222222222222',
   RUN = '33333333-3333-4333-8333-333333333333';
@@ -171,7 +173,7 @@ function fixture(overrides = {}) {
   );
   return { api, calls };
 }
-async function mount(api, saved = {}, gameId = GAME) {
+async function mount(api, saved = {}, gameId = GAME, extraProps = {}) {
   const dom = new JSDOM('<div id="root"></div>', {
     url: 'http://127.0.0.1:3000',
   });
@@ -194,6 +196,7 @@ async function mount(api, saved = {}, gameId = GAME) {
         apiBaseUrl,
         gameId,
         client: api,
+        ...extraProps,
       }),
     ),
   );
@@ -206,6 +209,250 @@ async function mount(api, saved = {}, gameId = GAME) {
     },
   };
 }
+
+test('blocked learning shows counted corrections and exclusions without creating a run', async () => {
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        canStart: false,
+        blockers: ['GRID_CORRECTION_TOO_FEW_DATA'],
+        testSample: {
+          ordinaryGeometryPhotos: 5,
+          ordinaryContentPhotos: 2,
+          hardGeometryPhotos: 3,
+          hardContentPhotos: 0,
+          missingContentSources: 3,
+          unknownReferencePhotos: 4,
+          state: 'not_evaluable',
+          unrepresentedCategories: ['missing-row'],
+        },
+        learningMaterial: {
+          availableBoards: 15,
+          availablePhotos: 2,
+          photoDeficit: 18,
+          boardDeficit: 45,
+          excludedPhotos: 7,
+          excludedBoards: 14,
+          roles: {
+            TRAIN: {
+              correctedBoards: 12,
+              goodBoards: 3,
+              unknownBoards: 0,
+              boards: 15,
+              photos: 2,
+            },
+          },
+          exclusions: [
+            {
+              componentKey: 'd'.repeat(64),
+              photos: 7,
+              boards: 14,
+              priorRoles: ['TRAIN', 'VALIDATION'],
+              importIds: ['protected-import'],
+              reasonCodes: ['GRID_CORRECTION_PROTECTION_CONFLICT'],
+            },
+          ],
+        },
+      },
+    }),
+  });
+  const screen = await mount(api);
+  try {
+    assert.match(
+      document.body.textContent,
+      /12 poprawionych, 3 sprawdzonych dobrych/,
+    );
+    assert.match(document.body.textContent, /Wyłączono 7 zdjęć i 14 plansz/);
+    assert.match(document.body.textContent, /co najmniej 18 zdjęć i 45 plansz/);
+    assert.match(document.body.textContent, /Detektor plansz jest zamrożony/);
+    assert.match(
+      document.body.textContent,
+      /Zwykłe przypadki: 5 pełnych zdjęć, 2 z oznaczoną zawartością/,
+    );
+    assert.match(document.body.textContent, /Brak danych do końcowej oceny/);
+    assert.match(
+      document.body.textContent,
+      /Nie sprawdzono jeszcze: pominięty rząd/,
+    );
+    assertOnlyReads(calls);
+  } finally {
+    await screen.close();
+  }
+});
+
+test('annotate-for-test opens the source workspace through the annotation client only', async () => {
+  const ids = [
+    '00000000-0000-4000-8000-000000000001',
+    '00000000-0000-4000-8000-000000000002',
+  ];
+  const annotationCalls = [];
+  const annotationClient = {
+    listGridContentTargets: async (game, filters) => {
+      annotationCalls.push([game, filters]);
+      return {
+        data: {
+          gameId: game,
+          cohortId: null,
+          manifestSha256: null,
+          items: [],
+          nextOffset: null,
+        },
+      };
+    },
+  };
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        canStart: false,
+        blockers: ['CONTENT_REG_FULL_LABELS_MISSING'],
+        testSample: {
+          ordinaryGeometryPhotos: 5,
+          ordinaryContentPhotos: 0,
+          hardGeometryPhotos: 0,
+          hardContentPhotos: 0,
+          missingContentSources: 2,
+          unknownReferencePhotos: 0,
+          state: 'not_evaluable',
+          unrepresentedCategories: [],
+          annotationSourceIds: ids,
+        },
+      },
+    }),
+  });
+  const screen = await mount(api, {}, GAME, { annotationClient });
+  try {
+    await click('Oznacz zdjęcia do testu');
+    await settle();
+    assert.deepEqual(annotationCalls[0], [
+      GAME,
+      { sourceIds: ids, offset: 0, limit: 20 },
+    ]);
+    assertOnlyReads(calls);
+  } finally {
+    await screen.close();
+  }
+});
+
+test('an infeasible protected split shows exact per-role shortfalls without writes', async () => {
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        canStart: false,
+        blockers: ['GRID_CORRECTION_SPLIT_INFEASIBLE'],
+        learningMaterial: {
+          availableBoards: 308,
+          availablePhotos: 185,
+          photoDeficit: 0,
+          boardDeficit: 0,
+          excludedPhotos: 0,
+          excludedBoards: 0,
+          roles: {},
+          exclusions: [],
+          roleShortfalls: {
+            basis: 'protected-roles-before-infeasibility',
+            roles: {
+              TRAIN: {
+                photos: 159,
+                boards: 271,
+                minimumPhotos: 10,
+                minimumBoards: 30,
+                photoDeficit: 0,
+                boardDeficit: 0,
+              },
+              VALIDATION: {
+                photos: 4,
+                boards: 4,
+                minimumPhotos: 5,
+                minimumBoards: 15,
+                photoDeficit: 1,
+                boardDeficit: 11,
+              },
+            },
+          },
+        },
+      },
+    }),
+  });
+  const screen = await mount(api);
+  try {
+    const text = document.body.textContent;
+    assert.match(text, /Bezpieczny podział nie jest możliwy/);
+    assert.match(
+      text,
+      /Kontrole wyboru modelu \(A\/B\): 1 zdjęć i 11 plansz \(jest 4 zdjęć i 4 plansz, minimum 5 i 15\)/,
+    );
+    // A role without a deficit is not listed as missing.
+    assert.doesNotMatch(text, /Do nauki: 0 zdjęć i 0 plansz/);
+    assertOnlyReads(calls);
+  } finally {
+    await screen.close();
+  }
+});
+
+test('one safe-split preview replaces blocked legacy data and only a separate start writes', async () => {
+  const answer = deferred();
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        canStart: false,
+        blockers: ['GRID_CORRECTION_PROTECTION_CONFLICT'],
+      },
+    }),
+    previewGridCorrectionLearning: (_game, body) => {
+      assert.equal(body.policyVersion, 'application-grid-corrections-v4');
+      assert.equal(body.trainingMode, 'grid-only');
+      assert.deepEqual(body.validationAssignments, {});
+      return answer.promise;
+    },
+  });
+  const ui = await mount(api);
+  try {
+    assertOnlyReads(calls);
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, true);
+    const button = findButton('Przygotuj nowy podział korekt');
+    await act(async () => {
+      button.click();
+      button.click();
+    });
+    assert.equal(
+      calls.filter(([name]) => name === 'previewGridCorrectionLearning').length,
+      1,
+    );
+    await act(async () =>
+      answer.resolve({
+        data: {
+          ...readiness,
+          policyVersion: 'application-grid-corrections-v4',
+          validationAssignments: {},
+          validationComponents: [],
+          validationPurposeCounts: {
+            A: { photos: 5, boards: 15, fullPhotos: 0 },
+            B: { photos: 0, boards: 0, fullPhotos: 0 },
+          },
+        },
+      }),
+    );
+    assert.equal(findButton('Ulepsz siatki z korekt').disabled, false);
+    assert.equal(
+      calls.some(([name]) => name === 'startGridCorrectionLearning'),
+      false,
+    );
+    await click('Ulepsz siatki z korekt');
+    const start = calls.find(
+      ([name]) => name === 'startGridCorrectionLearning',
+    )[2];
+    assert.equal(start.policyVersion, 'application-grid-corrections-v4');
+    assert.equal(start.trainingMode, 'grid-only');
+    assert.deepEqual(start.validationAssignments, {});
+    assert.equal(start.previewSha256, readiness.previewSha256);
+  } finally {
+    await ui.close();
+  }
+});
 
 test('recommended mode is adopted without writes and its exact preview can start', async () => {
   const { api, calls } = fixture({
@@ -393,6 +640,42 @@ test('calibrated v5 retains raw quality display when automation is unqualified',
   }
 });
 
+test('v6 content outcome distinguishes improvement, no improvement, regression and not evaluable', () => {
+  const role = (degradedInstances) => ({ degradedInstances });
+  const report = (verdict, reasons, degraded = 0) => ({
+    verdict,
+    games: [{ reasons }],
+    contentEvaluation: [
+      { roles: { VALIDATION: role(0), REGRESSION: role(degraded) } },
+    ],
+  });
+  assert.equal(contentOutcome(report('PASS', [])), 'improvement');
+  assert.equal(
+    contentOutcome(
+      report('NOT_EVALUABLE', ['CONTENT_UNKNOWN_LIMIT:REGRESSION']),
+    ),
+    'not-evaluable',
+  );
+  assert.equal(
+    contentOutcome(
+      report('REVISE', ['CONTENT_CURRENT_USABLE_BOARD_GAIN_REQUIRED']),
+    ),
+    'no-improvement',
+  );
+  // A missing gain together with any regressed measurement is a regression.
+  assert.equal(
+    contentOutcome(
+      report('REVISE', [
+        'CONTENT_CURRENT_USABLE_BOARD_GAIN_REQUIRED',
+        'REGRESSION_REGRESSED:false_boards',
+      ]),
+    ),
+    'regression',
+  );
+  // A new damaged instance is never compensated by a missing reason list.
+  assert.equal(contentOutcome(report('REVISE', [], 1)), 'regression');
+});
+
 test('v6 content verdict controls the result even when historical raw quality passed; variant shortages remain manual', async () => {
   const value = evaluation('current');
   const counts = {
@@ -487,6 +770,7 @@ test('v6 content verdict controls the result even when historical raw quality pa
       document.body.textContent,
       /Zawartość końcowych wycinków: REVISE/,
     );
+    assert.match(document.body.textContent, /Wynik: Pogorszenie/);
     assert.match(document.body.textContent, /Nie zastępuje wyniku zawartości/);
     assert.match(
       document.body.textContent,

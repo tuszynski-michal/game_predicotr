@@ -1,4 +1,10 @@
 export type {
+  GridLearningMaterial,
+  GridLearningRoleMaterial,
+  GridLearningMaterialExclusion,
+  GridLearningRoleShortfall,
+  GridLearningRoleShortfalls,
+  GridLearningTestSample,
   GameRecognitionStatus,
   FrozenRecognitionStatus,
   RecognitionDecision,
@@ -1934,7 +1940,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       sourceId: string,
       pins: GetGridContentTargetSourceData['query'],
     ) => {
-      const query = new URLSearchParams(pins);
+      const query = new URLSearchParams(
+        Object.entries(pins ?? {}).filter(
+          (entry): entry is [string, string] => typeof entry[1] === 'string',
+        ),
+      );
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/grid-quality-measurements/content-targets/sources/${encodeURIComponent(sourceId)}/asset?${query.toString()}`;
     },
     writeGridCellContentReference: (

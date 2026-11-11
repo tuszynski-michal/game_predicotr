@@ -2,6 +2,42 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('pre-freeze ordinary targets and plain asset use source pins without cohort or role writes', async () => {
+  const calls = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      calls.push(request);
+      return Response.json({});
+    },
+  });
+  await client.listGridContentTargets('game', {
+    sourceIds: ['one', 'two'],
+    limit: 20,
+    offset: 0,
+  });
+  const request = calls[0];
+  assert.equal(request.method, 'GET');
+  const url = new URL(request.url);
+  assert.deepEqual(url.searchParams.getAll('sourceIds'), ['one', 'two']);
+  assert.equal(url.searchParams.has('cohortId'), false);
+  assert.equal(request.body, null);
+  const pins = {
+    expectedSourceSha256: 'a'.repeat(64),
+    expectedPixelSha256: 'b'.repeat(64),
+  };
+  const asset = new URL(client.gridContentTargetSourceUrl('game', 'one', pins));
+  assert.equal(
+    asset.searchParams.get('expectedSourceSha256'),
+    pins.expectedSourceSha256,
+  );
+  assert.equal(
+    asset.searchParams.get('expectedPixelSha256'),
+    pins.expectedPixelSha256,
+  );
+  assert.equal(asset.searchParams.has('manifestSha256'), false);
+});
+
 test('new measurement render policy passes unchanged through the existing wrapper', async () => {
   let received;
   const client = createAdminApiClient({

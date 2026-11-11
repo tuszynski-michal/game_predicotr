@@ -26,7 +26,8 @@ export const contentStateLabels: Record<ContentCell['state'], string> = {
   out_of_frame: 'Poza kadrem',
   unknown: 'Nie wiadomo',
 };
-export function contentRoleLabel(role: string): string {
+export function contentRoleLabel(role: string | null): string {
+  if (role === null) return 'Przed przypisaniem roli';
   return (
     (
       {

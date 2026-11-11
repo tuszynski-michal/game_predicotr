@@ -11,6 +11,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '../catalog/catalog-api-error';
 import { GridContentBlind } from './grid-content-blind';
 import { GridContentOrdinary } from './grid-content-ordinary';
+import { GridContentSourceSelection } from './grid-content-source-selection';
 import { GridContentReadiness } from './grid-content-readiness';
 import { reasonLabel } from './grid-model-state';
 import {
@@ -41,6 +42,7 @@ export function GridContentReferenceWorkspace(props: {
   readonly mode: ContentMode;
   readonly onClose: () => void;
   readonly client?: GridContentClient;
+  readonly annotationSourceIds?: readonly string[];
 }) {
   return (
     <ContentWorkspace
@@ -56,6 +58,7 @@ function ContentWorkspace({
   mode,
   onClose,
   client,
+  annotationSourceIds,
 }: Parameters<typeof GridContentReferenceWorkspace>[0]) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
@@ -91,6 +94,14 @@ function ContentWorkspace({
             />
           )}
         </GridContentBlind>
+      ) : annotationSourceIds ? (
+        <GridContentSourceSelection
+          key={annotationSourceIds.join(':')}
+          api={api}
+          gameId={gameId}
+          apiBaseUrl={apiBaseUrl}
+          sourceIds={annotationSourceIds}
+        />
       ) : (
         <ContentTargetSelection
           api={api}

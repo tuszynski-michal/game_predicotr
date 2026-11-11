@@ -16,6 +16,7 @@ from game_predictor_api.domain.grid_training_cohorts import digest
 from PIL import Image
 
 from ..filesystem import long_path_aware
+from .comparison_production_crop_report import _content
 from .grid_cohort_dataset import GridBoardDataset, GridCohortSnapshot, has_full_geometry
 from .production_cell_evaluation import reference_context, render_cells
 from .production_cell_run import ProductionContentRun
@@ -385,6 +386,8 @@ class ComparisonProductionCells:
                 {
                     "positionIndex": target["positionIndex"],
                     "sequenceNumber": target["sequenceNumber"],
+                    "referenceNodes": target["nodes"],
+                    "humanReference": _content(target, identity, game),
                     "contentReferenceSha256": target.get("contentReferenceSha256"),
                     "contentReferenceRevision": target.get("contentReferenceRevision"),
                     "renderContext": context,

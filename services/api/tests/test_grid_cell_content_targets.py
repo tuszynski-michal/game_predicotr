@@ -289,3 +289,93 @@ def test_shared_current_board_guard_keeps_ordinary_write_boundary_strict(
     with pytest.raises(ContentError) as error:
         fixture.repo.require_board(GAME, source, 0, 1)
     assert error.value.code in {"CONTENT_TARGET_UNAVAILABLE", "CONTENT_SEQUENCE_CONFLICT"}
+
+
+def test_source_targets_before_freeze_reuse_current_ownership_and_have_no_role(
+    fixture, monkeypatch
+):
+    monkeypatch.setattr(targets_module, "require_source_annotation_access", lambda *_args: None)
+    source = UUID(fixture.sources[0]["sourceId"])
+    page = fixture.repo.list_source_targets(GAME, [source], 2, 0)
+    assert page["cohortId"] is None and page["manifestSha256"] is None
+    assert page["nextOffset"] == 2
+    assert [t["positionIndex"] for t in page["items"]] == [0, 1]
+    assert page["items"][0]["state"] == "ready"
+    assert page["items"][0]["role"] is None
+    assert page["items"][1]["state"] == "unresolved"
+    assert page["items"][1]["sequenceNumber"] is None
+    fixture.boards[source][2]["foreignOwner"] = {"id": str(uuid4())}
+    assert (
+        fixture.repo.list_source_targets(GAME, [source], 1, 2)["items"][0]["state"] == "unresolved"
+    )
+    assert not any(call[0] == "snapshot" for call in fixture.calls)
+    assert "NEVER_EXPOSE" not in str(page)
+    with pytest.raises(ContentError):
+        fixture.repo.list_source_targets(GAME, [source, source], 2, 0)
+
+
+def test_source_scope_requires_local_owner_and_excludes_mixed_pins(fixture, monkeypatch):
+    monkeypatch.setattr(targets_module, "require_source_annotation_access", lambda *_args: None)
+    app = FastAPI()
+    allowed = False
+
+    @app.middleware("http")
+    async def local_actor(request, call_next):
+        if allowed:
+            request.state.local_admin_actor = "local-owner"
+        return await call_next(request)
+
+    @app.exception_handler(ContentError)
+    async def handle(_request, error):
+        return content_error_response(error)
+
+    service = SimpleNamespace(grid_cell_content=GridCellContentService(fixture.repo))
+    app.include_router(create_grid_cell_content_router(lambda: service))
+    path = f"/admin/games/{GAME}/grid-quality-measurements/content-targets"
+    params = {"sourceIds": fixture.sources[0]["sourceId"]}
+    with TestClient(app) as client:
+        assert client.get(path, params=params).status_code == 403
+        allowed = True
+        response = client.get(path, params=params)
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store"
+        assert response.json()["cohortId"] is None
+        assert (
+            client.get(path, params={**params, "cohortId": str(fixture.cohort)}).status_code == 422
+        )
+        assert client.get(path, params={"sourceIds": [str(uuid4())] * 21}).status_code == 422
+
+
+@pytest.mark.parametrize("reason", ["role", "purpose", "blind", "copy"])
+def test_source_annotation_guard_reuses_role_closure_and_blind_copy_protection(
+    fixture, monkeypatch, reason
+):
+    from game_predictor_api.storage import (
+        grid_content_preview,
+        grid_correction_split,
+        production_crop_capture,
+    )
+
+    source = fixture.repo.current_source(GAME, UUID(fixture.sources[0]["sourceId"]))
+    monkeypatch.setattr(
+        grid_correction_split,
+        "contexts",
+        lambda *_args, **_kwargs: {
+            str(source.sourceId): {
+                "proofSha256": "a" * 64,
+                "priorRoles": ["REGRESSION"] if reason == "role" else [],
+                "validationPurposes": ["B"] if reason == "purpose" else [],
+            }
+        },
+    )
+    monkeypatch.setattr(
+        production_crop_capture,
+        "_blind_aliases",
+        lambda *_args: {str(source.sourceId): ["pass2"] if reason == "copy" else []},
+    )
+    monkeypatch.setattr(grid_content_preview, "protected_source", lambda *_args: reason == "blind")
+    with pytest.raises(ContentError) as error:
+        targets_module.require_source_annotation_access(
+            fixture.repo, GAME, {source.sourceId: source}
+        )
+    assert error.value.status_code == 403

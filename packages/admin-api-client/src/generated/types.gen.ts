@@ -4817,7 +4817,7 @@ export type ContentTargetPage = {
   /**
    * Cohortid
    */
-  cohortId: string;
+  cohortId: string | null;
   /**
    * Gameid
    */
@@ -4829,7 +4829,7 @@ export type ContentTargetPage = {
   /**
    * Manifestsha256
    */
-  manifestSha256: string;
+  manifestSha256: string | null;
   /**
    * Nextoffset
    */
@@ -4859,7 +4859,7 @@ export type ContentTargetResponse = {
   /**
    * Role
    */
-  role: 'TRAIN' | 'A' | 'B' | 'REGRESSION';
+  role: 'TRAIN' | 'A' | 'B' | 'REGRESSION' | null;
   /**
    * Sequencenumber
    */
@@ -8341,6 +8341,7 @@ export type GridCorrectionLearningPreview = {
    * Importjobids
    */
   importJobIds: Array<string>;
+  learningMaterial?: GridLearningMaterial | null;
   /**
    * Limitations
    */
@@ -8391,6 +8392,7 @@ export type GridCorrectionLearningPreview = {
    * Rolecounts
    */
   roleCounts: Array<GridCorrectionLearningRoleCount>;
+  testSample?: GridLearningTestSample | null;
   /**
    * Trainingmode
    */
@@ -9106,6 +9108,290 @@ export type GridInferenceManifest = {
    * Weightssha256
    */
   weightsSha256: string;
+};
+
+/**
+ * GridLearningMaterial
+ */
+export type GridLearningMaterial = {
+  /**
+   * Availableboards
+   */
+  availableBoards: number;
+  /**
+   * Availablephotos
+   */
+  availablePhotos: number;
+  /**
+   * Boarddeficit
+   */
+  boardDeficit: number;
+  /**
+   * Deficitsarelowerbounds
+   */
+  deficitsAreLowerBounds: true;
+  /**
+   * Excludedboards
+   */
+  excludedBoards: number;
+  /**
+   * Excludedphotos
+   */
+  excludedPhotos: number;
+  /**
+   * Exclusions
+   */
+  exclusions: Array<GridLearningMaterialExclusion>;
+  /**
+   * Historymodified
+   */
+  historyModified: false;
+  /**
+   * Minimumbasis
+   */
+  minimumBasis: 'geometry-three-role-lower-bounds';
+  /**
+   * Minimumboards
+   */
+  minimumBoards: number;
+  /**
+   * Minimumphotos
+   */
+  minimumPhotos: number;
+  /**
+   * Photodeficit
+   */
+  photoDeficit: number;
+  roleShortfalls?: GridLearningRoleShortfalls | null;
+  /**
+   * Roles
+   */
+  roles: {
+    [key: string]: GridLearningRoleMaterial;
+  };
+  /**
+   * Version
+   */
+  version: 'effective-grid-learning-material-v1';
+  weights: GridLearningWeights;
+};
+
+/**
+ * GridLearningMaterialExclusion
+ */
+export type GridLearningMaterialExclusion = {
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Componentkey
+   */
+  componentKey: string;
+  /**
+   * Importids
+   */
+  importIds: Array<string>;
+  /**
+   * Labelledphotos
+   */
+  labelledPhotos: number;
+  /**
+   * Orderingmethods
+   */
+  orderingMethods: {
+    [key: string]: string;
+  };
+  /**
+   * Photos
+   */
+  photos: number;
+  /**
+   * Priorpurposes
+   */
+  priorPurposes: Array<string>;
+  /**
+   * Priorroles
+   */
+  priorRoles: Array<string>;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Sourceids
+   */
+  sourceIds: Array<string>;
+};
+
+/**
+ * GridLearningRoleMaterial
+ */
+export type GridLearningRoleMaterial = {
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Correctedboards
+   */
+  correctedBoards: number;
+  /**
+   * Correctedphotos
+   */
+  correctedPhotos: number;
+  /**
+   * Goodboards
+   */
+  goodBoards: number;
+  /**
+   * Goodphotos
+   */
+  goodPhotos: number;
+  /**
+   * Photocategoriesmayoverlap
+   */
+  photoCategoriesMayOverlap: true;
+  /**
+   * Photos
+   */
+  photos: number;
+  /**
+   * Unknownboards
+   */
+  unknownBoards: number;
+  /**
+   * Unknownphotos
+   */
+  unknownPhotos: number;
+};
+
+/**
+ * GridLearningRoleShortfall
+ */
+export type GridLearningRoleShortfall = {
+  /**
+   * Boarddeficit
+   */
+  boardDeficit: number;
+  /**
+   * Boards
+   */
+  boards: number;
+  /**
+   * Minimumboards
+   */
+  minimumBoards: number;
+  /**
+   * Minimumphotos
+   */
+  minimumPhotos: number;
+  /**
+   * Photodeficit
+   */
+  photoDeficit: number;
+  /**
+   * Photos
+   */
+  photos: number;
+};
+
+/**
+ * GridLearningRoleShortfalls
+ *
+ * Exact deficits of the protected role assignment reached before infeasibility.
+ */
+export type GridLearningRoleShortfalls = {
+  /**
+   * Basis
+   */
+  basis: 'protected-roles-before-infeasibility';
+  /**
+   * Roles
+   */
+  roles: {
+    [key: string]: GridLearningRoleShortfall;
+  };
+};
+
+/**
+ * GridLearningTestSample
+ */
+export type GridLearningTestSample = {
+  /**
+   * Annotationsourceids
+   */
+  annotationSourceIds: Array<string>;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string | null;
+  /**
+   * Categorycounts
+   */
+  categoryCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Hardcontentphotos
+   */
+  hardContentPhotos: number;
+  /**
+   * Hardgeometryphotos
+   */
+  hardGeometryPhotos: number;
+  /**
+   * Missingcontentsources
+   */
+  missingContentSources: number;
+  /**
+   * Ordinarycontentphotos
+   */
+  ordinaryContentPhotos: number;
+  /**
+   * Ordinarygeometryphotos
+   */
+  ordinaryGeometryPhotos: number;
+  /**
+   * Reasoncounts
+   */
+  reasonCounts: {
+    [key: string]: number;
+  };
+  /**
+   * Seed
+   */
+  seed: 20261108;
+  /**
+   * State
+   */
+  state: 'ready' | 'not_evaluable';
+  /**
+   * Unknownreferencephotos
+   */
+  unknownReferencePhotos: number;
+  /**
+   * Unrepresentedcategories
+   */
+  unrepresentedCategories: Array<string>;
+  /**
+   * Version
+   */
+  version: 'effective-grid-test-sample-v1';
+};
+
+/**
+ * GridLearningWeights
+ */
+export type GridLearningWeights = {
+  /**
+   * Corrected
+   */
+  corrected: 4;
+  /**
+   * Good
+   */
+  good: 1;
 };
 
 /**
@@ -32477,15 +32763,19 @@ export type ListGridContentTargetsData = {
      */
     game_id: string;
   };
-  query: {
+  query?: {
     /**
      * Cohortid
      */
-    cohortId: string;
+    cohortId?: string | null;
     /**
      * Manifestsha256
      */
-    manifestSha256: string;
+    manifestSha256?: string | null;
+    /**
+     * Sourceids
+     */
+    sourceIds?: Array<string> | null;
     /**
      * Limit
      */
@@ -32542,15 +32832,23 @@ export type GetGridContentTargetSourceData = {
      */
     source_id: string;
   };
-  query: {
+  query?: {
     /**
      * Cohortid
      */
-    cohortId: string;
+    cohortId?: string | null;
     /**
      * Manifestsha256
      */
-    manifestSha256: string;
+    manifestSha256?: string | null;
+    /**
+     * Expectedsourcesha256
+     */
+    expectedSourceSha256?: string | null;
+    /**
+     * Expectedpixelsha256
+     */
+    expectedPixelSha256?: string | null;
   };
   url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-targets/sources/{source_id}/asset';
 };

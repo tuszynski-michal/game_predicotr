@@ -28,6 +28,7 @@ from game_predictor_api.domain.grid_correction_policy import (
 from game_predictor_api.domain.grid_correction_progress import correction_progress_counts
 from game_predictor_api.domain.grid_correction_split import correction_data_availability
 from game_predictor_api.domain.grid_detector_readiness import detector_readiness
+from game_predictor_api.domain.grid_learning_sample_view import learning_test_sample
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError, descriptor_sha256
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError
 from game_predictor_api.domain.jobs import (
@@ -375,6 +376,11 @@ class GridCorrectionLearningService:
                 imports, split = self._split(game, command, policy, mode)
                 view["importJobIds"] = imports
             pins["splitSha256"] = split["sha256"]
+            if split.get("learningMaterial") is not None:
+                view["learningMaterial"] = split["learningMaterial"]
+            sample = learning_test_sample(split.get("contentSampling"))
+            if sample is not None:
+                view["testSample"] = sample
             representatives = [item for item in split["sources"] if item["representative"]]
             detector_sources = [
                 {
@@ -593,6 +599,12 @@ class GridCorrectionLearningService:
                     blockers.append("GRID_RUN_COHORT_COST_EXCEEDS_BUDGET")
         except (GridCohortError, GridModelRegistryError) as error:
             blockers.append(error.code)
+            material = getattr(error, "learning_material", None)
+            if material is not None:
+                view["learningMaterial"] = material
+            sample = learning_test_sample(getattr(error, "report", None))
+            if sample is not None:
+                view["testSample"] = sample
             if isinstance(error, GridCorrectionSplitPreparationError):
                 view["dataAvailability"] = error.data_availability
                 view["detectorReadiness"] = error.detector_readiness

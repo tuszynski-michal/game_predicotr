@@ -897,3 +897,36 @@ def test_learning_split_budget_is_longer_than_default_cohort_commands(monkeypatc
     assert (COMMAND_SECONDS, LEARNING_SPLIT_SECONDS) == (60, 120)
     # The learning preview/start split is the only caller given the longer budget.
     assert learning.LEARNING_SPLIT_SECONDS == LEARNING_SPLIT_SECONDS
+
+
+@pytest.mark.parametrize(
+    ("policy", "expected"),
+    [
+        ("application-grid-corrections-v2", 120),
+        ("application-grid-corrections-v4", 120),
+        (None, 60),
+    ],
+)
+def test_correction_cohort_prepare_uses_learning_split_budget(monkeypatch, policy, expected):
+    # The worker's cohort prepare recomputes the whole protected split; a 60 s budget
+    # cancelled it with OperationalError on real data (learning 1bdf4a48, 2026-11-12).
+    import game_predictor_api.application.grid_training_cohort_commands as commands
+
+    budgets = []
+
+    class Recorder:
+        def __init__(self, seconds=60):
+            budgets.append(seconds)
+
+    class Stop(Exception):
+        pass
+
+    def bind(*args, **kwargs):
+        raise Stop
+
+    monkeypatch.setattr(commands, "CohortDeadline", Recorder)
+    service = SimpleNamespace(repository=SimpleNamespace(bind=bind))
+    body = {"idempotencyKey": "k"} | ({"policyVersion": policy} if policy else {})
+    with pytest.raises(Stop):
+        commands.prepare(service, uuid4(), body, "local-owner")
+    assert budgets == [expected]

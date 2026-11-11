@@ -36,7 +36,9 @@ bez plansz, w tym kopie zdjęć przypiętych do TRAIN i A. Reguła niepodzielno�
 nowe uczenie (`GRID_CORRECTION_PROTECTION_CONFLICT`).
 
 Odczyt i start podziału korekt mają budżet 120 s (`LEARNING_SPLIT_SECONDS`)
-zamiast wspólnych 60 s; pozostałe komendy kohort zachowują 60 s, a limit
+zamiast wspólnych 60 s; ten sam budżet ma `prepare` kohorty z polityką korekt,
+który w workerze ponownie liczy podział (TASK-1187); pozostałe komendy kohort
+zachowują 60 s, a limit
 pojedynczej instrukcji SQL (30 s) się nie zmienia. Panel zapowiada 1–2 minuty;
 pomiar na danych operatora dał 55–64 s. Alternatywy odrzucone: wykluczenie
 całego importu (traci dzisiejsze korekty) i ręczne odpinanie historii.

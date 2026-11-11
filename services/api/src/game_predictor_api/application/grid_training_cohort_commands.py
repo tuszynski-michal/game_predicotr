@@ -17,6 +17,8 @@ from game_predictor_api.domain.grid_correction_policy import (
     correction_mode_for_policy,
 )
 from game_predictor_api.domain.grid_training_cohorts import (
+    COMMAND_SECONDS,
+    LEARNING_SPLIT_SECONDS,
     MATERIALIZATION_PAGE_SIZE,
     POLICY,
     SNAPSHOT_FORMAT,
@@ -51,7 +53,12 @@ def prepare(
     service: GridTrainingCohortService, game: UUID, body: dict[str, Any], actor: str
 ) -> dict[str, Any]:
     repo = service.repository
-    deadline = CohortDeadline()
+    # A correction cohort recomputes the whole protected split (D-603): same budget as preview.
+    deadline = CohortDeadline(
+        LEARNING_SPLIT_SECONDS
+        if body.get("policyVersion") in CORRECTION_POLICIES
+        else COMMAND_SECONDS
+    )
     repo.bind(game, write=True)
     repo.key_lock(game, "prepare", body["idempotencyKey"])
     if replay := repo.replay(game, "prepare", body, None):

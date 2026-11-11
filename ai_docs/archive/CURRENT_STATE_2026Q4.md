@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1187 — Budżet prepare kohorty korekt (done)
 
 - Plik: `tasks/completed/1187-grid-cohort-prepare-budget.md`.
-- Commit: **v1.7.610** (hash dopisuje kolejny commit).
+- Commit: **v1.7.610 / `29443a6f9d40087eb9f48d15eeff9cf915327b32`** (hash dopisuje kolejny commit).
 - Prepare kohorty z polityką korekt ma 120 s (D-603); przyczyna JOB_EXECUTION_FAILED learning 1bdf4a48. Zastane FAIL bez zmian; bez audytu.
 
 ### TASK-1186 — Pozycja kopii bez plansz i dłuższy odczyt podziału (done)

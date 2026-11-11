@@ -66,7 +66,7 @@ claude-opus-5-5 / high — jednowierszowa poprawka budżetu w ślad za D-603.
 
 ## Outcome
 
-Commit: v1.7.610 (hash dopisuje kolejny commit).
+Commit: v1.7.610 / `29443a6f9d40087eb9f48d15eeff9cf915327b32`.
 
 - `prepare` kohorty korekt ma budżet 120 s; test parametryczny v2/v4/brak polityki PASS.
 - `test_grid_training_cohort_core.py`: te same 6 zastanych FAIL co na `main`;

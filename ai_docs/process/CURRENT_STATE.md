@@ -98,7 +98,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1182** — Zgodność oceny checkpointu i ONNX — v1.7.602 — tasks/completed/1182-grid-evaluation-consistency.md
+- **TASK-1182** — Zgodność oceny checkpointu i ONNX — v1.7.602 / `3991ff74` — tasks/completed/1182-grid-evaluation-consistency.md
 - **TASK-1180** — Wydajny pilot jakości 777 A2 — v1.7.601 / `97bb80bf` — tasks/completed/1180-readability-pilot-inventory-timeout.md
 - **TASK-1181** — Odczyt zadań jakości symboli w Jobs — v1.7.599 / `4e558590` — tasks/completed/1181-jobs-readability-response.md
 - **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 / `1a0e4961` — tasks/completed/1178-grid-learning-readiness-guidance.md

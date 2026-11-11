@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1182 — Zgodność oceny checkpointu i ONNX (done)
 
 - Plik: `tasks/completed/1182-grid-evaluation-consistency.md`.
-- Commit: **v1.7.602** (hash dopisuje kolejny commit).
+- Commit: **v1.7.602 / `3991ff749f6af3a58c4f2e0bf6c5208c1b8392cb`** (hash dopisuje kolejny commit).
 - TF32 odtworzony na13zdjęciach; FP32 i pełny A guard;33testy, mypy, Ruff, docs/map PASS; Opus R2 PASS0P0/0P1.
 - P2-2/5 ryzyka opisane; operator/default/historyczny REVISE bez zmian.
 

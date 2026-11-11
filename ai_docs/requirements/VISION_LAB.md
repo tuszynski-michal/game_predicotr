@@ -1,10 +1,25 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-11-09
+last_updated: 2026-11-11
 ---
 
 # Laboratorium wizji
+
+## Zgodność oceny korekt (TASK-1182)
+
+Ocena PyTorch korekt używa jawnego FP32 bez TF32 i autocast, niezależnie od
+ustawień treningu. Zakończenie oceny lub jej błąd przywraca poprzednie ustawienia.
+Progi poprawności plansz i reguły wyboru checkpointu pozostają bez zmian.
+
+Eksport uczenia grid-only korekt sprawdza całe zamrożone A każdej gry:
+rzeczywiste wejścia obu grafów, dopasowania, dopasowanie siatki i decyzje
+poszczególnych plansz. Tolerancja surowych wyjść nie usprawiedliwia zmiany
+decyzji, preferencji wybranego checkpointu wobec zapisanej historii ani warunku
+niepogorszenia błędu A względem bazy. Rozbieżność blokuje eksport z trwałym
+raportem. REG nie uczestniczy w tej kontroli i pozostaje końcowym testem ONNX.
+Odzyskanie eksportu ponawia kontrolę A oraz wymaga tego samego dowodu wejść.
+Historyczne raporty i wagi nie są przepisywane.
 
 ## Nowe pełne wycinki (D-598, TASK-1175)
 

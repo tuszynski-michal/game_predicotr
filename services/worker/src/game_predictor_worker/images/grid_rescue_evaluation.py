@@ -11,6 +11,7 @@ import torch
 
 from ..geometry_core.inference import BoardDetection, DecodeSettings, NeuralGridEngine
 from ..geometry_core.rescue import GridRescueVariantV1
+from ..training_core.evaluation_precision import evaluation_precision
 from ..training_core.grid_correction_metrics import (
     aggregate_checkpoint_metrics,
     checkpoint_metrics,
@@ -47,16 +48,18 @@ def torch_engine(network: Any, recipe: Any, device: str) -> NeuralGridEngine:
     )
 
     def screen(pixels: np.ndarray) -> Any:
-        return tuple(
-            value.float().cpu().numpy()
-            for value in screen_graph(torch.from_numpy(pixels).to(device))
-        )
+        with evaluation_precision():
+            return tuple(
+                value.float().cpu().numpy()
+                for value in screen_graph(torch.from_numpy(pixels).to(device))
+            )
 
     def board(pixels: np.ndarray) -> Any:
-        return tuple(
-            value.float().cpu().numpy()
-            for value in board_graph(torch.from_numpy(pixels).to(device))
-        )
+        with evaluation_precision():
+            return tuple(
+                value.float().cpu().numpy()
+                for value in board_graph(torch.from_numpy(pixels).to(device))
+            )
 
     return NeuralGridEngine(screen, board, DecodeSettings.of(recipe))
 

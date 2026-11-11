@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1182 — Zgodność oceny checkpointu i ONNX (done)
+
+- Plik: `tasks/completed/1182-grid-evaluation-consistency.md`.
+- Commit: **v1.7.602** (hash dopisuje kolejny commit).
+- TF32 odtworzony na13zdjęciach; FP32 i pełny A guard;33testy, mypy, Ruff, docs/map PASS; Opus R2 PASS0P0/0P1.
+- P2-2/5 ryzyka opisane; operator/default/historyczny REVISE bez zmian.
+
 ### TASK-1180 — Wydajny wybór próbki pilota jakości 777 A2 (done)
 
 - Plik: `tasks/completed/1180-readability-pilot-inventory-timeout.md`.

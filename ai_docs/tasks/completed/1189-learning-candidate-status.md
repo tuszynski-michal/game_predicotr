@@ -58,7 +58,7 @@ audytu krzyżowego.
 
 ## Outcome
 
-Commit: v1.7.615 (hash dopisuje kolejny commit).
+Commit: v1.7.615 / `ca101e1ad909ec15df402d0c3862caab685ba499`.
 
 ### Changed
 

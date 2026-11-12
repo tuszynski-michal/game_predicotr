@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1189 — Bieżący stan kandydata w widoku uczenia (done)
 
 - Plik: `tasks/completed/1189-learning-candidate-status.md`.
-- Commit: **v1.7.615** (hash dopisuje kolejny commit).
+- Commit: **v1.7.615 / `ca101e1ad909ec15df402d0c3862caab685ba499`** (hash dopisuje kolejny commit).
 - Widok uczenia ma pole `candidate`: najnowsza ocena kandydata (werdykt, bramka) oraz czy jest domyślny/przypisany; panel pokazuje to obok niezmiennego werdyktu. Bez migracji; bez audytu.
 
 ### TASK-1188 — Bramka oceny siatek odporna na szum (done)

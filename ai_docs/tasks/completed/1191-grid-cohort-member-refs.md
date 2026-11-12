@@ -122,7 +122,7 @@ npm run python:lint; npm run python:typecheck
 
 ## Outcome
 
-Commit: v1.7.617 (hash dopisuje kolejny commit).
+Commit: v1.7.617 / `e58e22e7a15edaa70d15bbf4b3975fbdbc280724`.
 
 ### Changed
 

@@ -92,7 +92,7 @@ działa. Z jawną rewizją: paragon dokładnie tej rewizji, jak dotąd.
 
 ## Outcome
 
-Commit: v1.7.619 (hash dopisuje kolejny commit).
+Commit: v1.7.619 / `9ab662a97f3129140333ecc759247ca9acc9fe17`.
 
 - `PageGeometryOverrideService.save` bez `expected_override_revision` uznaje za
   powtórkę wyłącznie bieżącą decyzję (zachowanie sprzed `a41f8d8d`); z jawną

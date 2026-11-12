@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1191 — Naprawa dwóch padających testów API (done)
 
-- Plik: `tasks/completed/1191-fix-two-failing-api-tests.md`; commit **v1.7.619**.
+- Plik: `tasks/completed/1191-fix-two-failing-api-tests.md`; commit **v1.7.619 / `9ab662a97f3129140333ecc759247ca9acc9fe17`**.
 - Wynik: `PageGeometryOverrideService.save` bez rewizji uznaje za powtórkę tylko bieżącą decyzję (błąd z `a41f8d8d`); atrapa stagingu w teście lateral używa prawdziwych typów. Oba testy zastane przy TASK-1190 przechodzą. Zostają 2 inne zastane FAIL także na `main`: `test_override_repository_roundtrip_after_new_repository_instance` i PG `test_0145_preserves_old_partitions…`.
 
 ### TASK-1190 — Podgląd raportu importu przy zajętej blokadzie gry (done)

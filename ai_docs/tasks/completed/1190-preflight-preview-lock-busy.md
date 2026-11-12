@@ -110,7 +110,7 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'; .\.venv\Scripts\python.exe -m pyte
 
 ## Outcome
 
-Commit: v1.7.617 (hash dopisuje kolejny commit).
+Commit: v1.7.617 / `536aff54fa63ee5e5432f9d71feba5b8caa472e9`.
 
 - Podgląd raportu (`preview_ready_browser_import`) przekazuje `preview=True`;
   zwykły staging jest walidowany pod blokadą `SHARED`. Start importu i

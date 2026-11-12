@@ -102,6 +102,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 ## Ostatnie 10 ukończonych tasków
 
 - **TASK-1195** — Szybkie wyszukiwanie członkostwa kohort — v1.7.617 / `e58e22e7` — tasks/completed/1195-grid-cohort-member-refs.md
+- **TASK-1192** — Naprawa dwóch pozostałych testów API — v1.7.621 / `880c319e` — tasks/completed/1192-fix-two-legacy-api-tests.md
 - **TASK-1191** — Naprawa dwóch padających testów API — v1.7.619 / `9ab662a9` — tasks/completed/1191-fix-two-failing-api-tests.md
 - **TASK-1190** — Podgląd raportu przy zajętej blokadzie — v1.7.617 / `536aff54` — tasks/completed/1190-preflight-preview-lock-busy.md
 - **TASK-1189** — Bieżący stan kandydata w widoku uczenia — v1.7.615 / `ca101e1a` — tasks/completed/1189-learning-candidate-status.md
@@ -110,4 +111,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1186** — Pozycja kopii bez plansz i 120 s podziału — v1.7.608 / `6d37d0dc` — tasks/completed/1186-grid-copy-attestation-split.md
 - **TASK-1185** — Panel i porównanie skutecznego uczenia — v1.7.605 / `fc149f9b` — tasks/completed/1185-grid-effective-learning-panel.md
 - **TASK-1184** — Pełne uczenie i odbiór zawartości — v1.7.604 / `5b50244c` — tasks/completed/1184-grid-full-learning-admission.md
-- **TASK-1183** — Przykłady korekt i niezależne kontrole — v1.7.603 / `e4bba0bd` — tasks/completed/1183-grid-learning-reference-split.md

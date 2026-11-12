@@ -12,6 +12,11 @@ last_updated: 2026-10-16
 - Commit **v1.7.617 / `e58e22e7a15edaa70d15bbf4b3975fbdbc280724`** na `claude/grid-cohort-refs` (worktree `worktrees/grid-cohort-refs`).
 - Wynik: migracja 0186 (manifest v23) — tabela par członkostwa kohort utrzymywana wyzwalaczem, `grid_cohort_notice_v2` z wyszukiwaniem równością po PK pod RLS (te same zdarzenia co v1, także przy prawdziwym `save_review_item`), status `retired` tylko `frozen ↔ retired`, RLS partycji nowej gry. Audyt gpt-6.1-sol/high REVISE (2×P0, 2×P1) naprawiony w jednej rundzie; regresja bez nowych porażek względem `main` (33 zastane). Migracja bazy operatora i pomiar zapisu za osobną zgodą.
 
+### TASK-1192 — Naprawa dwóch pozostałych padających testów API (done)
+
+- Plik: `tasks/completed/1192-fix-two-legacy-api-tests.md`; commit **v1.7.621 / `880c319ed193bcfaaba8bd69bf581de67a47f3e4`**.
+- Wynik: roundtrip repozytorium geometrii ma atrapę bez wcześniejszego paragonu i asercję sekwencji intencji; test migracji 0145 zasiewa `source_images` tylko kolumnami schematu 0144. Oba testy zastane przy TASK-1191 przechodzą; kod produkcyjny bez zmian.
+
 ### TASK-1191 — Naprawa dwóch padających testów API (done)
 
 - Plik: `tasks/completed/1191-fix-two-failing-api-tests.md`; commit **v1.7.619 / `9ab662a97f3129140333ecc759247ca9acc9fe17`**.

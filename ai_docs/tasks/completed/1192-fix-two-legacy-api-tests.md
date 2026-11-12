@@ -90,7 +90,7 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'; .\.venv\Scripts\python.exe -m pyte
 
 ## Outcome
 
-Commit: v1.7.621 (hash dopisuje kolejny commit).
+Commit: v1.7.621 / `880c319ed193bcfaaba8bd69bf581de67a47f3e4`.
 
 - Roundtrip repozytorium: atrapa sesji zwraca `None` z `scalar()` przy zapisie
   (brak wcześniejszego paragonu); asercja sprawdza sekwencję intencji

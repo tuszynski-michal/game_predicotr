@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1199 — Domyślny zakres importów uczenia korekt (done)
+
+- Plik: `tasks/completed/1199-grid-learning-import-scope.md`; commit **v1.7.625**; decyzja D-606.
+- Bez `importJobIds` uczenie korekt bierze tylko importy z bieżącą ludzką akceptacją geometrii lub członkiem kohorty; Mumie A2: 5 importów / 4847 źródeł zamiast 7039, `canStart=true` (wcześniej `GRID_CORRECTION_POPULATION_LIMIT`).
+- Testy: 78 jednostkowych uczenia, PostgreSQL zakresu, ruff, mypy strict modułu PASS. Przycisk działa po scaleniu do `main`; uczenie `170f610d` uruchomione przez API z tym samym zakresem.
+
 ### TASK-1195 — Szybkie wyszukiwanie członkostwa kohort (done)
 
 - Plik: `tasks/completed/1195-grid-cohort-member-refs.md`; plan `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md`, D-605.

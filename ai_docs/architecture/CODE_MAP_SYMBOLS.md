@@ -94,7 +94,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - application/grid_cell_content.py: class ContentRepository, class GridCellContentService
 - application/grid_correction_apply.py: apply_key, class GridCorrectionApplyService, job_version_from_pin
 - application/grid_correction_history.py: select_historical_cohorts, verified_publication_scope, verified_history, require_historical_cohort
-- application/grid_correction_learning.py: child_key, class GridCorrectionLearningService
+- application/grid_correction_learning.py: labelled_import_scope, child_key, class GridCorrectionLearningService
 - application/grid_diagnostics.py: class GridDiagnostics, missing_reason_diagnostics
 - application/grid_engine_acceptance.py: class HistoricalAcceptanceItem, class HistoricalAcceptanceReport, class HistoricalAcceptanceRepository, class HistoricalAcceptanceService
 - application/grid_engine_profiles.py: class GridEngineModelInspector, class GridEngineProfileView, class GridEngineProfileService

@@ -101,6 +101,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1199** — Domyślny zakres importów uczenia korekt — v1.7.625 — tasks/completed/1199-grid-learning-import-scope.md
 - **TASK-1195** — Szybkie wyszukiwanie członkostwa kohort — v1.7.617 / `e58e22e7` — tasks/completed/1195-grid-cohort-member-refs.md
 - **TASK-1192** — Naprawa dwóch pozostałych testów API — v1.7.621 / `880c319e` — tasks/completed/1192-fix-two-legacy-api-tests.md
 - **TASK-1191** — Naprawa dwóch padających testów API — v1.7.619 / `9ab662a9` — tasks/completed/1191-fix-two-failing-api-tests.md
@@ -110,4 +111,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1187** — Budżet prepare kohorty korekt — v1.7.610 / `29443a6f` — tasks/completed/1187-grid-cohort-prepare-budget.md
 - **TASK-1186** — Pozycja kopii bez plansz i 120 s podziału — v1.7.608 / `6d37d0dc` — tasks/completed/1186-grid-copy-attestation-split.md
 - **TASK-1185** — Panel i porównanie skutecznego uczenia — v1.7.605 / `fc149f9b` — tasks/completed/1185-grid-effective-learning-panel.md
-- **TASK-1184** — Pełne uczenie i odbiór zawartości — v1.7.604 / `5b50244c` — tasks/completed/1184-grid-full-learning-admission.md

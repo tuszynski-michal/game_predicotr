@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid5
 
-from sqlalchemy import Engine, Uuid, column, select, table, text
+from sqlalchemy import Engine, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -70,6 +70,32 @@ from .shared_grid_model_candidate import SharedGridCandidateService
 
 LEARNING_KIND = "grid-correction-learning-v1"
 ACTIVE = {JobStatus.CREATED, JobStatus.PROCESSING}
+
+
+def labelled_import_scope(session: Session, game: UUID) -> list[str]:
+    """Default scope: imports with a human geometry label or earlier cohort members.
+
+    Imports without either add only unlabelled population, yet count towards the
+    split's population limit and solver budget (D-606). Earlier member imports
+    stay in scope, so the incremental split keeps every prior role.
+    """
+    return sorted(
+        str(value)
+        for value in session.scalars(
+            text("""
+      SELECT DISTINCT s.import_job_id FROM source_images s
+      WHERE s.game_id=:game AND (
+       EXISTS(SELECT 1 FROM recognized_boards b WHERE b.game_id=s.game_id
+        AND b.source_image_id=s.id AND b.approved_geometry_revision=b.geometry_revision
+        AND b.geometry_approved_by IS NOT NULL AND b.geometry_approved_at IS NOT NULL
+        AND b.geometry_approved_by NOT LIKE 'system:%'
+        AND b.geometry_approved_by NOT LIKE 'worker:%')
+       OR EXISTS(SELECT 1 FROM grid_training_cohort_members m
+        WHERE m.game_id=s.game_id AND m.source_id=s.id))
+      LIMIT 101"""),
+            {"game": game},
+        )
+    )
 
 
 def child_key(parent: UUID, kind: str) -> UUID:
@@ -141,18 +167,7 @@ class GridCorrectionLearningService:
             repository.bind(game)
             imports = sorted({str(value) for value in command.get("importJobIds") or []})
             if not imports:
-                sources = table(
-                    "source_images", column("game_id", Uuid), column("import_job_id", Uuid)
-                )
-                imports = sorted(
-                    str(value)
-                    for value in session.scalars(
-                        select(sources.c.import_job_id)
-                        .where(sources.c.game_id == game)
-                        .distinct()
-                        .limit(101)
-                    )
-                )
+                imports = labelled_import_scope(session, game)
             if not imports or len(imports) > 100:
                 raise GridCohortError(
                     "GRID_LEARNING_IMPORT_SCOPE_INVALID",

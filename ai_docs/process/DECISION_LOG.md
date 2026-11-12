@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-606](decisions/DECISION_LOG_2026.md#d-606--domyślny-zakres-uczenia-korekt-importy-z-etykietami-i-kohortami) | Domyślny zakres uczenia korekt | accepted | 2026-11-12 | Bez jawnych importów uczenie bierze tylko importy z ludzką akceptacją geometrii lub członkami kohort; limit 5000 źródeł zostaje. |
 | [D-605](decisions/DECISION_LOG_2026.md#d-605--równościowe-wyszukiwanie-członkostwa-kohort-i-wycofywanie-kohort) | Równościowe wyszukiwanie członkostwa kohort | accepted | 2026-11-12 | Pary członkostwa w tabeli z PK zamiast `@>` pod RLS; ta sama semantyka zdarzeń; status retired tylko frozen↔retired. |
 | [D-604](decisions/DECISION_LOG_2026.md#d-604--bramka-oceny-siatek-odporna-na-szum) | Bramka oceny siatek odporna na szum | accepted | 2026-11-12 | Nowe oceny siatki (gate v4) odrzucają tylko rażące pogorszenie: >max(1, 2 %) plansz albo >max(15 %, 0,001) błędu; REG nie musi się poprawić, v2 zostaje dla historii. |
 | [D-603](decisions/DECISION_LOG_2026.md#d-603--pozycja-kopii-bez-plansz-i-dłuższy-odczyt-podziału) | Pozycja kopii bez plansz i dłuższy odczyt podziału | accepted | 2026-11-11 | Kopia bez plansz przejmuje jednoznaczny atest oryginału; podział korekt ma 120 s. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-579](decisions/DECISION_LOG_2026.md#d-579--manifest-wymiany-źródła-z-zachowaniem-historii) | Manifest wymiany źródła | accepted | 2026-11-03 | Exact source/alias planned i chronologia ocen człowieka. |
 | [D-578](decisions/DECISION_LOG_2026.md#d-578--uczenie-korekt-i-ocena-w-jawnym-zakresie) | Uczenie korekt i ocena w jawnym zakresie | accepted | 2026-11-02 | Partial controls, report v3/gate v2 i trwały parent zwalniający slot. |
 | [D-578](decisions/DECISION_LOG_2026.md#d-578--niezależny-detektor-jakości-777-a2-na-zamrożonym-kandydacie-nr-5) | Niezależny detektor jakości 777 A2 | accepted | 2026-11-02 | Frozen kandydat nr 5 bez aktywacji, dwa heady i niezależna bramka przed skanem. |
-| [D-577](decisions/DECISION_LOG_2026.md#d-577--podział-korekt-geometrii-z-atestów-i-trwała-ochrona-zdjęć) | Podział korekt geometrii z atestów i trwała ochrona zdjęć | accepted | 2026-11-02 | Photo-only, atesty SHA, trzy bloki i trwałe role/bufory; stare polityki bez zmian. |

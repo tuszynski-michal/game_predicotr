@@ -16,6 +16,35 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-606 — Domyślny zakres uczenia korekt: importy z etykietami i kohortami
+
+Status: accepted. Data: 2026-11-12. Operator: „nie mogę kliknąć »Ulepsz siatki z
+korekt«”, polecenie przeszkolenia modelu dla Mumie A2. TASK-1199.
+
+Kontekst: panel uczenia nie wybiera importów, więc domyślny podział brał
+wszystkie importy gry. Mumie A2 ma po dwóch importach z 2026-11-12 7039 zdjęć w
+6 importach, a podział korekt odrzuca populację powyżej 5000 źródeł
+(`GRID_CORRECTION_POPULATION_LIMIT`, D-577) bez zawężania. Przycisk był trwale
+wyłączony, choć 393 zdjęcia miały ludzkie korekty.
+
+Decyzja: gdy polecenie nie podaje `importJobIds`, zakres tworzą kompletne
+importy, które mają co najmniej jedno źródło z bieżącą ludzką akceptacją
+geometrii (te same warunki co `approved` populacji: rewizja zatwierdzona =
+bieżąca, aktor nie `system:`/`worker:`) albo członka dowolnej wcześniejszej
+kohorty. Import bez obu wnosi wyłącznie nieoznaczoną populację, a liczy się do
+limitu i budżetu solvera. Importy członków zostają, więc podział przyrostowy
+widzi każdą wcześniejszą rolę i kopie, po których źródła bez plansz dziedziczą
+atest (D-603). Jawne `importJobIds` działają bez zmian; limity 5000/100 zostają.
+
+Odrzucone: podniesienie limitu 5000 (budżet podziału 120 s już zajęty w ~100 s
+przy 4847 źródłach), wybór importów w UI (zmiana kontraktu i przepływu bez
+potrzeby dla obecnych danych), zakres tylko z etykietami (gubi import
+`d7747436` z kopiami atestów i daje `GRID_CORRECTION_PROTECTION_CONFLICT`).
+
+Konsekwencje: Mumie A2 ma zakres 5 importów / 4847 źródeł i `canStart=true`.
+Gdy importy z etykietami lub kohortami same przekroczą 5000 źródeł, blokada
+wraca i wymaga osobnej decyzji (np. wyboru importów lub nowego budżetu).
+
 ## D-605 — Równościowe wyszukiwanie członkostwa kohort i wycofywanie kohort
 
 Status: accepted. Data:2026-11-12. Plan `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md`

@@ -121,7 +121,14 @@ def test_entry_working_and_restore_http_preserve_exact_crop_identity(tmp_path, m
 class AdmissionRepository(MemoryJobRepository):
     closed = False
 
-    def validate_replacement_staging(self, *, game_id, selection, manifest, upload_id):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.preview_flags: list[bool] = []
+
+    def validate_replacement_staging(
+        self, *, game_id, selection, manifest, upload_id, preview=False
+    ):
+        self.preview_flags.append(preview)
         if self.closed:
             raise SourceReplacementError("SOURCE_REPLACEMENT_ADMISSION_CLOSED", "Already restored")
         assert game_id == self.game_id
@@ -232,6 +239,8 @@ def test_replacement_browser_restart_full_geometry_start_and_exact_closed_replay
         assert refused.status_code == 409
         report_response = api.post(f"{root}/{upload}/preflight", json={"gameId": str(game)})
         assert report_response.status_code == 200, report_response.text
+        # The report asks the repository for a read-only preview check (TASK-1190).
+        assert repository.preview_flags[-1] is True
         report = report_response.json()
         assert report["replacementSelection"] == selection
         assert (
@@ -303,6 +312,10 @@ def test_replacement_browser_restart_full_geometry_start_and_exact_closed_replay
         }
         started = api.post(f"{root}/{upload}/start", json=start)
         assert started.status_code == 201, started.text
+        # Admission of the import keeps the exclusive ownership lock.
+        assert repository.preview_flags and not any(repository.preview_flags[-2:]), (
+            repository.preview_flags
+        )
         result = started.json()
         imported = repository.get_job(UUID(result["job"]["id"]))
         pin = imported.input_payload["source_replacement"]

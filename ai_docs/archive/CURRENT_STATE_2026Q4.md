@@ -6,6 +6,11 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1190 — Podgląd raportu importu przy zajętej blokadzie gry (done)
+
+- Plik: `tasks/completed/1190-preflight-preview-lock-busy.md`; commit **v1.7.617**.
+- Wynik: podgląd raportu przed importem plansz waliduje staging pod blokadą `SHARED` (działa równolegle z przeglądem symboli); zajęta blokada daje 409 `IMAGE_IMPORT_SEQUENCE_OWNERSHIP_BUSY` zamiast HTTP 500. Start importu bez zmian (`EXCLUSIVE`). Testy jednostkowe, API i PostgreSQL PASS; 2 zastane FAIL także na `main` `33e9197e`. Wymaga restartu API przez operatora po scaleniu.
+
 ### TASK-1189 — Bieżący stan kandydata w widoku uczenia (done)
 
 - Plik: `tasks/completed/1189-learning-candidate-status.md`.

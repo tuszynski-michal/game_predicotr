@@ -730,7 +730,9 @@ class JobService:
         selection: dict[str, Any] | None,
         manifest: BrowserSequenceManifest,
         upload_id: UUID,
+        preview: bool = False,
     ) -> dict[str, Any] | None:
+        """Validate staging admission; ``preview`` reads under the shared lock."""
         validator = getattr(self._repository, "validate_replacement_staging", None)
         if not callable(validator):
             if selection is not None:
@@ -741,7 +743,13 @@ class JobService:
             return None  # Legacy in-memory repositories have no reservation storage.
         return cast(
             dict[str, Any] | None,
-            validator(game_id=game_id, selection=selection, manifest=manifest, upload_id=upload_id),
+            validator(
+                game_id=game_id,
+                selection=selection,
+                manifest=manifest,
+                upload_id=upload_id,
+                preview=preview,
+            ),
         )
 
     def create_image_import_job(

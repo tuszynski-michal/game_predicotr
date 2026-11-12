@@ -7,6 +7,8 @@ import pytest
 from game_predictor_api.domain.source_replacement import SourceReplacementError
 from game_predictor_api.domain.source_replacement_admission import selected_replacement_files
 from game_predictor_api.domain.symbol_readability import digest
+from game_predictor_api.storage.sequence_ownership_lock import SequenceOwnershipLockMode
+from sqlalchemy.exc import OperationalError
 
 
 def selection_fixture():
@@ -73,3 +75,63 @@ def test_selection_rejects_claims_that_do_not_identify_exact_output(case):
         game = uuid4()
     with pytest.raises(SourceReplacementError, match="Wybór"):
         selected_replacement_files(selection, game)
+
+
+class _LockTimeout(Exception):
+    sqlstate = "55P03"
+
+
+class _OtherDriverError(Exception):
+    sqlstate = "57014"
+
+
+def _ordinary_manifest():
+    from game_predictor_api.domain.image_sequence_canonical import BrowserSequenceManifest
+
+    return BrowserSequenceManifest(files=(), warnings=(), checksum_sha256="a" * 64)
+
+
+def _patch_lock(monkeypatch, failure=None):
+    """Replace binding and the advisory lock; record the requested lock mode."""
+
+    from game_predictor_api.storage import source_replacement_admission as admission
+
+    modes = []
+
+    def acquire(session, *, game_id, mode):
+        modes.append(mode)
+        if failure is not None:
+            raise OperationalError("SELECT pg_advisory_xact_lock(:k)", {}, failure)
+        return mode
+
+    monkeypatch.setattr(admission.SourceReplacementRepository, "bind", lambda self, game: None)
+    monkeypatch.setattr(admission, "acquire_sequence_ownership_lock", acquire)
+    return admission, modes
+
+
+def test_ordinary_staging_lock_timeout_is_a_retryable_conflict(monkeypatch):
+    """TASK-1190: a busy game must not surface as an opaque HTTP 500."""
+
+    admission, modes = _patch_lock(monkeypatch, failure=_LockTimeout("lock timeout"))
+    with pytest.raises(SourceReplacementError) as error:
+        admission.validate_ordinary_staging(object(), game=uuid4(), manifest=_ordinary_manifest())
+    assert error.value.code == "IMAGE_IMPORT_SEQUENCE_OWNERSHIP_BUSY"
+    assert "Spróbuj ponownie" in error.value.message
+    assert modes == [SequenceOwnershipLockMode.EXCLUSIVE]
+
+
+def test_ordinary_staging_other_driver_errors_are_not_masked(monkeypatch):
+    admission, _ = _patch_lock(monkeypatch, failure=_OtherDriverError("statement timeout"))
+    with pytest.raises(OperationalError):
+        admission.validate_ordinary_staging(object(), game=uuid4(), manifest=_ordinary_manifest())
+
+
+def test_ordinary_staging_preview_requests_the_shared_lock(monkeypatch):
+    admission, modes = _patch_lock(monkeypatch)
+    admission.validate_ordinary_staging(
+        object(),
+        game=uuid4(),
+        manifest=_ordinary_manifest(),
+        lock_mode=SequenceOwnershipLockMode.SHARED,
+    )
+    assert modes == [SequenceOwnershipLockMode.SHARED]

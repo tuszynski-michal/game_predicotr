@@ -62,6 +62,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
+- **Bramka v4 / TASK-1188:** czeka na migrację 0185 i ponowną ocenę `bf327cfa`.
+
 - **Mumie A2 / TASK-1152:** naprawa licznika wdrożona po Opus PASS i zgodzie; ten sam apply zakończony, default i MumieA2 revision2. Porównanie151plansz w root artifacts/grid-applied-comparison-20261103/comparison.html.
 
 
@@ -98,6 +100,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1188** — Bramka oceny siatek odporna na szum — v1.7.612 — tasks/completed/1188-grid-gate-noise-tolerance.md
 - **TASK-1187** — Budżet prepare kohorty korekt — v1.7.610 / `29443a6f` — tasks/completed/1187-grid-cohort-prepare-budget.md
 - **TASK-1186** — Pozycja kopii bez plansz i 120 s podziału — v1.7.608 / `6d37d0dc` — tasks/completed/1186-grid-copy-attestation-split.md
 - **TASK-1185** — Panel i porównanie skutecznego uczenia — v1.7.605 / `fc149f9b` — tasks/completed/1185-grid-effective-learning-panel.md
@@ -107,4 +110,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1180** — Wydajny pilot jakości 777 A2 — v1.7.601 / `97bb80bf` — tasks/completed/1180-readability-pilot-inventory-timeout.md
 - **TASK-1181** — Odczyt zadań jakości symboli w Jobs — v1.7.599 / `4e558590` — tasks/completed/1181-jobs-readability-response.md
 - **TASK-1178** — Gotowość korekt i zalecany cel uczenia — v1.7.595 / `1a0e4961` — tasks/completed/1178-grid-learning-readiness-guidance.md
-- **TASK-1177** — Wydajny zapis symboli i manifest — v1.7.594 / `0e1a02ec` — tasks/completed/1177-symbol-review-performance-freeze.md

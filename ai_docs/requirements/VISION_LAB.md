@@ -359,7 +359,12 @@ photo-macro node error, then the earliest step. Shared training weighs games equ
 
 Report v3 and gate v2 require nonregression for every required game and both roles.
 The current game's REGRESSION must gain at least one correct board or reduce error
-by both five percent relatively and 0.001 absolutely. These product thresholds do
+by both five percent relatively and 0.001 absolutely. New grid-only reports (raw v3
+and calibrated v5) use gate v4 instead (D-604): a role regresses only when it loses
+more than `max(1, floor(2 %))` matched or correct boards or its error grows by more
+than `max(15 %, 0.001)`; phantom and duplicate full-photo boards stay strict, complete
+photos tolerate one loss, and REGRESSION needs no improvement. Gate v2 reports keep
+their strict recomputation. These product thresholds do
 not prove statistical significance or session independence. Required scope includes
 the current game, every TRAIN game and the verified previous default's explicit
 scope. Legacy report labels cannot invent game IDs. Confirmed exclusions retain

@@ -135,7 +135,7 @@ def test_legacy_quality_pass_cannot_admit_missing_content():
         evidence(manifest, report)
 
 
-def test_content_pass_preserves_calibrated_raw_revise_with_delta_and_usable_gain():
+def test_content_pass_preserves_calibrated_raw_with_delta_and_usable_gain():
     from game_predictor_api.domain.production_cell_evaluation import require_report
 
     manifest, template = production_report(calibrated=True)
@@ -144,7 +144,8 @@ def test_content_pass_preserves_calibrated_raw_revise_with_delta_and_usable_gain
     for game in original["games"]:
         roles = deepcopy(game["roles"])
         for role_value in roles.values():
-            # Raw gate rejects the NME increase; content gate allows measured delta.
+            # Raw gate v4 tolerates this NME noise (D-604); content gate allows the
+            # measured delta. Content evidence is attached without rewriting raw quality.
             # No raw correct-board gain occurs, but usableBoards improves 11 -> 12.
             candidate = {**role_value["base"], "normalized_error": 0.0205}
             role_value["candidate"] = candidate
@@ -163,7 +164,7 @@ def test_content_pass_preserves_calibrated_raw_revise_with_delta_and_usable_gain
     raw = attach_calibration(quality, original["automaticCalibration"])
     frozen_raw = canonical_json(raw)
     assert raw["schemaVersion"] == "grid-model-evaluation-read-v5"
-    assert raw["verdict"] == "REVISE"
+    assert raw["verdict"] == "PASS"
     report = attach_content(raw, template["contentEvaluation"])
     assert report["verdict"] == "PASS"
     assert canonical_json(report["rawQuality"]) == canonical_json(raw) == frozen_raw

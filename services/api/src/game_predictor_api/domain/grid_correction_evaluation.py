@@ -62,6 +62,30 @@ POLICY: Final[dict[str, Any]] = {
     "epsilon": EPSILON,
     "checkpointRule": CHECKPOINT_RULE,
 }
+# D-604: new grid-only reports reject only gross regressions; v2 stays for history.
+TOLERANT_POLICY_VERSION: Final = "grid-model-per-game-gate-v4"
+BOARD_LOSS_ALLOWANCE: Final = 1
+BOARD_LOSS_FRACTION: Final = Decimal("0.02")
+RELATIVE_ERROR_INCREASE: Final = Decimal("0.15")
+ABSOLUTE_ERROR_INCREASE: Final = Decimal("0.001")
+TOLERANT_POLICY: Final[dict[str, Any]] = {
+    "policyVersion": TOLERANT_POLICY_VERSION,
+    "metricsVersion": METRICS_VERSION,
+    "minimumControlPhotos": 5,
+    "minimumControlBoards": 15,
+    "nonRegression": ["boards_matched", "boards_correct", "normalized_error"],
+    "fullPhotoNonRegression": ["false_boards", "duplicate_predictions", "photo_complete_correct"],
+    "noiseTolerance": {
+        "boardLossAllowance": BOARD_LOSS_ALLOWANCE,
+        "boardLossFraction": float(BOARD_LOSS_FRACTION),
+        "relativeErrorIncrease": float(RELATIVE_ERROR_INCREASE),
+        "absoluteErrorIncrease": float(ABSOLUTE_ERROR_INCREASE),
+        "photoCompleteLossAllowance": 1,
+    },
+    "improvementRequired": False,
+    "epsilon": EPSILON,
+    "checkpointRule": CHECKPOINT_RULE,
+}
 SCREEN_POLICY: Final[dict[str, Any]] = {
     **POLICY,
     "policyVersion": SCREEN_POLICY_VERSION,
@@ -167,8 +191,15 @@ def decide_game(
     parity_passed: bool,
     roles: Mapping[str, Any],
     screen: bool = False,
+    tolerant: bool = False,
 ) -> dict[str, Any]:
-    """Require every role to preserve quality; current-game REGRESSION must improve."""
+    """Require every role to preserve quality; current-game REGRESSION must improve.
+
+    ``tolerant`` applies gate v4 (D-604): losses within the noise allowance are not
+    regressions and the current game needs no improvement.
+    """
+    if tolerant and screen:
+        raise GridEvaluationReportError("The noise-tolerant gate is grid-only.")
     if mode != ("screen+grid" if screen else "grid-only") or set(roles) != set(ROLES):
         raise GridEvaluationReportError(
             "Correction gate requires grid-only and both control roles."
@@ -206,6 +237,8 @@ def decide_game(
             "coverage": "incomplete",
             "reasons": reasons,
         }
+    if tolerant:
+        return _decide_tolerant(roles)
     outcome = {}
     for role in ROLES:
         base, candidate = roles[role]["base"], roles[role]["candidate"]
@@ -230,6 +263,42 @@ def decide_game(
             )
             if not improved:
                 reasons.append("REGRESSION_NOT_IMPROVED:boards_correct_or_normalized_error")
+        outcome[role.lower()] = "pass" if len(reasons) == before else "fail"
+    return {**outcome, "coverage": "complete", "reasons": reasons}
+
+
+def board_loss_allowance(boards_expected: int) -> int:
+    """Boards a candidate may lose per role before it counts as a regression."""
+    return max(BOARD_LOSS_ALLOWANCE, int(BOARD_LOSS_FRACTION * boards_expected))
+
+
+def error_increase_allowance(base_error: float) -> Decimal:
+    base = Decimal(str(base_error))
+    return max(RELATIVE_ERROR_INCREASE * base, ABSOLUTE_ERROR_INCREASE)
+
+
+def _decide_tolerant(roles: Mapping[str, Any]) -> dict[str, Any]:
+    reasons: list[str] = []
+    outcome = {}
+    for role in ROLES:
+        base, candidate = roles[role]["base"], roles[role]["candidate"]
+        before = len(reasons)
+        allowance = board_loss_allowance(base["boards_expected"])
+        for metric in ("boards_matched", "boards_correct"):
+            if base[metric] - candidate[metric] > allowance:
+                reasons.append(f"{role}_REGRESSED:{metric}")
+        increase = Decimal(str(candidate["normalized_error"])) - Decimal(
+            str(base["normalized_error"])
+        )
+        if increase > error_increase_allowance(base["normalized_error"]) + Decimal(str(EPSILON)):
+            reasons.append(f"{role}_REGRESSED:normalized_error")
+        if base["full_photos"]:
+            # Phantom and duplicate boards are always gross; complete photos tolerate one.
+            for metric in ("false_boards", "duplicate_predictions"):
+                if candidate[metric] > base[metric]:
+                    reasons.append(f"{role}_REGRESSED:{metric}")
+            if base["photo_complete_correct"] - candidate["photo_complete_correct"] > 1:
+                reasons.append(f"{role}_REGRESSED:photo_complete_correct")
         outcome[role.lower()] = "pass" if len(reasons) == before else "fail"
     return {**outcome, "coverage": "complete", "reasons": reasons}
 
@@ -426,6 +495,7 @@ def build_report(
             parity_passed=parity["passed"],
             roles=game["roles"],
             screen=screen,
+            tolerant=not screen,
         )
         games.append(
             {
@@ -440,8 +510,8 @@ def build_report(
     report = {
         "schemaVersion": SCREEN_REPORT_SCHEMA if screen else REPORT_SCHEMA,
         "producer": PRODUCER,
-        "policyVersion": SCREEN_POLICY_VERSION if screen else POLICY_VERSION,
-        "policy": SCREEN_POLICY if screen else POLICY,
+        "policyVersion": SCREEN_POLICY_VERSION if screen else TOLERANT_POLICY_VERSION,
+        "policy": SCREEN_POLICY if screen else TOLERANT_POLICY,
         "versionId": manifest["versionId"],
         "manifestSha256": descriptor_sha256(dict(manifest)),
         "baseVersionId": manifest["baseVersionId"],
@@ -479,13 +549,20 @@ def require_report(
             raise GridEvaluationReportError("The report is too large.")
         report = _closed(json.loads(report_json), REPORT_KEYS, "Report")
         screen = report["schemaVersion"] == SCREEN_REPORT_SCHEMA
+        tolerant = not screen and report["policyVersion"] == TOLERANT_POLICY_VERSION
         if canonical_json(report) != report_json:
             raise GridEvaluationReportError("The report is not canonical JSON.")
+        if screen:
+            policy_version, policy = SCREEN_POLICY_VERSION, SCREEN_POLICY
+        elif tolerant:
+            policy_version, policy = TOLERANT_POLICY_VERSION, TOLERANT_POLICY
+        else:
+            policy_version, policy = POLICY_VERSION, POLICY
         if (
             report["schemaVersion"] != (SCREEN_REPORT_SCHEMA if screen else REPORT_SCHEMA)
             or report["producer"] != PRODUCER
-            or report["policyVersion"] != (SCREEN_POLICY_VERSION if screen else POLICY_VERSION)
-            or report["policy"] != (SCREEN_POLICY if screen else POLICY)
+            or report["policyVersion"] != policy_version
+            or report["policy"] != policy
             or report["versionId"] != manifest["versionId"]
             or report["manifestSha256"] != descriptor_sha256(dict(manifest))
             or report["baseVersionId"] != manifest["baseVersionId"]
@@ -557,6 +634,7 @@ def require_report(
                 parity_passed=parity["passed"],
                 roles=roles,
                 screen=screen,
+                tolerant=tolerant,
             )
             if any(game[key] != value for key, value in decision.items()):
                 raise GridEvaluationReportError("Stored decisions differ from gate v2.")

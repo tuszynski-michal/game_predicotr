@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-11-11
+last_updated: 2026-11-12
 ---
 
 # Decision Log
@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-604](decisions/DECISION_LOG_2026.md#d-604--bramka-oceny-siatek-odporna-na-szum) | Bramka oceny siatek odporna na szum | accepted | 2026-11-12 | Nowe oceny siatki (gate v4) odrzucają tylko rażące pogorszenie: >max(1, 2 %) plansz albo >max(15 %, 0,001) błędu; REG nie musi się poprawić, v2 zostaje dla historii. |
 | [D-603](decisions/DECISION_LOG_2026.md#d-603--pozycja-kopii-bez-plansz-i-dłuższy-odczyt-podziału) | Pozycja kopii bez plansz i dłuższy odczyt podziału | accepted | 2026-11-11 | Kopia bez plansz przejmuje jednoznaczny atest oryginału; podział korekt ma 120 s. |
 | [D-602](decisions/DECISION_LOG_2026.md#d-602--skuteczne-uczenie-korekt-i-niezależny-pomiar-pełnych-wycinków) | Skuteczne uczenie i niezależny test wycinków | accepted | 2026-11-11 | Nowe v4 wyklucza konfliktujące grupy, rozdziela próbki i używa partial TRAIN tylko do punktów; pełny A i jawne braki. |
 | [D-601](decisions/DECISION_LOG_2026.md#d-601--zakres-publikacji-i-bieżąca-gotowość-nowego-uczenia) | Zakres publikacji i gotowość nowego uczenia | accepted | 2026-11-10 | Nowe etykiety nie unieważniają historycznego zakresu; reuse i apply wymagają aktualności; zalecany cel opt-in. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-578](decisions/DECISION_LOG_2026.md#d-578--niezależny-detektor-jakości-777-a2-na-zamrożonym-kandydacie-nr-5) | Niezależny detektor jakości 777 A2 | accepted | 2026-11-02 | Frozen kandydat nr 5 bez aktywacji, dwa heady i niezależna bramka przed skanem. |
 | [D-577](decisions/DECISION_LOG_2026.md#d-577--podział-korekt-geometrii-z-atestów-i-trwała-ochrona-zdjęć) | Podział korekt geometrii z atestów i trwała ochrona zdjęć | accepted | 2026-11-02 | Photo-only, atesty SHA, trzy bloki i trwałe role/bufory; stare polityki bez zmian. |
 | [D-576](decisions/DECISION_LOG_2026.md#d-576--uproszczenie-wyszukiwarki-i-modal-supergry-w-adminie) | Uproszczenie wyszukiwarki i modal supergry w Adminie | accepted | 2026-11-01 | TASK-1115: tabela pod wykresem, PLN i najnowsze reguły; modal w miejscu, 0 dla dziesiątego symbolu. |
-| [D-575](decisions/DECISION_LOG_2026.md#d-575--powrót-do-wyszukiwania-jednej-planszy) | Powrót do wyszukiwania jednej planszy | accepted | 2026-10-30 | TASK-1114 usuwa wiele wzorów; jedna plansza, ±15 i historia pozostają. |

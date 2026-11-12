@@ -423,7 +423,7 @@ the same membership during prepare, finish and resume. Self-rehashed sidecar omi
 or substitutions cannot redefine the assessment. Unreleased T4 sidecars missing the
 required source identity/reference fields fail closed; released formats are unchanged.
 
-Report read v5 wraps raw report v3/v4 and its unchanged gate v2/v3. The strict reader
+Report read v5 wraps raw report v3/v4 and its unchanged gate v2/v3/v4. The strict reader
 validates both parts; the operation qualifier also verifies sidecar bytes, recomputes
 the numeric sweep and checks the exact game/profile. Pin v3 and acceptance v4 extend
 all existing strict policy guards and SQL exact IMPORT/VALIDATE lookup. Result evidence
@@ -805,8 +805,10 @@ independence. Existing protections and cross-game byte/pixel/group alias checks 
 
 Snapshot v2 is paired exactly with the corrections policy. The versioned preset
 selects checkpoint metrics in `training_core/grid_correction_metrics.py` and exports
-selection evidence in the checksummed training bundle. Report v3/gate v2 live in
-`domain/grid_correction_evaluation.py`; publication dispatches by strict version and
+selection evidence in the checksummed training bundle. Report v3/gate v2 (history)
+and gate v4 (new noise-tolerant reports, D-604) live in
+`domain/grid_correction_evaluation.py`; only `recording_correction_report_bind_v6`
+(migration 0185, dispatcher `recording_cohort_command_v8`) records gate v4; publication dispatches by strict version and
 retains all currentness gates, while scoped reports do not require unrelated family games.
 The existing publication service checks scoped `set_default` against the current
 default's version under its registry lock. Own receipt replay precedes this guard;

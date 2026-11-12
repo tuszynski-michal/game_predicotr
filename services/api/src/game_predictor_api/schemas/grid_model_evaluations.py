@@ -217,6 +217,31 @@ class GridCorrectionEvaluationPolicy(EvaluationClosedModel):
     checkpointRule: Literal["validation-board-correct-photo-macro-error-earliest-v1"]
 
 
+class GridCorrectionNoiseTolerance(EvaluationClosedModel):
+    boardLossAllowance: Literal[1]
+    boardLossFraction: float = Field(ge=0, le=1, allow_inf_nan=False)
+    relativeErrorIncrease: float = Field(ge=0, le=1, allow_inf_nan=False)
+    absoluteErrorIncrease: float = Field(ge=0, le=1, allow_inf_nan=False)
+    photoCompleteLossAllowance: Literal[1]
+
+
+class GridCorrectionTolerantEvaluationPolicy(EvaluationClosedModel):
+    """Gate v4 (D-604): only losses beyond the noise tolerance are regressions."""
+
+    policyVersion: Literal["grid-model-per-game-gate-v4"]
+    metricsVersion: Literal["grid-correction-metrics-v1"]
+    minimumControlPhotos: Literal[5]
+    minimumControlBoards: Literal[15]
+    nonRegression: list[Literal["boards_matched", "boards_correct", "normalized_error"]]
+    fullPhotoNonRegression: list[
+        Literal["false_boards", "duplicate_predictions", "photo_complete_correct"]
+    ]
+    noiseTolerance: GridCorrectionNoiseTolerance
+    improvementRequired: Literal[False]
+    epsilon: float = Field(ge=0, allow_inf_nan=False)
+    checkpointRule: Literal["validation-board-correct-photo-macro-error-earliest-v1"]
+
+
 class GridCorrectionEvaluationScope(EvaluationClosedModel):
     currentGameId: UUID
     trainingGameIds: list[UUID]
@@ -247,8 +272,8 @@ class GridCorrectionCheckpointSelection(EvaluationClosedModel):
 class GridCorrectionEvaluationReport(EvaluationClosedModel):
     schemaVersion: Literal["grid-model-evaluation-read-v3"]
     producer: Literal["server:grid-model-evaluator-v1"]
-    policyVersion: Literal["grid-model-per-game-gate-v2"]
-    policy: GridCorrectionEvaluationPolicy
+    policyVersion: Literal["grid-model-per-game-gate-v2", "grid-model-per-game-gate-v4"]
+    policy: GridCorrectionEvaluationPolicy | GridCorrectionTolerantEvaluationPolicy
     versionId: UUID
     manifestSha256: str = Field(pattern=_SHA)
     baseVersionId: UUID
@@ -340,8 +365,14 @@ class GridCalibratedEvaluationFields(EvaluationClosedModel):
         "grid-model-evaluation-read-v3", "grid-model-evaluation-read-v4"
     ]
     producer: Literal["server:grid-model-evaluator-v1"]
-    policyVersion: Literal["grid-model-per-game-gate-v2", "grid-model-per-game-gate-v3"]
-    policy: GridCorrectionEvaluationPolicy | GridScreenCorrectionEvaluationPolicy
+    policyVersion: Literal[
+        "grid-model-per-game-gate-v2", "grid-model-per-game-gate-v3", "grid-model-per-game-gate-v4"
+    ]
+    policy: (
+        GridCorrectionEvaluationPolicy
+        | GridScreenCorrectionEvaluationPolicy
+        | GridCorrectionTolerantEvaluationPolicy
+    )
     versionId: UUID
     manifestSha256: str = Field(pattern=_SHA)
     baseVersionId: UUID

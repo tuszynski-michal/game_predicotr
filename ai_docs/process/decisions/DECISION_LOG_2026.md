@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-11-11
+last_updated: 2026-11-12
 ---
 
 # Decision Log — wpisy 2026
@@ -15,6 +15,33 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+
+## D-604 — Bramka oceny siatek odporna na szum
+
+Status: accepted. Data:2026-11-12. TASK-1188; operator wybrał tolerancję w sumach
+i rezygnację z wymogu poprawy REG.
+
+Nowe raporty v3 i kalibrowane v5 dla trybu `grid-only` używają polityki
+`grid-model-per-game-gate-v4`. Na A i REG utrata plansz dopasowanych albo
+poprawnych jest regresem dopiero powyżej `max(1, floor(2 % plansz roli))`, a
+wzrost znormalizowanego błędu dopiero powyżej `max(15 % błędu bazowego, 0,001)`.
+Na pełnych zdjęciach fantomowe i zdublowane plansze nadal blokują przy każdym
+wzroście, a utrata całkowicie poprawnych zdjęć ma tolerancję jednego zdjęcia.
+Gra treningowa nie musi poprawić REG; PASS oznacza „nie gorszy rażąco”, a
+zastosowanie modelu pozostaje ręczne. Progi poprawności planszy, pokrycie i
+parity się nie zmieniają.
+
+Historyczne raporty bramki v2 zachowują ścisłe przeliczenie, a przepisanie
+decyzji v4 jako v2 jest odrzucane. Baza zapisuje raport v4 wyłącznie przez nową
+`recording_correction_report_bind_v6` (dyspozytor `recording_cohort_command_v8`,
+migracja 0185), której lista par obejmuje tylko gate v4; wcześniejsze funkcje
+pozostają bez zmian. Bramka ekranowa v3 (raport v4) pozostaje ścisła.
+
+Powód: ocena `8723857d` kandydata Mumie a2 `bf327cfa` dała REVISE, bo jedna
+plansza A przekroczyła próg węzła o 0,0013 (bazowy model był 0,0005 pod nim), a
+REG poprawił błąd o 1 % zamiast 5 %. Taki szum blokował użycie korekt
+operatora. Alternatywy odrzucone: tolerancja na pojedynczą planszę (wymaga
+danych plansz w raporcie) i zachowanie wymogu poprawy REG.
 
 ## D-603 — Pozycja kopii bez plansz i dłuższy odczyt podziału
 

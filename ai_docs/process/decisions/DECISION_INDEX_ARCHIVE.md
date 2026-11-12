@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-575](DECISION_LOG_2026.md#d-575--powrót-do-wyszukiwania-jednej-planszy) | Powrót do wyszukiwania jednej planszy | accepted | 2026-10-30 | TASK-1114 usuwa wiele wzorów; jedna plansza, ±15 i historia pozostają. |
 | [D-574](DECISION_LOG_2026.md#d-574--przypięty-wybór-i-optymistyczna-nawigacja-selektora) | Przypięty wybór i optymistyczna nawigacja Selektora | accepted | 2026-10-29 | Jeden writer, przypięte F, timeout i handshake przed close; bez zmian trwałego formatu. |
 | [D-573](DECISION_LOG_2026.md#d-573--wyszukiwanie-po-kolejnych-układach) | Wyszukiwanie po kolejnych układach | accepted | 2026-10-24 | 1–4 spiny, ranking cykliczny, historia v2, wygrane od końca; od 2026-10-27 wzory przed szukaniem, podgląd +10 zdjęć i limit 60 s. |
 | [D-572](DECISION_LOG_2026.md#d-572--nazwa-folderu-wynikowego-selektora) | Nazwa folderu wynikowego selektora | accepted | 2026-10-23 | Nowe partie: gra aktualizacja pierwsza-ostatnia; stary outputRoot i nazwy JPEG bez zmian; zastępuje regułę folderu D-571. |

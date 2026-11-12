@@ -6856,11 +6856,17 @@ export type GridCalibratedEvaluationReport = {
   /**
    * Policy
    */
-  policy: GridCorrectionEvaluationPolicy | GridScreenCorrectionEvaluationPolicy;
+  policy:
+    | GridCorrectionEvaluationPolicy
+    | GridScreenCorrectionEvaluationPolicy
+    | GridCorrectionTolerantEvaluationPolicy;
   /**
    * Policyversion
    */
-  policyVersion: 'grid-model-per-game-gate-v2' | 'grid-model-per-game-gate-v3';
+  policyVersion:
+    | 'grid-model-per-game-gate-v2'
+    | 'grid-model-per-game-gate-v3'
+    | 'grid-model-per-game-gate-v4';
   /**
    * Producer
    */
@@ -7402,11 +7408,17 @@ export type GridContentCalibratedEvaluationReport = {
   /**
    * Policy
    */
-  policy: GridCorrectionEvaluationPolicy | GridScreenCorrectionEvaluationPolicy;
+  policy:
+    | GridCorrectionEvaluationPolicy
+    | GridScreenCorrectionEvaluationPolicy
+    | GridCorrectionTolerantEvaluationPolicy;
   /**
    * Policyversion
    */
-  policyVersion: 'grid-model-per-game-gate-v2' | 'grid-model-per-game-gate-v3';
+  policyVersion:
+    | 'grid-model-per-game-gate-v2'
+    | 'grid-model-per-game-gate-v3'
+    | 'grid-model-per-game-gate-v4';
   /**
    * Producer
    */
@@ -8096,11 +8108,15 @@ export type GridCorrectionEvaluationReport = {
    */
   manifestSha256: string;
   parity: GridModelEvaluationParity;
-  policy: GridCorrectionEvaluationPolicy;
+  /**
+   * Policy
+   */
+  policy:
+    GridCorrectionEvaluationPolicy | GridCorrectionTolerantEvaluationPolicy;
   /**
    * Policyversion
    */
-  policyVersion: 'grid-model-per-game-gate-v2';
+  policyVersion: 'grid-model-per-game-gate-v2' | 'grid-model-per-game-gate-v4';
   /**
    * Producer
    */
@@ -8626,6 +8642,32 @@ export type GridCorrectionLearningView = {
 };
 
 /**
+ * GridCorrectionNoiseTolerance
+ */
+export type GridCorrectionNoiseTolerance = {
+  /**
+   * Absoluteerrorincrease
+   */
+  absoluteErrorIncrease: number;
+  /**
+   * Boardlossallowance
+   */
+  boardLossAllowance: 1;
+  /**
+   * Boardlossfraction
+   */
+  boardLossFraction: number;
+  /**
+   * Photocompletelossallowance
+   */
+  photoCompleteLossAllowance: 1;
+  /**
+   * Relativeerrorincrease
+   */
+  relativeErrorIncrease: number;
+};
+
+/**
  * GridCorrectionSymbolsResponse
  *
  * Symbols known for the cells of one board under grid correction (D-488).
@@ -8635,6 +8677,55 @@ export type GridCorrectionSymbolsResponse = {
    * Cells
    */
   cells: Array<GridCorrectionCellSymbolSuggestionResponse>;
+};
+
+/**
+ * GridCorrectionTolerantEvaluationPolicy
+ *
+ * Gate v4 (D-604): only losses beyond the noise tolerance are regressions.
+ */
+export type GridCorrectionTolerantEvaluationPolicy = {
+  /**
+   * Checkpointrule
+   */
+  checkpointRule: 'validation-board-correct-photo-macro-error-earliest-v1';
+  /**
+   * Epsilon
+   */
+  epsilon: number;
+  /**
+   * Fullphotononregression
+   */
+  fullPhotoNonRegression: Array<
+    'false_boards' | 'duplicate_predictions' | 'photo_complete_correct'
+  >;
+  /**
+   * Improvementrequired
+   */
+  improvementRequired: false;
+  /**
+   * Metricsversion
+   */
+  metricsVersion: 'grid-correction-metrics-v1';
+  /**
+   * Minimumcontrolboards
+   */
+  minimumControlBoards: 15;
+  /**
+   * Minimumcontrolphotos
+   */
+  minimumControlPhotos: 5;
+  noiseTolerance: GridCorrectionNoiseTolerance;
+  /**
+   * Nonregression
+   */
+  nonRegression: Array<
+    'boards_matched' | 'boards_correct' | 'normalized_error'
+  >;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'grid-model-per-game-gate-v4';
 };
 
 /**

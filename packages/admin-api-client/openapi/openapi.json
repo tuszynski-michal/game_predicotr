@@ -12504,6 +12504,9 @@
               },
               {
                 "$ref": "#/components/schemas/GridScreenCorrectionEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionTolerantEvaluationPolicy"
               }
             ],
             "title": "Policy"
@@ -12511,7 +12514,8 @@
           "policyVersion": {
             "enum": [
               "grid-model-per-game-gate-v2",
-              "grid-model-per-game-gate-v3"
+              "grid-model-per-game-gate-v3",
+              "grid-model-per-game-gate-v4"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -13518,6 +13522,9 @@
               },
               {
                 "$ref": "#/components/schemas/GridScreenCorrectionEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionTolerantEvaluationPolicy"
               }
             ],
             "title": "Policy"
@@ -13525,7 +13532,8 @@
           "policyVersion": {
             "enum": [
               "grid-model-per-game-gate-v2",
-              "grid-model-per-game-gate-v3"
+              "grid-model-per-game-gate-v3",
+              "grid-model-per-game-gate-v4"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -14807,10 +14815,21 @@
             "$ref": "#/components/schemas/GridModelEvaluationParity"
           },
           "policy": {
-            "$ref": "#/components/schemas/GridCorrectionEvaluationPolicy"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionTolerantEvaluationPolicy"
+              }
+            ],
+            "title": "Policy"
           },
           "policyVersion": {
-            "const": "grid-model-per-game-gate-v2",
+            "enum": [
+              "grid-model-per-game-gate-v2",
+              "grid-model-per-game-gate-v4"
+            ],
             "title": "Policyversion",
             "type": "string"
           },
@@ -15996,6 +16015,48 @@
         "title": "GridCorrectionLearningView",
         "type": "object"
       },
+      "GridCorrectionNoiseTolerance": {
+        "additionalProperties": false,
+        "properties": {
+          "absoluteErrorIncrease": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Absoluteerrorincrease",
+            "type": "number"
+          },
+          "boardLossAllowance": {
+            "const": 1,
+            "title": "Boardlossallowance",
+            "type": "integer"
+          },
+          "boardLossFraction": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Boardlossfraction",
+            "type": "number"
+          },
+          "photoCompleteLossAllowance": {
+            "const": 1,
+            "title": "Photocompletelossallowance",
+            "type": "integer"
+          },
+          "relativeErrorIncrease": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Relativeerrorincrease",
+            "type": "number"
+          }
+        },
+        "required": [
+          "boardLossAllowance",
+          "boardLossFraction",
+          "relativeErrorIncrease",
+          "absoluteErrorIncrease",
+          "photoCompleteLossAllowance"
+        ],
+        "title": "GridCorrectionNoiseTolerance",
+        "type": "object"
+      },
       "GridCorrectionSymbolsResponse": {
         "additionalProperties": false,
         "description": "Symbols known for the cells of one board under grid correction (D-488).",
@@ -16012,6 +16073,88 @@
           "cells"
         ],
         "title": "GridCorrectionSymbolsResponse",
+        "type": "object"
+      },
+      "GridCorrectionTolerantEvaluationPolicy": {
+        "additionalProperties": false,
+        "description": "Gate v4 (D-604): only losses beyond the noise tolerance are regressions.",
+        "properties": {
+          "checkpointRule": {
+            "const": "validation-board-correct-photo-macro-error-earliest-v1",
+            "title": "Checkpointrule",
+            "type": "string"
+          },
+          "epsilon": {
+            "minimum": 0.0,
+            "title": "Epsilon",
+            "type": "number"
+          },
+          "fullPhotoNonRegression": {
+            "items": {
+              "enum": [
+                "false_boards",
+                "duplicate_predictions",
+                "photo_complete_correct"
+              ],
+              "type": "string"
+            },
+            "title": "Fullphotononregression",
+            "type": "array"
+          },
+          "improvementRequired": {
+            "const": false,
+            "title": "Improvementrequired",
+            "type": "boolean"
+          },
+          "metricsVersion": {
+            "const": "grid-correction-metrics-v1",
+            "title": "Metricsversion",
+            "type": "string"
+          },
+          "minimumControlBoards": {
+            "const": 15,
+            "title": "Minimumcontrolboards",
+            "type": "integer"
+          },
+          "minimumControlPhotos": {
+            "const": 5,
+            "title": "Minimumcontrolphotos",
+            "type": "integer"
+          },
+          "noiseTolerance": {
+            "$ref": "#/components/schemas/GridCorrectionNoiseTolerance"
+          },
+          "nonRegression": {
+            "items": {
+              "enum": [
+                "boards_matched",
+                "boards_correct",
+                "normalized_error"
+              ],
+              "type": "string"
+            },
+            "title": "Nonregression",
+            "type": "array"
+          },
+          "policyVersion": {
+            "const": "grid-model-per-game-gate-v4",
+            "title": "Policyversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "metricsVersion",
+          "minimumControlPhotos",
+          "minimumControlBoards",
+          "nonRegression",
+          "fullPhotoNonRegression",
+          "noiseTolerance",
+          "improvementRequired",
+          "epsilon",
+          "checkpointRule"
+        ],
+        "title": "GridCorrectionTolerantEvaluationPolicy",
         "type": "object"
       },
       "GridDetectorReadiness": {

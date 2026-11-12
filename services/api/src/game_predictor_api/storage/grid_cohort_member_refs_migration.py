@@ -1,4 +1,4 @@
-"""DDL for Alembic 0186 (TASK-1190, D-605); no runtime invocation.
+"""DDL for Alembic 0186 (TASK-1191, D-605); no runtime invocation.
 
 Membership lookups of the cohort currentness trigger move from array
 containment on ``grid_training_cohort_members`` (``@>`` is not LEAKPROOF, so
@@ -7,7 +7,7 @@ row write scanned all members) to equality on a normalized lookup table. The
 lookup table is derived from member rows by a trigger, so it cannot drift from
 the arrays; one notice is still written per matching member row, exactly as
 ``grid_cohort_notice_v1`` did. The schema also admits the ``retired`` cohort
-status (frozen <-> retired) used by TASK-1191.
+status (frozen <-> retired) used by TASK-1192.
 """
 
 import hashlib
@@ -121,7 +121,7 @@ LANGUAGE plpgsql SET search_path=pg_catalog AS $$ BEGIN
   DELETE FROM game_data_v2.{REFS} r WHERE r.game_id=OLD.game_id
    AND r.cohort_id=OLD.cohort_id AND r.member_source_id=OLD.source_id;
  END IF;
- -- A retired cohort keeps no lookup pairs (TASK-1191 restores them explicitly).
+ -- A retired cohort keeps no lookup pairs (TASK-1192 restores them explicitly).
  IF TG_OP<>'DELETE' AND NOT EXISTS(SELECT 1 FROM game_data_v2.grid_training_cohorts c
    WHERE c.game_id=NEW.game_id AND c.id=NEW.cohort_id AND c.status='retired') THEN
   INSERT INTO game_data_v2.{REFS}(game_id,cohort_id,member_source_id,ref_kind,ref_id)
@@ -133,7 +133,7 @@ END $$;
 REVOKE ALL ON FUNCTION game_data_v2.grid_cohort_member_refs_v1() FROM PUBLIC;
 
 -- Pairs are written only by the member trigger above or by an explicit cohort
--- retirement command (TASK-1191) that sets game_predictor.cohort_refs_command.
+-- retirement command (TASK-1192) that sets game_predictor.cohort_refs_command.
 CREATE FUNCTION game_data_v2.grid_cohort_refs_guard_v1() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog AS $$ BEGIN
  IF TG_OP<>'UPDATE' AND (pg_catalog.pg_trigger_depth()>1 OR
@@ -268,7 +268,7 @@ LANGUAGE plpgsql SET search_path=pg_catalog AS $$ BEGIN
      OR (OLD.status='ready_to_freeze' AND NEW.status='frozen')) THEN RETURN NEW; END IF;
 """
 _IMMUTABLE_RETIRE = r"""
-   -- TASK-1191: retirement only toggles frozen <-> retired; history stays intact.
+   -- TASK-1192: retirement only toggles frozen <-> retired; history stays intact.
    IF ((OLD.status='frozen' AND NEW.status='retired')
      OR (OLD.status='retired' AND NEW.status='frozen'))
    AND NEW.game_id=OLD.game_id AND NEW.id=OLD.id AND NEW.document=OLD.document

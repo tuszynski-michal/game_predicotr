@@ -1,4 +1,4 @@
-"""TASK-1190 / D-605: a genuine reviewer geometry save notifies the same cohorts.
+"""TASK-1191 / D-605: a genuine reviewer geometry save notifies the same cohorts.
 
 One real ``save_review_item`` of a board covered by three cohorts runs as the
 application role under RLS, once with the production v2 currentness trigger and

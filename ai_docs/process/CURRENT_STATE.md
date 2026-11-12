@@ -51,7 +51,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md` | accepted 2026-11-12; TASK-1190 done (v1.7.617, migracja 0186 nie wykonana na bazie operatora) | TASK-1191–1192 (osobne polecenie); scalenie i migracja za zgodą | `claude/grid-cohort-refs` |
+| `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md` | accepted 2026-11-12; TASK-1191 done (v1.7.617, migracja 0186 nie wykonana na bazie operatora) | TASK-1192–1193 (osobne polecenie); scalenie i migracja za zgodą | `claude/grid-cohort-refs` |
 | `delivery/EFFECTIVE_GRID_LEARNING_PLAN_20261111.md` | accepted; T1–T4 lokalnie v1.7.602–605; audyty Codex T2–T4 niewykonane (operator) | brak tasków; odbiór i zgoda na scalenie, potem osobno migracja0184 i dane A | `codex/effective-grid-delivery` |
 | `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` | T0–T5 i poprawka startu Opus PASS; main/origin, baza0183, usługi działają lokalnie | zatwierdzenie obrysów, ślepy pomiar, świeże kontrole i dowód rodowodu; trening nieuruchomiony | `main` |
 | `delivery/BOARD_SEARCH_SEQUENCE_PLAN_20261024.md` | poprawki TASK-1098–1100 zaakceptowane i scalone lokalnie 2026-10-27 (v1.7.484–488): wzory przed szukaniem, +10 zdjęć, 60 s i domyślne 40 wyników; push i cleanup objęte zgodą | odbiór działającego linku i fizycznego Androida; usługi bez restartu agenta | `main` |

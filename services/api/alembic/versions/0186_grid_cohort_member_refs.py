@@ -1,4 +1,4 @@
-"""Equality lookup of cohort membership for the currentness trigger (TASK-1190, D-605)."""
+"""Equality lookup of cohort membership for the currentness trigger (TASK-1191, D-605)."""
 
 from game_predictor_api.storage.grid_cohort_member_refs_migration import downgrade, upgrade
 

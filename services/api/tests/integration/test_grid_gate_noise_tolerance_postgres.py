@@ -40,7 +40,7 @@ def test_gate_v4_pairs_bind_only_through_the_new_function_and_history_survives()
         # Empty downgrade is reversible; roles keep only the public wrapper grant.
         command.downgrade(config, "0184_effective_grid_material")
         command.upgrade(config, "0185_grid_gate_noise_tolerance")
-        # TASK-1190: the runtime router expects the head manifest (v23+).
+        # TASK-1191: the runtime router expects the head manifest (v23+).
         command.upgrade(config, "head")
         with db.owner_engine.connect() as connection:
             assert recording_permission_errors(connection, db.role) == ()

@@ -258,16 +258,24 @@ class PageGeometryOverrideService:
             board_frame_quads,
             symbol_grid_quads,
         )
-        receipt = self._repository.get_by_decision_checksum(
-            game_id=game_id,
-            source_checksum_sha256=source_checksum_sha256,
-            decision_checksum_sha256=checksum,
-            revision=None if expected_override_revision is None else expected_override_revision + 1,
-        )
-        if receipt is not None and (
-            expected_override_revision is None or expected_override_revision == receipt.revision - 1
-        ):
-            return receipt, False
+        if expected_override_revision is None:
+            # Without a revision only the current decision is a replay; an older,
+            # superseded revision with the same checksum must not be reported as
+            # applied (TASK-1191).
+            latest = self._repository.get_current(
+                game_id=game_id, source_checksum_sha256=source_checksum_sha256
+            )
+            if latest is not None and latest.decision_checksum_sha256 == checksum:
+                return latest, False
+        else:
+            receipt = self._repository.get_by_decision_checksum(
+                game_id=game_id,
+                source_checksum_sha256=source_checksum_sha256,
+                decision_checksum_sha256=checksum,
+                revision=expected_override_revision + 1,
+            )
+            if receipt is not None and expected_override_revision == receipt.revision - 1:
+                return receipt, False
         self._repository.require_mutable_source(
             game_id=game_id, source_checksum_sha256=source_checksum_sha256
         )

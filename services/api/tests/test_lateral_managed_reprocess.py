@@ -264,7 +264,6 @@ def test_managed_preflight_http_never_touches_browser_files(tmp_path, monkeypatc
 
 @pytest.mark.parametrize("entrypoint", ["browser", "managed"])
 def test_public_import_entrypoints_cannot_drop_guard_history(tmp_path, monkeypatch, entrypoint):
-    from types import SimpleNamespace
     from unittest.mock import Mock
 
     from fastapi.testclient import TestClient
@@ -323,12 +322,29 @@ def test_public_import_entrypoints_cannot_drop_guard_history(tmp_path, monkeypat
             def canonical_source_checksums(self, _game_id):
                 return {}
 
-        browser.get_ready.return_value = SimpleNamespace(
-            upload=SimpleNamespace(
-                game_id=None,
+        from datetime import UTC, datetime
+
+        from game_predictor_api.application.image_imports import (
+            BrowserImageUpload,
+            BrowserReadySelection,
+            ImageSelectionPurpose,
+        )
+
+        # Real staging types, so a new upload field cannot leave a stale double.
+        browser.get_ready.return_value = BrowserReadySelection(
+            upload=BrowserImageUpload(
+                upload_id=UUID(str(source.input_payload["source_selection_id"])),
+                path=tmp_path,
                 display_name="seq import",
+                purpose=ImageSelectionPurpose.LAYOUT_IMPORT,
+                game_id=None,
+                expected_file_count=1,
+                expected_total_bytes=10,
+                created_at=datetime(2026, 1, 1, tzinfo=UTC),
+                uploaded_indexes={0},
+                uploaded_files={},
+                uploaded_bytes=10,
                 upload_plan_checksum_sha256="e" * 64,
-                skipped_canonical_ranges=(),
             ),
             manifest=BrowserSequenceManifest(
                 files=(

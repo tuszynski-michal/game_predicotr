@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -39,7 +40,7 @@ from game_predictor_api.storage.page_geometry_override_repository import (
     SqlAlchemyPageGeometryOverrideRepository,
 )
 from game_predictor_api.storage.schema_readiness import EXPECTED_ALEMBIC_HEAD
-from sqlalchemy import text
+from sqlalchemy import insert, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
@@ -111,17 +112,46 @@ def _geometry(engine, game_id: UUID, label: str) -> UUID:
             )
         )
         session.flush()
+        # The source row is written with the pinned schema's own columns: today's
+        # ORM model carries later columns (0177 `purged_at`) that 0144 lacks.
+        # ensure_source_geometry only reads this transient object.
         source = SourceImageModel(
+            id=uuid4(),
             import_job_id=job.id,
             file_execution_key=key,
             relative_path=f"{label}.jpg",
             checksum_sha256=checksum,
             width=500,
             height=300,
+            raw_width=500,
+            raw_height=300,
+            oriented_width=500,
+            oriented_height=300,
+            coordinate_space="exif-normalized-rgb-pixels-v1",
+            normalized_pixel_checksum_sha256=hashlib.sha256(
+                f"normalized:{checksum}".encode()
+            ).hexdigest(),
+            normalization_adapter_version="virtual-fixture-normalization-v1",
             status="waiting_for_review",
         )
-        session.add(source)
-        session.flush()
+        pinned_columns = set(
+            session.scalars(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema='game_data_v2' AND table_name='source_images'"
+                )
+            )
+        )
+        table = SourceImageModel.__table__
+        session.execute(
+            insert(table).values(
+                {
+                    column.name: getattr(source, column.key)
+                    for column in table.columns
+                    if column.name in pinned_columns and getattr(source, column.key) is not None
+                }
+            )
+        )
         geometry = ensure_source_geometry(
             session,
             game_id=game_id,

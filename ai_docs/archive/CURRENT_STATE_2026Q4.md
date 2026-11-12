@@ -6,6 +6,11 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1192 — Naprawa dwóch pozostałych padających testów API (done)
+
+- Plik: `tasks/completed/1192-fix-two-legacy-api-tests.md`; commit **v1.7.621**.
+- Wynik: roundtrip repozytorium geometrii ma atrapę bez wcześniejszego paragonu i asercję sekwencji intencji; test migracji 0145 zasiewa `source_images` tylko kolumnami schematu 0144. Oba testy zastane przy TASK-1191 przechodzą; kod produkcyjny bez zmian.
+
 ### TASK-1191 — Naprawa dwóch padających testów API (done)
 
 - Plik: `tasks/completed/1191-fix-two-failing-api-tests.md`; commit **v1.7.619 / `9ab662a97f3129140333ecc759247ca9acc9fe17`**.

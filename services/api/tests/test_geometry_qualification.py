@@ -22,6 +22,7 @@ from game_predictor_api.domain.geometry_qualification import (
 from game_predictor_api.domain.page_geometry_overrides import ImagePageGeometryOverride
 from game_predictor_api.schemas.geometry_qualification import GeometryQualificationPayload
 from game_predictor_api.schemas.image_grid_reviews import ImageGridReviewGeometryPreviewCommand
+from game_predictor_api.storage.game_storage_routing import GameStorageIntent
 from game_predictor_api.storage.image_import_geometry_guard_repository import (
     _decision as read_guard_decision,
 )
@@ -282,6 +283,8 @@ def test_override_repository_roundtrip_after_new_repository_instance() -> None:
     from contextlib import nullcontext
 
     session.begin_nested.return_value = nullcontext()
+    # No earlier row with this decision: `append` checks its idempotent receipt first.
+    session.scalar.return_value = None
     SqlAlchemyPageGeometryOverrideRepository(session, storage_router=storage_router).append(value)
     stored = session.add.call_args.args[0]
     # Exercise SQLAlchemy JSON serialization, not a shared in-memory domain object.
@@ -294,7 +297,12 @@ def test_override_repository_roundtrip_after_new_repository_instance() -> None:
         session, storage_router=storage_router
     ).get_current(game_id=value.game_id, source_checksum_sha256=value.source_checksum_sha256)
     assert restored == value
-    assert storage_router.bind.call_count == 2
+    # append binds for writing and reads its receipt; get_current binds for reading.
+    assert [call.kwargs["intent"] for call in storage_router.bind.call_args_list] == [
+        GameStorageIntent.WRITE,
+        GameStorageIntent.READ,
+        GameStorageIntent.READ,
+    ]
     assert bind(None) is None
 
 

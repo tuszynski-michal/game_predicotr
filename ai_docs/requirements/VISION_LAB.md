@@ -364,7 +364,9 @@ and calibrated v5) use gate v4 instead (D-604): a role regresses only when it lo
 more than `max(1, floor(2 %))` matched or correct boards or its error grows by more
 than `max(15 %, 0.001)`; phantom and duplicate full-photo boards stay strict, complete
 photos tolerate one loss, and REGRESSION needs no improvement. Gate v2 reports keep
-their strict recomputation. These product thresholds do
+their strict recomputation. A learning keeps its pinned verdict; its view additionally reports
+the candidate's latest completed quality evaluation (verdict and gate) and whether the
+candidate is the default or assigned to the game (TASK-1189), read-only. These product thresholds do
 not prove statistical significance or session independence. Required scope includes
 the current game, every TRAIN game and the verified previous default's explicit
 scope. Legacy report labels cannot invent game IDs. Confirmed exclusions retain

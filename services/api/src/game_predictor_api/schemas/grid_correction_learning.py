@@ -337,6 +337,24 @@ class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
     previewSha256: Sha256
 
 
+class GridCorrectionLearningCandidateEvaluation(CorrectionLearningClosedModel):
+    evaluationId: UUID
+    reportId: UUID
+    verdict: Literal["PASS", "REVISE", "NOT_EVALUABLE"]
+    policyVersion: str
+    createdAt: str
+
+
+class GridCorrectionLearningCandidateStatus(CorrectionLearningClosedModel):
+    """Read-only current state; the learning's own pinned verdict never changes."""
+
+    versionId: UUID
+    isDefault: bool
+    assignedToGame: bool
+    latestEvaluation: GridCorrectionLearningCandidateEvaluation | None
+    laterEvaluation: bool
+
+
 class GridCorrectionLearningView(CorrectionLearningClosedModel):
     contentExperiment: Literal["full-symbol-content-experiment-v1"] | None = Field(
         None, exclude_if=lambda value: value is None
@@ -361,6 +379,9 @@ class GridCorrectionLearningView(CorrectionLearningClosedModel):
     errorCode: str | None
     createdAt: str
     updatedAt: str
+    candidate: GridCorrectionLearningCandidateStatus | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
 
 
 class GridCorrectionLearningList(CorrectionLearningClosedModel):

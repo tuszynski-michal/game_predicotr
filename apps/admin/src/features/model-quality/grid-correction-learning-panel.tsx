@@ -19,6 +19,10 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { GridCorrectionApplyPanel } from './grid-correction-apply-panel';
 import { GridHistoryRecovery } from './grid-history-recovery';
+import {
+  candidateRunSuffix,
+  candidateSummary,
+} from './learning-candidate-status';
 import { GridContentEvaluationSummary } from './grid-content-evaluation-summary';
 import {
   GridContentReferenceWorkspace,
@@ -1335,12 +1339,22 @@ function Learning({
             >
               {shortDate(run.createdAt)} · {learningStatus[run.status]}
               {run.verdict ? ` · ${run.verdict}` : ''}
+              {candidateRunSuffix(run.candidate)}
             </button>
           </li>
         ))}
       </ul>
       {selected ? (
         <article aria-label="Postęp uczenia">
+          {candidateSummary(selected.candidate, selected.verdict) ? (
+            <section aria-label="Bieżący stan kandydata">
+              {candidateSummary(selected.candidate, selected.verdict)?.map(
+                (line) => (
+                  <p key={line}>{line}</p>
+                ),
+              )}
+            </section>
+          ) : null}
           {selected.contentExperiment ? (
             <section aria-label="Budżet eksperymentu">
               <p>

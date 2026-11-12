@@ -248,6 +248,7 @@ export type {
   GridCorrectionLearningProgressCounts,
   GridCorrectionDataAvailability,
   GridCorrectionLearningView,
+  GridCorrectionLearningCandidateStatus,
   GridCorrectionLearningList,
   GridAssignedComparisonCreate,
   GridAssignedComparisonReport,

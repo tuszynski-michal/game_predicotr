@@ -6,6 +6,7 @@ therefore adopts the same cohort/run/evaluation, including the original GPU budg
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from game_predictor_api.domain.grid_correction_policy import (
 from game_predictor_api.domain.grid_correction_progress import correction_progress_counts
 from game_predictor_api.domain.grid_correction_split import correction_data_availability
 from game_predictor_api.domain.grid_detector_readiness import detector_readiness
+from game_predictor_api.domain.grid_learning_candidate_status import candidate_status
 from game_predictor_api.domain.grid_learning_sample_view import learning_test_sample
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError, descriptor_sha256
 from game_predictor_api.domain.grid_training_cohorts import (
@@ -60,7 +62,7 @@ from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository, j
 from game_predictor_api.storage.models import JobModel
 
 from .grid_correction_history import verified_publication_scope
-from .grid_model_evaluation import GridModelEvaluationService
+from .grid_model_evaluation import GridModelEvaluationService, report_id_for
 from .grid_model_registry import GridModelRegistryService
 from .grid_training_cohorts import GridTrainingCohortService
 from .grid_training_runs import GridTrainingRunService
@@ -731,11 +733,70 @@ class GridCorrectionLearningService:
                 .order_by(JobModel.created_at.desc())
                 .limit(200)
             )
-            return {"items": [self.view(job_from_record(row)) for row in rows]}
+            views = [self.view(job_from_record(row)) for row in rows]
+            self._attach_candidates(session, game, views)
+            return {"items": views}
 
     def get(self, game: UUID, identifier: UUID) -> dict[str, Any]:
         with Session(self.engine) as session:
-            return self.view(self._job(session, game, identifier))
+            view = self.view(self._job(session, game, identifier))
+            self._attach_candidates(session, game, [view])
+            return view
+
+    def _attach_candidates(
+        self, session: Session, game: UUID, views: Sequence[dict[str, Any]]
+    ) -> None:
+        """Read-only current state of each candidate (TASK-1189); pins stay unchanged."""
+        if not any(view.get("candidateVersionId") for view in views):
+            return
+        registry = SqlAlchemyGridModelRegistryRepository(session)
+        head = registry.default()
+        assignment, _ = registry.assignment(game)
+        default_version = None if head is None else str(head.version_id)
+        assigned_version = None if assignment is None else str(assignment.version_id)
+        evaluations: dict[str, Sequence[dict[str, Any]]] = {}
+        for view in views:
+            version = view.get("candidateVersionId")
+            if not version:
+                continue
+            if version not in evaluations:
+                evaluations[version] = self._candidate_evaluations(session, registry, version)
+            view["candidate"] = candidate_status(
+                candidate_version_id=str(version),
+                learning_evaluation_id=view.get("evaluationId"),
+                default_version_id=default_version,
+                assigned_version_id=assigned_version,
+                evaluations=evaluations[version],
+            )
+
+    def _candidate_evaluations(
+        self, session: Session, registry: SqlAlchemyGridModelRegistryRepository, version: str
+    ) -> Sequence[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        for job in self.evaluations._jobs(session, UUID(version)):
+            if (
+                job.status != JobStatus.COMPLETED
+                or job.input_payload.get("evaluation_kind") == "grid-assigned-comparison-v1"
+            ):
+                continue
+            row, invalidated = registry.evaluation(report_id_for(job.id))
+            if row is None or invalidated:
+                continue
+            report = json.loads(row.report_json)
+            if report.get("verdict") not in {"PASS", "REVISE", "NOT_EVALUABLE"}:
+                continue
+            result.append(
+                {
+                    "evaluationId": str(job.id),
+                    "reportId": str(row.id),
+                    "verdict": report["verdict"],
+                    "policyVersion": str(report.get("policyVersion", "")),
+                    "createdAt": job.created_at.isoformat(),
+                }
+            )
+            # Newest first; only the latest is shown.
+            break
+        return result
 
     def _children(self, session: Session, job: Job) -> Sequence[Job]:
         keys = [str(child_key(job.id, kind)) for kind in ("training", "evaluation")]

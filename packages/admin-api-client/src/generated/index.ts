@@ -1940,6 +1940,8 @@ export type {
   GridCorrectionEvaluationRole,
   GridCorrectionEvaluationRoles,
   GridCorrectionEvaluationScope,
+  GridCorrectionLearningCandidateEvaluation,
+  GridCorrectionLearningCandidateStatus,
   GridCorrectionLearningCount,
   GridCorrectionLearningExclusion,
   GridCorrectionLearningExclusionCount,

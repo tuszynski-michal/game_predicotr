@@ -8200,6 +8200,57 @@ export type GridCorrectionEvaluationScope = {
 };
 
 /**
+ * GridCorrectionLearningCandidateEvaluation
+ */
+export type GridCorrectionLearningCandidateEvaluation = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Evaluationid
+   */
+  evaluationId: string;
+  /**
+   * Policyversion
+   */
+  policyVersion: string;
+  /**
+   * Reportid
+   */
+  reportId: string;
+  /**
+   * Verdict
+   */
+  verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE';
+};
+
+/**
+ * GridCorrectionLearningCandidateStatus
+ *
+ * Read-only current state; the learning's own pinned verdict never changes.
+ */
+export type GridCorrectionLearningCandidateStatus = {
+  /**
+   * Assignedtogame
+   */
+  assignedToGame: boolean;
+  /**
+   * Isdefault
+   */
+  isDefault: boolean;
+  /**
+   * Laterevaluation
+   */
+  laterEvaluation: boolean;
+  latestEvaluation: GridCorrectionLearningCandidateEvaluation | null;
+  /**
+   * Versionid
+   */
+  versionId: string;
+};
+
+/**
  * GridCorrectionLearningCount
  */
 export type GridCorrectionLearningCount = {
@@ -8566,6 +8617,7 @@ export type GridCorrectionLearningView = {
    * Cancelrequested
    */
   cancelRequested: boolean;
+  candidate?: GridCorrectionLearningCandidateStatus | null;
   /**
    * Candidateversionid
    */

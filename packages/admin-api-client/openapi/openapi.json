@@ -15002,6 +15002,89 @@
         "title": "GridCorrectionEvaluationScope",
         "type": "object"
       },
+      "GridCorrectionLearningCandidateEvaluation": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "evaluationId": {
+            "format": "uuid",
+            "title": "Evaluationid",
+            "type": "string"
+          },
+          "policyVersion": {
+            "title": "Policyversion",
+            "type": "string"
+          },
+          "reportId": {
+            "format": "uuid",
+            "title": "Reportid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "REVISE",
+              "NOT_EVALUABLE"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evaluationId",
+          "reportId",
+          "verdict",
+          "policyVersion",
+          "createdAt"
+        ],
+        "title": "GridCorrectionLearningCandidateEvaluation",
+        "type": "object"
+      },
+      "GridCorrectionLearningCandidateStatus": {
+        "additionalProperties": false,
+        "description": "Read-only current state; the learning's own pinned verdict never changes.",
+        "properties": {
+          "assignedToGame": {
+            "title": "Assignedtogame",
+            "type": "boolean"
+          },
+          "isDefault": {
+            "title": "Isdefault",
+            "type": "boolean"
+          },
+          "laterEvaluation": {
+            "title": "Laterevaluation",
+            "type": "boolean"
+          },
+          "latestEvaluation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionLearningCandidateEvaluation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "versionId": {
+            "format": "uuid",
+            "title": "Versionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "versionId",
+          "isDefault",
+          "assignedToGame",
+          "latestEvaluation",
+          "laterEvaluation"
+        ],
+        "title": "GridCorrectionLearningCandidateStatus",
+        "type": "object"
+      },
       "GridCorrectionLearningCount": {
         "additionalProperties": false,
         "properties": {
@@ -15821,6 +15904,16 @@
           "cancelRequested": {
             "title": "Cancelrequested",
             "type": "boolean"
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionLearningCandidateStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "candidateVersionId": {
             "anyOf": [

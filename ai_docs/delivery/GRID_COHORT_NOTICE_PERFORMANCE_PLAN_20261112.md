@@ -137,7 +137,7 @@ usług (operator), zmiana defaultu lub przypisań modeli.
 
 ## 5. Taski
 
-### TASK-1191 — Szybkie wyszukiwanie członkostwa kohort w wyzwalaczu
+### TASK-1195 — Szybkie wyszukiwanie członkostwa kohort w wyzwalaczu
 
 **Goal:** zapis geometrii planszy jako rola API nie skanuje tabeli członków;
 zbiór zdarzeń `currentness_notice` jest identyczny jak przed zmianą.
@@ -147,7 +147,7 @@ zbiór zdarzeń `currentness_notice` jest identyczny jak przed zmianą.
 **Scope:**
 1. Migracja `services/api/alembic/versions/0186_grid_cohort_member_refs.py`
    (proponowana), w jednym pliku także schemat statusu `retired` dla
-   TASK-1192, żeby wdrożenie miało jedną migrację:
+   TASK-1196, żeby wdrożenie miało jedną migrację:
    - guard manifestu v22, tabela `grid_training_cohort_member_refs` z
      partycjami istniejących gier i RLS (wzorzec `grid_cell_content_migration`),
      manifest v22 → v23 (`storage/game_data_v2_manifest_v23.py`, proponowany)
@@ -207,13 +207,13 @@ Pomiar na danych operatora (po jego migracji, osobna zgoda): pełny zapis
 (`tests/test_grid_training_cohort_storage.py:217, :245`) — aktualizować
 świadomie.
 
-### TASK-1192 — Wycofanie i przywrócenie kohorty (backend i API)
+### TASK-1196 — Wycofanie i przywrócenie kohorty (backend i API)
 
 **Goal:** operator może przez API zobaczyć podgląd i wycofać lub przywrócić
 kohortę zgodnie z regułą ochrony; wycofana kohorta nie jest używana do
 treningu, oceny, publikacji ani przypisania.
 
-**Dependencies:** TASK-1191 (schemat `retired`, tabela refs).
+**Dependencies:** TASK-1195 (schemat `retired`, tabela refs).
 
 **Scope:**
 1. Domena (proponowany `domain/grid_cohort_retirement.py`): czysta funkcja
@@ -251,12 +251,12 @@ treningu, oceny, publikacji ani przypisania.
 barier, `npm run openapi:generate`, `npm run openapi:check`, test żądania w
 `packages/admin-api-client/test`, lint/typecheck.
 
-### TASK-1193 — Panel kohort w Adminie
+### TASK-1197 — Panel kohort w Adminie
 
 **Goal:** operator widzi kohorty z modelem i ochroną oraz wycofuje lub
 przywraca kohortę przez podgląd z potwierdzeniem.
 
-**Dependencies:** TASK-1192.
+**Dependencies:** TASK-1196.
 
 **Scope:** sekcja „Kohorty” w panelu uczenia siatek
 (`apps/admin/src/features/model-quality/grid-correction-learning-panel.tsx`
@@ -299,7 +299,7 @@ Aktualizacja `DATA_MODEL.md`, `VISION_LAB.md`, D-605.
 - Czas backfillu na danych operatora nieznany (szacunek 30–120 s); zmierzyć
   na kopii testowej przed wdrożeniem.
 - Czy `grid_model_publications` ma pojęcie wycofania publikacji — wykonawca
-  TASK-1192 ustala z kodu i, jeśli go brak, każda publikacja chroni.
+  TASK-1196 ustala z kodu i, jeśli go brak, każda publikacja chroni.
 - Pozostały koszt zapisu (bez wyzwalacza) szacowany na 1–3 s; jeśli pomiar
   pokaże więcej, przyczyna jest poza tym planem (np. `apply_board_repoint`).
 - Koszt prac: trzy taski, migracja z backfillem, pion API i UI, trzy audyty;
@@ -309,6 +309,6 @@ Aktualizacja `DATA_MODEL.md`, `VISION_LAB.md`, D-605.
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-1191 | claude-opus-5-5 | high | Migracja z RLS, partycjami, backfillem i równoważnością wyzwalacza; ryzyko danych i ochrony publikacji. | gpt-6.1-sol/high — audyt zmian Claude |
-| TASK-1192 | claude-opus-5-5 | high | Reguła ochrony modeli, bariery w kilku modułach, wyścigi i pion API. | gpt-6.1-sol/high — audyt zmian Claude |
-| TASK-1193 | claude-opus-5-5 | medium | UI według istniejących wzorców panelu i gotowego kontraktu API. | gpt-6.1-sol/medium — audyt zmian Claude |
+| TASK-1195 | claude-opus-5-5 | high | Migracja z RLS, partycjami, backfillem i równoważnością wyzwalacza; ryzyko danych i ochrony publikacji. | gpt-6.1-sol/high — audyt zmian Claude |
+| TASK-1196 | claude-opus-5-5 | high | Reguła ochrony modeli, bariery w kilku modułach, wyścigi i pion API. | gpt-6.1-sol/high — audyt zmian Claude |
+| TASK-1197 | claude-opus-5-5 | medium | UI według istniejących wzorców panelu i gotowego kontraktu API. | gpt-6.1-sol/medium — audyt zmian Claude |

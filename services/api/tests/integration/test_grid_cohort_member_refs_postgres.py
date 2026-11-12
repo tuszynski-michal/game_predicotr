@@ -1,4 +1,4 @@
-"""TASK-1191 / D-605: equality membership lookup of the cohort currentness trigger.
+"""TASK-1195 / D-605: equality membership lookup of the cohort currentness trigger.
 
 The v1 trigger (array containment on member rows) stays installed but unused, so
 the same evidence writes are replayed against v1 and v2 on probe tables and the

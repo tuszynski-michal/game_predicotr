@@ -1,4 +1,4 @@
-"""Frozen v23: equality lookup pairs of grid cohort membership (TASK-1191, D-605)."""
+"""Frozen v23: equality lookup pairs of grid cohort membership (TASK-1195, D-605)."""
 
 from .game_data_v2_manifest_v22 import (
     CATALOG,

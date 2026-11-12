@@ -66,7 +66,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
-- [Szybki zapis geometrii i wycofywanie kohort](delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md) — TASK-1191–1192, accepted 2026-11-12.
+- [Szybki zapis geometrii i wycofywanie kohort](delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md) — TASK-1195–1192, accepted 2026-11-12.
 - [Skuteczne uczenie i test poprawy](delivery/EFFECTIVE_GRID_LEARNING_PLAN_20261111.md) — TASK-1182–1185, accepted2026-11-11.
 
 - [Wydajna weryfikacja i uczenie z korekt](delivery/REVIEW_LEARNING_RELIABILITY_PLAN_20261110.md) — TASK-1177–1178, bulk/manifest i gotowość/zalecany cel.

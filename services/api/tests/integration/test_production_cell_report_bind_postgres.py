@@ -234,7 +234,7 @@ def test_v6_binding_exact_pairs_permissions_and_fresh_process_replay():
         # Empty downgrade is reversible; roles retain only the public wrapper grant.
         command.downgrade(config, "0182_cell_content_references")
         command.upgrade(config, "0183_production_cell_evaluation")
-        # TASK-1191: the runtime router expects the head manifest (v23+).
+        # TASK-1195: the runtime router expects the head manifest (v23+).
         command.upgrade(config, "head")
         with db.owner_engine.connect() as connection:
             assert recording_permission_errors(connection, db.role) == ()

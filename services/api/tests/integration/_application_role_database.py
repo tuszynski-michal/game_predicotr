@@ -181,7 +181,7 @@ def application_role_database(
             "0182_cell_content_references" in ancestors
             and "0186_grid_cohort_member_refs" not in ancestors
         ):
-            # TASK-1191: 0182-0185 keep manifest v22 without the cohort refs table.
+            # TASK-1195: 0182-0185 keep manifest v22 without the cohort refs table.
             historical = game_data_v2_manifest_v22
         if historical is not None:
             with patch.multiple(

@@ -4,7 +4,7 @@ status: done
 plan: delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md
 ---
 
-# TASK-1191 — Szybkie wyszukiwanie członkostwa kohort w wyzwalaczu
+# TASK-1195 — Szybkie wyszukiwanie członkostwa kohort w wyzwalaczu
 
 ## Status
 
@@ -59,7 +59,7 @@ Audyt: gpt-6.1-sol / high.
 
 ## Out of scope
 
-Logika wycofania i API (TASK-1192), panel (TASK-1193), migracja bazy operatora,
+Logika wycofania i API (TASK-1196), panel (TASK-1197), migracja bazy operatora,
 restart usług, zapis w tle w Reviewerze.
 
 ## Acceptance criteria
@@ -182,10 +182,11 @@ ten sam. FK par tylko do kohorty (FK do członka kolidowałby z kolejnością RI
   `test_grid_gate_noise_tolerance_postgres` po sprawdzeniu odwracalności przechodzą
   do `head`. Ponownie: te 3 + nowe 4 testy = 8 passed (w dwóch przebiegach).
 
-- Audyt krzyżowy: `ai_docs/quality/TASK-1191_AUDIT_gpt-6.1-sol.md`, runda 1,
+- Audyt krzyżowy: `ai_docs/quality/TASK-1195_AUDIT_gpt-6.1-sol.md`, runda 1,
   REVISE (P0: 2, P1: 2). Audyt i commit v1.7.617 powstały pod numerem roboczym
-  TASK-1190; przenumerowano na TASK-1191 przy scaleniu, bo `main` zajął TASK-1190
-  (`1190-preflight-preview-lock-busy`). Treść raportu bez zmian. Jedna runda poprawek, bez ponownego audytu (skill
+  TASK-1190; przy scaleniu przenumerowano na TASK-1195, bo równoległa sesja na `main`
+  zajęła kolejno TASK-1190 (`1190-preflight-preview-lock-busy`) i TASK-1191
+  (`1191-fix-two-failing-api-tests`); numery 1192–1194 zostawiono jej jako bufor. Treść raportu bez zmian. Jedna runda poprawek, bez ponownego audytu (skill
   `audit-task`, krok 5):
   - P0-1 naprawione: refs w zbiorze RLS `_provision_partition` + test flag i
     bezpośredniego odczytu partycji.
@@ -213,4 +214,4 @@ ten sam. FK par tylko do kohorty (FK do członka kolidowałby z kolejnością RI
 
 ### Recommended next task
 
-- TASK-1192 (wycofanie i przywrócenie kohorty, backend i API).
+- TASK-1196 (wycofanie i przywrócenie kohorty, backend i API).

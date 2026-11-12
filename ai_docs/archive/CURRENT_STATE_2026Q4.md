@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1188 — Bramka oceny siatek odporna na szum (done)
 
 - Plik: `tasks/completed/1188-grid-gate-noise-tolerance.md`.
-- Commit: **v1.7.612** (hash dopisuje kolejny commit).
+- Commit: **v1.7.612 / `3b51ae483d1578844de6c740ac5d3e06b36e351d`** (hash dopisuje kolejny commit).
 - Gate v4 (D-604): nowe oceny grid-only odrzucają tylko utratę > max(1, 2 %) plansz albo wzrost błędu > max(15 %, 0,001); REG bez wymogu poprawy; v2 zostaje dla historii. Migracja 0185 (bind_v6, command_v8), test PostgreSQL PASS; zastane FAIL bez zmian; bez audytu.
 
 ### TASK-1187 — Budżet prepare kohorty korekt (done)

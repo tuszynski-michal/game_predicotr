@@ -66,7 +66,7 @@ Bez planu i bez audytu krzyżowego (task jednorazowy na polecenie operatora).
 
 ## Outcome
 
-Commit: v1.7.612 (hash dopisuje kolejny commit).
+Commit: v1.7.612 / `3b51ae483d1578844de6c740ac5d3e06b36e351d`.
 
 ### Changed
 

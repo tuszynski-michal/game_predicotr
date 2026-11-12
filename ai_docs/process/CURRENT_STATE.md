@@ -100,7 +100,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1188** — Bramka oceny siatek odporna na szum — v1.7.612 — tasks/completed/1188-grid-gate-noise-tolerance.md
+- **TASK-1188** — Bramka oceny siatek odporna na szum — v1.7.612 / `3b51ae48` — tasks/completed/1188-grid-gate-noise-tolerance.md
 - **TASK-1187** — Budżet prepare kohorty korekt — v1.7.610 / `29443a6f` — tasks/completed/1187-grid-cohort-prepare-budget.md
 - **TASK-1186** — Pozycja kopii bez plansz i 120 s podziału — v1.7.608 / `6d37d0dc` — tasks/completed/1186-grid-copy-attestation-split.md
 - **TASK-1185** — Panel i porównanie skutecznego uczenia — v1.7.605 / `fc149f9b` — tasks/completed/1185-grid-effective-learning-panel.md

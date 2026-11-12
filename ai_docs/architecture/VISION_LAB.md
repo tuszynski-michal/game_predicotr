@@ -743,7 +743,7 @@ partitioning over complete imports, with alias/session components, verified
 attestations, explicit fallback and stable ties. It deduplicates photo counts and
 chooses the representative with most current labels. Limits are 5000 sources,
 three million work units and 100000 candidate/state records; exceeding any limit
-fails without shrinking the population or returning an unproven optimum. Without explicit `importJobIds`, the learning service scopes only complete imports with a current human geometry approval or a member of any earlier cohort (`labelled_import_scope`, D-606); explicit imports are unchanged.
+fails without shrinking the population or returning an unproven optimum. Cohort commands, the learning split and each statement inside them share a 300 s budget (D-607). Without explicit `importJobIds`, the learning service scopes only complete imports with a current human geometry approval or a member of any earlier cohort (`labelled_import_scope`, D-606); explicit imports are unchanged.
 
 `storage/grid_correction_split.py` reads own-game metadata, obtains exact labels
 from `GridCohortEvidenceReader`, and asks the existing recording capability for

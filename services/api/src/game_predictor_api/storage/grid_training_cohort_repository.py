@@ -18,6 +18,7 @@ from game_predictor_api.domain.grid_training_cohorts import (
     COMMAND_SECONDS,
     METADATA_PAGE_SIZE,
     POLICY,
+    STATEMENT_SECONDS,
     GridCohortError,
     digest,
     role_summary,
@@ -61,7 +62,9 @@ class CohortDeadline:
             session.execute(
                 select(
                     func.set_config(
-                        "statement_timeout", str(max(1, min(30_000, int(remaining * 1000)))), True
+                        "statement_timeout",
+                        str(max(1, min(STATEMENT_SECONDS * 1000, int(remaining * 1000)))),
+                        True,
                     )
                 )
             )
@@ -75,7 +78,7 @@ class CohortDeadline:
             # cannot precede its rollback, even when the command budget expired.
             return
         self.check()
-        remaining = max(1, min(30_000, int((self.end - time.monotonic()) * 1000)))
+        remaining = max(1, min(STATEMENT_SECONDS * 1000, int((self.end - time.monotonic()) * 1000)))
         # A streamed query uses a named psycopg cursor, which cannot execute
         # SET (it would become DECLARE CURSOR FOR SET). A normal cursor on the
         # same DBAPI connection changes this transaction without another session.

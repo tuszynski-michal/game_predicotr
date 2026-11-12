@@ -16,6 +16,31 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-607 — Limity poleceń kohort 300 s
+
+Status: accepted. Data: 2026-11-13. Operator: „ustaw takie limity na 300 sek, bo
+często się to sypie przez wąskie limity”. TASK-1200.
+
+Kontekst: uczenie `170f610d` Mumie A2 (kohorta `0630f2cc`, 4847 źródeł) dwa razy
+padło przy zamrażaniu z `GRID_COHORT_TIMEOUT` („metadata closure exceeded its
+bounded lock budget”), także bez równoległych jobów. Pomiar w wycofanej
+transakcji: walidacja populacji 2,7 s, sprawdzenie członków 19,7 s, blokady
+5,2 s, `register_cohort_use` 37,8 s, czyli ok. 65 s przy budżecie 60 s, a jedno
+zapytanie przekraczało limit 30 s. Podział korekt (D-603) zajmował ~100 s z 120 s.
+
+Decyzja: `COMMAND_SECONDS`, `LEARNING_SPLIT_SECONDS` i nowy `STATEMENT_SECONDS`
+(górna granica `statement_timeout` pojedynczego zapytania w `CohortDeadline`)
+wynoszą 300 s. Zmienia to budżet wszystkich poleceń kohort korzystających z
+`CohortDeadline`; semantyka limitów (błąd 503 `GRID_COHORT_TIMEOUT`, brak
+zawężania populacji) zostaje.
+
+Odrzucone: osobny budżet tylko dla freeze (operator wybrał wspólne 300 s),
+zawężenie zakresu bez dzisiejszego importu (utrata 92 zdjęć z korektami).
+
+Konsekwencje: zamrożenie i podział mogą trzymać blokady gry do 300 s, więc zapis
+geometrii w tym czasie czeka dłużej. Inne limity 30 s (pomiary jakości siatek,
+retencja zasobów kohort) są poza zakresem.
+
 ## D-606 — Domyślny zakres uczenia korekt: importy z etykietami i kohortami
 
 Status: accepted. Data: 2026-11-12. Operator: „nie mogę kliknąć »Ulepsz siatki z

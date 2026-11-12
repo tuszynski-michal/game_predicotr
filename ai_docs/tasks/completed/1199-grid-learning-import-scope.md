@@ -103,7 +103,7 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'
 
 ## Outcome
 
-Commit: v1.7.625 (hash dopisuje kolejny commit).
+Commit: v1.7.625 / `7203e1db78b75f140caa7745616d35053b2f46cc`.
 
 - Wynik: zakres domyślny jak w D-606. Na danych operatora (odczyt)
   `labelled_import_scope` zwraca `6ac20272`, `bf601495`, `ce7b2f19`, `d7747436`,

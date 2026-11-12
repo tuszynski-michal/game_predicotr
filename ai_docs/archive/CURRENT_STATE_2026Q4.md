@@ -6,9 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1200 — Limity poleceń kohort 300 s (done)
+
+- Plik: `tasks/completed/1200-grid-cohort-300s-budgets.md`; commit **v1.7.626**; decyzja D-607.
+- `COMMAND_SECONDS`, `LEARNING_SPLIT_SECONDS` i `STATEMENT_SECONDS` = 300 s; zamrożenie kohorty Mumie A2 (4847 źródeł, ~65 s, zapytanie 38 s) przestaje kończyć się `GRID_COHORT_TIMEOUT`.
+- Testy kohort/uczenia: 0 nowych porażek względem `main` (14 zastanych); ruff, mypy strict PASS. Wymaga restartu workera `general`.
+
 ### TASK-1199 — Domyślny zakres importów uczenia korekt (done)
 
-- Plik: `tasks/completed/1199-grid-learning-import-scope.md`; commit **v1.7.625**; decyzja D-606.
+- Plik: `tasks/completed/1199-grid-learning-import-scope.md`; commit **v1.7.625 / `7203e1db78b75f140caa7745616d35053b2f46cc`**; decyzja D-606.
 - Bez `importJobIds` uczenie korekt bierze tylko importy z bieżącą ludzką akceptacją geometrii lub członkiem kohorty; Mumie A2: 5 importów / 4847 źródeł zamiast 7039, `canStart=true` (wcześniej `GRID_CORRECTION_POPULATION_LIMIT`).
 - Testy: 78 jednostkowych uczenia, PostgreSQL zakresu, ruff, mypy strict modułu PASS. Przycisk działa po scaleniu do `main`; uczenie `170f610d` uruchomione przez API z tym samym zakresem.
 

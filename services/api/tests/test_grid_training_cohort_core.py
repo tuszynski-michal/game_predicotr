@@ -128,16 +128,16 @@ def test_streamed_statement_budget_uses_normal_cursor_on_the_same_connection(mon
     )
     query_cursor = ServerCursor()
     deadline.apply_statement_timeout(connection, query_cursor)
-    now[0] = 158.0
+    now[0] = 398.0
     deadline.apply_statement_timeout(connection, query_cursor)
     assert statements == [
-        "SET LOCAL statement_timeout=30000",
+        "SET LOCAL statement_timeout=300000",
         "closed",
         "SET LOCAL statement_timeout=2000",
         "closed",
     ]
-    now[0] = 160.0
-    with pytest.raises(GridCohortError, match="60 second budget"):
+    now[0] = 400.0
+    with pytest.raises(GridCohortError, match="300 second budget"):
         deadline.apply_statement_timeout(connection, query_cursor)
     # Cleanup of an aborted capability savepoint must not execute SET first,
     # and must remain possible after expiry without granting another query.
@@ -875,36 +875,38 @@ def test_materialize_excluded_member_never_reads_pixels_or_generates_negatives(t
     assert row.revision == 3 and row.status == "materializing"
 
 
-def test_learning_split_budget_is_longer_than_default_cohort_commands(monkeypatch):
+def test_cohort_command_split_and_statement_budgets_are_300_seconds(monkeypatch):
     import game_predictor_api.application.grid_correction_learning as learning
     import game_predictor_api.storage.grid_training_cohort_repository as module
     from game_predictor_api.domain.grid_training_cohorts import (
         COMMAND_SECONDS,
         LEARNING_SPLIT_SECONDS,
+        STATEMENT_SECONDS,
     )
 
     now = [0.0]
     monkeypatch.setattr(module.time, "monotonic", lambda: now[0])
     default, learning_split = module.CohortDeadline(), module.CohortDeadline(LEARNING_SPLIT_SECONDS)
-    now[0] = 61.0
-    with pytest.raises(GridCohortError, match="60 second budget"):
-        default.check()
-    learning_split.check()  # The protected split read is still within its own budget.
-    now[0] = 121.0
-    with pytest.raises(GridCohortError, match="120 second budget") as expired:
-        learning_split.check()
-    assert expired.value.code == "GRID_COHORT_TIMEOUT"
-    assert (COMMAND_SECONDS, LEARNING_SPLIT_SECONDS) == (60, 120)
-    # The learning preview/start split is the only caller given the longer budget.
+    # D-607: a 4847-source freeze needed ~65 s and one 38 s statement.
+    now[0] = 299.0
+    default.check()
+    learning_split.check()
+    now[0] = 301.0
+    for deadline in (default, learning_split):
+        with pytest.raises(GridCohortError, match="300 second budget") as expired:
+            deadline.check()
+        assert expired.value.code == "GRID_COHORT_TIMEOUT"
+    assert (COMMAND_SECONDS, LEARNING_SPLIT_SECONDS, STATEMENT_SECONDS) == (300, 300, 300)
+    # The learning preview/start split keeps its own named budget.
     assert learning.LEARNING_SPLIT_SECONDS == LEARNING_SPLIT_SECONDS
 
 
 @pytest.mark.parametrize(
     ("policy", "expected"),
     [
-        ("application-grid-corrections-v2", 120),
-        ("application-grid-corrections-v4", 120),
-        (None, 60),
+        ("application-grid-corrections-v2", 300),
+        ("application-grid-corrections-v4", 300),
+        (None, 300),
     ],
 )
 def test_correction_cohort_prepare_uses_learning_split_budget(monkeypatch, policy, expected):

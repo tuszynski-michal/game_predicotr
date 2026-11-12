@@ -23,9 +23,12 @@ ROLES = ("TRAIN", "VALIDATION", "REGRESSION")
 SOURCE_BYTE_LIMIT = 64 * 1024 * 1024
 METADATA_PAGE_SIZE = 200
 MATERIALIZATION_PAGE_SIZE = 5
-COMMAND_SECONDS = 60
-# The protected learning split reads every approved correction; the panel promises 1-2 min.
-LEARNING_SPLIT_SECONDS = 120
+# D-607: real correction cohorts (~4800 sources) exceeded 60 s freeze and 30 s statements.
+COMMAND_SECONDS = 300
+# The protected learning split reads every approved correction.
+LEARNING_SPLIT_SECONDS = 300
+# Upper bound of one SQL statement inside a cohort command budget.
+STATEMENT_SECONDS = 300
 
 
 class GridCohortError(ValueError):

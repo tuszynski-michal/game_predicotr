@@ -570,3 +570,49 @@ def test_retired_page_exact_receipt_precedes_current_cas_and_new_command_refuses
     latest_replay, created = service.save(**dict(arguments, expected_override_revision=2))
     assert not created and latest_replay == reapplied
     assert len(repository.values) == 3
+
+
+def test_replay_without_revision_returns_only_the_current_decision():
+    """TASK-1191: without a revision only the current decision is a replay.
+
+    A superseded checksum is a new command: it re-applies on a mutable source and
+    refuses on a retired one (as PostgreSQL hides retired sources from the
+    current lookup). Exact-revision receipts stay covered by the TASK-1128 test.
+    """
+
+    from game_predictor_api.domain.source_replacement import SourceReplacementError
+
+    class RetirableRepository(MemoryPageGeometryOverrideRepository):
+        retired = False
+
+        def require_mutable_source(self, **kwargs):
+            if self.retired:
+                raise SourceReplacementError("SOURCE_REPLACEMENT_RETIRED", "retired")
+
+        def get_current(self, **kwargs):
+            return None if self.retired else super().get_current(**kwargs)
+
+    repository = RetirableRepository()
+    service = PageGeometryOverrideService(repository)
+    arguments = dict(
+        game_id=uuid4(),
+        source_checksum_sha256="a" * 64,
+        image_width=320,
+        image_height=320,
+        expected_board_count=9,
+        final_quads=_quads(),
+        actor="reviewer",
+    )
+    first, created = service.save(**arguments)
+    assert created
+    changed_quads = list(_quads())
+    changed_quads[0] = (dict(x=2, y=1), *changed_quads[0][1:])
+    current, created = service.save(**dict(arguments, final_quads=changed_quads))
+    assert created and current.revision == 2
+    replay, created = service.save(**dict(arguments, final_quads=changed_quads))
+    assert not created and replay == current
+    repository.retired = True
+    with pytest.raises(SourceReplacementError) as caught:
+        service.save(**arguments)
+    assert caught.value.code == "SOURCE_REPLACEMENT_RETIRED"
+    assert len(repository.values) == 2

@@ -16,6 +16,38 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-605 — Równościowe wyszukiwanie członkostwa kohort i wycofywanie kohort
+
+Status: accepted. Data:2026-11-12. Plan `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md`
+zaakceptowany przez operatora („zacznij”); TASK-1190 (część A), TASK-1191–1192 (część B).
+
+Kontekst: zapis geometrii jednej planszy trwał 25–33 s. `grid_cohort_notice_v1`
+szukał członków kohort przez `@>` na tablicach `uuid[]`; pod `FORCE ROW LEVEL
+SECURITY` operator `@>` (nie `LEAKPROOF`) nie może być warunkiem indeksu GIN,
+więc każda zmieniona komórka przeglądała wszystkich członków gry (163 ms przy
+6134 członkach). Koszt rósł z każdą kohortą.
+
+Decyzja: (1) pary członkostwa `(cohort, member source, rodzaj, identyfikator)`
+leżą w tabeli gry `grid_training_cohort_member_refs` (manifest v23, Alembic0186),
+utrzymywanej wyłącznie wyzwalaczem na `grid_training_cohort_members`, więc nie
+rozjeżdżają się z tablicami; bezpośredni zapis odrzuca
+`GRID_COHORT_REFS_DERIVED_ONLY`. (2) `grid_cohort_notice_v2` szuka par wyłącznie
+równością (`LEAKPROOF`) po prefiksie PK i zachowuje semantykę v1: jedno
+zdarzenie na pasującego członka, ta sama klasyfikacja i dokument. v1 zostaje w
+bazie nieużywany. (3) Status `retired` z przejściami tylko `frozen ↔ retired`;
+wycofana kohorta nie ma par i nie dostaje zdarzeń. Wycofanie wymaga, by żaden
+model kohorty nie był domyślny, przypisany ani opublikowany; przywrócenie
+odbudowuje pary i wymusza ponowną ocenę zdarzeniem `COHORT_RETIREMENT_GAP`
+(TASK-1191).
+
+Odrzucone: wyłączenie wyzwalacza (utrata ochrony publikacji), kolejka
+asynchroniczna (okno nieaktualności), `SECURITY DEFINER` jako superużytkownik,
+usuwanie kohort (zrywa rodowód modeli), oznaczenie `@>` jako `LEAKPROOF`.
+
+Konsekwencje: wyszukiwanie nie zależy od liczby kohort; migracja wypełnia
+≈ 830 tys. par istniejących kohort i kontroluje równość w obu kierunkach;
+downgrade odmawia przy kohorcie `retired`.
+
 ## D-604 — Bramka oceny siatek odporna na szum
 
 Status: accepted. Data:2026-11-12. TASK-1188; operator wybrał tolerancję w sumach

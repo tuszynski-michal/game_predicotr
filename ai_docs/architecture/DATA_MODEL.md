@@ -3180,6 +3180,8 @@ producenta oryginału nadal pozostaje luką pomiaru jakości modelu.
 
 ## Kohorty geometrii aplikacji (D-556, TASK-0995, Alembic0163)
 
+TASK-1190/D-605 dodaje w Alembic0186/manifest v23 tabelę gry `grid_training_cohort_member_refs`: pary `(cohort_id, member_source_id, ref_kind, ref_id)` dla `source`, `board`, `review` i `cell` każdego członka, z PK `(game_id, ref_kind, ref_id, cohort_id, member_source_id)`, partycjami i forced RLS. Pary wylicza wyłącznie wyzwalacz `grid_cohort_member_refs` na członkach; bezpośredni zapis odrzuca `GRID_COHORT_REFS_DERIVED_ONLY` (wyjątek: komenda wycofania z TASK-1191). `grid_cohort_currentness` używa `grid_cohort_notice_v2`, który szuka par równością pod RLS i tworzy te same zdarzenia co v1 (jedno na pasującego członka). Nagłówek kohorty ma dodatkowy status `retired` z przejściami tylko `frozen ↔ retired`; wycofana kohorta nie ma par.
+
 TASK-1165/D-590 dodaje w Alembic0182/manifest v22 niezależne
 `grid_cell_content_revisions`, `grid_cell_content_sessions` i
 `grid_cell_content_commands`. Klucz rewizji to gra, normalized pixel SHA,

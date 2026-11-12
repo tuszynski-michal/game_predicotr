@@ -19,16 +19,16 @@ from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_CELL_ASSET_MODE,
     DEFAULT_GEOMETRY_MODE,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v22 import (
+from game_predictor_api.storage.game_data_v2_manifest_v23 import (
     CREATE_TABLES,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v22 import (
+from game_predictor_api.storage.game_data_v2_manifest_v23 import (
     DELETE_TABLES as DELETE_TABLES,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v22 import (
+from game_predictor_api.storage.game_data_v2_manifest_v23 import (
     SCHEMA as SCHEMA,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v22 import (
+from game_predictor_api.storage.game_data_v2_manifest_v23 import (
     VERSION as VERSION,
 )
 
@@ -233,6 +233,7 @@ class GamePartitionLifecycleRepository:
                 "grid_geometry_proposal_events",
                 "grid_training_cohorts",
                 "grid_training_cohort_members",
+                "grid_training_cohort_member_refs",
                 "grid_training_cohort_pages",
                 "grid_training_cohort_commands",
                 "grid_training_cohort_events",

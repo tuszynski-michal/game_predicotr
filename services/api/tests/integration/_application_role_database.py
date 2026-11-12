@@ -32,6 +32,7 @@ from game_predictor_api.storage import (
     game_data_v2_manifest_v5,
     game_data_v2_manifest_v6,
     game_data_v2_manifest_v7,
+    game_data_v2_manifest_v22,
     game_partition_lifecycle,
 )
 from game_predictor_api.storage.database_roles import (
@@ -176,6 +177,12 @@ def application_role_database(
             historical = game_data_v2_manifest_v6
         elif "0155_historical_grid_acceptance" not in ancestors:
             historical = game_data_v2_manifest_v7
+        elif (
+            "0182_cell_content_references" in ancestors
+            and "0186_grid_cohort_member_refs" not in ancestors
+        ):
+            # TASK-1190: 0182-0185 keep manifest v22 without the cohort refs table.
+            historical = game_data_v2_manifest_v22
         if historical is not None:
             with patch.multiple(
                 game_partition_lifecycle,

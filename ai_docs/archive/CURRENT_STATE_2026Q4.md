@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1190 — Szybkie wyszukiwanie członkostwa kohort (done)
+
+- Plik: `tasks/completed/1190-grid-cohort-member-refs.md`; plan `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md`, D-605.
+- Commit **v1.7.617** na `claude/grid-cohort-refs` (worktree `worktrees/grid-cohort-refs`).
+- Wynik: migracja 0186 (manifest v23) — tabela par członkostwa kohort utrzymywana wyzwalaczem, `grid_cohort_notice_v2` z wyszukiwaniem równością po PK pod RLS (te same zdarzenia co v1, także przy prawdziwym `save_review_item`), status `retired` tylko `frozen ↔ retired`, RLS partycji nowej gry. Audyt gpt-6.1-sol/high REVISE (2×P0, 2×P1) naprawiony w jednej rundzie; regresja bez nowych porażek względem `main` (33 zastane). Migracja bazy operatora i pomiar zapisu za osobną zgodą.
+
 ### TASK-1189 — Bieżący stan kandydata w widoku uczenia (done)
 
 - Plik: `tasks/completed/1189-learning-candidate-status.md`.

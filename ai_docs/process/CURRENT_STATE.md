@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-11-11
+last_updated: 2026-11-12
 ---
 
 # Current State
@@ -21,7 +21,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 
 
-- **Mumie A2 / TASK-1152:** default i przypisanie gry=wersja3ed60010 (r7a1b3835-4ae3a390), revision2 po jawnym zastosowaniu. Historyczne importy/korekty zachowane. Źródło: `tasks/completed/1152-grid-apply-progress.md`.
+- **Mumie A2 / TASK-1188:** default i przypisanie gry=`bf327cfa` (rev3, 2026-11-12, ocena gate v4 PASS `0c2e483e`); `3ed60010` opublikowany do powrotu. Źródło: D-604.
 
 
 - **Selektor1.0.5:** zaakceptowany; reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
@@ -62,7 +62,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **Bramka v4 / TASK-1188:** czeka na migrację 0185 i ponowną ocenę `bf327cfa`.
+- **Bramka v4 / TASK-1188:** baza na 0185; `bf327cfa` zastosowany poleceniami rejestru, bo panel uczenia `63767b36` przypina starą ocenę REVISE.
 
 - **Mumie A2 / TASK-1152:** naprawa licznika wdrożona po Opus PASS i zgodzie; ten sam apply zakończony, default i MumieA2 revision2. Porównanie151plansz w root artifacts/grid-applied-comparison-20261103/comparison.html.
 

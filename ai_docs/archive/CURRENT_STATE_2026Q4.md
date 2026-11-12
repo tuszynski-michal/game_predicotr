@@ -6,11 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
-### TASK-1190 — Szybkie wyszukiwanie członkostwa kohort (done)
+### TASK-1191 — Szybkie wyszukiwanie członkostwa kohort (done)
 
-- Plik: `tasks/completed/1190-grid-cohort-member-refs.md`; plan `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md`, D-605.
+- Plik: `tasks/completed/1191-grid-cohort-member-refs.md`; plan `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md`, D-605.
 - Commit **v1.7.617** na `claude/grid-cohort-refs` (worktree `worktrees/grid-cohort-refs`).
 - Wynik: migracja 0186 (manifest v23) — tabela par członkostwa kohort utrzymywana wyzwalaczem, `grid_cohort_notice_v2` z wyszukiwaniem równością po PK pod RLS (te same zdarzenia co v1, także przy prawdziwym `save_review_item`), status `retired` tylko `frozen ↔ retired`, RLS partycji nowej gry. Audyt gpt-6.1-sol/high REVISE (2×P0, 2×P1) naprawiony w jednej rundzie; regresja bez nowych porażek względem `main` (33 zastane). Migracja bazy operatora i pomiar zapisu za osobną zgodą.
+
+### TASK-1190 — Podgląd raportu importu przy zajętej blokadzie gry (done)
+
+- Plik: `tasks/completed/1190-preflight-preview-lock-busy.md`; commit **v1.7.617 / `536aff54fa63ee5e5432f9d71feba5b8caa472e9`**.
+- Wynik: podgląd raportu przed importem plansz waliduje staging pod blokadą `SHARED` (działa równolegle z przeglądem symboli); zajęta blokada daje 409 `IMAGE_IMPORT_SEQUENCE_OWNERSHIP_BUSY` zamiast HTTP 500. Start importu bez zmian (`EXCLUSIVE`). Testy jednostkowe, API i PostgreSQL PASS; 2 zastane FAIL także na `main` `33e9197e`. Wymaga restartu API przez operatora po scaleniu.
 
 ### TASK-1189 — Bieżący stan kandydata w widoku uczenia (done)
 

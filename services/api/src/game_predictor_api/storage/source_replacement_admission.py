@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.image_sequence_canonical import BrowserSequenceManifest
@@ -16,19 +17,47 @@ from game_predictor_api.domain.source_replacement_admission import (
 )
 from game_predictor_api.domain.source_replacement_retirement import scope_digest
 from game_predictor_api.domain.symbol_readability import digest
-from game_predictor_api.storage.sequence_ownership_lock import acquire_sequence_ownership_lock
+from game_predictor_api.storage.game_partition_lifecycle import is_lock_not_available
+from game_predictor_api.storage.sequence_ownership_lock import (
+    SequenceOwnershipLockMode,
+    acquire_sequence_ownership_lock,
+)
 from game_predictor_api.storage.source_replacement import SourceReplacementRepository
 from game_predictor_api.storage.source_replacement_guards import require_active_sha
 
 PIN_KEY = "source_replacement"
+SEQUENCE_OWNERSHIP_BUSY = "IMAGE_IMPORT_SEQUENCE_OWNERSHIP_BUSY"
 
 
 def validate_ordinary_staging(
-    session: Session, *, game: UUID, manifest: BrowserSequenceManifest
+    session: Session,
+    *,
+    game: UUID,
+    manifest: BrowserSequenceManifest,
+    lock_mode: SequenceOwnershipLockMode = SequenceOwnershipLockMode.EXCLUSIVE,
 ) -> None:
+    """Check that no staged range is reserved for a source replacement.
+
+    The check only reads. A report preview passes ``SHARED`` so it can run
+    alongside symbol-cell decisions; admission keeps ``EXCLUSIVE``. When the
+    game's ownership lock stays busy past the repository's ``lock_timeout``,
+    the caller gets a retryable conflict instead of a driver error.
+    """
+
     repo = SourceReplacementRepository(session)
     repo.bind(game)
-    acquire_sequence_ownership_lock(session, game_id=game)
+    try:
+        acquire_sequence_ownership_lock(session, game_id=game, mode=lock_mode)
+    except DBAPIError as error:
+        if not is_lock_not_available(error):
+            raise
+        from game_predictor_api.domain.source_replacement import SourceReplacementError
+
+        raise SourceReplacementError(
+            SEQUENCE_OWNERSHIP_BUSY,
+            "Gra jest teraz zajęta innym zapisem (np. przeglądem symboli albo zadaniem "
+            "tej gry). Spróbuj ponownie za chwilę.",
+        ) from error
     for file in manifest.files:
         require_active_sha(session, game, file.checksum_sha256)
         if file.sequence_range is None:

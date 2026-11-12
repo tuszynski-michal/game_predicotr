@@ -651,6 +651,7 @@ def create_image_imports_router(
         game_id: UUID,
         job_service: JobService,
         supplied: SourceReplacementStagingSelection | None = None,
+        preview: bool = False,
     ) -> dict[str, object] | None:
         stored = ready.upload.replacement_selection
         if supplied is not None and supplied.model_dump(mode="json", by_alias=True) != stored:
@@ -673,6 +674,7 @@ def create_image_imports_router(
                 selection=stored,
                 manifest=ready.manifest,
                 upload_id=ready.upload.upload_id,
+                preview=preview,
             ),
         )
 
@@ -686,6 +688,7 @@ def create_image_imports_router(
         override_service: PageGeometryOverrideService | None,
         geometry_engine_variant: GeometryEngineVariant | None = None,
         replacement_selection: SourceReplacementStagingSelection | None = None,
+        preview: bool = False,
     ) -> BrowserImageImportPreflightResponse:
         geometry_engine_variant = effective_browser_variant(
             job_service=job_service, game_id=game_id, variant=geometry_engine_variant
@@ -707,7 +710,11 @@ def create_image_imports_router(
                 "The staged folder belongs to a different game.",
             )
         admission = replacement_admission(
-            ready=ready, game_id=game_id, job_service=job_service, supplied=replacement_selection
+            ready=ready,
+            game_id=game_id,
+            job_service=job_service,
+            supplied=replacement_selection,
+            preview=preview,
         )
         exclusions = (
             {}
@@ -1145,6 +1152,7 @@ def create_image_imports_router(
             override_service=override_service,
             geometry_engine_variant=payload.geometry_engine_variant,
             replacement_selection=payload.replacement_selection,
+            preview=True,
         )
 
     @router.post(

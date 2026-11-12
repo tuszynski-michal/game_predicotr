@@ -266,14 +266,27 @@ LIMIT 2
         selection: dict[str, Any] | None,
         manifest: BrowserSequenceManifest,
         upload_id: UUID,
+        preview: bool = False,
     ) -> dict[str, Any] | None:
+        from game_predictor_api.storage.sequence_ownership_lock import (
+            SequenceOwnershipLockMode,
+        )
         from game_predictor_api.storage.source_replacement_admission import (
             validate_ordinary_staging,
             validate_staging,
         )
 
         if selection is None:
-            validate_ordinary_staging(self._session, game=game_id, manifest=manifest)
+            validate_ordinary_staging(
+                self._session,
+                game=game_id,
+                manifest=manifest,
+                lock_mode=(
+                    SequenceOwnershipLockMode.SHARED
+                    if preview
+                    else SequenceOwnershipLockMode.EXCLUSIVE
+                ),
+            )
             return None
         return validate_staging(
             self._session, game=game_id, selection=selection, manifest=manifest, upload=upload_id

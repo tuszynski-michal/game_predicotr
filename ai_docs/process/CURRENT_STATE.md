@@ -101,7 +101,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1190** — Szybkie wyszukiwanie członkostwa kohort — v1.7.617 — tasks/completed/1190-grid-cohort-member-refs.md
+- **TASK-1191** — Szybkie wyszukiwanie członkostwa kohort — v1.7.617 — tasks/completed/1191-grid-cohort-member-refs.md
+- **TASK-1190** — Podgląd raportu przy zajętej blokadzie — v1.7.617 / `536aff54` — tasks/completed/1190-preflight-preview-lock-busy.md
 - **TASK-1189** — Bieżący stan kandydata w widoku uczenia — v1.7.615 / `ca101e1a` — tasks/completed/1189-learning-candidate-status.md
 - **TASK-1188** — Bramka oceny siatek odporna na szum — v1.7.612 / `3b51ae48` — tasks/completed/1188-grid-gate-noise-tolerance.md
 - **TASK-1187** — Budżet prepare kohorty korekt — v1.7.610 / `29443a6f` — tasks/completed/1187-grid-cohort-prepare-budget.md
@@ -110,4 +111,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1184** — Pełne uczenie i odbiór zawartości — v1.7.604 / `5b50244c` — tasks/completed/1184-grid-full-learning-admission.md
 - **TASK-1183** — Przykłady korekt i niezależne kontrole — v1.7.603 / `e4bba0bd` — tasks/completed/1183-grid-learning-reference-split.md
 - **TASK-1182** — Zgodność oceny checkpointu i ONNX — v1.7.602 / `3991ff74` — tasks/completed/1182-grid-evaluation-consistency.md
-- **TASK-1180** — Wydajny pilot jakości 777 A2 — v1.7.601 / `97bb80bf` — tasks/completed/1180-readability-pilot-inventory-timeout.md

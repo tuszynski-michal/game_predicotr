@@ -17,9 +17,15 @@ from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import SourceImageModel
+from game_predictor_api.storage.sequence_ownership_lock import (
+    SequenceOwnershipLockMode,
+    acquire_sequence_ownership_lock,
+)
 from game_predictor_api.storage.source_replacement import SourceReplacementRepository
 from game_predictor_api.storage.source_replacement_admission import (
+    SEQUENCE_OWNERSHIP_BUSY,
     materialize_admission,
+    validate_ordinary_staging,
     validate_staging,
 )
 from game_predictor_api.storage.source_replacement_binding import admitted_source
@@ -307,3 +313,30 @@ def test_foreign_unknown_range_new_sha_refuses_before_reservation(database):  # 
             )
             == 0
         )
+
+
+@pytest.mark.parametrize(
+    ("held", "requested", "busy"),
+    [
+        # TASK-1190: symbol-cell decisions hold SHARED; the report preview must coexist.
+        (SequenceOwnershipLockMode.SHARED, SequenceOwnershipLockMode.SHARED, False),
+        # Admission still waits for every holder and reports a readable conflict.
+        (SequenceOwnershipLockMode.SHARED, SequenceOwnershipLockMode.EXCLUSIVE, True),
+        (SequenceOwnershipLockMode.EXCLUSIVE, SequenceOwnershipLockMode.SHARED, True),
+    ],
+)
+def test_ordinary_staging_lock_contention(database, held, requested, busy):  # noqa: F811
+    factory = create_session_factory(database)
+    manifest = BrowserSequenceManifest(files=(), warnings=(), checksum_sha256="a" * 64)
+    with game_storage_scope(GAME_ID), factory() as holder, factory() as session:
+        acquire_sequence_ownership_lock(holder, game_id=GAME_ID, mode=held)
+        if busy:
+            with pytest.raises(SourceReplacementError) as error:
+                validate_ordinary_staging(
+                    session, game=GAME_ID, manifest=manifest, lock_mode=requested
+                )
+            assert error.value.code == SEQUENCE_OWNERSHIP_BUSY
+        else:
+            validate_ordinary_staging(session, game=GAME_ID, manifest=manifest, lock_mode=requested)
+        session.rollback()
+        holder.rollback()

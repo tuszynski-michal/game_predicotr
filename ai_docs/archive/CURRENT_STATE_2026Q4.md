@@ -6,9 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1206 — Bramka v6: realna poprawa (done)
+
+- Plik: `ai_docs/tasks/completed/1206-grid-gate-improvement.md`; commit **v1.7.637**.
+- Gate v6 = v5 plus co najmniej +1 plansza poprawna albo bez cięcia (VALIDATION+REGRESSION
+  gry treningowej) bez żadnej straty; migracja 0189 (bind v8, dyspozytor v10) (D-612).
+- Testy: 76 domeny, 3 PostgreSQL passed; szersze API 579 passed, porażki zastane jak na `main`.
+
 ### TASK-1205 — Uczenie korekt bez kandydata gorszego od bazy (done)
 
-- Plik: `ai_docs/tasks/completed/1205-grid-training-baseline-floor.md`; commit **v1.7.636**.
+- Plik: `ai_docs/tasks/completed/1205-grid-training-baseline-floor.md`; commit **v1.7.636 / `3867087b35dba85b1e144aefd8bd9a411ca2efd3`**.
 - Trening `grid-corrections-v1` mierzy bazę na VALIDATION przed krokiem 1; checkpoint nie
   lepszy od niej kończy uczenie kodem `GRID_TRAINING_NO_IMPROVEMENT` bez kandydata (D-611).
 - Testy: 11 nowych passed; szersze testy treningu 137 passed, 1 zastany błąd jak na `main`.

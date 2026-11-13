@@ -109,13 +109,23 @@ def test_v5_extends_only_the_tolerant_gate() -> None:
         )
 
 
-def test_measured_cell_cut_makes_a_v5_report_and_it_replays() -> None:
+def test_measured_cell_cut_rejects_cut_boards_in_the_newest_gate_and_it_replays() -> None:
+    # D-612: new cell-cut measurements are decided by gate v6, which keeps every v5 rule.
     manifest, report = report_for(roles(validation=(15, 13)))
-    assert report["policyVersion"] == CELL_CUT_POLICY_VERSION
-    assert report["policy"] == CELL_CUT_POLICY
+    assert report["policyVersion"] == "grid-model-per-game-gate-v6"
+    assert {
+        k: v
+        for k, v in report["policy"].items()
+        if k not in ("policyVersion", "improvementRequired", "improvement")
+    } == {
+        k: v
+        for k, v in CELL_CUT_POLICY.items()
+        if k not in ("policyVersion", "improvementRequired")
+    }
     assert report["verdict"] != "PASS"
-    assert report["games"][0]["reasons"] == ["VALIDATION_REGRESSED:boards_within_cells"]
+    assert report["games"][0]["reasons"][0] == "VALIDATION_REGRESSED:boards_within_cells"
     assert require_report(canonical_json(report), manifest=manifest, base_sha256="c" * 64)
+    assert CELL_CUT_POLICY_VERSION == "grid-model-per-game-gate-v5"
 
 
 def test_older_measurement_without_cell_cut_stays_v4() -> None:

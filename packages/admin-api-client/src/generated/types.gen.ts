@@ -6956,7 +6956,8 @@ export type GridCalibratedEvaluationReport = {
     | GridCorrectionEvaluationPolicy
     | GridScreenCorrectionEvaluationPolicy
     | GridCorrectionTolerantEvaluationPolicy
-    | GridCorrectionCellCutEvaluationPolicy;
+    | GridCorrectionCellCutEvaluationPolicy
+    | GridCorrectionImprovementEvaluationPolicy;
   /**
    * Policyversion
    */
@@ -6964,7 +6965,8 @@ export type GridCalibratedEvaluationReport = {
     | 'grid-model-per-game-gate-v2'
     | 'grid-model-per-game-gate-v3'
     | 'grid-model-per-game-gate-v4'
-    | 'grid-model-per-game-gate-v5';
+    | 'grid-model-per-game-gate-v5'
+    | 'grid-model-per-game-gate-v6';
   /**
    * Producer
    */
@@ -7510,7 +7512,8 @@ export type GridContentCalibratedEvaluationReport = {
     | GridCorrectionEvaluationPolicy
     | GridScreenCorrectionEvaluationPolicy
     | GridCorrectionTolerantEvaluationPolicy
-    | GridCorrectionCellCutEvaluationPolicy;
+    | GridCorrectionCellCutEvaluationPolicy
+    | GridCorrectionImprovementEvaluationPolicy;
   /**
    * Policyversion
    */
@@ -7518,7 +7521,8 @@ export type GridContentCalibratedEvaluationReport = {
     | 'grid-model-per-game-gate-v2'
     | 'grid-model-per-game-gate-v3'
     | 'grid-model-per-game-gate-v4'
-    | 'grid-model-per-game-gate-v5';
+    | 'grid-model-per-game-gate-v5'
+    | 'grid-model-per-game-gate-v6';
   /**
    * Producer
    */
@@ -8306,14 +8310,16 @@ export type GridCorrectionEvaluationReport = {
   policy:
     | GridCorrectionEvaluationPolicy
     | GridCorrectionTolerantEvaluationPolicy
-    | GridCorrectionCellCutEvaluationPolicy;
+    | GridCorrectionCellCutEvaluationPolicy
+    | GridCorrectionImprovementEvaluationPolicy;
   /**
    * Policyversion
    */
   policyVersion:
     | 'grid-model-per-game-gate-v2'
     | 'grid-model-per-game-gate-v4'
-    | 'grid-model-per-game-gate-v5';
+    | 'grid-model-per-game-gate-v5'
+    | 'grid-model-per-game-gate-v6';
   /**
    * Producer
    */
@@ -8395,6 +8401,83 @@ export type GridCorrectionEvaluationScope = {
    * Traininggameids
    */
   trainingGameIds: Array<string>;
+};
+
+/**
+ * GridCorrectionImprovementEvaluationPolicy
+ *
+ * Gate v6 (D-612): gate v5 plus a real gain of the training game.
+ */
+export type GridCorrectionImprovementEvaluationPolicy = {
+  cellCut: GridCorrectionCellCutPolicy;
+  /**
+   * Checkpointrule
+   */
+  checkpointRule: 'validation-board-correct-photo-macro-error-earliest-v1';
+  /**
+   * Epsilon
+   */
+  epsilon: number;
+  /**
+   * Fullphotononregression
+   */
+  fullPhotoNonRegression: Array<
+    'false_boards' | 'duplicate_predictions' | 'photo_complete_correct'
+  >;
+  improvement: GridCorrectionImprovementPolicy;
+  /**
+   * Improvementrequired
+   */
+  improvementRequired: true;
+  /**
+   * Metricsversion
+   */
+  metricsVersion: 'grid-correction-metrics-v1';
+  /**
+   * Minimumcontrolboards
+   */
+  minimumControlBoards: 15;
+  /**
+   * Minimumcontrolphotos
+   */
+  minimumControlPhotos: 5;
+  noiseTolerance: GridCorrectionNoiseTolerance;
+  /**
+   * Nonregression
+   */
+  nonRegression: Array<
+    'boards_matched' | 'boards_correct' | 'normalized_error'
+  >;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'grid-model-per-game-gate-v6';
+};
+
+/**
+ * GridCorrectionImprovementPolicy
+ */
+export type GridCorrectionImprovementPolicy = {
+  /**
+   * Lossallowed
+   */
+  lossAllowed: false;
+  /**
+   * Metrics
+   */
+  metrics: Array<'boards_correct' | 'boards_within_cells'>;
+  /**
+   * Minimumgain
+   */
+  minimumGain: 1;
+  /**
+   * Roles
+   */
+  roles: Array<'VALIDATION' | 'REGRESSION'>;
+  /**
+   * Scope
+   */
+  scope: 'training-game';
 };
 
 /**

@@ -34,6 +34,16 @@ test('codes are readable, evaluation reasons are explained and unknown codes sta
     'Pogorszenie na VALIDATION: plansze bez cięcia symboli (pola w 10%)',
   );
   assert.equal(
+    reasonLabel('VALIDATION_NOT_IMPROVED:boards_correct_or_boards_within_cells'),
+    'Brak poprawy gry treningowej: plansze poprawne i bez cięcia symboli (VALIDATION+REGRESSION) — brak przyrostu albo ubytek',
+  );
+  assert.equal(
+    reasonLabel('GRID_TRAINING_NO_IMPROVEMENT').startsWith(
+      'Trening nie poprawił modelu bazowego',
+    ),
+    true,
+  );
+  assert.equal(
     reasonLabel('SOMETHING_NEW'),
     'Nieopisany powód blokady (SOMETHING_NEW)',
   );

@@ -1947,6 +1947,8 @@ export type {
   GridCorrectionEvaluationRole,
   GridCorrectionEvaluationRoles,
   GridCorrectionEvaluationScope,
+  GridCorrectionImprovementEvaluationPolicy,
+  GridCorrectionImprovementPolicy,
   GridCorrectionLearningCandidateEvaluation,
   GridCorrectionLearningCandidateStatus,
   GridCorrectionLearningCount,

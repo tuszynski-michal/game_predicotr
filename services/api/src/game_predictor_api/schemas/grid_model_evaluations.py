@@ -277,6 +277,33 @@ class GridCorrectionCellCutEvaluationPolicy(EvaluationClosedModel):
     cellCut: GridCorrectionCellCutPolicy
 
 
+class GridCorrectionImprovementPolicy(EvaluationClosedModel):
+    scope: Literal["training-game"]
+    roles: list[Literal["VALIDATION", "REGRESSION"]]
+    metrics: list[Literal["boards_correct", "boards_within_cells"]]
+    minimumGain: Literal[1]
+    lossAllowed: Literal[False]
+
+
+class GridCorrectionImprovementEvaluationPolicy(EvaluationClosedModel):
+    """Gate v6 (D-612): gate v5 plus a real gain of the training game."""
+
+    policyVersion: Literal["grid-model-per-game-gate-v6"]
+    metricsVersion: Literal["grid-correction-metrics-v1"]
+    minimumControlPhotos: Literal[5]
+    minimumControlBoards: Literal[15]
+    nonRegression: list[Literal["boards_matched", "boards_correct", "normalized_error"]]
+    fullPhotoNonRegression: list[
+        Literal["false_boards", "duplicate_predictions", "photo_complete_correct"]
+    ]
+    noiseTolerance: GridCorrectionNoiseTolerance
+    improvementRequired: Literal[True]
+    epsilon: float = Field(ge=0, allow_inf_nan=False)
+    checkpointRule: Literal["validation-board-correct-photo-macro-error-earliest-v1"]
+    cellCut: GridCorrectionCellCutPolicy
+    improvement: GridCorrectionImprovementPolicy
+
+
 class GridCorrectionEvaluationScope(EvaluationClosedModel):
     currentGameId: UUID
     trainingGameIds: list[UUID]
@@ -308,12 +335,16 @@ class GridCorrectionEvaluationReport(EvaluationClosedModel):
     schemaVersion: Literal["grid-model-evaluation-read-v3"]
     producer: Literal["server:grid-model-evaluator-v1"]
     policyVersion: Literal[
-        "grid-model-per-game-gate-v2", "grid-model-per-game-gate-v4", "grid-model-per-game-gate-v5"
+        "grid-model-per-game-gate-v2",
+        "grid-model-per-game-gate-v4",
+        "grid-model-per-game-gate-v5",
+        "grid-model-per-game-gate-v6",
     ]
     policy: (
         GridCorrectionEvaluationPolicy
         | GridCorrectionTolerantEvaluationPolicy
         | GridCorrectionCellCutEvaluationPolicy
+        | GridCorrectionImprovementEvaluationPolicy
     )
     versionId: UUID
     manifestSha256: str = Field(pattern=_SHA)
@@ -411,12 +442,14 @@ class GridCalibratedEvaluationFields(EvaluationClosedModel):
         "grid-model-per-game-gate-v3",
         "grid-model-per-game-gate-v4",
         "grid-model-per-game-gate-v5",
+        "grid-model-per-game-gate-v6",
     ]
     policy: (
         GridCorrectionEvaluationPolicy
         | GridScreenCorrectionEvaluationPolicy
         | GridCorrectionTolerantEvaluationPolicy
         | GridCorrectionCellCutEvaluationPolicy
+        | GridCorrectionImprovementEvaluationPolicy
     )
     versionId: UUID
     manifestSha256: str = Field(pattern=_SHA)

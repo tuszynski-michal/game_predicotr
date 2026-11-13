@@ -20,7 +20,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 - **Mumie A2 / TASK-1199–1200:** default i gra=`abe39bce` (rev4, PASS `31a0526b`); `bf327cfa` do powrotu. Źródło: D-606.
 
-- **Uczenie siatek / TASK-1203–1205:** bramka v5, limit 20 000, `0188`; trening musi pobić bazę. Źródło: D-611.
+- **Uczenie siatek / TASK-1203–1206:** bramka v6, limit 20 000, trening bije bazę; `0189`. Źródło: D-612.
 
 - **Selektor1.0.5:** zaakceptowany; reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
 
@@ -99,7 +99,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1205** — Uczenie korekt bez kandydata gorszego od bazy — v1.7.636 — tasks/completed/1205-grid-training-baseline-floor.md
+- **TASK-1206** — Bramka v6: realna poprawa — v1.7.637 — tasks/completed/1206-grid-gate-improvement.md
+- **TASK-1205** — Uczenie korekt bez kandydata gorszego od bazy — v1.7.636 / `3867087b` — tasks/completed/1205-grid-training-baseline-floor.md
 - **TASK-1204** — Limit populacji uczenia 20 000 — v1.7.634 / `ec2146f1` — tasks/completed/1204-grid-learning-source-limit.md
 - **TASK-1203** — Bramka v5 bez cięcia symboli — v1.7.632 / `db2f6357` — tasks/completed/1203-grid-gate-cell-cut.md
 - **TASK-1202** — Usunięcie ręcznego edytora etykiet — v1.7.630 / `d8b45298` — tasks/completed/1202-remove-ordinary-content-editor.md
@@ -108,4 +109,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1199** — Domyślny zakres importów uczenia korekt — v1.7.625 / `7203e1db` — tasks/completed/1199-grid-learning-import-scope.md
 - **TASK-1195** — Szybkie wyszukiwanie członkostwa kohort — v1.7.617 / `e58e22e7` — tasks/completed/1195-grid-cohort-member-refs.md
 - **TASK-1192** — Naprawa dwóch pozostałych testów API — v1.7.621 / `880c319e` — tasks/completed/1192-fix-two-legacy-api-tests.md
-- **TASK-1191** — Naprawa dwóch padających testów API — v1.7.619 / `9ab662a9` — tasks/completed/1191-fix-two-failing-api-tests.md

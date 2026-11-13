@@ -16,6 +16,30 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-612 — Bramka v6: realna poprawa gry treningowej
+
+Status: accepted. Data: 2026-11-13. Operator: „Wdrożenie i ocena PASS tylko przy realnej
+poprawie, liczonej także po cięciu symboli”, „Etap A, potem B”. TASK-1206.
+
+Kontekst: bramka v5 (D-609) przepuściła `01767a49`, gorszy od bazy we wszystkich
+miarach, bo straty mieściły się w tolerancji szumu, a D-604 zrezygnowała z wymogu
+poprawy REG (ten wymóg w v2 liczył też błąd i blokował szum).
+
+Decyzja: nowe raporty z pomiarem `cellCut` mają `grid-model-per-game-gate-v6` = v5 plus
+`improvementRequired=true` i blok `improvement` {scope `training-game`, roles
+VALIDATION i REGRESSION, metrics `boards_correct` i `boards_within_cells`, minimumGain 1,
+lossAllowed false}. Dla gry treningowej sumy obu ról nie mogą stracić żadnej planszy
+poprawnej ani planszy bez cięcia i muszą zyskać co najmniej jedną z nich; inaczej rola
+VALIDATION dostaje `fail` i powód
+`VALIDATION_NOT_IMPROVED:boards_correct_or_boards_within_cells`, a werdykt to REVISE.
+Sama poprawa błędu nie wystarcza. Pozostałe wymagane gry zachowują reguły v5. Raporty
+v5 i starsze zachowują ścisłe odtworzenie. Baza zapisuje v6 przez
+`recording_correction_report_bind_v8` (dyspozytor `recording_cohort_command_v10`,
+migracja 0189); wcześniejsze funkcje pozostają bez zmian.
+
+Zastępuje część D-604: wymóg poprawy wraca, ale w liczbach plansz, nie w progach błędu.
+Tolerancja szumu dla regresji ról pozostaje.
+
 ## D-611 — Uczenie korekt siatek musi pobić własny model bazowy
 
 Status: accepted. Data: 2026-11-13. Operator: „Tak, napraw”, „Etap A, potem B”.

@@ -39,7 +39,7 @@ workera, operator zatwierdził etap bez audytu krzyżowego w tej sesji).
 ## Relevant docs
 
 - `AGENTS.md`
-- [D-578](../process/decisions/DECISION_LOG_2026.md) (uczenie korekt), D-611 (nowa)
+- [D-578](../../process/decisions/DECISION_LOG_2026.md) (uczenie korekt), D-611 (nowa)
 - `ai_docs/architecture/ADMIN_APP.md`
 
 ## Scope
@@ -102,7 +102,7 @@ Supervisor (`grid_training_handler`) już kończy job kodem z wyniku bez eksport
 
 ## Outcome
 
-Commit: v1.7.636 (hash dopisuje kolejny commit).
+Commit: v1.7.636 / `3867087b35dba85b1e144aefd8bd9a411ca2efd3`.
 
 ### Changed
 

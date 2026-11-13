@@ -99,6 +99,22 @@ CELL_CUT_POLICY: Final[dict[str, Any]] = {
         "nonRegression": "boards_within_cells",
     },
 }
+# D-612: gate v6 = v5 plus a real gain of the training game on its control roles.
+IMPROVEMENT_POLICY_VERSION: Final = "grid-model-per-game-gate-v6"
+IMPROVEMENT_METRICS: Final = ("boards_correct", "boards_within_cells")
+IMPROVEMENT_REASON: Final = "VALIDATION_NOT_IMPROVED:boards_correct_or_boards_within_cells"
+IMPROVEMENT_POLICY: Final[dict[str, Any]] = {
+    **CELL_CUT_POLICY,
+    "policyVersion": IMPROVEMENT_POLICY_VERSION,
+    "improvementRequired": True,
+    "improvement": {
+        "scope": "training-game",
+        "roles": list(ROLES),
+        "metrics": list(IMPROVEMENT_METRICS),
+        "minimumGain": 1,
+        "lossAllowed": False,
+    },
+}
 SCREEN_POLICY: Final[dict[str, Any]] = {
     **POLICY,
     "policyVersion": SCREEN_POLICY_VERSION,
@@ -206,12 +222,16 @@ def decide_game(
     screen: bool = False,
     tolerant: bool = False,
     cell_cut: bool = False,
+    improvement: bool = False,
 ) -> dict[str, Any]:
     """Require every role to preserve quality; current-game REGRESSION must improve.
 
     ``tolerant`` applies gate v4 (D-604): losses within the noise allowance are not
-    regressions and the current game needs no improvement.
+    regressions and the current game needs no improvement. ``improvement`` (gate v6,
+    D-612) adds the training game's real gain on its control roles.
     """
+    if improvement and not cell_cut:
+        raise GridEvaluationReportError("Gate v6 extends only gate v5.")
     if tolerant and screen:
         raise GridEvaluationReportError("The noise-tolerant gate is grid-only.")
     if mode != ("screen+grid" if screen else "grid-only") or set(roles) != set(ROLES):
@@ -254,7 +274,11 @@ def decide_game(
     if cell_cut and not tolerant:
         raise GridEvaluationReportError("Gate v5 extends only the tolerant gate.")
     if tolerant:
-        return _decide_tolerant(roles, cell_cut=cell_cut)
+        decision = _decide_tolerant(roles, cell_cut=cell_cut)
+        if improvement and training and not training_game_improved(roles):
+            decision["reasons"].append(IMPROVEMENT_REASON)
+            decision["validation"] = "fail"
+        return decision
     outcome = {}
     for role in ROLES:
         base, candidate = roles[role]["base"], roles[role]["candidate"]
@@ -281,6 +305,22 @@ def decide_game(
                 reasons.append("REGRESSION_NOT_IMPROVED:boards_correct_or_normalized_error")
         outcome[role.lower()] = "pass" if len(reasons) == before else "fail"
     return {**outcome, "coverage": "complete", "reasons": reasons}
+
+
+def training_game_improved(roles: Mapping[str, Any]) -> bool:
+    """D-612: summed over VALIDATION and REGRESSION, the candidate loses no correct board
+    and no board within its cells, and gains at least one of either. Error-only gains
+    and the noise allowance of gate v5 do not count as an improvement."""
+    gains = {
+        "boards_correct": sum(
+            roles[role]["candidate"]["boards_correct"] - roles[role]["base"]["boards_correct"]
+            for role in ROLES
+        ),
+        "boards_within_cells": sum(
+            roles[role]["cellCut"]["candidate"] - roles[role]["cellCut"]["base"] for role in ROLES
+        ),
+    }
+    return all(gain >= 0 for gain in gains.values()) and any(gain >= 1 for gain in gains.values())
 
 
 def board_loss_allowance(boards_expected: int) -> int:
@@ -539,6 +579,7 @@ def build_report(
             screen=screen,
             tolerant=not screen,
             cell_cut=cell_cut,
+            improvement=cell_cut,
         )
         games.append(
             {
@@ -553,12 +594,13 @@ def build_report(
     report = {
         "schemaVersion": SCREEN_REPORT_SCHEMA if screen else REPORT_SCHEMA,
         "producer": PRODUCER,
+        # D-612: new cell-cut measurements are decided by gate v6; v5 stays for history.
         "policyVersion": SCREEN_POLICY_VERSION
         if screen
-        else CELL_CUT_POLICY_VERSION
+        else IMPROVEMENT_POLICY_VERSION
         if cell_cut
         else TOLERANT_POLICY_VERSION,
-        "policy": SCREEN_POLICY if screen else CELL_CUT_POLICY if cell_cut else TOLERANT_POLICY,
+        "policy": SCREEN_POLICY if screen else IMPROVEMENT_POLICY if cell_cut else TOLERANT_POLICY,
         "versionId": manifest["versionId"],
         "manifestSha256": descriptor_sha256(dict(manifest)),
         "baseVersionId": manifest["baseVersionId"],
@@ -596,12 +638,17 @@ def require_report(
             raise GridEvaluationReportError("The report is too large.")
         report = _closed(json.loads(report_json), REPORT_KEYS, "Report")
         screen = report["schemaVersion"] == SCREEN_REPORT_SCHEMA
-        cell_cut = not screen and report["policyVersion"] == CELL_CUT_POLICY_VERSION
+        improvement = not screen and report["policyVersion"] == IMPROVEMENT_POLICY_VERSION
+        cell_cut = not screen and (
+            improvement or report["policyVersion"] == CELL_CUT_POLICY_VERSION
+        )
         tolerant = not screen and (cell_cut or report["policyVersion"] == TOLERANT_POLICY_VERSION)
         if canonical_json(report) != report_json:
             raise GridEvaluationReportError("The report is not canonical JSON.")
         if screen:
             policy_version, policy = SCREEN_POLICY_VERSION, SCREEN_POLICY
+        elif improvement:
+            policy_version, policy = IMPROVEMENT_POLICY_VERSION, IMPROVEMENT_POLICY
         elif cell_cut:
             policy_version, policy = CELL_CUT_POLICY_VERSION, CELL_CUT_POLICY
         elif tolerant:
@@ -686,6 +733,7 @@ def require_report(
                 screen=screen,
                 tolerant=tolerant,
                 cell_cut=cell_cut,
+                improvement=improvement,
             )
             if any(game[key] != value for key, value in decision.items()):
                 raise GridEvaluationReportError("Stored decisions differ from gate v2.")

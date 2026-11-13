@@ -309,6 +309,8 @@ const METRIC_LABELS: Readonly<Record<string, string>> = {
   boards_correct: 'plansze poprawne',
   boards_matched: 'plansze wykryte',
   boards_within_cells: 'plansze bez cięcia symboli (pola w 10%)',
+  boards_correct_or_boards_within_cells:
+    'plansze poprawne i bez cięcia symboli (VALIDATION+REGRESSION) — brak przyrostu albo ubytek',
   false_boards: 'fałszywe plansze',
   duplicate_predictions: 'zdublowane detekcje',
   image_macro: 'błąd image-macro',

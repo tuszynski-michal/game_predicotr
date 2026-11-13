@@ -6,6 +6,7 @@ const GATE_LABELS: Readonly<Record<string, string>> = {
   'grid-model-per-game-gate-v3': 'bramka ekranowa v3',
   'grid-model-per-game-gate-v4': 'bramka v4',
   'grid-model-per-game-gate-v5': 'bramka v5 (cięcie symboli)',
+  'grid-model-per-game-gate-v6': 'bramka v6 (wymagana poprawa)',
 };
 
 export function gateLabel(policyVersion: string): string {

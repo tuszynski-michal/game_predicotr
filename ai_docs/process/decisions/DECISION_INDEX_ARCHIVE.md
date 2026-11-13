@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-582](DECISION_LOG_2026.md#d-582--przyrostowe-wyspy-treningu-i-zwalnianie-nieużytych-rezerwacji) | Przyrostowe wyspy treningu i zwalnianie nieużytych rezerwacji | accepted | 2026-11-03 | V2 zachowuje rzeczywiste kontrole i bufory; zwalnia wyłącznie niechronione metadane v1 przy freeze, bez zmiany historii. |
 | [D-581](DECISION_LOG_2026.md#d-581--wspólne-pułapy-budżetu-uczenia-siatek) | Wspólne pułapy budżetu uczenia siatek | accepted | 2026-11-03 | 8000 kroków/7200 s, jednorazowa polityka legacy przy wznowieniu, bez resetu zużycia i zmiany planu. |
 | [D-580](DECISION_LOG_2026.md#d-580--wycofanie-całego-źródła-i-autoryzacja-otwartej-luki) | Wycofanie źródła i autoryzacja luki | accepted | 2026-11-03 | Immutable preview, per-entry request i dowiedziony wewnętrzny derive. |
 | [D-579](DECISION_LOG_2026.md#d-579--manifest-wymiany-źródła-z-zachowaniem-historii) | Manifest wymiany źródła | accepted | 2026-11-03 | Exact source/alias planned i chronologia ocen człowieka. |

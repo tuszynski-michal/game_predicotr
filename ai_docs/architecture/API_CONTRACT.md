@@ -14,6 +14,15 @@ wybrany checkpoint nie jest ściśle lepszy, job treningu i uczenie kończą si�
 `GRID_TRAINING_NO_IMPROVEMENT` bez kandydata. Manifest, `checkpointSelection`, OpenAPI
 i klient są bez zmian.
 
+## Bramka v6: realna poprawa (TASK-1206, D-612)
+
+Nowe raporty z `cellCut` mają `policyVersion=grid-model-per-game-gate-v6`: polityka v5
+plus `improvementRequired=true` i `improvement` {scope `training-game`, roles
+[VALIDATION, REGRESSION], metrics [boards_correct, boards_within_cells], minimumGain 1,
+lossAllowed false}. Nowy powód gry treningowej:
+`VALIDATION_NOT_IMPROVED:boards_correct_or_boards_within_cells`. Raporty v5 pozostają
+ważne. Bind przez `recording_cohort_command_v10` (migracja 0189).
+
 ## Bramka v5: plansze bez cięcia symboli (TASK-1203, D-609)
 
 Raport oceny korekt grid-only (`grid-model-evaluation-read-v3`, kalibrowany read-v5)

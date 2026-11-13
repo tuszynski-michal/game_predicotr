@@ -12654,6 +12654,9 @@
               },
               {
                 "$ref": "#/components/schemas/GridCorrectionCellCutEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionImprovementEvaluationPolicy"
               }
             ],
             "title": "Policy"
@@ -12663,7 +12666,8 @@
               "grid-model-per-game-gate-v2",
               "grid-model-per-game-gate-v3",
               "grid-model-per-game-gate-v4",
-              "grid-model-per-game-gate-v5"
+              "grid-model-per-game-gate-v5",
+              "grid-model-per-game-gate-v6"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -13676,6 +13680,9 @@
               },
               {
                 "$ref": "#/components/schemas/GridCorrectionCellCutEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionImprovementEvaluationPolicy"
               }
             ],
             "title": "Policy"
@@ -13685,7 +13692,8 @@
               "grid-model-per-game-gate-v2",
               "grid-model-per-game-gate-v3",
               "grid-model-per-game-gate-v4",
-              "grid-model-per-game-gate-v5"
+              "grid-model-per-game-gate-v5",
+              "grid-model-per-game-gate-v6"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -15125,6 +15133,9 @@
               },
               {
                 "$ref": "#/components/schemas/GridCorrectionCellCutEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionImprovementEvaluationPolicy"
               }
             ],
             "title": "Policy"
@@ -15133,7 +15144,8 @@
             "enum": [
               "grid-model-per-game-gate-v2",
               "grid-model-per-game-gate-v4",
-              "grid-model-per-game-gate-v5"
+              "grid-model-per-game-gate-v5",
+              "grid-model-per-game-gate-v6"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -15315,6 +15327,147 @@
           "exclusions"
         ],
         "title": "GridCorrectionEvaluationScope",
+        "type": "object"
+      },
+      "GridCorrectionImprovementEvaluationPolicy": {
+        "additionalProperties": false,
+        "description": "Gate v6 (D-612): gate v5 plus a real gain of the training game.",
+        "properties": {
+          "cellCut": {
+            "$ref": "#/components/schemas/GridCorrectionCellCutPolicy"
+          },
+          "checkpointRule": {
+            "const": "validation-board-correct-photo-macro-error-earliest-v1",
+            "title": "Checkpointrule",
+            "type": "string"
+          },
+          "epsilon": {
+            "minimum": 0.0,
+            "title": "Epsilon",
+            "type": "number"
+          },
+          "fullPhotoNonRegression": {
+            "items": {
+              "enum": [
+                "false_boards",
+                "duplicate_predictions",
+                "photo_complete_correct"
+              ],
+              "type": "string"
+            },
+            "title": "Fullphotononregression",
+            "type": "array"
+          },
+          "improvement": {
+            "$ref": "#/components/schemas/GridCorrectionImprovementPolicy"
+          },
+          "improvementRequired": {
+            "const": true,
+            "title": "Improvementrequired",
+            "type": "boolean"
+          },
+          "metricsVersion": {
+            "const": "grid-correction-metrics-v1",
+            "title": "Metricsversion",
+            "type": "string"
+          },
+          "minimumControlBoards": {
+            "const": 15,
+            "title": "Minimumcontrolboards",
+            "type": "integer"
+          },
+          "minimumControlPhotos": {
+            "const": 5,
+            "title": "Minimumcontrolphotos",
+            "type": "integer"
+          },
+          "noiseTolerance": {
+            "$ref": "#/components/schemas/GridCorrectionNoiseTolerance"
+          },
+          "nonRegression": {
+            "items": {
+              "enum": [
+                "boards_matched",
+                "boards_correct",
+                "normalized_error"
+              ],
+              "type": "string"
+            },
+            "title": "Nonregression",
+            "type": "array"
+          },
+          "policyVersion": {
+            "const": "grid-model-per-game-gate-v6",
+            "title": "Policyversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "metricsVersion",
+          "minimumControlPhotos",
+          "minimumControlBoards",
+          "nonRegression",
+          "fullPhotoNonRegression",
+          "noiseTolerance",
+          "improvementRequired",
+          "epsilon",
+          "checkpointRule",
+          "cellCut",
+          "improvement"
+        ],
+        "title": "GridCorrectionImprovementEvaluationPolicy",
+        "type": "object"
+      },
+      "GridCorrectionImprovementPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "lossAllowed": {
+            "const": false,
+            "title": "Lossallowed",
+            "type": "boolean"
+          },
+          "metrics": {
+            "items": {
+              "enum": [
+                "boards_correct",
+                "boards_within_cells"
+              ],
+              "type": "string"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "minimumGain": {
+            "const": 1,
+            "title": "Minimumgain",
+            "type": "integer"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "VALIDATION",
+                "REGRESSION"
+              ],
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "scope": {
+            "const": "training-game",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "roles",
+          "metrics",
+          "minimumGain",
+          "lossAllowed"
+        ],
+        "title": "GridCorrectionImprovementPolicy",
         "type": "object"
       },
       "GridCorrectionLearningCandidateEvaluation": {

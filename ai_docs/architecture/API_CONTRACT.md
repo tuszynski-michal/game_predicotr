@@ -6,6 +6,16 @@ last_updated: 2026-11-11
 
 # Kontrakty API i danych mobilnych
 
+## Bramka v5: plansze bez cięcia symboli (TASK-1203, D-609)
+
+Raport oceny korekt grid-only (`grid-model-evaluation-read-v3`, kalibrowany read-v5)
+może mieć `policyVersion=grid-model-per-game-gate-v5`: polityka v4 plus `cellCut`
+{version `grid-cell-cut-v1`, tolerance 0.10, nonRegression `boards_within_cells`}, a
+każda rola dodatkowo `cellCut` {version, tolerance, base, candidate} (liczby plansz w
+polach, ≤ `boards_matched`). Starsze raporty nie mają tego klucza i nie dostają `null`.
+Nowy powód: `VALIDATION|REGRESSION_REGRESSED:boards_within_cells`. Bind raportu przez
+`recording_cohort_command_v9` (migracja 0187).
+
 ## Propozycje obrysów symboli z siatek (TASK-1201, D-608)
 
 GET `/admin/games/{gameId}/grid-quality-measurements/content-outline-proposals`

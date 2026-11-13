@@ -29,6 +29,10 @@ test('codes are readable, evaluation reasons are explained and unknown codes sta
     reasonLabel('VALIDATION_NOT_IMPROVED:boards_correct'),
     'Brak poprawy gry treningowej: plansze poprawne',
   );
+  assert.equal(
+    reasonLabel('VALIDATION_REGRESSED:boards_within_cells'),
+    'Pogorszenie na VALIDATION: plansze bez cięcia symboli (pola w 10%)',
+  );
   assert.equal(reasonLabel('SOMETHING_NEW'), 'Inny powód (SOMETHING_NEW)');
   assert.equal(reasonLabel(null), '');
   assert.equal(

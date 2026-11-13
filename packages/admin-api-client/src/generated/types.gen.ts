@@ -6955,14 +6955,16 @@ export type GridCalibratedEvaluationReport = {
   policy:
     | GridCorrectionEvaluationPolicy
     | GridScreenCorrectionEvaluationPolicy
-    | GridCorrectionTolerantEvaluationPolicy;
+    | GridCorrectionTolerantEvaluationPolicy
+    | GridCorrectionCellCutEvaluationPolicy;
   /**
    * Policyversion
    */
   policyVersion:
     | 'grid-model-per-game-gate-v2'
     | 'grid-model-per-game-gate-v3'
-    | 'grid-model-per-game-gate-v4';
+    | 'grid-model-per-game-gate-v4'
+    | 'grid-model-per-game-gate-v5';
   /**
    * Producer
    */
@@ -7507,14 +7509,16 @@ export type GridContentCalibratedEvaluationReport = {
   policy:
     | GridCorrectionEvaluationPolicy
     | GridScreenCorrectionEvaluationPolicy
-    | GridCorrectionTolerantEvaluationPolicy;
+    | GridCorrectionTolerantEvaluationPolicy
+    | GridCorrectionCellCutEvaluationPolicy;
   /**
    * Policyversion
    */
   policyVersion:
     | 'grid-model-per-game-gate-v2'
     | 'grid-model-per-game-gate-v3'
-    | 'grid-model-per-game-gate-v4';
+    | 'grid-model-per-game-gate-v4'
+    | 'grid-model-per-game-gate-v5';
   /**
    * Producer
    */
@@ -7850,6 +7854,98 @@ export type GridCorrectionApplyView = {
    * Versionid
    */
   versionId: string;
+};
+
+/**
+ * GridCorrectionCellCut
+ *
+ * Gate v5 (D-609): matched boards whose every cell stays within the tolerance.
+ */
+export type GridCorrectionCellCut = {
+  /**
+   * Base
+   */
+  base: number;
+  /**
+   * Candidate
+   */
+  candidate: number;
+  /**
+   * Tolerance
+   */
+  tolerance: number;
+  /**
+   * Version
+   */
+  version: 'grid-cell-cut-v1';
+};
+
+/**
+ * GridCorrectionCellCutEvaluationPolicy
+ *
+ * Gate v5 (D-609): gate v4 plus non-regression of boards within their cells.
+ */
+export type GridCorrectionCellCutEvaluationPolicy = {
+  cellCut: GridCorrectionCellCutPolicy;
+  /**
+   * Checkpointrule
+   */
+  checkpointRule: 'validation-board-correct-photo-macro-error-earliest-v1';
+  /**
+   * Epsilon
+   */
+  epsilon: number;
+  /**
+   * Fullphotononregression
+   */
+  fullPhotoNonRegression: Array<
+    'false_boards' | 'duplicate_predictions' | 'photo_complete_correct'
+  >;
+  /**
+   * Improvementrequired
+   */
+  improvementRequired: false;
+  /**
+   * Metricsversion
+   */
+  metricsVersion: 'grid-correction-metrics-v1';
+  /**
+   * Minimumcontrolboards
+   */
+  minimumControlBoards: 15;
+  /**
+   * Minimumcontrolphotos
+   */
+  minimumControlPhotos: 5;
+  noiseTolerance: GridCorrectionNoiseTolerance;
+  /**
+   * Nonregression
+   */
+  nonRegression: Array<
+    'boards_matched' | 'boards_correct' | 'normalized_error'
+  >;
+  /**
+   * Policyversion
+   */
+  policyVersion: 'grid-model-per-game-gate-v5';
+};
+
+/**
+ * GridCorrectionCellCutPolicy
+ */
+export type GridCorrectionCellCutPolicy = {
+  /**
+   * Nonregression
+   */
+  nonRegression: 'boards_within_cells';
+  /**
+   * Tolerance
+   */
+  tolerance: number;
+  /**
+   * Version
+   */
+  version: 'grid-cell-cut-v1';
 };
 
 /**
@@ -8208,11 +8304,16 @@ export type GridCorrectionEvaluationReport = {
    * Policy
    */
   policy:
-    GridCorrectionEvaluationPolicy | GridCorrectionTolerantEvaluationPolicy;
+    | GridCorrectionEvaluationPolicy
+    | GridCorrectionTolerantEvaluationPolicy
+    | GridCorrectionCellCutEvaluationPolicy;
   /**
    * Policyversion
    */
-  policyVersion: 'grid-model-per-game-gate-v2' | 'grid-model-per-game-gate-v4';
+  policyVersion:
+    | 'grid-model-per-game-gate-v2'
+    | 'grid-model-per-game-gate-v4'
+    | 'grid-model-per-game-gate-v5';
   /**
    * Producer
    */
@@ -8246,6 +8347,7 @@ export type GridCorrectionEvaluationReport = {
 export type GridCorrectionEvaluationRole = {
   base: GridCorrectionEvaluationMetrics;
   candidate: GridCorrectionEvaluationMetrics;
+  cellCut?: GridCorrectionCellCut | null;
   detail: GridModelEvaluationDetail;
   /**
    * Inputsha256

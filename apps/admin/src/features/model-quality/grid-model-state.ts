@@ -245,6 +245,7 @@ const METRIC_LABELS: Readonly<Record<string, string>> = {
   photo_complete_correct: 'zdjęcia kompletne i poprawne',
   boards_correct: 'plansze poprawne',
   boards_matched: 'plansze wykryte',
+  boards_within_cells: 'plansze bez cięcia symboli (pola w 10%)',
   false_boards: 'fałszywe plansze',
   duplicate_predictions: 'zdublowane detekcje',
   image_macro: 'błąd image-macro',

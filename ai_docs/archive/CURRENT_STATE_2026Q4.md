@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1203 — Bramka v5 bez cięcia symboli (done)
+
+- Plik: `tasks/completed/1203-grid-gate-cell-cut.md`; commit **v1.7.632**; decyzja D-609.
+- Gate v5 = v4 plus nieregresja plansz w polach (węzły ≤ 10 % pola); migracja `0187_grid_gate_cell_cut` (bind v7, dyspozytor v9, uprawnienia v12).
+- Testy: gate/worker 154 passed, PostgreSQL 2 passed, Admin 864/864; 7 zastanych porażek API jak na `main`. Migracja na bazie operatora niewykonana.
+
 ### TASK-1202 — Usunięcie ręcznego edytora etykiet (done)
 
 - Plik: `tasks/completed/1202-remove-ordinary-content-editor.md`; commit **v1.7.630 / `d8b45298061a09c94a91a2f86724f5f379bc6030`**; D-608.

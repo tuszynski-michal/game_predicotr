@@ -86,6 +86,19 @@ TOLERANT_POLICY: Final[dict[str, Any]] = {
     "epsilon": EPSILON,
     "checkpointRule": CHECKPOINT_RULE,
 }
+# D-609: gate v5 = v4 plus boards whose every cell stays within 10 % of the label cell.
+CELL_CUT_POLICY_VERSION: Final = "grid-model-per-game-gate-v5"
+CELL_CUT_VERSION: Final = "grid-cell-cut-v1"
+CELL_CUT_TOLERANCE: Final = 0.10
+CELL_CUT_POLICY: Final[dict[str, Any]] = {
+    **TOLERANT_POLICY,
+    "policyVersion": CELL_CUT_POLICY_VERSION,
+    "cellCut": {
+        "version": CELL_CUT_VERSION,
+        "tolerance": CELL_CUT_TOLERANCE,
+        "nonRegression": "boards_within_cells",
+    },
+}
 SCREEN_POLICY: Final[dict[str, Any]] = {
     **POLICY,
     "policyVersion": SCREEN_POLICY_VERSION,
@@ -192,6 +205,7 @@ def decide_game(
     roles: Mapping[str, Any],
     screen: bool = False,
     tolerant: bool = False,
+    cell_cut: bool = False,
 ) -> dict[str, Any]:
     """Require every role to preserve quality; current-game REGRESSION must improve.
 
@@ -237,8 +251,10 @@ def decide_game(
             "coverage": "incomplete",
             "reasons": reasons,
         }
+    if cell_cut and not tolerant:
+        raise GridEvaluationReportError("Gate v5 extends only the tolerant gate.")
     if tolerant:
-        return _decide_tolerant(roles)
+        return _decide_tolerant(roles, cell_cut=cell_cut)
     outcome = {}
     for role in ROLES:
         base, candidate = roles[role]["base"], roles[role]["candidate"]
@@ -277,7 +293,7 @@ def error_increase_allowance(base_error: float) -> Decimal:
     return max(RELATIVE_ERROR_INCREASE * base, ABSOLUTE_ERROR_INCREASE)
 
 
-def _decide_tolerant(roles: Mapping[str, Any]) -> dict[str, Any]:
+def _decide_tolerant(roles: Mapping[str, Any], *, cell_cut: bool = False) -> dict[str, Any]:
     reasons: list[str] = []
     outcome = {}
     for role in ROLES:
@@ -287,6 +303,10 @@ def _decide_tolerant(roles: Mapping[str, Any]) -> dict[str, Any]:
         for metric in ("boards_matched", "boards_correct"):
             if base[metric] - candidate[metric] > allowance:
                 reasons.append(f"{role}_REGRESSED:{metric}")
+        if cell_cut:
+            within = roles[role]["cellCut"]
+            if within["base"] - within["candidate"] > allowance:
+                reasons.append(f"{role}_REGRESSED:boards_within_cells")
         increase = Decimal(str(candidate["normalized_error"])) - Decimal(
             str(base["normalized_error"])
         )
@@ -406,10 +426,18 @@ def require_checkpoint_selection(
     return selection
 
 
-def _require_role(value: object) -> dict[str, Any]:
-    role = _closed(
-        value, {"photos", "inputSha256", "base", "candidate", "recordings", "detail"}, "Role"
-    )
+def require_cell_cut(value: object, base: Mapping[str, Any], candidate: Mapping[str, Any]) -> None:
+    cut = _closed(value, {"version", "tolerance", "base", "candidate"}, "Cell cut")
+    if cut["version"] != CELL_CUT_VERSION or cut["tolerance"] != CELL_CUT_TOLERANCE:
+        raise GridEvaluationReportError("Cell-cut evidence differs from gate v5.")
+    for name, metrics in (("base", base), ("candidate", candidate)):
+        if _count(cut[name]) > metrics["boards_matched"]:
+            raise GridEvaluationReportError("Boards within cells exceed matched boards.")
+
+
+def _require_role(value: object, *, cell_cut: bool = False) -> dict[str, Any]:
+    keys = {"photos", "inputSha256", "base", "candidate", "recordings", "detail"}
+    role = _closed(value, keys | {"cellCut"} if cell_cut else keys, "Role")
     _count(role["photos"])
     _sha(role["inputSha256"])
     for model in ("base", "candidate"):
@@ -455,6 +483,8 @@ def _require_role(value: object) -> dict[str, Any]:
     if not isinstance(detail["path"], str) or not detail["path"] or ".." in detail["path"]:
         raise GridEvaluationReportError("Detail path is invalid.")
     _sha(detail["sha256"])
+    if cell_cut:
+        require_cell_cut(role["cellCut"], role["base"], role["candidate"])
     return role
 
 
@@ -486,16 +516,29 @@ def build_report(
         ),
         key=lambda entry: entry["gameId"],
     )
+    # Gate v5 needs cell-cut counts in every role; a resumed older measurement keeps v4.
+    cell_cut = not screen and all(
+        "cellCut" in measured[entry["gameId"]]["roles"][role] for entry in ordered for role in ROLES
+    )
     games = []
     for entry in ordered:
         game = measured[entry["gameId"]]
+        roles = {
+            role: {
+                key: value
+                for key, value in game["roles"][role].items()
+                if cell_cut or key != "cellCut"
+            }
+            for role in ROLES
+        }
         decision = decide_game(
             mode=game["mode"],
             training=entry["gameId"] == training_game_id,
             parity_passed=parity["passed"],
-            roles=game["roles"],
+            roles=roles,
             screen=screen,
             tolerant=not screen,
+            cell_cut=cell_cut,
         )
         games.append(
             {
@@ -504,14 +547,18 @@ def build_report(
                 "mode": game["mode"],
                 "targetMetric": "boards_correct_or_normalized_error",
                 **decision,
-                "roles": {role: dict(game["roles"][role]) for role in ROLES},
+                "roles": roles,
             }
         )
     report = {
         "schemaVersion": SCREEN_REPORT_SCHEMA if screen else REPORT_SCHEMA,
         "producer": PRODUCER,
-        "policyVersion": SCREEN_POLICY_VERSION if screen else TOLERANT_POLICY_VERSION,
-        "policy": SCREEN_POLICY if screen else TOLERANT_POLICY,
+        "policyVersion": SCREEN_POLICY_VERSION
+        if screen
+        else CELL_CUT_POLICY_VERSION
+        if cell_cut
+        else TOLERANT_POLICY_VERSION,
+        "policy": SCREEN_POLICY if screen else CELL_CUT_POLICY if cell_cut else TOLERANT_POLICY,
         "versionId": manifest["versionId"],
         "manifestSha256": descriptor_sha256(dict(manifest)),
         "baseVersionId": manifest["baseVersionId"],
@@ -549,11 +596,14 @@ def require_report(
             raise GridEvaluationReportError("The report is too large.")
         report = _closed(json.loads(report_json), REPORT_KEYS, "Report")
         screen = report["schemaVersion"] == SCREEN_REPORT_SCHEMA
-        tolerant = not screen and report["policyVersion"] == TOLERANT_POLICY_VERSION
+        cell_cut = not screen and report["policyVersion"] == CELL_CUT_POLICY_VERSION
+        tolerant = not screen and (cell_cut or report["policyVersion"] == TOLERANT_POLICY_VERSION)
         if canonical_json(report) != report_json:
             raise GridEvaluationReportError("The report is not canonical JSON.")
         if screen:
             policy_version, policy = SCREEN_POLICY_VERSION, SCREEN_POLICY
+        elif cell_cut:
+            policy_version, policy = CELL_CUT_POLICY_VERSION, CELL_CUT_POLICY
         elif tolerant:
             policy_version, policy = TOLERANT_POLICY_VERSION, TOLERANT_POLICY
         else:
@@ -627,7 +677,7 @@ def require_report(
                 raise GridEvaluationReportError("Measured game differs from its cohort.")
             roles = _closed(game["roles"], set(ROLES), "Roles")
             for role in ROLES:
-                _require_role(roles[role])
+                _require_role(roles[role], cell_cut=cell_cut)
             decision = decide_game(
                 mode=game["mode"],
                 training=game["gameId"] == report["trainingGameId"],
@@ -635,6 +685,7 @@ def require_report(
                 roles=roles,
                 screen=screen,
                 tolerant=tolerant,
+                cell_cut=cell_cut,
             )
             if any(game[key] != value for key, value in decision.items()):
                 raise GridEvaluationReportError("Stored decisions differ from gate v2.")

@@ -326,7 +326,7 @@ class SqlAlchemyGridTrainingCohortRepository:
                     dict[str, Any],
                     self.session.execute(
                         text(
-                            "SELECT public.recording_cohort_command_v8("
+                            "SELECT public.recording_cohort_command_v9("
                             ":game,CAST(:body AS jsonb),:actor)"
                         ),
                         {"game": game, "body": json.dumps(command), "actor": actor},

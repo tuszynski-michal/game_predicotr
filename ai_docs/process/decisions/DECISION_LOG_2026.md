@@ -16,6 +16,34 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-609 — Bramka v5: plansze bez cięcia symboli
+
+Status: accepted. Data: 2026-11-13. Operator: „zaostrz ocenę modelu pole po polu”,
+„zrób ostrzejszą ocenę siatek z migracją”. TASK-1203.
+
+Kontekst: bramka v4 (D-604) uznaje planszę za poprawną przy NME ≤ 0,02 i maksymalnym
+błędzie węzła ≤ 0,05 przekątnej planszy. Przy polu szerokim na ok. 20 % planszy to
+ćwierć pola, więc model przycinający symbole mógł przejść ocenę.
+
+Decyzja: nowe oceny grid-only dostają `grid-model-per-game-gate-v5` = v4 plus
+`cellCut` (`grid-cell-cut-v1`): dla każdej dopasowanej planszy największe przesunięcie
+węzła dowolnego z 15 pól, rzutowane na osie pola etykiety i podzielone przez jego
+szerokość albo wysokość. Plansza jest „w polach”, gdy wynik ≤ 0,10. Kandydat nie może
+mieć w roli więcej niż `max(1, 2 %)` plansz w polach mniej niż model bazowy (ta sama
+tolerancja szumu co v4; powód `ROLE_REGRESSED:boards_within_cells`). Wspólna funkcja
+`measure()` i metryki v1 się nie zmieniają; liczby trafiają tylko do roli raportu oceny
+korekt. Raport z pomiaru wznowionego sprzed zmiany (bez `cellCut`) zostaje v4. Bramka
+ekranowa v3 bez zmian. Migracja `0187_grid_gate_cell_cut` dodaje
+`recording_correction_report_bind_v7` (pary read-v3/v5 × gate v4/v5) i dyspozytor
+`recording_cohort_command_v9`; historia v2–v4 bez zmian.
+
+Odrzucone: zmiana progów v4 (psuje weryfikację historycznych raportów), bezwzględny
+próg dla kandydata (blokowałby też obecny model bazowy), nowe etykiety obrysów
+(operator rysuje siatkę na granicach symboli, D-608).
+
+Konsekwencje: wymaga migracji bazy operatora i restartu API/workerów; próg 0,10 jest
+regułą produktową, nie skalibrowanym pomiarem.
+
 ## D-608 — Obrysy symboli z zatwierdzonych siatek
 
 Status: accepted. Data: 2026-11-13. Operator: „przecież siatka rysowana jest na

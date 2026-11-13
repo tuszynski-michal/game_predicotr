@@ -12651,6 +12651,9 @@
               },
               {
                 "$ref": "#/components/schemas/GridCorrectionTolerantEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionCellCutEvaluationPolicy"
               }
             ],
             "title": "Policy"
@@ -12659,7 +12662,8 @@
             "enum": [
               "grid-model-per-game-gate-v2",
               "grid-model-per-game-gate-v3",
-              "grid-model-per-game-gate-v4"
+              "grid-model-per-game-gate-v4",
+              "grid-model-per-game-gate-v5"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -13669,6 +13673,9 @@
               },
               {
                 "$ref": "#/components/schemas/GridCorrectionTolerantEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionCellCutEvaluationPolicy"
               }
             ],
             "title": "Policy"
@@ -13677,7 +13684,8 @@
             "enum": [
               "grid-model-per-game-gate-v2",
               "grid-model-per-game-gate-v3",
-              "grid-model-per-game-gate-v4"
+              "grid-model-per-game-gate-v4",
+              "grid-model-per-game-gate-v5"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -14315,6 +14323,155 @@
           "updatedAt"
         ],
         "title": "GridCorrectionApplyView",
+        "type": "object"
+      },
+      "GridCorrectionCellCut": {
+        "additionalProperties": false,
+        "description": "Gate v5 (D-609): matched boards whose every cell stays within the tolerance.",
+        "properties": {
+          "base": {
+            "minimum": 0.0,
+            "title": "Base",
+            "type": "integer"
+          },
+          "candidate": {
+            "minimum": 0.0,
+            "title": "Candidate",
+            "type": "integer"
+          },
+          "tolerance": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          },
+          "version": {
+            "const": "grid-cell-cut-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "tolerance",
+          "base",
+          "candidate"
+        ],
+        "title": "GridCorrectionCellCut",
+        "type": "object"
+      },
+      "GridCorrectionCellCutEvaluationPolicy": {
+        "additionalProperties": false,
+        "description": "Gate v5 (D-609): gate v4 plus non-regression of boards within their cells.",
+        "properties": {
+          "cellCut": {
+            "$ref": "#/components/schemas/GridCorrectionCellCutPolicy"
+          },
+          "checkpointRule": {
+            "const": "validation-board-correct-photo-macro-error-earliest-v1",
+            "title": "Checkpointrule",
+            "type": "string"
+          },
+          "epsilon": {
+            "minimum": 0.0,
+            "title": "Epsilon",
+            "type": "number"
+          },
+          "fullPhotoNonRegression": {
+            "items": {
+              "enum": [
+                "false_boards",
+                "duplicate_predictions",
+                "photo_complete_correct"
+              ],
+              "type": "string"
+            },
+            "title": "Fullphotononregression",
+            "type": "array"
+          },
+          "improvementRequired": {
+            "const": false,
+            "title": "Improvementrequired",
+            "type": "boolean"
+          },
+          "metricsVersion": {
+            "const": "grid-correction-metrics-v1",
+            "title": "Metricsversion",
+            "type": "string"
+          },
+          "minimumControlBoards": {
+            "const": 15,
+            "title": "Minimumcontrolboards",
+            "type": "integer"
+          },
+          "minimumControlPhotos": {
+            "const": 5,
+            "title": "Minimumcontrolphotos",
+            "type": "integer"
+          },
+          "noiseTolerance": {
+            "$ref": "#/components/schemas/GridCorrectionNoiseTolerance"
+          },
+          "nonRegression": {
+            "items": {
+              "enum": [
+                "boards_matched",
+                "boards_correct",
+                "normalized_error"
+              ],
+              "type": "string"
+            },
+            "title": "Nonregression",
+            "type": "array"
+          },
+          "policyVersion": {
+            "const": "grid-model-per-game-gate-v5",
+            "title": "Policyversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "metricsVersion",
+          "minimumControlPhotos",
+          "minimumControlBoards",
+          "nonRegression",
+          "fullPhotoNonRegression",
+          "noiseTolerance",
+          "improvementRequired",
+          "epsilon",
+          "checkpointRule",
+          "cellCut"
+        ],
+        "title": "GridCorrectionCellCutEvaluationPolicy",
+        "type": "object"
+      },
+      "GridCorrectionCellCutPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "nonRegression": {
+            "const": "boards_within_cells",
+            "title": "Nonregression",
+            "type": "string"
+          },
+          "tolerance": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          },
+          "version": {
+            "const": "grid-cell-cut-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "tolerance",
+          "nonRegression"
+        ],
+        "title": "GridCorrectionCellCutPolicy",
         "type": "object"
       },
       "GridCorrectionCellSymbolPayload": {
@@ -14965,6 +15122,9 @@
               },
               {
                 "$ref": "#/components/schemas/GridCorrectionTolerantEvaluationPolicy"
+              },
+              {
+                "$ref": "#/components/schemas/GridCorrectionCellCutEvaluationPolicy"
               }
             ],
             "title": "Policy"
@@ -14972,7 +15132,8 @@
           "policyVersion": {
             "enum": [
               "grid-model-per-game-gate-v2",
-              "grid-model-per-game-gate-v4"
+              "grid-model-per-game-gate-v4",
+              "grid-model-per-game-gate-v5"
             ],
             "title": "Policyversion",
             "type": "string"
@@ -15050,6 +15211,16 @@
           },
           "candidate": {
             "$ref": "#/components/schemas/GridCorrectionEvaluationMetrics"
+          },
+          "cellCut": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionCellCut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "detail": {
             "$ref": "#/components/schemas/GridModelEvaluationDetail"

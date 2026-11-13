@@ -171,6 +171,15 @@ class GridCorrectionEvaluationRecording(EvaluationClosedModel):
     candidate: GridCorrectionEvaluationMetrics
 
 
+class GridCorrectionCellCut(EvaluationClosedModel):
+    """Gate v5 (D-609): matched boards whose every cell stays within the tolerance."""
+
+    version: Literal["grid-cell-cut-v1"]
+    tolerance: float = Field(ge=0, le=1, allow_inf_nan=False)
+    base: int = Field(ge=0)
+    candidate: int = Field(ge=0)
+
+
 class GridCorrectionEvaluationRole(EvaluationClosedModel):
     photos: int = Field(ge=0)
     inputSha256: str = Field(pattern=_SHA)
@@ -178,6 +187,8 @@ class GridCorrectionEvaluationRole(EvaluationClosedModel):
     candidate: GridCorrectionEvaluationMetrics
     recordings: list[GridCorrectionEvaluationRecording]
     detail: GridModelEvaluationDetail
+    # Only gate v5 roles carry it; older reports must round-trip without a new null key.
+    cellCut: GridCorrectionCellCut | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class GridCorrectionEvaluationRoles(EvaluationClosedModel):
@@ -242,6 +253,30 @@ class GridCorrectionTolerantEvaluationPolicy(EvaluationClosedModel):
     checkpointRule: Literal["validation-board-correct-photo-macro-error-earliest-v1"]
 
 
+class GridCorrectionCellCutPolicy(EvaluationClosedModel):
+    version: Literal["grid-cell-cut-v1"]
+    tolerance: float = Field(ge=0, le=1, allow_inf_nan=False)
+    nonRegression: Literal["boards_within_cells"]
+
+
+class GridCorrectionCellCutEvaluationPolicy(EvaluationClosedModel):
+    """Gate v5 (D-609): gate v4 plus non-regression of boards within their cells."""
+
+    policyVersion: Literal["grid-model-per-game-gate-v5"]
+    metricsVersion: Literal["grid-correction-metrics-v1"]
+    minimumControlPhotos: Literal[5]
+    minimumControlBoards: Literal[15]
+    nonRegression: list[Literal["boards_matched", "boards_correct", "normalized_error"]]
+    fullPhotoNonRegression: list[
+        Literal["false_boards", "duplicate_predictions", "photo_complete_correct"]
+    ]
+    noiseTolerance: GridCorrectionNoiseTolerance
+    improvementRequired: Literal[False]
+    epsilon: float = Field(ge=0, allow_inf_nan=False)
+    checkpointRule: Literal["validation-board-correct-photo-macro-error-earliest-v1"]
+    cellCut: GridCorrectionCellCutPolicy
+
+
 class GridCorrectionEvaluationScope(EvaluationClosedModel):
     currentGameId: UUID
     trainingGameIds: list[UUID]
@@ -272,8 +307,14 @@ class GridCorrectionCheckpointSelection(EvaluationClosedModel):
 class GridCorrectionEvaluationReport(EvaluationClosedModel):
     schemaVersion: Literal["grid-model-evaluation-read-v3"]
     producer: Literal["server:grid-model-evaluator-v1"]
-    policyVersion: Literal["grid-model-per-game-gate-v2", "grid-model-per-game-gate-v4"]
-    policy: GridCorrectionEvaluationPolicy | GridCorrectionTolerantEvaluationPolicy
+    policyVersion: Literal[
+        "grid-model-per-game-gate-v2", "grid-model-per-game-gate-v4", "grid-model-per-game-gate-v5"
+    ]
+    policy: (
+        GridCorrectionEvaluationPolicy
+        | GridCorrectionTolerantEvaluationPolicy
+        | GridCorrectionCellCutEvaluationPolicy
+    )
     versionId: UUID
     manifestSha256: str = Field(pattern=_SHA)
     baseVersionId: UUID
@@ -366,12 +407,16 @@ class GridCalibratedEvaluationFields(EvaluationClosedModel):
     ]
     producer: Literal["server:grid-model-evaluator-v1"]
     policyVersion: Literal[
-        "grid-model-per-game-gate-v2", "grid-model-per-game-gate-v3", "grid-model-per-game-gate-v4"
+        "grid-model-per-game-gate-v2",
+        "grid-model-per-game-gate-v3",
+        "grid-model-per-game-gate-v4",
+        "grid-model-per-game-gate-v5",
     ]
     policy: (
         GridCorrectionEvaluationPolicy
         | GridScreenCorrectionEvaluationPolicy
         | GridCorrectionTolerantEvaluationPolicy
+        | GridCorrectionCellCutEvaluationPolicy
     )
     versionId: UUID
     manifestSha256: str = Field(pattern=_SHA)

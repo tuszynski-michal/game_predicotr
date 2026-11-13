@@ -331,6 +331,7 @@ class GridModelEvaluationJobHandler:
                 content_observation=None
                 if production_content is None
                 else production_content.observer(role),
+                cell_cut=job.input_payload.get("evaluation_kind") == CORRECTION_EVALUATION,
             )
         else:
             summary, rows = measure_role(photos, *engines, before_photo=before_photo)

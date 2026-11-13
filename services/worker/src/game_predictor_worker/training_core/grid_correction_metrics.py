@@ -14,6 +14,10 @@ from ..geometry_core.metrics import evaluate_photo as match_photo
 from .grid_evaluation import ControlPhoto, Engine, input_sha256, predictions
 
 METRICS_VERSION = "grid-correction-metrics-v1"
+# D-609: a matched board stays within its cells when no lattice node of any of the 15
+# cells moves more than this fraction of the label cell's width or height.
+CELL_CUT_VERSION = "grid-cell-cut-v1"
+CELL_CUT_TOLERANCE = 0.10
 CHECKPOINT_RULE = "validation-board-correct-photo-macro-error-earliest-v1"
 PHOTO_CHECKPOINT_RULE = "validation-photo-board-correct-photo-macro-error-earliest-v1"
 
@@ -30,6 +34,7 @@ class CorrectionPhotoEvaluation:
     matching: PhotoEvaluation
     full_geometry: bool
     normalized_error: float
+    boards_within_cells: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         result = self.matching.as_dict()
@@ -62,6 +67,7 @@ def evaluate_photo(
             raise ValueError("Target bounding-box diagonal must be positive.")
     matching = match_photo(image_id, group_id, labels, predicted)
     errors = [1.0] * len(labels)
+    within = 0
     for match in matching.matches:
         nodes = np.asarray(predicted[match.prediction][0], dtype=np.float64)
         if not match.valid or not np.isfinite(nodes).all():
@@ -71,7 +77,42 @@ def evaluate_photo(
         errors[match.label] = min(
             1.0, float(np.linalg.norm(nodes - label, axis=1).mean()) / diagonal
         )
-    return CorrectionPhotoEvaluation(matching, full_geometry, float(np.mean(errors)))
+        if cell_cut_fraction(nodes, label) <= CELL_CUT_TOLERANCE:
+            within += 1
+    return CorrectionPhotoEvaluation(matching, full_geometry, float(np.mean(errors)), within)
+
+
+def cell_cut_fraction(predicted: np.ndarray[Any, Any], label: np.ndarray[Any, Any]) -> float:
+    """Largest node shift of any cell, as a fraction of that label cell's size (D-609).
+
+    Nodes are 4 rows x 6 columns. Each shift is projected on the label cell's own
+    column (top edge) and row (left edge) directions and divided by the cell's mean
+    width and height, so a quarter-cell shift is 0.25 whatever the board size.
+    """
+    predicted = np.asarray(predicted, dtype=np.float64).reshape(4, 6, 2)
+    label = np.asarray(label, dtype=np.float64).reshape(4, 6, 2)
+    worst = 0.0
+    for row in range(3):
+        for column in range(5):
+            corners = [(row, column), (row, column + 1), (row + 1, column + 1), (row + 1, column)]
+            top = label[row, column + 1] - label[row, column]
+            bottom = label[row + 1, column + 1] - label[row + 1, column]
+            left = label[row + 1, column] - label[row, column]
+            right = label[row + 1, column + 1] - label[row, column + 1]
+            width = float(np.linalg.norm(top) + np.linalg.norm(bottom)) / 2
+            height = float(np.linalg.norm(left) + np.linalg.norm(right)) / 2
+            if width <= 0 or height <= 0:
+                return float("inf")
+            across = (top + bottom) / (2 * width)
+            down = (left + right) / (2 * height)
+            for r, c in corners:
+                shift = predicted[r, c] - label[r, c]
+                worst = max(
+                    worst,
+                    abs(float(shift @ across)) / width,
+                    abs(float(shift @ down)) / height,
+                )
+    return worst
 
 
 def measure(photos: Sequence[CorrectionPhotoEvaluation]) -> dict[str, Any]:
@@ -179,7 +220,9 @@ def measure_role(
     | None = None,
     content_observation: Callable[[CorrectionControlPhoto, Any, Mapping[str, Any]], dict[str, Any]]
     | None = None,
+    cell_cut: bool = False,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Role summary; ``cell_cut`` adds the gate v5 boards-within-cells counts (D-609)."""
     evaluated: dict[str, list[CorrectionPhotoEvaluation]] = {"base": [], "candidate": []}
     groups: dict[str, dict[str, list[CorrectionPhotoEvaluation]]] = defaultdict(
         lambda: {"base": [], "candidate": []}
@@ -220,7 +263,7 @@ def measure_role(
             if proofs:
                 row["inputContentEvidence"] = proofs
         details.append(row)
-    return {
+    summary: dict[str, Any] = {
         "photos": len(photos),
         "inputSha256": input_sha256(photos),
         "base": measure(evaluated["base"]),
@@ -233,4 +276,18 @@ def measure_role(
             }
             for group in sorted(groups)
         ],
-    }, details
+    }
+    if cell_cut:
+        summary["cellCut"] = cell_cut_summary(evaluated["base"], evaluated["candidate"])
+    return summary, details
+
+
+def cell_cut_summary(
+    base: Sequence[CorrectionPhotoEvaluation], candidate: Sequence[CorrectionPhotoEvaluation]
+) -> dict[str, Any]:
+    return {
+        "version": CELL_CUT_VERSION,
+        "tolerance": CELL_CUT_TOLERANCE,
+        "base": sum(photo.boards_within_cells for photo in base),
+        "candidate": sum(photo.boards_within_cells for photo in candidate),
+    }

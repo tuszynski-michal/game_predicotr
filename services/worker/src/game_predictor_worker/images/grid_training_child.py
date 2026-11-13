@@ -568,9 +568,28 @@ def _train(
                 if screen_corrections
                 else {}
             ),
+            baseline_floor=corrections and not screen_corrections,
         )
     finally:
         batches.close()
+    floor = (
+        {"baselineFloor": result.baseline_floor} if corrections and not screen_corrections else {}
+    )
+    if not result.beats_baseline:
+        # D-611: a run that never beat its own base produces no candidate to evaluate.
+        return {
+            "status": "no_improvement",
+            "code": "GRID_TRAINING_NO_IMPROVEMENT",
+            "stopReason": result.stop_reason,
+            "steps": result.steps,
+            "bestStep": result.best_step,
+            "bestMetric": result.best_metric,
+            "checkpointSelection": result.checkpoint_selection,
+            **floor,
+            "metric": preset.early_stopping.metric,
+            "checkpoint": {"path": result.checkpoint_path.name, "sha256": result.checkpoint_sha256},
+            "history": result.history,
+        }
     if screen_corrections:
         if result.checkpoint_selection is None:
             raise ChildError("GRID_TRAINING_SELECTION_REQUIRED")
@@ -608,6 +627,7 @@ def _train(
             if result.checkpoint_selection
             else {}
         ),
+        **floor,
         "metric": preset.early_stopping.metric,
         "checkpoint": {"path": result.checkpoint_path.name, "sha256": result.checkpoint_sha256},
         "history": result.history,

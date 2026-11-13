@@ -662,6 +662,37 @@ class TrainingResult:
     exposure: dict[str, Any] | None = None
     visibility_exposure: dict[str, int] | None = None
     content_head_exposure: dict[str, int] | None = None
+    # D-611: VALIDATION of the base network before step 1 ({"boardCorrectRate",
+    # "normalizedError"}); None when the floor is off or a pre-D-611 run resumed.
+    baseline_floor: dict[str, float] | None = None
+
+    @property
+    def beats_baseline(self) -> bool:
+        """True when the selected checkpoint is strictly better than step 0 under the
+        correction rule key (board-correct rate, then lower error); a tie is no gain."""
+        floor, selection = self.baseline_floor, self.checkpoint_selection
+        if floor is None:
+            return True
+        if selection is None or selection.get("rule") != CORRECTION_CHECKPOINT_RULE:
+            raise ValueError("GRID_TRAINING_SELECTION_REQUIRED")
+        metrics = selection["metrics"]
+        return (float(metrics["boardCorrectRate"]), -float(metrics["normalizedError"])) > (
+            floor["boardCorrectRate"],
+            -floor["normalizedError"],
+        )
+
+
+def require_baseline_floor(value: object) -> dict[str, float]:
+    if (
+        not isinstance(value, Mapping)
+        or set(value) != {"boardCorrectRate", "normalizedError"}
+        or not all(
+            isinstance(item, int | float) and math.isfinite(item) and 0 <= item <= 1
+            for item in value.values()
+        )
+    ):
+        raise ValueError("GRID_TRAINING_SELECTION_INVALID")
+    return {key: float(item) for key, item in value.items()}
 
 
 class _ScalerSlot:
@@ -702,8 +733,14 @@ def train(
         Mapping[str, Sequence[Mapping[str, str]]],
     ]
     | None = None,
+    baseline_floor: bool = False,
 ) -> TrainingResult:
-    """Step-deterministic loop with an evaluation and a checkpoint every ``evaluation_steps``."""
+    """Step-deterministic loop with an evaluation and a checkpoint every ``evaluation_steps``.
+
+    ``baseline_floor`` (D-611, correction rule only) measures the base network on
+    VALIDATION before step 1 and carries it in every checkpoint; it does not change the
+    selection or early stopping, the caller compares it with the selected checkpoint.
+    """
     from torch.amp.grad_scaler import GradScaler
 
     network.to(device)
@@ -750,6 +787,9 @@ def train(
     ):
         raise ValueError("CONTENT_EXPERIMENT_HEAD_MISMATCH")
     visibility_enabled = "gridOutputContract" in plan.binding
+    if baseline_floor and (content_mode or stopping.selection_rule != CORRECTION_CHECKPOINT_RULE):
+        raise ValueError("GRID_TRAINING_BASELINE_FLOOR_UNSUPPORTED")
+    floor: dict[str, float] | None = None
     if resume is not None:
         value = load_checkpoint(resume[0], resume[1], expected_binding=plan.binding)
         restore_checkpoint(value, network, optimizer, scaler, generator)
@@ -758,6 +798,9 @@ def train(
         if not isinstance(stored, dict) or "early" not in stored:
             raise ValueError("CHECKPOINT_INVALID")
         stopping.restore(stored["early"])
+        if baseline_floor and stored.get("baselineFloor") is not None:
+            # The resumed network is trained; only the stored step-0 measure is the base.
+            floor = require_baseline_floor(stored["baselineFloor"])
         if visibility_enabled:
             visibility_exposure = dict(stored["visibilityExposureCurrent"])
         if content_head_enabled:
@@ -772,7 +815,13 @@ def train(
         if best_state is not None and (
             (stopping.stop and not content_mode) or step >= plan.total_steps
         ):
-            return _result(stopping, best_state, step, last, history, content_mode=content_mode)
+            return _result(
+                stopping, best_state, step, last, history, content_mode=content_mode, floor=floor
+            )
+    elif baseline_floor:
+        network.eval()
+        with torch.no_grad():
+            floor = require_baseline_floor(evaluate(network))
 
     def publish() -> tuple[Path, str]:
         state = (
@@ -790,6 +839,7 @@ def train(
             best_state={
                 **state,
                 "early": stopping.state(),
+                **({"baselineFloor": floor} if floor is not None else {}),
                 **(
                     {"visibilityExposureCurrent": dict(visibility_exposure)}
                     if visibility_enabled
@@ -1016,7 +1066,9 @@ def train(
             break
     if last is None or best_state is None:
         raise ValueError("GRID_TRAINING_NO_CHECKPOINT")
-    return _result(stopping, best_state, step, last, history, content_mode=content_mode)
+    return _result(
+        stopping, best_state, step, last, history, content_mode=content_mode, floor=floor
+    )
 
 
 def _result(
@@ -1027,8 +1079,10 @@ def _result(
     history: list[dict[str, Any]],
     *,
     content_mode: bool = False,
+    floor: dict[str, float] | None = None,
 ) -> TrainingResult:
     return TrainingResult(
+        baseline_floor=floor,
         stop_reason="early_stopping" if stopping.stop and not content_mode else "completed",
         steps=step,
         best_step=int(best_state["step"]),

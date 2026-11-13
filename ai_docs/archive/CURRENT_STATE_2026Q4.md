@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1205 — Uczenie korekt bez kandydata gorszego od bazy (done)
+
+- Plik: `ai_docs/tasks/completed/1205-grid-training-baseline-floor.md`; commit **v1.7.636**.
+- Trening `grid-corrections-v1` mierzy bazę na VALIDATION przed krokiem 1; checkpoint nie
+  lepszy od niej kończy uczenie kodem `GRID_TRAINING_NO_IMPROVEMENT` bez kandydata (D-611).
+- Testy: 11 nowych passed; szersze testy treningu 137 passed, 1 zastany błąd jak na `main`.
+
 ### TASK-1204 — Limit populacji uczenia 20 000 (done)
 
 - Plik: `tasks/completed/1204-grid-learning-source-limit.md`; commit **v1.7.634 / `ec2146f1bf3895b41896848cbf381b96f324a3db`**; decyzja D-610.

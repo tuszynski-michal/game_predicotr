@@ -198,6 +198,8 @@ export const REASON_LABELS: Readonly<Record<string, string>> = {
   GRID_TRAINING_COHORT_DRIFT: 'Kohorta zmieniła się od zlecenia runu',
   GRID_TRAINING_CHECKPOINT_CORRUPT: 'Wskazany checkpoint jest uszkodzony',
   GRID_TRAINING_FAILED: 'Trening zakończył się bez kandydata',
+  GRID_TRAINING_NO_IMPROVEMENT:
+    'Trening nie poprawił modelu bazowego na walidacji, więc nie utworzono kandydata. Dodaj nowe korekty siatek i uruchom uczenie ponownie',
   GRID_SHARED_SCOPE_INVALID: 'Wybierz po jednej kohorcie w innych grach',
   GRID_SHARED_COHORT_MISMATCH:
     'Kohorty muszą mieć tę samą rodzinę, bazę i tryb',

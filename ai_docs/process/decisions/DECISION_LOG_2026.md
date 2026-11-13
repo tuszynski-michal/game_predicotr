@@ -16,6 +16,32 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-611 — Uczenie korekt siatek musi pobić własny model bazowy
+
+Status: accepted. Data: 2026-11-13. Operator: „Tak, napraw”, „Etap A, potem B”.
+TASK-1205.
+
+Kontekst: uczenie `12ffda06` (Mumie A2) startowało z `abe39bce`, który na VALIDATION
+miał `boardCorrectRate` 0,678. Wszystkie checkpointy 600–3600 kroków miały 0,520–0,626,
+ale reguła `validation-board-correct-photo-macro-error-earliest-v1` wybiera tylko spośród
+kroków treningu, więc wyeksportowała kandydata `01767a49` gorszego od bazy. Etykiety
+550 wspólnych plansz obu kohort były identyczne (+48 nowych plansz).
+
+Decyzja: trening presetu `grid-corrections-v1` mierzy sieć bazową na VALIDATION przed
+krokiem 1 (próg kroku 0) i zapisuje ten pomiar w każdym checkpoincie (`baselineFloor`
+w `bestState`). Wybór checkpointu i wczesne zatrzymanie się nie zmieniają. Gdy wybrany
+checkpoint nie jest ściśle lepszy od progu według klucza reguły
+(`boardCorrectRate`, potem niższy `normalizedError`; remis to brak poprawy), trener
+kończy się wynikiem `no_improvement` i kodem `GRID_TRAINING_NO_IMPROVEMENT`, bez
+eksportu i rejestracji kandydata; uczenie kończy się tym kodem z polskim opisem.
+Wznowienie używa zapisanego progu; checkpoint sprzed D-611 wznawia się bez progu.
+Manifesty, nazwa reguły i kontrakt API pozostają bez zmian. Preset ekranowy i
+eksperymenty treści nie są objęte.
+
+Alternatywy odrzucone: wliczenie kroku 0 do wczesnego zatrzymania (zmienia moment
+zatrzymania historycznych przebiegów) i eksport bazy jako „kandydata” (bramka
+porównywałaby model sam ze sobą).
+
 ## D-610 — Limit populacji uczenia siatek 20 000 źródeł
 
 Status: accepted. Data: 2026-11-13. Operator: „chcę mieć ten przycisk tak dostępny,

@@ -1,10 +1,18 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-11-11
+last_updated: 2026-11-13
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Uczenie korekt bez poprawy bazy (TASK-1205, D-611)
+
+Trening `grid-corrections-v1` zapisuje pomiar bazy na VALIDATION (`baselineFloor`
+{boardCorrectRate, normalizedError}) w checkpointach i w `result-<attempt>.json`. Gdy
+wybrany checkpoint nie jest ściśle lepszy, job treningu i uczenie kończą się kodem
+`GRID_TRAINING_NO_IMPROVEMENT` bez kandydata. Manifest, `checkpointSelection`, OpenAPI
+i klient są bez zmian.
 
 ## Bramka v5: plansze bez cięcia symboli (TASK-1203, D-609)
 

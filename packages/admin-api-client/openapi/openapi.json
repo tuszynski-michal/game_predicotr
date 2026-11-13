@@ -7834,6 +7834,150 @@
         "title": "ContentOrdinaryPreview",
         "type": "object"
       },
+      "ContentOutlineProposal": {
+        "additionalProperties": false,
+        "description": "One board with an approved grid; ``cells`` is None when the grid is unusable.",
+        "properties": {
+          "boardId": {
+            "format": "uuid",
+            "title": "Boardid",
+            "type": "string"
+          },
+          "cells": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CellContentReference"
+                },
+                "maxItems": 15,
+                "minItems": 15,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cells"
+          },
+          "contentApproved": {
+            "title": "Contentapproved",
+            "type": "boolean"
+          },
+          "contentRevision": {
+            "minimum": 0.0,
+            "title": "Contentrevision",
+            "type": "integer"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ContentSource"
+          }
+        },
+        "required": [
+          "boardId",
+          "source",
+          "positionIndex",
+          "sequenceNumber",
+          "contentRevision",
+          "contentApproved",
+          "cells"
+        ],
+        "title": "ContentOutlineProposal",
+        "type": "object"
+      },
+      "ContentOutlineProposalCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "approved": {
+            "minimum": 0.0,
+            "title": "Approved",
+            "type": "integer"
+          },
+          "todo": {
+            "minimum": 0.0,
+            "title": "Todo",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "todo",
+          "approved"
+        ],
+        "title": "ContentOutlineProposalCounts",
+        "type": "object"
+      },
+      "ContentOutlineProposalPage": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/ContentOutlineProposalCounts"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentOutlineProposal"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextOffset": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextoffset"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "version": {
+            "const": "grid-cell-outline-proposal-v1",
+            "default": "grid-cell-outline-proposal-v1",
+            "title": "Version",
+            "type": "string"
+          },
+          "view": {
+            "enum": [
+              "todo",
+              "approved",
+              "all"
+            ],
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "view",
+          "counts",
+          "items",
+          "offset",
+          "nextOffset"
+        ],
+        "title": "ContentOutlineProposalPage",
+        "type": "object"
+      },
       "ContentProductionFootprint": {
         "additionalProperties": false,
         "properties": {
@@ -58638,6 +58782,119 @@
           }
         ],
         "summary": "Capture",
+        "tags": [
+          "grid-quality-measurements"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-quality-measurements/content-outline-proposals": {
+      "get": {
+        "description": "Boards with a human-approved grid and their cells as symbol outlines (D-608).",
+        "operationId": "listGridContentOutlineProposals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "todo",
+              "enum": [
+                "todo",
+                "approved",
+                "all"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 48,
+              "maximum": 60,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 100000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentOutlineProposalPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Outline Proposals",
         "tags": [
           "grid-quality-measurements"
         ]

@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-11-12
+last_updated: 2026-11-13
 ---
 
 # Decision Log — wpisy 2026
@@ -15,6 +15,31 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+
+## D-608 — Obrysy symboli z zatwierdzonych siatek
+
+Status: accepted. Data: 2026-11-13. Operator: „przecież siatka rysowana jest na
+obrębach symboli”, „dodaj ten ekran żeby się pokazywał zamiast »Etykiet zawartości
+zdjęć« a tamten oznacz do usunięcia”. TASK-1201.
+
+Kontekst: zwykłe etykiety zawartości wymagały ręcznego zaznaczenia 4 rogów dla każdego
+z 15 pól planszy (ok. 10 minut na planszę). Operator rysuje siatkę na granicach
+symboli, a widoczność pól poprawia w korekcie siatki, więc te dane już istnieją.
+
+Decyzja: propozycją obrysu symbolu jest pole bieżącej siatki planszy zatwierdzonej przez
+człowieka (reguła akceptacji jak w D-606, bez niedostępnych pól, ze stanem `visible`).
+Propozycja nie jest etykietą: staje się nią dopiero po zaznaczeniu przez operatora i
+istniejącym zapisie `writeGridCellContentReference` (`origin=manual`,
+`humanApproval=true`). Odczyt to GET `content-outline-proposals`; okno Admina
+`/symbol-outlines` zastępuje przycisk „Etykiety zawartości zdjęć”, a ręczny edytor
+zwykłych etykiet jest przeznaczony do usunięcia.
+
+Odrzucone: dopasowanie wzorców symboli (nowa logika bez potrzeby, skoro siatka już
+wyznacza granice) oraz utrzymanie ręcznego edytora jako głównej ścieżki.
+
+Konsekwencje: obrys nie wychodzi poza pole siatki, więc symbol wystający poza pole nie
+zostanie oznaczony inaczej niż przez odrzucenie planszy. Ślepy pomiar powtarzalności
+pozostaje bez zmian.
 
 ## D-607 — Limity poleceń kohort 300 s
 

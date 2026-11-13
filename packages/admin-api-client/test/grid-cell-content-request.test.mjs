@@ -336,3 +336,34 @@ test('target metadata and plain asset wrappers pin exact cohort and manifest', a
     '/api/v1/admin/games/a%2Fb/grid-quality-measurements/content-targets/sources/x%2Fy/asset',
   );
 });
+
+test('outline proposals list the game boards and photos are plain source URLs', async () => {
+  const calls = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      calls.push(request);
+      return Response.json({});
+    },
+  });
+  await client.listGridContentOutlineProposals('game-1', {
+    view: 'approved',
+    limit: 48,
+    offset: 96,
+  });
+  const url = new URL(calls[0].url);
+  assert.equal(calls[0].method, 'GET');
+  assert.equal(
+    url.pathname,
+    '/api/v1/admin/games/game-1/grid-quality-measurements/content-outline-proposals',
+  );
+  assert.equal(url.searchParams.get('view'), 'approved');
+  assert.equal(url.searchParams.get('limit'), '48');
+  assert.equal(url.searchParams.get('offset'), '96');
+  await client.listGridContentOutlineProposals('game-1');
+  assert.equal(new URL(calls[1].url).search, '');
+  assert.equal(
+    client.imageGeometryCompletenessSourceUrl('game-1', 'photo 2'),
+    'http://127.0.0.1:8000/api/v1/admin/image-review-items/geometry-completeness/game-1/images/photo%202/source',
+  );
+});

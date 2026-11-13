@@ -14,6 +14,7 @@ import { GridQualityMeasurementPanel } from './grid-quality-measurement-panel';
 import { GridReinferencePreview } from './grid-reinference-preview';
 import { GridTrainingRunPanel } from './grid-training-run-panel';
 import { RecordingGroupsPanel } from './recording-groups-panel';
+import { symbolOutlinesWindowUrl } from './symbol-outline-state';
 
 /**
  * TASK-1000: the whole V3 geometry process of one game, in operator order. Entering the
@@ -68,9 +69,15 @@ export function GridModelWorkspace({
         <button
           className="secondaryButton"
           type="button"
-          onClick={() => setContentView({ scope, mode: 'ordinary' })}
+          onClick={() => {
+            const popup = window.open(
+              symbolOutlinesWindowUrl(window.location.href, gameId),
+              '_blank',
+            );
+            if (popup) popup.opener = null;
+          }}
         >
-          Etykiety zawartości zdjęć
+          Obrysy symboli z siatek
         </button>
         <button
           className="secondaryButton"

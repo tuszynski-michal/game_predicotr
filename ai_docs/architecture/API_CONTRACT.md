@@ -6,6 +6,22 @@ last_updated: 2026-11-11
 
 # Kontrakty API i danych mobilnych
 
+## Propozycje obrysów symboli z siatek (TASK-1201, D-608)
+
+GET `/admin/games/{gameId}/grid-quality-measurements/content-outline-proposals`
+(`listGridContentOutlineProposals`, tylko odczyt, Cache-Control: no-store) przyjmuje
+`view` = `todo` (domyślnie) | `approved` | `all`, `limit` 1–60 (48) i `offset` ≥ 0.
+Zwraca `grid-cell-outline-proposal-v1`: `counts` {todo, approved} dla całej gry,
+`items` i `nextOffset`. Pozycja to plansza z ludzką akceptacją bieżącej geometrii
+(reguła D-606), bez niedostępnych pól, z bieżącym i nieusuniętym źródłem:
+`boardId`, `source` (tożsamość jak w etykietach zawartości), `positionIndex`,
+`sequenceNumber`, `contentRevision` i `contentApproved` najnowszej etykiety oraz
+`cells` = 15 pól siatki (`visible`, quad przycięty do kadru) albo `null`, gdy
+siatka jest nieużywalna. Zatwierdzenie używa istniejącego POST
+`content-references` z `expectedRevision=contentRevision`, `origin=manual`,
+`humanApproval=true`. Zdjęcie okno pobiera istniejącym GET
+`image-review-items/geometry-completeness/{gameId}/images/{sourceId}/source`.
+
 ## Materiał uczenia, próbka testu i oznaczenia przed zamrożeniem (TASK-1185, D-602)
 
 Odpowiedź preview/ready `grid-correction-learning` może zawierać opcjonalne,

@@ -167,6 +167,33 @@ class ContentTargetPage(VisibilityClosed):
     nextOffset: Annotated[int, Field(ge=0)] | None
 
 
+class ContentOutlineProposal(VisibilityClosed):
+    """One board with an approved grid; ``cells`` is None when the grid is unusable."""
+
+    boardId: UUID
+    source: ContentSource
+    positionIndex: Annotated[int, Field(strict=True, ge=0, le=8)]
+    sequenceNumber: Annotated[int, Field(strict=True, ge=1)]
+    contentRevision: Annotated[int, Field(ge=0)]
+    contentApproved: bool
+    cells: ContentCells | None
+
+
+class ContentOutlineProposalCounts(VisibilityClosed):
+    todo: Annotated[int, Field(ge=0)]
+    approved: Annotated[int, Field(ge=0)]
+
+
+class ContentOutlineProposalPage(VisibilityClosed):
+    version: Literal["grid-cell-outline-proposal-v1"] = "grid-cell-outline-proposal-v1"
+    gameId: UUID
+    view: Literal["todo", "approved", "all"]
+    counts: ContentOutlineProposalCounts
+    items: list[ContentOutlineProposal]
+    offset: Annotated[int, Field(ge=0)]
+    nextOffset: Annotated[int, Field(ge=0)] | None
+
+
 class ContentSessionStatus(VisibilityClosed):
     sessionId: UUID
     gameId: UUID

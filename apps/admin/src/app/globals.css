@@ -2,6 +2,7 @@
 @import '../../../../packages/ui/src/buttons.css';
 @import '../features/board-search/board-search-share-corrections.css';
 @import '../features/model-quality/grid-correction-learning.css';
+@import '../features/model-quality/symbol-outline-review.css';
 
 .modelQualityWorkspace {
   display: grid;

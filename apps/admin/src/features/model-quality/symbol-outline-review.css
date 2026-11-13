@@ -1,0 +1,134 @@
+.symbolOutlineReview {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px 24px;
+  color: var(--text);
+}
+
+.symbolOutlineToolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  margin: 0 -16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.symbolOutlineToolbar h1 {
+  margin: 0 8px 0 0;
+  font-size: 1.1rem;
+}
+
+.symbolOutlinePager {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.symbolOutlineHint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.symbolOutlineGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.symbolOutlineTile {
+  position: relative;
+  overflow: hidden;
+  border: 3px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.symbolOutlineTile.selected {
+  border-color: var(--accent);
+}
+
+.symbolOutlineTile.approved {
+  border-color: #1f8a4c;
+}
+
+.symbolOutlineSelect {
+  display: grid;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.symbolOutlineSelect:disabled {
+  cursor: default;
+}
+
+.symbolOutlineSelect svg,
+.symbolOutlineModal svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #222;
+}
+
+.symbolOutlineMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.symbolOutlineTile.selected .symbolOutlineMeta strong {
+  color: var(--accent-strong);
+}
+
+.symbolOutlineTile.approved .symbolOutlineMeta strong {
+  color: #1f8a4c;
+}
+
+.symbolOutlineZoom {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  cursor: zoom-in;
+}
+
+.symbolOutlineModal {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 85%);
+  cursor: zoom-out;
+}
+
+.symbolOutlineModal svg {
+  width: auto;
+  max-width: 100%;
+  height: 92vh;
+}
+
+.symbolOutlineReview.hideOutlines polygon {
+  display: none;
+}

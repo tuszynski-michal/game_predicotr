@@ -93,7 +93,7 @@ zawężania populacji; `ROLLBACK` po przerwanym savepoincie nie wykonuje `SET`.
 
 ## Outcome
 
-Commit: v1.7.626 (hash dopisuje kolejny commit).
+Commit: v1.7.626 / `1db19236135188087aa95d37d636a770ae4947d4`.
 
 - Wynik: trzy budżety po 300 s (D-607).
 - Weryfikacja: 363 testy kohort/uczenia (API i worker): 349 PASS, 14 FAIL

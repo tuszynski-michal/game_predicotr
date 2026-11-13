@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-11-12
+last_updated: 2026-11-13
 ---
 
 # Decision Log
@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-608](decisions/DECISION_LOG_2026.md#d-608--obrysy-symboli-z-zatwierdzonych-siatek) | Obrysy symboli z zatwierdzonych siatek | accepted | 2026-11-13 | Pole siatki zatwierdzonej przez człowieka jest propozycją obrysu symbolu; etykietą staje się po masowym zatwierdzeniu w oknie Admina; ręczny edytor do usunięcia. |
 | [D-607](decisions/DECISION_LOG_2026.md#d-607--limity-poleceń-kohort-300-s) | Limity poleceń kohort 300 s | accepted | 2026-11-13 | Budżet poleceń kohort, podziału korekt i pojedynczego zapytania wynosi 300 s (freeze 4847 źródeł trwał ~65 s, jedno zapytanie 38 s). |
 | [D-606](decisions/DECISION_LOG_2026.md#d-606--domyślny-zakres-uczenia-korekt-importy-z-etykietami-i-kohortami) | Domyślny zakres uczenia korekt | accepted | 2026-11-12 | Bez jawnych importów uczenie bierze tylko importy z ludzką akceptacją geometrii lub członkami kohort; limit 5000 źródeł zostaje. |
 | [D-605](decisions/DECISION_LOG_2026.md#d-605--równościowe-wyszukiwanie-członkostwa-kohort-i-wycofywanie-kohort) | Równościowe wyszukiwanie członkostwa kohort | accepted | 2026-11-12 | Pary członkostwa w tabeli z PK zamiast `@>` pod RLS; ta sama semantyka zdarzeń; status retired tylko frozen↔retired. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-581](decisions/DECISION_LOG_2026.md#d-581--wspólne-pułapy-budżetu-uczenia-siatek) | Wspólne pułapy budżetu uczenia siatek | accepted | 2026-11-03 | 8000 kroków/7200 s, jednorazowa polityka legacy przy wznowieniu, bez resetu zużycia i zmiany planu. |
 | [D-580](decisions/DECISION_LOG_2026.md#d-580--wycofanie-całego-źródła-i-autoryzacja-otwartej-luki) | Wycofanie źródła i autoryzacja luki | accepted | 2026-11-03 | Immutable preview, per-entry request i dowiedziony wewnętrzny derive. |
 | [D-579](decisions/DECISION_LOG_2026.md#d-579--manifest-wymiany-źródła-z-zachowaniem-historii) | Manifest wymiany źródła | accepted | 2026-11-03 | Exact source/alias planned i chronologia ocen człowieka. |
-| [D-578](decisions/DECISION_LOG_2026.md#d-578--uczenie-korekt-i-ocena-w-jawnym-zakresie) | Uczenie korekt i ocena w jawnym zakresie | accepted | 2026-11-02 | Partial controls, report v3/gate v2 i trwały parent zwalniający slot. |

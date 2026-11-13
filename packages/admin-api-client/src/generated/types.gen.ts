@@ -4241,6 +4241,102 @@ export type ContentOrdinaryPreview = {
 };
 
 /**
+ * ContentOutlineProposal
+ *
+ * One board with an approved grid; ``cells`` is None when the grid is unusable.
+ */
+export type ContentOutlineProposal = {
+  /**
+   * Boardid
+   */
+  boardId: string;
+  /**
+   * Cells
+   */
+  cells:
+    | [
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+        CellContentReference,
+      ]
+    | null;
+  /**
+   * Contentapproved
+   */
+  contentApproved: boolean;
+  /**
+   * Contentrevision
+   */
+  contentRevision: number;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  source: ContentSource;
+};
+
+/**
+ * ContentOutlineProposalCounts
+ */
+export type ContentOutlineProposalCounts = {
+  /**
+   * Approved
+   */
+  approved: number;
+  /**
+   * Todo
+   */
+  todo: number;
+};
+
+/**
+ * ContentOutlineProposalPage
+ */
+export type ContentOutlineProposalPage = {
+  counts: ContentOutlineProposalCounts;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Items
+   */
+  items: Array<ContentOutlineProposal>;
+  /**
+   * Nextoffset
+   */
+  nextOffset: number | null;
+  /**
+   * Offset
+   */
+  offset: number;
+  /**
+   * Version
+   */
+  version?: 'grid-cell-outline-proposal-v1';
+  /**
+   * View
+   */
+  view: 'todo' | 'approved' | 'all';
+};
+
+/**
  * ContentProductionFootprint
  */
 export type ContentProductionFootprint = {
@@ -32409,6 +32505,63 @@ export type CaptureGridQualityMeasurementResponses = {
 
 export type CaptureGridQualityMeasurementResponse =
   CaptureGridQualityMeasurementResponses[keyof CaptureGridQualityMeasurementResponses];
+
+export type ListGridContentOutlineProposalsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * View
+     */
+    view?: 'todo' | 'approved' | 'all';
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Offset
+     */
+    offset?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-outline-proposals';
+};
+
+export type ListGridContentOutlineProposalsErrors = {
+  /**
+   * Forbidden
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListGridContentOutlineProposalsError =
+  ListGridContentOutlineProposalsErrors[keyof ListGridContentOutlineProposalsErrors];
+
+export type ListGridContentOutlineProposalsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ContentOutlineProposalPage;
+};
+
+export type ListGridContentOutlineProposalsResponse =
+  ListGridContentOutlineProposalsResponses[keyof ListGridContentOutlineProposalsResponses];
 
 export type GetGridContentReadinessData = {
   body?: never;

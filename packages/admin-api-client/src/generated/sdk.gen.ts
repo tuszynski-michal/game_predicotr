@@ -806,6 +806,9 @@ import type {
   ListGridCalibrationProfilesData,
   ListGridCalibrationProfilesErrors,
   ListGridCalibrationProfilesResponses,
+  ListGridContentOutlineProposalsData,
+  ListGridContentOutlineProposalsErrors,
+  ListGridContentOutlineProposalsResponses,
   ListGridContentSessionsData,
   ListGridContentSessionsErrors,
   ListGridContentSessionsResponses,
@@ -2877,6 +2880,29 @@ export const captureGridQualityMeasurement = <
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Outline Proposals
+ *
+ * Boards with a human-approved grid and their cells as symbol outlines (D-608).
+ */
+export const listGridContentOutlineProposals = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridContentOutlineProposalsData, ThrowOnError>,
+): RequestResult<
+  ListGridContentOutlineProposalsResponses,
+  ListGridContentOutlineProposalsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridContentOutlineProposalsResponses,
+    ListGridContentOutlineProposalsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-quality-measurements/content-outline-proposals',
+    ...options,
   });
 
 /**

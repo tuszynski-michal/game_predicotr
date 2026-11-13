@@ -1,7 +1,7 @@
 """Extend geometry measurements with an actual, source-only blind labelling workflow."""
 
 from collections.abc import Callable
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -13,6 +13,7 @@ from game_predictor_api.domain.grid_cell_content import ContentError
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.grid_cell_content import (
     ContentBlindWrite,
+    ContentOutlineProposalPage,
     ContentReadinessResponse,
     ContentReferenceResponse,
     ContentSamplingPreview,
@@ -101,6 +102,23 @@ def create_grid_cell_content_router(dependency: Callable[..., object]) -> APIRou
         return invoke(
             lambda: repo(service).list_targets(game_id, cohort_id, manifest_sha256, limit, offset)
         )
+
+    @router.get(
+        "/content-outline-proposals",
+        operation_id="listGridContentOutlineProposals",
+        response_model=ContentOutlineProposalPage,
+    )
+    def outline_proposals(
+        response: Response,
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, parameter],
+        view: Annotated[Literal["todo", "approved", "all"], Query()] = "todo",
+        limit: int = Query(default=48, ge=1, le=60),
+        offset: int = Query(default=0, ge=0, le=100_000),
+    ) -> Any:
+        """Boards with a human-approved grid and their cells as symbol outlines (D-608)."""
+        response.headers["Cache-Control"] = "no-store"
+        return invoke(lambda: repo(service).list_outline_proposals(game_id, view, limit, offset))
 
     @router.get(
         "/content-targets/sources/{source_id}/asset",

@@ -35,6 +35,19 @@ primary; odczyty, nawigacja i anulowanie secondary, z wyjątkiem opisanej poniż
 listy przebiegów uczenia. Sąsiadujące akcje mają
 odstęp i zawijają się na wąskim ekranie, także w panelach zaawansowanych.
 
+### Obrysy symboli z siatek — TASK-1201 (D-608)
+
+Przycisk „Obrysy symboli z siatek” w Geometrii V3 (zamiast „Etykiety zawartości
+zdjęć”) otwiera w nowej karcie okno `/symbol-outlines?gameId=`. Kafelki pokazują
+plansze z zatwierdzoną siatką i zielonymi obrysami jej pól; kliknięcie kafelka
+zaznacza lub odznacza planszę, lupa powiększa ją (zamknięcie kliknięciem lub Esc).
+„Zaznacz całą stronę”, „Odznacz wszystko”, przełącznik obrysów, widoki „do
+zatwierdzenia/zatwierdzone/wszystkie” i strony po 48. Zaznaczenie obejmuje plansze
+z wielu stron; „Zatwierdź zaznaczone (N)” po potwierdzeniu zapisuje po jednej
+zatwierdzonej etykiecie zawartości na planszę i pokazuje liczbę zapisanych oraz
+błędy. Zatwierdzonych i nieużywalnych plansz nie da się zaznaczyć. Ręczny edytor
+zwykłych etykiet jest przeznaczony do usunięcia.
+
 ### Uczenie siatek z zapisanych korekt — TASK-1122
 
 Podstawowy panel Geometria V3 prowadzi przez dostępne korekty i braki, start,

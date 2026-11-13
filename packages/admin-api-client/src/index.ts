@@ -21,6 +21,7 @@ import {
   advanceGridContentSession as generatedContentAdvance,
   getGridContentReadiness as generatedContentReadiness,
   listGridContentTargets as generatedContentTargets,
+  listGridContentOutlineProposals as generatedContentOutlineProposals,
   getGridContentTargetSource as generatedContentTargetSource,
   previewGridContentSampling as generatedContentSampling,
 } from './generated/sdk.gen';
@@ -31,10 +32,13 @@ import type {
   ContentSessionAdvance,
   ContentSamplingPreview,
   ListGridContentTargetsData,
+  ListGridContentOutlineProposalsData,
   GetGridContentTargetSourceData,
 } from './generated/types.gen';
 export type {
   ContentWriteCommand,
+  ContentOutlineProposal,
+  ContentOutlineProposalPage,
   ContentSessionCreate,
   ContentBlindWrite,
   ContentSessionAdvance,
@@ -1952,6 +1956,19 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       gameId: string,
       body: ContentWriteCommand,
     ) => generatedContentWrite({ client, path: { game_id: gameId }, body }),
+    /** D-608: boards with an approved grid and their cells as symbol outline proposals. */
+    listGridContentOutlineProposals: (
+      gameId: string,
+      query: ListGridContentOutlineProposalsData['query'] = {},
+    ) =>
+      generatedContentOutlineProposals({
+        client,
+        path: { game_id: gameId },
+        query,
+      }),
+    /** Whole source photo of any image of a game, usable directly as an image URL. */
+    imageGeometryCompletenessSourceUrl: (gameId: string, sourceImageId: string) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-review-items/geometry-completeness/${encodeURIComponent(gameId)}/images/${encodeURIComponent(sourceImageId)}/source`,
     listGridContentSessions: (gameId: string, limit = 20) =>
       generatedContentSessions({
         client,

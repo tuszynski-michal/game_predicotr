@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid5
 
 from sqlalchemy import func, select, text
@@ -189,6 +189,13 @@ class SqlAlchemyGridCellContentRepository:
 
         self.bind(game)
         return list_source_targets(self, game, sources, limit, offset)
+
+    def list_outline_proposals(
+        self, game: UUID, view: str, limit: int, offset: int
+    ) -> dict[str, Any]:
+        from .grid_content_outline_proposals import OutlineView, list_outline_proposals
+
+        return list_outline_proposals(self, game, cast(OutlineView, view), limit, offset)
 
     def annotation_source_asset(
         self, game: UUID, source: UUID, expected_source: str, expected_pixel: str

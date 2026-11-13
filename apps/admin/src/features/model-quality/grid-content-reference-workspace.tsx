@@ -2,7 +2,6 @@
 
 import type {
   AdminApiClient,
-  ContentReadinessResponse,
   ContentTargetResponse,
   GridCohortHeader,
 } from '@game-predictor/admin-api-client';
@@ -10,24 +9,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '../catalog/catalog-api-error';
 import { GridContentBlind } from './grid-content-blind';
-import { GridContentOrdinary } from './grid-content-ordinary';
-import { GridContentSourceSelection } from './grid-content-source-selection';
-import { GridContentReadiness } from './grid-content-readiness';
 import { reasonLabel } from './grid-model-state';
-import {
-  contentRoleLabel,
-  type ContentCommand,
-  type ContentMode,
-} from './grid-content-state';
+import { contentRoleLabel, type ContentCommand } from './grid-content-state';
 
 export type GridContentClient = Pick<
   AdminApiClient,
   | 'listGridTrainingCohorts'
   | 'listGridContentTargets'
-  | 'gridContentTargetSourceUrl'
-  | 'getGridCellContentReference'
-  | 'writeGridCellContentReference'
-  | 'getGridContentReadiness'
   | 'listGridContentSessions'
   | 'getGridContentSession'
   | 'createGridContentSession'
@@ -36,29 +24,26 @@ export type GridContentClient = Pick<
   | 'gridContentSessionSourceUrl'
 >;
 
+/**
+ * Blind repeatability measurement of content labels. Ordinary content labels are
+ * approved in the „Obrysy symboli z siatek” window (D-608, TASK-1202).
+ */
 export function GridContentReferenceWorkspace(props: {
   readonly apiBaseUrl: string;
   readonly gameId: string;
-  readonly mode: ContentMode;
   readonly onClose: () => void;
   readonly client?: GridContentClient;
-  readonly annotationSourceIds?: readonly string[];
 }) {
   return (
-    <ContentWorkspace
-      key={`${props.apiBaseUrl}:${props.gameId}:${props.mode}`}
-      {...props}
-    />
+    <ContentWorkspace key={`${props.apiBaseUrl}:${props.gameId}`} {...props} />
   );
 }
 
 function ContentWorkspace({
   apiBaseUrl,
   gameId,
-  mode,
   onClose,
   client,
-  annotationSourceIds,
 }: Parameters<typeof GridContentReferenceWorkspace>[0]) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
@@ -69,47 +54,21 @@ function ContentWorkspace({
       className="gridContentWorkflow"
       aria-label="Etykietowanie zawartości"
     >
-      <h2>
-        {mode === 'blind'
-          ? 'Pomiar powtarzalności etykiet'
-          : 'Etykiety zawartości pól'}
-      </h2>
-      <p>
-        {mode === 'blind'
-          ? 'Pozostałe narzędzia geometrii są ukryte na czas tego pomiaru.'
-          : 'Zwykłe etykiety są niezależne od geometrii. Zapis nie uruchamia treningu ani zastosowania modelu.'}
-      </p>
+      <h2>Pomiar powtarzalności etykiet</h2>
+      <p>Pozostałe narzędzia geometrii są ukryte na czas tego pomiaru.</p>
       <button className="secondaryButton" type="button" onClick={onClose}>
         Wróć do panelu geometrii
       </button>
-      {mode === 'blind' ? (
-        <GridContentBlind api={api} apiBaseUrl={apiBaseUrl} gameId={gameId}>
-          {(create, blocked) => (
-            <ContentTargetSelection
-              api={api}
-              gameId={gameId}
-              mode="blind"
-              create={create}
-              blocked={blocked}
-            />
-          )}
-        </GridContentBlind>
-      ) : annotationSourceIds ? (
-        <GridContentSourceSelection
-          key={annotationSourceIds.join(':')}
-          api={api}
-          gameId={gameId}
-          apiBaseUrl={apiBaseUrl}
-          sourceIds={annotationSourceIds}
-        />
-      ) : (
-        <ContentTargetSelection
-          api={api}
-          gameId={gameId}
-          apiBaseUrl={apiBaseUrl}
-          mode="ordinary"
-        />
-      )}
+      <GridContentBlind api={api} apiBaseUrl={apiBaseUrl} gameId={gameId}>
+        {(create, blocked) => (
+          <ContentTargetSelection
+            api={api}
+            gameId={gameId}
+            create={create}
+            blocked={blocked}
+          />
+        )}
+      </GridContentBlind>
     </section>
   );
 }
@@ -117,15 +76,11 @@ function ContentWorkspace({
 function ContentTargetSelection({
   api,
   gameId,
-  apiBaseUrl = '',
-  mode,
   create,
   blocked = false,
 }: {
   readonly api: GridContentClient;
   readonly gameId: string;
-  readonly apiBaseUrl?: string;
-  readonly mode: ContentMode;
   readonly create?: (command: ContentCommand) => void;
   readonly blocked?: boolean;
 }) {
@@ -138,10 +93,6 @@ function ContentTargetSelection({
   const [selection, setSelection] = useState<
     Record<string, ContentTargetResponse>
   >({});
-  const [chosen, setChosen] = useState<ContentTargetResponse | null>(null);
-  const [readiness, setReadiness] = useState<ContentReadinessResponse | null>(
-    null,
-  );
   const [reading, setReading] = useState(false);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
@@ -190,7 +141,6 @@ function ContentTargetSelection({
       if (!active) return;
       setTargets([]);
       setNextOffset(null);
-      setChosen(null);
       if (!cohort?.manifestSha256) return;
       setReading(true);
       setError('');
@@ -230,32 +180,6 @@ function ContentTargetSelection({
       active = false;
     };
   }, [api, gameId, cohort, offset, refresh]);
-  async function readCoverage() {
-    if (!cohort?.manifestSha256 || reading) return;
-    setReading(true);
-    setError('');
-    setReadiness(null);
-    try {
-      const result = await api.getGridContentReadiness(
-        gameId,
-        cohort.id,
-        cohort.manifestSha256,
-      );
-      if (!alive.current) return;
-      if (!result.data)
-        throw new Error(
-          apiErrorMessage(
-            result.error,
-            'Nie udało się sprawdzić pokrycia etykietami.',
-          ),
-        );
-      setReadiness(result.data);
-    } catch (failure) {
-      if (alive.current) setError(String(failure));
-    } finally {
-      if (alive.current) setReading(false);
-    }
-  }
   const selected = Object.values(selection);
   const photoCount = new Set(selected.map((t) => t.source.sourceId)).size;
   return (
@@ -263,9 +187,7 @@ function ContentTargetSelection({
       className="gridContentWorkflow"
       aria-label="Wybór zdjęć do etykietowania"
     >
-      <h3>
-        {mode === 'blind' ? 'Nowa sesja pomiaru' : 'Wybierz zdjęcie i planszę'}
-      </h3>
+      <h3>Nowa sesja pomiaru</h3>
       {error ? <p role="alert">{error}</p> : null}
       <div className="gridContentActions">
         <button
@@ -287,8 +209,6 @@ function ContentTargetSelection({
               setCohort(cohorts.find((c) => c.id === e.target.value) ?? null);
               setOffset(0);
               setSelection({});
-              setReadiness(null);
-              setChosen(null);
             }}
           >
             <option value="">Wybierz zestaw</option>
@@ -334,23 +254,10 @@ function ContentTargetSelection({
               className="secondaryButton"
               disabled={reading || blocked}
               aria-busy={reading}
-              onClick={() => {
-                setRefresh((v) => v + 1);
-                setReadiness(null);
-              }}
+              onClick={() => setRefresh((v) => v + 1)}
             >
               Odśwież zdjęcia i plansze
             </button>
-            {mode === 'ordinary' ? (
-              <button
-                type="button"
-                className="secondaryButton"
-                disabled={reading || blocked}
-                onClick={() => void readCoverage()}
-              >
-                Sprawdź pokrycie etykietami
-              </button>
-            ) : null}
           </div>
           <ul className="gridContentTargets" aria-label="Zdjęcia i plansze">
             {targets.map((target) => {
@@ -360,9 +267,7 @@ function ContentTargetSelection({
                 target.state === 'ready' &&
                 target.sequenceNumber != null &&
                 target.sequenceNumber > 0 &&
-                (mode !== 'blind' ||
-                  target.role === 'TRAIN' ||
-                  target.role === 'A');
+                (target.role === 'TRAIN' || target.role === 'A');
               return (
                 <li key={key}>
                   <span>
@@ -376,7 +281,7 @@ function ContentTargetSelection({
                       {target.reasonCodes.map(reasonLabel).join('; ') ||
                         'Pomiar obejmuje wyłącznie zdjęcia treningowe i zdjęcia do wyboru modelu.'}
                     </span>
-                  ) : mode === 'blind' ? (
+                  ) : (
                     <label>
                       <input
                         type="checkbox"
@@ -394,15 +299,6 @@ function ContentTargetSelection({
                       />{' '}
                       Dodaj planszę do pomiaru
                     </label>
-                  ) : (
-                    <button
-                      type="button"
-                      className="secondaryButton"
-                      disabled={reading || blocked}
-                      onClick={() => setChosen(target)}
-                    >
-                      Oznacz {displayName} — pozycja {target.positionIndex + 1}
-                    </button>
                   )}
                 </li>
               );
@@ -433,62 +329,47 @@ function ContentTargetSelection({
               </button>
             ) : null}
           </div>
-          {mode === 'blind' ? (
-            <>
-              <p>
-                Wybrano {selected.length} plansz na {photoCount} zdjęciach.
-                Pomiar powtarzalności wymaga co najmniej 30 plansz na 10
-                zdjęciach. Wybór jest jawny i pozostanie taki sam w obu
-                przebiegach.
-              </p>
-              <p>
-                Pomiar dla aktualnego sposobu wycinania. Ustawienia zostaną
-                przypięte na początku sesji.
-              </p>
-              <button
-                type="button"
-                className="primaryButton"
-                disabled={reading || blocked || !selected.length}
-                onClick={() => {
-                  if (!cohort.manifestSha256) return;
-                  const sources = [
-                    ...new Set(selected.map((t) => t.source.sourceId)),
-                  ];
-                  create?.({
-                    kind: 'create',
-                    body: {
-                      idempotencyKey: crypto.randomUUID(),
-                      cohortId: cohort.id,
-                      expectedManifestSha256: cohort.manifestSha256,
-                      sourceIds: sources,
-                      renderReferencePolicy: 'active-symbol-render-v2',
-                      targetSelection: sources.map((sourceId) => ({
-                        sourceId,
-                        positionIndices: selected
-                          .filter((t) => t.source.sourceId === sourceId)
-                          .map((t) => t.positionIndex)
-                          .sort((a, b) => a - b),
-                      })),
-                    },
-                  });
-                }}
-              >
-                Rozpocznij dwa ślepe przebiegi wybranych plansz
-              </button>
-            </>
-          ) : null}
-          {readiness ? <GridContentReadiness value={readiness} /> : null}
-          {mode === 'ordinary' && chosen && cohort.manifestSha256 ? (
-            <GridContentOrdinary
-              key={`${cohort.id}:${cohort.manifestSha256}:${chosen.source.sourceId}:${chosen.positionIndex}`}
-              api={api}
-              apiBaseUrl={apiBaseUrl}
-              gameId={gameId}
-              cohortId={cohort.id}
-              manifestSha256={cohort.manifestSha256}
-              target={chosen}
-            />
-          ) : null}
+          <>
+            <p>
+              Wybrano {selected.length} plansz na {photoCount} zdjęciach. Pomiar
+              powtarzalności wymaga co najmniej 30 plansz na 10 zdjęciach. Wybór
+              jest jawny i pozostanie taki sam w obu przebiegach.
+            </p>
+            <p>
+              Pomiar dla aktualnego sposobu wycinania. Ustawienia zostaną
+              przypięte na początku sesji.
+            </p>
+            <button
+              type="button"
+              className="primaryButton"
+              disabled={reading || blocked || !selected.length}
+              onClick={() => {
+                if (!cohort.manifestSha256) return;
+                const sources = [
+                  ...new Set(selected.map((t) => t.source.sourceId)),
+                ];
+                create?.({
+                  kind: 'create',
+                  body: {
+                    idempotencyKey: crypto.randomUUID(),
+                    cohortId: cohort.id,
+                    expectedManifestSha256: cohort.manifestSha256,
+                    sourceIds: sources,
+                    renderReferencePolicy: 'active-symbol-render-v2',
+                    targetSelection: sources.map((sourceId) => ({
+                      sourceId,
+                      positionIndices: selected
+                        .filter((t) => t.source.sourceId === sourceId)
+                        .map((t) => t.positionIndex)
+                        .sort((a, b) => a - b),
+                    })),
+                  },
+                });
+              }}
+            >
+              Rozpocznij dwa ślepe przebiegi wybranych plansz
+            </button>
+          </>
           <details>
             <summary>Identyfikatory zestawu</summary>
             <p>

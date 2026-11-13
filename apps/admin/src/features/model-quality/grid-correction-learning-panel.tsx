@@ -24,10 +24,7 @@ import {
   candidateSummary,
 } from './learning-candidate-status';
 import { GridContentEvaluationSummary } from './grid-content-evaluation-summary';
-import {
-  GridContentReferenceWorkspace,
-  type GridContentClient,
-} from './grid-content-reference-workspace';
+import { symbolOutlinesWindowUrl } from './symbol-outline-state';
 import {
   GridLearningMaterialSummary,
   GridLearningTestSampleSummary,
@@ -86,7 +83,6 @@ interface Props {
   readonly apiBaseUrl: string;
   readonly gameId: string;
   readonly client?: GridCorrectionLearningClient;
-  readonly annotationClient?: GridContentClient;
   readonly onChanged?: () => void;
 }
 
@@ -94,13 +90,7 @@ export function GridCorrectionLearningPanel(props: Props) {
   return <Learning key={`${props.apiBaseUrl}:${props.gameId}`} {...props} />;
 }
 
-function Learning({
-  apiBaseUrl,
-  gameId,
-  client,
-  annotationClient,
-  onChanged,
-}: Props) {
+function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
@@ -108,9 +98,6 @@ function Learning({
   const storageKey = learningCommandKey(apiBaseUrl, gameId);
   const [ready, setReady] = useState<GridCorrectionLearningPreview | null>(
     null,
-  );
-  const [annotationSources, setAnnotationSources] = useState<readonly string[]>(
-    [],
   );
   const [defaults, setDefaults] = useState<GridModelDefaultResponse | null>(
     null,
@@ -989,24 +976,16 @@ function Learning({
                 className="secondaryButton"
                 type="button"
                 disabled={disabled || refreshing}
-                onClick={() =>
-                  setAnnotationSources([
-                    ...(ready.testSample?.annotationSourceIds ?? []),
-                  ])
-                }
+                onClick={() => {
+                  const popup = window.open(
+                    symbolOutlinesWindowUrl(window.location.href, gameId),
+                    '_blank',
+                  );
+                  if (popup) popup.opener = null;
+                }}
               >
-                Oznacz zdjęcia do testu
+                Zatwierdź obrysy symboli
               </button>
-            ) : null}
-            {annotationSources.length > 0 ? (
-              <GridContentReferenceWorkspace
-                apiBaseUrl={apiBaseUrl}
-                gameId={gameId}
-                mode="ordinary"
-                client={annotationClient}
-                annotationSourceIds={annotationSources}
-                onClose={() => setAnnotationSources([])}
-              />
             ) : null}
             {ready.detectorReadiness ? (
               <p>

@@ -33,8 +33,6 @@ const { GridContentCanvas } =
   await import('../src/features/model-quality/grid-content-canvas.tsx');
 const { GridModelWorkspace } =
   await import('../src/features/model-quality/grid-model-workspace.tsx');
-const { GridContentReadiness } =
-  await import('../src/features/model-quality/grid-content-readiness.tsx');
 
 const game = '11111111-1111-4111-8111-111111111111',
   session = '22222222-2222-4222-8222-222222222222',
@@ -326,178 +324,9 @@ const sessionDetail = (
     },
   ],
 ) => ({ data: { ...status(phase, revision), total: targets.length, targets } });
-function referenceResult(forTarget = target, revision = 2) {
-  return {
-    data: {
-      revision,
-      contentReferenceSha256: sha,
-      annotation: {
-        source: forTarget.source,
-        sequenceNumber: forTarget.sequenceNumber,
-        origin: 'manual',
-        reference: {
-          positionIndex: forTarget.positionIndex,
-          humanApproved: true,
-          cells: Array.from({ length: 15 }, (_, i) =>
-            i === 0
-              ? {
-                  state: 'visible',
-                  quad: [
-                    [55, 55],
-                    [65, 55],
-                    [65, 65],
-                    [55, 65],
-                  ],
-                }
-              : { state: 'unknown' },
-          ),
-        },
-      },
-    },
-  };
-}
 async function resolveRead(read, value) {
   await act(async () => read.resolve(value));
 }
-
-test('sampling choices open the existing ordinary editor before role freeze and preserve CAS', async () => {
-  const f = fixture();
-  const sourceTarget = { ...target, role: null };
-  const ids = [
-    source,
-    ...Array.from(
-      { length: 20 },
-      (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
-    ),
-  ];
-  f.api.listGridTrainingCohorts = async () => {
-    throw new Error('No frozen cohort read before freeze');
-  };
-  f.api.getGridContentReadiness = async () => {
-    throw new Error('No frozen readiness before freeze');
-  };
-  f.api.listGridContentTargets = async (_game, filters) => {
-    f.calls.push(['source-targets', filters]);
-    return {
-      data: {
-        gameId: game,
-        cohortId: null,
-        manifestSha256: null,
-        items: filters.sourceIds.includes(source) ? [sourceTarget] : [],
-        nextOffset: null,
-      },
-    };
-  };
-  f.api.gridContentTargetSourceUrl = (_game, _source, pins) => {
-    f.calls.push(['source-asset', pins]);
-    return '/ordinary-source';
-  };
-  const m = await mount(GridContentReferenceWorkspace, {
-    apiBaseUrl,
-    gameId: game,
-    mode: 'ordinary',
-    client: f.api,
-    annotationSourceIds: ids,
-    onClose() {},
-  });
-  try {
-    assert.deepEqual(f.calls[0], [
-      'source-targets',
-      { sourceIds: ids.slice(0, 20), offset: 0, limit: 20 },
-    ]);
-    assert.equal(
-      document.querySelector('[aria-label="Zamrożony zestaw etykiet"]'),
-      null,
-    );
-    await click('Oznacz Zdjęcie 42 — pozycja 1');
-    assert.deepEqual(f.calls.find((c) => c[0] === 'normal-get').slice(1), [
-      game,
-      source,
-      0,
-      undefined,
-    ]);
-    assert.deepEqual(f.calls.find((c) => c[0] === 'source-asset')[1], {
-      expectedSourceSha256: sha,
-      expectedPixelSha256: 'b'.repeat(64),
-    });
-    await imageLoaded();
-    for (const p of [
-      [10, 10],
-      [30, 10],
-      [30, 30],
-      [10, 30],
-    ])
-      await point(...p);
-    await change('Widoczność pola', 'visible');
-    await checkContaining('Sprawdziłem zawartość');
-    await click('Zapisz i zatwierdź etykiety zawartości');
-    const command = f.calls.find((c) => c[0] === 'reference')[1];
-    assert.equal(command.sequenceNumber, 42);
-    assert.equal(command.expectedRevision, 0);
-    assert.equal(command.humanApproval, true);
-    assert.equal('cohortId' in command, false);
-    assert.equal('role' in command, false);
-    await click('Kolejne zdjęcia');
-    assert.deepEqual(
-      f.calls.filter((c) => c[0] === 'source-targets').at(-1)[1].sourceIds,
-      ids.slice(20),
-    );
-    assert.equal(
-      document.querySelector('[aria-label="Zwykłe etykiety zawartości"]'),
-      null,
-    );
-  } finally {
-    await m.cleanup();
-  }
-});
-
-test('ordinary B/REG is mounted, reads and approves content with CAS without geometry writes', async () => {
-  const f = fixture();
-  const m = await mount(GridContentReferenceWorkspace, {
-    apiBaseUrl,
-    gameId: game,
-    mode: 'ordinary',
-    client: f.api,
-    onClose() {},
-  });
-  try {
-    assert.equal(f.calls.length, 0);
-    await change('Zamrożony zestaw etykiet', cohort);
-    await click('Oznacz Zdjęcie 42 — pozycja 1');
-    assert.equal(f.calls.filter((c) => c[0] === 'normal-get').length, 1);
-    assert.deepEqual(f.calls.find((c) => c[0] === 'normal-get').slice(1), [
-      game,
-      source,
-      0,
-      { cohortId: cohort, manifestSha256: sha },
-    ]);
-    await imageLoaded();
-    for (const p of [
-      [10, 10],
-      [30, 10],
-      [30, 30],
-      [10, 30],
-    ])
-      await point(...p);
-    await change('Widoczność pola', 'visible');
-    assert.equal(find('Zapisz i zatwierdź etykiety zawartości').disabled, true);
-    await checkContaining('Sprawdziłem zawartość');
-    await click('Zapisz i zatwierdź etykiety zawartości');
-    const body = f.calls.find((c) => c[0] === 'reference')[1];
-    assert.equal(body.sourceId, source);
-    assert.equal(body.expectedRevision, 0);
-    assert.equal(body.sequenceNumber, 42);
-    assert.equal(body.humanApproval, true);
-    assert.equal(body.origin, 'manual');
-    assert.equal(body.cells.length, 15);
-    assert.equal(body.cells[0].quad.length, 4);
-    assert.equal('measuredNodes' in body, false);
-    assert.equal(f.calls.filter((c) => c[0] === 'normal-get').length, 2);
-    assert.match(document.body.textContent, /Rewizja zawartości: 1/);
-  } finally {
-    await m.cleanup();
-  }
-});
 
 test('blind saves 24 manual nodes and independent content; advance empties pass2 without normal reads or local drafts', async () => {
   const f = fixture();
@@ -768,65 +597,6 @@ test('CAS conflict keeps exact pending command; explicit refresh empties canvas 
   }
 });
 
-test('live content conflict remains visible beside an independently evaluable frozen coverage', async () => {
-  const role = {
-    state: 'evaluable',
-    reasonCodes: [],
-    boards: 1,
-    slots: 15,
-    unapprovedSlots: 0,
-    unresolvedPhotos: 0,
-    states: { visible: 15, occluded: 0, out_of_frame: 0, unknown: 0 },
-    fullPhotos: 0,
-    missingFullPhotos: 0,
-  };
-  const frozen = {
-    version: 'source-cell-content-v1',
-    state: 'evaluable',
-    games: { [game]: { TRAIN: role } },
-  };
-  const value = {
-    ...frozen,
-    basis: 'frozen_content_pins',
-    frozenPinCoverage: frozen,
-    annotationProgress: {
-      ...frozen,
-      state: 'not_evaluable',
-      games: {
-        [game]: {
-          TRAIN: {
-            ...role,
-            state: 'not_evaluable',
-            reasonCodes: ['CONTENT_SEQUENCE_CONFLICT'],
-            states: { ...role.states, visible: 0, unknown: 15 },
-            unapprovedSlots: 15,
-          },
-        },
-      },
-    },
-  };
-  const m = await mount(GridContentReadiness, { value });
-  try {
-    assert.match(
-      document.querySelector('[aria-label="Bieżący postęp etykietowania"]')
-        .textContent,
-      /innego numeru planszy/,
-    );
-    assert.match(
-      document.querySelector('[aria-label="Bieżący postęp etykietowania"]')
-        .textContent,
-      /15 \/ 15/,
-    );
-    assert.match(
-      document.querySelector('[aria-label="Etykiety przypięte do kohorty"]')
-        .textContent,
-      /spełnia wymagania/,
-    );
-  } finally {
-    await m.cleanup();
-  }
-});
-
 test('zoom, touch pan and resized viewport preserve source coordinates and never annotate while panning', async () => {
   const changes = [];
   const m = await mount(GridContentCanvas, {
@@ -932,7 +702,7 @@ test('zoom, touch pan and resized viewport preserve source coordinates and never
   }
 });
 
-test('source and mode changes remount a blank viewport without ordinary labels or geometry', async () => {
+test('source changes remount a blank viewport without ordinary labels or geometry', async () => {
   const f = fixture();
   const otherSource = {
     ...target.source,
@@ -984,33 +754,6 @@ test('source and mode changes remount a blank viewport without ordinary labels o
   } finally {
     await m.cleanup();
   }
-  const ordinary = await mount(GridContentReferenceWorkspace, {
-    apiBaseUrl,
-    gameId: game,
-    mode: 'ordinary',
-    client: f.api,
-    onClose() {},
-  });
-  try {
-    await change('Zamrożony zestaw etykiet', cohort);
-    await click('Oznacz Zdjęcie 42 — pozycja 1');
-    await imageLoaded();
-    await change('Powiększenie podglądu', '4');
-    const normalReads = f.calls.filter((c) => c[0] === 'normal-get').length;
-    await ordinary.render({ mode: 'blind' });
-    await change('Sesja ślepego pomiaru', session);
-    assert.equal(
-      document.querySelector('[aria-label="Powiększenie podglądu"]').value,
-      '1',
-    );
-    assert.equal(document.querySelectorAll('.gridContentQuad').length, 0);
-    assert.equal(
-      f.calls.filter((c) => c[0] === 'normal-get').length,
-      normalReads,
-    );
-  } finally {
-    await ordinary.cleanup();
-  }
 });
 
 test('cohort load exposes loading, error, empty and explicit retry without a mutation', async () => {
@@ -1024,7 +767,6 @@ test('cohort load exposes loading, error, empty and explicit retry without a mut
   const m = await mount(GridContentReferenceWorkspace, {
     apiBaseUrl,
     gameId: game,
-    mode: 'ordinary',
     client: f.api,
     onClose() {},
   });
@@ -1063,115 +805,6 @@ test('cohort load exposes loading, error, empty and explicit retry without a mut
     );
     assert.equal(calls, 3);
     assert.deepEqual(f.calls, []);
-  } finally {
-    await m.cleanup();
-  }
-});
-
-test('targets loading and error clear the old editor; empty and retry are readable', async () => {
-  const f = fixture(),
-    read = deferred();
-  let calls = 0;
-  f.api.listGridContentTargets = async () => {
-    calls += 1;
-    return read.promise;
-  };
-  const m = await mount(GridContentReferenceWorkspace, {
-    apiBaseUrl,
-    gameId: game,
-    mode: 'ordinary',
-    client: f.api,
-    onClose() {},
-  });
-  try {
-    await change('Zamrożony zestaw etykiet', cohort);
-    assert.equal(
-      find('Odśwież zdjęcia i plansze').getAttribute('aria-busy'),
-      'true',
-    );
-    assert.equal(find('Odśwież zdjęcia i plansze').disabled, true);
-    assert.equal(document.querySelector('.gridContentCanvas'), null);
-    await resolveRead(read, {
-      error: { code: 'TARGETS_UNAVAILABLE', message: 'Błąd listy plansz' },
-    });
-    assert.match(document.body.textContent, /Błąd listy plansz/);
-    f.api.listGridContentTargets = async () => {
-      calls += 1;
-      return targetPage([]);
-    };
-    await click('Odśwież zdjęcia i plansze');
-    assert.match(document.body.textContent, /Brak plansz w tym zakresie/);
-    assert.equal(
-      document.querySelectorAll('[aria-label="Zdjęcia i plansze"] button')
-        .length,
-      0,
-    );
-    f.api.listGridContentTargets = async () => {
-      calls += 1;
-      return targetPage();
-    };
-    await click('Odśwież zdjęcia i plansze');
-    assert.ok(find('Oznacz Zdjęcie 42 — pozycja 1'));
-    assert.equal(calls, 3);
-    assert.equal(
-      f.calls.some((c) => c[0] === 'normal-get'),
-      false,
-    );
-  } finally {
-    await m.cleanup();
-  }
-});
-
-test('ordinary label load, failure, empty annotation and refresh do not approve or save automatically', async () => {
-  const f = fixture(),
-    read = deferred();
-  let calls = 0;
-  f.api.getGridCellContentReference = async () => {
-    calls += 1;
-    return read.promise;
-  };
-  const m = await mount(GridContentReferenceWorkspace, {
-    apiBaseUrl,
-    gameId: game,
-    mode: 'ordinary',
-    client: f.api,
-    onClose() {},
-  });
-  try {
-    await change('Zamrożony zestaw etykiet', cohort);
-    await click('Oznacz Zdjęcie 42 — pozycja 1');
-    assert.equal(
-      find('Odczytywanie etykiet…').getAttribute('aria-busy'),
-      'true',
-    );
-    assert.equal(document.querySelector('.gridContentCanvas'), null);
-    await resolveRead(read, {
-      error: { code: 'REFERENCE_UNAVAILABLE', message: 'Błąd odczytu etykiet' },
-    });
-    assert.match(document.body.textContent, /Błąd odczytu etykiet/);
-    f.api.getGridCellContentReference = async () => {
-      calls += 1;
-      return {
-        data: { annotation: null, revision: 0, contentReferenceSha256: null },
-      };
-    };
-    await click('Odśwież bieżące etykiety');
-    assert.match(document.body.textContent, /Brak dotychczasowych etykiet/);
-    assert.equal(document.querySelectorAll('.gridContentQuad').length, 0);
-    f.api.getGridCellContentReference = async () => {
-      calls += 1;
-      return referenceResult();
-    };
-    await click('Odśwież bieżące etykiety');
-    await imageLoaded();
-    assert.match(document.body.textContent, /Rewizja zawartości: 2/);
-    assert.equal(document.querySelectorAll('.gridContentQuad').length, 1);
-    assert.equal(find('Zapisz i zatwierdź etykiety zawartości').disabled, true);
-    assert.equal(calls, 3);
-    assert.equal(
-      f.calls.some((c) => c[0] === 'reference'),
-      false,
-    );
   } finally {
     await m.cleanup();
   }
@@ -1246,7 +879,7 @@ test('session list and selected session expose loading, error, empty and explici
   }
 });
 
-for (const transition of ['game', 'mode']) {
+for (const transition of ['game']) {
   test(`late cohort response after ${transition} change cannot populate the new selector`, async () => {
     const f = fixture(),
       stale = deferred();
@@ -1256,7 +889,6 @@ for (const transition of ['game', 'mode']) {
     const m = await mount(GridContentReferenceWorkspace, {
       apiBaseUrl,
       gameId: game,
-      mode: 'ordinary',
       client: f.api,
       onClose() {},
     });
@@ -1293,7 +925,6 @@ for (const transition of ['game', 'mode']) {
     const m = await mount(GridContentReferenceWorkspace, {
       apiBaseUrl,
       gameId: game,
-      mode: 'ordinary',
       client: f.api,
       onClose() {},
     });
@@ -1399,92 +1030,6 @@ for (const transition of ['game', 'mode']) {
   });
 }
 
-test('late ordinary label response after source change cannot overwrite the newer source canvas', async () => {
-  const f = fixture(),
-    stale = deferred();
-  const otherTarget = {
-    ...target,
-    source: {
-      ...target.source,
-      sourceId: '66666666-6666-4666-8666-666666666666',
-      sourceRepresentativeSha256: 'c'.repeat(64),
-    },
-    sequenceNumber: 43,
-    displayName: 'Zdjęcie 43',
-  };
-  f.api.listGridContentTargets = async () => targetPage([target, otherTarget]);
-  f.api.getGridCellContentReference = async (_game, id) => {
-    f.calls.push(['normal-get', id]);
-    return id === source ? stale.promise : referenceResult(otherTarget, 2);
-  };
-  const m = await mount(GridContentReferenceWorkspace, {
-    apiBaseUrl,
-    gameId: game,
-    mode: 'ordinary',
-    client: f.api,
-    onClose() {},
-  });
-  try {
-    await change('Zamrożony zestaw etykiet', cohort);
-    await click('Oznacz Zdjęcie 42 — pozycja 1');
-    assert.equal(find('Odczytywanie etykiet…').disabled, true);
-    await click('Oznacz Zdjęcie 43 — pozycja 1');
-    await imageLoaded();
-    assert.match(
-      document.querySelector('[aria-label="Zwykłe etykiety zawartości"]')
-        .textContent,
-      /numer planszy 43/,
-    );
-    const polygon = document
-      .querySelector('.gridContentQuad')
-      .getAttribute('points');
-    await resolveRead(stale, referenceResult(target, 99));
-    assert.doesNotMatch(document.body.textContent, /Rewizja zawartości: 99/);
-    assert.match(document.body.textContent, /Rewizja zawartości: 2/);
-    assert.equal(
-      document.querySelector('.gridContentQuad').getAttribute('points'),
-      polygon,
-    );
-    assert.equal(f.calls.filter((c) => c[0] === 'normal-get').length, 2);
-  } finally {
-    await m.cleanup();
-  }
-});
-
-test('late ordinary labels after switching to pass2 remain outside the blind DOM and trigger no new ordinary reads', async () => {
-  const f = fixture(),
-    stale = deferred();
-  f.api.getGridCellContentReference = async () => {
-    f.calls.push(['normal-get']);
-    return stale.promise;
-  };
-  f.api.getGridContentSession = async () => sessionDetail('pass2', 3);
-  const m = await mount(GridContentReferenceWorkspace, {
-    apiBaseUrl,
-    gameId: game,
-    mode: 'ordinary',
-    client: f.api,
-    onClose() {},
-  });
-  try {
-    await change('Zamrożony zestaw etykiet', cohort);
-    await click('Oznacz Zdjęcie 42 — pozycja 1');
-    await m.render({ mode: 'blind' });
-    await change('Sesja ślepego pomiaru', session);
-    assert.match(document.body.textContent, /Przebieg 2/);
-    await resolveRead(stale, referenceResult(target, 99));
-    assert.equal(document.querySelectorAll('.gridContentQuad').length, 0);
-    assert.equal(document.querySelectorAll('.gridContentHandle').length, 0);
-    assert.doesNotMatch(
-      document.body.textContent,
-      /Rewizja zawartości|Poprzednie etykiety zatwierdził/,
-    );
-    assert.equal(f.calls.filter((c) => c[0] === 'normal-get').length, 1);
-  } finally {
-    await m.cleanup();
-  }
-});
-
 for (const order of ['old-first', 'new-first']) {
   test(`superseded session read ${order} preserves latest pass/source and refresh button ownership`, async () => {
     const f = fixture();
@@ -1548,119 +1093,6 @@ for (const order of ['old-first', 'new-first']) {
     }
   });
 }
-
-test('an old blind mutation receipt cannot clear a new ordinary pending command or unlock its save button', async () => {
-  const f = fixture(),
-    oldMutation = deferred(),
-    newMutation = deferred();
-  let oldBody, newBody;
-  f.api.writeGridBlindContentObservation = async (_game, _session, body) => {
-    oldBody = structuredClone(body);
-    return oldMutation.promise;
-  };
-  f.api.writeGridCellContentReference = async (_game, body) => {
-    newBody = structuredClone(body);
-    return newMutation.promise;
-  };
-  const m = await mount(GridContentReferenceWorkspace, {
-    apiBaseUrl,
-    gameId: game,
-    mode: 'blind',
-    client: f.api,
-    onClose() {},
-  });
-  try {
-    await change('Sesja ślepego pomiaru', session);
-    await annotateBlind();
-    await click('Zapisz ślepy pomiar i dalej');
-    assert.equal(find('Zapisz ślepy pomiar i dalej').disabled, true);
-    const oldKey = contentCommandKey(apiBaseUrl, game, 'blind'),
-      newKey = contentCommandKey(apiBaseUrl, game, 'ordinary');
-    assert.ok(localStorage.getItem(oldKey));
-    await m.render({ mode: 'ordinary' });
-    await change('Zamrożony zestaw etykiet', cohort);
-    await click('Oznacz Zdjęcie 42 — pozycja 1');
-    await imageLoaded();
-    await click('Zapisz etykiety bez zatwierdzenia');
-    const raw = localStorage.getItem(newKey);
-    assert.ok(raw);
-    assert.equal(find('Zapisz etykiety bez zatwierdzenia').disabled, true);
-    await resolveRead(oldMutation, {
-      data: {
-        idempotencyKey: oldBody.idempotencyKey,
-        session: status('pass1', 2, 1),
-      },
-    });
-    assert.equal(localStorage.getItem(oldKey), null);
-    assert.equal(localStorage.getItem(newKey), raw);
-    assert.equal(find('Zapisz etykiety bez zatwierdzenia').disabled, true);
-    assert.equal(find('Ponów dokładnie zapisane polecenie').disabled, true);
-    assert.equal(
-      document.querySelector('[aria-label="Ślepy pomiar zawartości"]'),
-      null,
-    );
-    await resolveRead(newMutation, {
-      error: {
-        code: 'REFERENCE_RETRY_REQUIRED',
-        message: 'Potwierdź nowy zapis',
-      },
-    });
-    assert.equal(find('Ponów dokładnie zapisane polecenie').disabled, false);
-    assert.equal(
-      JSON.parse(localStorage.getItem(newKey)).command.body.idempotencyKey,
-      newBody.idempotencyKey,
-    );
-  } finally {
-    await m.cleanup();
-  }
-});
-
-test('unavailable crop proof keeps saved nodes and ordinary annotation controls usable', async () => {
-  const f = fixture();
-  f.api.getGridCellContentReference = async () => ({
-    data: {
-      annotation: null,
-      revision: 0,
-      contentReferenceSha256: null,
-      ordinaryPreview: {
-        state: 'unavailable',
-        nodes: Array.from({ length: 24 }, (_, i) => [
-          10 + (i % 6) * 20,
-          10 + Math.floor(i / 6) * 20,
-        ]),
-        productionCells: [],
-        geometryRevision: 7,
-        reasonCodes: ['CONTENT_PRODUCTION_MANIFEST_CONFLICT'],
-      },
-    },
-  });
-  const m = await mount(GridContentReferenceWorkspace, {
-    apiBaseUrl,
-    gameId: game,
-    mode: 'ordinary',
-    client: f.api,
-    onClose() {},
-  });
-  try {
-    await change('Zamrożony zestaw etykiet', cohort);
-    await click('Oznacz Zdjęcie 42 — pozycja 1');
-    await imageLoaded();
-    assert.ok(document.querySelector('.gridContentCanvas'));
-    assert.equal(document.querySelectorAll('.gridContentLattice').length, 10);
-    assert.equal(find('Zapisz etykiety bez zatwierdzenia').disabled, false);
-    assert.match(
-      document.body.textContent,
-      /CONTENT_PRODUCTION_MANIFEST_CONFLICT/,
-    );
-    assert.match(document.body.textContent, /Dane wycinków są niespójne/);
-    assert.equal(
-      f.calls.some((c) => c[0] === 'reference'),
-      false,
-    );
-  } finally {
-    await m.cleanup();
-  }
-});
 
 test('shared ordinary and blind lattice keeps its default style separate from production crop footprints', () => {
   const css = readFileSync(

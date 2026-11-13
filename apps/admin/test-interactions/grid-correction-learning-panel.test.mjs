@@ -281,26 +281,11 @@ test('blocked learning shows counted corrections and exclusions without creating
   }
 });
 
-test('annotate-for-test opens the source workspace through the annotation client only', async () => {
+test('test-sample labels open the symbol outline window without API calls', async () => {
   const ids = [
     '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000002',
   ];
-  const annotationCalls = [];
-  const annotationClient = {
-    listGridContentTargets: async (game, filters) => {
-      annotationCalls.push([game, filters]);
-      return {
-        data: {
-          gameId: game,
-          cohortId: null,
-          manifestSha256: null,
-          items: [],
-          nextOffset: null,
-        },
-      };
-    },
-  };
   const { api, calls } = fixture({
     getGridCorrectionLearningReady: () => ({
       data: {
@@ -321,14 +306,28 @@ test('annotate-for-test opens the source workspace through the annotation client
       },
     }),
   });
-  const screen = await mount(api, {}, GAME, { annotationClient });
+  const opened = [];
+  const screen = await mount(api, {}, GAME);
+  window.open = (url, target) => {
+    opened.push([url, target]);
+    return { opener: window };
+  };
   try {
-    await click('Oznacz zdjęcia do testu');
+    const before = calls.length;
+    assert.equal(
+      [...document.querySelectorAll('button')].some(
+        (button) => button.textContent === 'Oznacz zdjęcia do testu',
+      ),
+      false,
+    );
+    await click('Zatwierdź obrysy symboli');
     await settle();
-    assert.deepEqual(annotationCalls[0], [
-      GAME,
-      { sourceIds: ids, offset: 0, limit: 20 },
-    ]);
+    assert.equal(opened.length, 1);
+    const url = new URL(opened[0][0]);
+    assert.equal(url.pathname, '/symbol-outlines');
+    assert.equal(url.searchParams.get('gameId'), GAME);
+    assert.equal(opened[0][1], '_blank');
+    assert.equal(calls.length, before);
     assertOnlyReads(calls);
   } finally {
     await screen.close();

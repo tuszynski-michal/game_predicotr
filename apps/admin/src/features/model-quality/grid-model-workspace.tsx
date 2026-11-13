@@ -7,7 +7,6 @@ import { GridModelAssignmentSummary } from '@/features/games/grid-model-assignme
 import { GridCohortPreview } from './grid-cohort-preview';
 import { GridCorrectionLearningPanel } from './grid-correction-learning-panel';
 import { GridContentReferenceWorkspace } from './grid-content-reference-workspace';
-import type { ContentMode } from './grid-content-state';
 import { GridModelComparison } from './grid-model-comparison';
 import { GridModelVersionsPanel } from './grid-model-versions-panel';
 import { GridQualityMeasurementPanel } from './grid-quality-measurement-panel';
@@ -36,21 +35,17 @@ export function GridModelWorkspace({
   );
   const reinference = useRef<HTMLDetailsElement>(null);
   const scope = `${apiBaseUrl}:${gameId}`;
-  const [contentView, setContentView] = useState<{
-    scope: string;
-    mode: ContentMode;
-  } | null>(null);
+  const [blindScope, setBlindScope] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const onChanged = useCallback(() => setRefreshKey((value) => value + 1), []);
   const shared = { apiBaseUrl, gameId, refreshKey, onChanged };
-  if (contentView?.scope === scope)
+  if (blindScope === scope)
     return (
       <GridContentReferenceWorkspace
         apiBaseUrl={apiBaseUrl}
         gameId={gameId}
-        mode={contentView.mode}
         onClose={() => {
-          setContentView(null);
+          setBlindScope(null);
           onChanged();
         }}
       />
@@ -82,7 +77,7 @@ export function GridModelWorkspace({
         <button
           className="secondaryButton"
           type="button"
-          onClick={() => setContentView({ scope, mode: 'blind' })}
+          onClick={() => setBlindScope(scope)}
         >
           Pomiar powtarzalności etykiet
         </button>

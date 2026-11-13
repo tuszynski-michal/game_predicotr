@@ -101,6 +101,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1202** — Usunięcie ręcznego edytora etykiet — v1.7.630 — tasks/completed/1202-remove-ordinary-content-editor.md
 - **TASK-1201** — Obrysy symboli z siatek — v1.7.628 / `a7a8e567` — tasks/completed/1201-symbol-outline-review.md
 - **TASK-1200** — Limity poleceń kohort 300 s — v1.7.626 / `1db19236` — tasks/completed/1200-grid-cohort-300s-budgets.md
 - **TASK-1199** — Domyślny zakres importów uczenia korekt — v1.7.625 / `7203e1db` — tasks/completed/1199-grid-learning-import-scope.md
@@ -110,4 +111,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1190** — Podgląd raportu przy zajętej blokadzie — v1.7.617 / `536aff54` — tasks/completed/1190-preflight-preview-lock-busy.md
 - **TASK-1189** — Bieżący stan kandydata w widoku uczenia — v1.7.615 / `ca101e1a` — tasks/completed/1189-learning-candidate-status.md
 - **TASK-1188** — Bramka oceny siatek odporna na szum — v1.7.612 / `3b51ae48` — tasks/completed/1188-grid-gate-noise-tolerance.md
-- **TASK-1187** — Budżet prepare kohorty korekt — v1.7.610 / `29443a6f` — tasks/completed/1187-grid-cohort-prepare-budget.md

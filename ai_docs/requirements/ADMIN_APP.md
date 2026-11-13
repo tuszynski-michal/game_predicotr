@@ -46,7 +46,9 @@ zatwierdzenia/zatwierdzone/wszystkie” i strony po 48. Zaznaczenie obejmuje pla
 z wielu stron; „Zatwierdź zaznaczone (N)” po potwierdzeniu zapisuje po jednej
 zatwierdzonej etykiecie zawartości na planszę i pokazuje liczbę zapisanych oraz
 błędy. Zatwierdzonych i nieużywalnych plansz nie da się zaznaczyć. Ręczny edytor
-zwykłych etykiet jest przeznaczony do usunięcia.
+zwykłych etykiet usunięto (TASK-1202); w panelu uczenia „Zatwierdź obrysy symboli”
+(dawniej „Oznacz zdjęcia do testu”) otwiera to samo okno. „Pomiar powtarzalności
+etykiet” (ślepy pomiar) pozostaje bez zmian.
 
 ### Uczenie siatek z zapisanych korekt — TASK-1122
 

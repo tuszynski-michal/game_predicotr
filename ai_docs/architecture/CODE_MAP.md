@@ -142,7 +142,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 
 ### Katalogi
 
-- `apps/admin/src/features/` (230 ts/tsx) - funkcje panelu (podkatalogi poniżej)
+- `apps/admin/src/features/` (227 ts/tsx) - funkcje panelu (podkatalogi poniżej)
   - `board-search/` (8 plików): BOARD_SEARCH_REPLAY_PARAMETER, BoardSearchReplayScope, BoardSearchReplayPlan, BoardSearchReplayResult, BoardSearchReplaySource, boardSearchReplayPlan, boardSearchReplayHref, readBoardSearchReplayParameter (+30)
   - `catalog/` (3 plików): ADMIN_WORKSPACES, AdminWorkspace, GAME_SECTIONS, GameSection, AdminNavigationState, DEFAULT_ADMIN_NAVIGATION, SUPER_GAME_SERIES_PARAMETER, isGameSectionAvailable (+5)
   - `cleanup/` (7 plików): BoardSourceCleanupControl, CleanupClient, CleanupTarget, CleanupActionResult, loadCleanupPreview, executeCleanup, CleanupControl, cleanupCountLabel (+4)
@@ -154,7 +154,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `jobs/` (3 plików): JobsClient, LoadJobsResult, loadJobs, WorkerLanesResult, loadWorkerLanes, JobMutationResult, cancelJob, DeleteImageSelectionJobResult (+42)
   - `management/` (11 plików): ManagementSharePanel, ManagementWorkspace
   - `manual-image-selection/` (16 plików): FilenameVerificationRejectedSource, FilenameVerificationPendingDecision, FilenameRangeVerificationLocalState, FilenameRangeVerificationStore, directoryPermissionIsGranted, ManualSelectionCursorSemantics, MANUAL_SELECTION_CURSOR_SEMANTICS, ResumeManualSelectionCursorInput (+84)
-  - `model-quality/` (46 plików): GridCohortClient, sendGridCohortCommand, GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand (+189)
+  - `model-quality/` (43 plików): GridCohortClient, sendGridCohortCommand, GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand (+185)
   - `readability/` (3 plików): READABILITY_MAX_SELECTION, READABILITY_LABEL_BATCH_SIZE, ReadabilityLabelQueue, loadReadabilityLabelQueue, createReadabilityLabelQueue, readabilityQueueProgress, drainReadabilityLabelQueue, discardReadabilityLabelQueue (+9)
   - `releases/` (3 plików): ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult (+23)
   - `reviewer-access/` (4 plików): ReviewerAccessLauncher, reviewableGames, isImageImport, hasImageImport, readyBoardImportStaging, LocalReviewerStartClient, LocalReviewerStartResult, startLocalReviewerProcess (+6)

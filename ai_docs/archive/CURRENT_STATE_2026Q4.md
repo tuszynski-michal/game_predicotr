@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1202 — Usunięcie ręcznego edytora etykiet (done)
+
+- Plik: `tasks/completed/1202-remove-ordinary-content-editor.md`; commit **v1.7.630**; D-608.
+- Usunięto ręczny edytor zwykłych etykiet z Admina; „Oznacz zdjęcia do testu” zastąpiono „Zatwierdź obrysy symboli” (okno TASK-1201); ślepy pomiar bez zmian.
+- Testy: Admin 864/864, interakcje etykiet/uczenia/Geometrii V3 97/97, pełne interakcje 11 porażek identycznych z `main`; tsc PASS.
+
 ### TASK-1201 — Obrysy symboli z zatwierdzonych siatek (done)
 
 - Plik: `tasks/completed/1201-symbol-outline-review.md`; commit **v1.7.628 / `a7a8e567af45e7bec6f1f4fe606217224e805cac`**; decyzja D-608.

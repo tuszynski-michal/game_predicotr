@@ -21,7 +21,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 
 
-- **Mumie A2 / TASK-1188:** default i przypisanie gry=`bf327cfa` (rev3, 2026-11-12, ocena gate v4 PASS `0c2e483e`); `3ed60010` opublikowany do powrotu. Źródło: D-604.
+- **Mumie A2 / TASK-1199–1200:** default i gra=`abe39bce` (rev4, 2026-11-13, PASS `31a0526b`; VAL 53/57 wobec 52/57); `bf327cfa` do powrotu. Porównanie: `artifacts/grid-reinference-preview-20261112-v2`. Źródło: D-606.
 
 
 - **Selektor1.0.5:** zaakceptowany; reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.

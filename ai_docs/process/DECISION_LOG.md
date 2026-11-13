@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-613](decisions/DECISION_LOG_2026.md#d-613--tempo-nauki-korekt-siatek-bez-zmian-po-pomiarze) | Tempo nauki korekt siatek bez zmian po pomiarze | accepted | 2026-11-13 | 2e-5 nie zatrzymuje spadku i blokuje realną poprawę; zostaje 1e-4, ochronę dają D-611 i D-612. |
 | [D-612](decisions/DECISION_LOG_2026.md#d-612--bramka-v6-realna-poprawa-gry-treningowej) | Bramka v6: realna poprawa gry treningowej | accepted | 2026-11-13 | Gate v6 = v5 plus co najmniej +1 plansza poprawna albo bez cięcia na VALIDATION+REGRESSION gry treningowej, bez żadnej straty; migracja 0189 (bind v8, dyspozytor v10). |
 | [D-611](decisions/DECISION_LOG_2026.md#d-611--uczenie-korekt-siatek-musi-pobić-własny-model-bazowy) | Uczenie korekt siatek musi pobić własny model bazowy | accepted | 2026-11-13 | Trening korekt mierzy bazę na VALIDATION przed krokiem 1; checkpoint nie lepszy od niej kończy uczenie kodem `GRID_TRAINING_NO_IMPROVEMENT` bez kandydata. |
 | [D-610](decisions/DECISION_LOG_2026.md#d-610--limit-populacji-uczenia-siatek-20-000-źródeł) | Limit populacji uczenia siatek 20 000 źródeł | accepted | 2026-11-13 | Jeden limit 20 000 źródeł w Pythonie i sześciu funkcjach SQL (migracja 0188); każdy kod blokady uczenia ma polski opis przy przycisku. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-586](decisions/DECISION_LOG_2026.md#d-586--korekty-detektora-i-dowodowy-ratunek-z-trwałym-budżetem) | Korekty detektora i dowodowy ratunek | accepted | 2026-11-03 | Full TRAIN/A, partial REG, photo-first checkpoint i jeden dowiedziony wariant z trwałym1+1. |
 | [D-585](decisions/DECISION_LOG_2026.md#d-585--jawne-możliwości-i-przypięta-kwalifikacja-gry-w-nowych-operacjach-sieci) | Możliwości modelu i kwalifikacja gry | accepted | 2026-11-03 | Nowe v14/v3 przypina capabilities i exact per-game report lub unqualified, bez zmiany historii. |
 | [D-584](decisions/DECISION_LOG_2026.md#d-584--wersjonowana-bezpieczna-akceptacja-siatek) | Wersjonowana bezpieczna akceptacja siatek | accepted | 2026-11-03 | Nowe v2 blokuje błędy fit i niepełne dowody; stare piny v1 zachowują semantykę. |
-| [D-583](decisions/DECISION_LOG_2026.md#d-583--fizyczne-usunięcie-zastępowanego-zdjęcia-i-mały-manifest-luk) | Fizyczne usunięcie zdjęcia | accepted | 2026-11-03 | Source-only purge, compact manifest i tombstone, modele zachowane. |

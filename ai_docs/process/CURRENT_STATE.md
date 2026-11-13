@@ -99,7 +99,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1206** — Bramka v6: realna poprawa — v1.7.637 — tasks/completed/1206-grid-gate-improvement.md
+- **TASK-1207** — Pomiar tempa nauki — v1.7.638 — tasks/completed/1207-grid-training-lr-measurement.md
+- **TASK-1206** — Bramka v6: realna poprawa — v1.7.637 / `27012521` — tasks/completed/1206-grid-gate-improvement.md
 - **TASK-1205** — Uczenie korekt bez kandydata gorszego od bazy — v1.7.636 / `3867087b` — tasks/completed/1205-grid-training-baseline-floor.md
 - **TASK-1204** — Limit populacji uczenia 20 000 — v1.7.634 / `ec2146f1` — tasks/completed/1204-grid-learning-source-limit.md
 - **TASK-1203** — Bramka v5 bez cięcia symboli — v1.7.632 / `db2f6357` — tasks/completed/1203-grid-gate-cell-cut.md
@@ -108,4 +109,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1200** — Limity poleceń kohort 300 s — v1.7.626 / `1db19236` — tasks/completed/1200-grid-cohort-300s-budgets.md
 - **TASK-1199** — Domyślny zakres importów uczenia korekt — v1.7.625 / `7203e1db` — tasks/completed/1199-grid-learning-import-scope.md
 - **TASK-1195** — Szybkie wyszukiwanie członkostwa kohort — v1.7.617 / `e58e22e7` — tasks/completed/1195-grid-cohort-member-refs.md
-- **TASK-1192** — Naprawa dwóch pozostałych testów API — v1.7.621 / `880c319e` — tasks/completed/1192-fix-two-legacy-api-tests.md

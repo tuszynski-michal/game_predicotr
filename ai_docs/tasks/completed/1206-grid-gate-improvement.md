@@ -90,7 +90,7 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS='1'; .\.venv\Scripts\python.exe -m pytest
 
 ## Outcome
 
-Commit: v1.7.637 (hash dopisuje kolejny commit).
+Commit: v1.7.637 / `27012521e666f58e48fed1fd56d858458fc1114f`.
 
 ### Changed
 

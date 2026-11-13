@@ -16,6 +16,18 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-613 — Tempo nauki korekt siatek bez zmian po pomiarze
+
+Status: accepted. Data: 2026-11-13. Etap B zatwierdzony przez operatora („Etap A,
+potem B”) z warunkiem pomiaru. TASK-1207.
+
+Pomiar ([raport](../../quality/GRID_TRAINING_LR_MEASUREMENT_20261113.md)): tempo 2e-5
+nie zatrzymało spadku `abe39bce` (0,678 → 0,573 po 600 krokach, jak przy 1e-4), a w
+runie, w którym 1e-4 poprawiło `bf327cfa` z 0,743 do 0,806, nie dało żadnej poprawy.
+Preset `grid-corrections-v1` zachowuje `learning_rate` 1e-4; ochronę przed gorszym
+modelem dają D-611 (próg kroku 0) i D-612 (bramka v6). Skuteczna poprawa wymaga
+większego przyrostu korekt, nie zmiany tempa.
+
 ## D-612 — Bramka v6: realna poprawa gry treningowej
 
 Status: accepted. Data: 2026-11-13. Operator: „Wdrożenie i ocena PASS tylko przy realnej

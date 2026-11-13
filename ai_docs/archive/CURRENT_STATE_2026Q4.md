@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1204 — Limit populacji uczenia 20 000 (done)
 
-- Plik: `tasks/completed/1204-grid-learning-source-limit.md`; commit **v1.7.634**; decyzja D-610.
+- Plik: `tasks/completed/1204-grid-learning-source-limit.md`; commit **v1.7.634 / `ec2146f1bf3895b41896848cbf381b96f324a3db`**; decyzja D-610.
 - Jeden limit 20 000 źródeł (Python, migracja `0188` dla sześciu funkcji SQL); polskie opisy wszystkich kodów blokad uczenia przy przycisku.
 - Pomiar: podział 7039 źródeł Mumie A2 w 125 s; testy nowe zielone, PostgreSQL 2 passed, Admin 865/865; 14 zastanych porażek API jak na `main`.
 

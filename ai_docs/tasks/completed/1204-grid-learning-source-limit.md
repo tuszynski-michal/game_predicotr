@@ -72,7 +72,7 @@ npm run test --workspace @game-predictor/admin
 
 ## Outcome
 
-Commit: v1.7.634 (hash dopisuje kolejny commit).
+Commit: v1.7.634 / `ec2146f1bf3895b41896848cbf381b96f324a3db`.
 
 ### Changed
 

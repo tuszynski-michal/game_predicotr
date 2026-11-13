@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1203 — Bramka v5 bez cięcia symboli (done)
 
-- Plik: `tasks/completed/1203-grid-gate-cell-cut.md`; commit **v1.7.632**; decyzja D-609.
+- Plik: `tasks/completed/1203-grid-gate-cell-cut.md`; commit **v1.7.632 / `db2f6357fd363fc0c9000c1e395c44f9e1e266af`**; decyzja D-609.
 - Gate v5 = v4 plus nieregresja plansz w polach (węzły ≤ 10 % pola); migracja `0187_grid_gate_cell_cut` (bind v7, dyspozytor v9, uprawnienia v12).
 - Testy: gate/worker 154 passed, PostgreSQL 2 passed, Admin 864/864; 7 zastanych porażek API jak na `main`. Migracja na bazie operatora niewykonana.
 

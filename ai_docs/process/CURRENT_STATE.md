@@ -99,7 +99,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1203** — Bramka v5 bez cięcia symboli — v1.7.632 — tasks/completed/1203-grid-gate-cell-cut.md
+- **TASK-1203** — Bramka v5 bez cięcia symboli — v1.7.632 / `db2f6357` — tasks/completed/1203-grid-gate-cell-cut.md
 - **TASK-1202** — Usunięcie ręcznego edytora etykiet — v1.7.630 / `d8b45298` — tasks/completed/1202-remove-ordinary-content-editor.md
 - **TASK-1201** — Obrysy symboli z siatek — v1.7.628 / `a7a8e567` — tasks/completed/1201-symbol-outline-review.md
 - **TASK-1200** — Limity poleceń kohort 300 s — v1.7.626 / `1db19236` — tasks/completed/1200-grid-cohort-300s-budgets.md

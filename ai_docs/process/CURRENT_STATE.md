@@ -99,7 +99,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1207** — Pomiar tempa nauki — v1.7.638 — tasks/completed/1207-grid-training-lr-measurement.md
+- **TASK-1207** — Pomiar tempa nauki — v1.7.638 / `49009e4e` — tasks/completed/1207-grid-training-lr-measurement.md
 - **TASK-1206** — Bramka v6: realna poprawa — v1.7.637 / `27012521` — tasks/completed/1206-grid-gate-improvement.md
 - **TASK-1205** — Uczenie korekt bez kandydata gorszego od bazy — v1.7.636 / `3867087b` — tasks/completed/1205-grid-training-baseline-floor.md
 - **TASK-1204** — Limit populacji uczenia 20 000 — v1.7.634 / `ec2146f1` — tasks/completed/1204-grid-learning-source-limit.md

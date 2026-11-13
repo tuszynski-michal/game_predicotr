@@ -53,7 +53,7 @@ Przebiegi plikowe poza kolejką (bez bazy), wynik w `result-1.json` katalogów p
 
 ## Outcome
 
-Commit: v1.7.638 (hash dopisuje kolejny commit).
+Commit: v1.7.638 / `49009e4ed7ea9d7c911a4489a783a0099ed6180d`.
 
 ### Changed
 

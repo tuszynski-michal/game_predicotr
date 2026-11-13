@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1207 — Pomiar tempa nauki (done)
 
-- Plik: `ai_docs/tasks/completed/1207-grid-training-lr-measurement.md`; commit **v1.7.638**.
+- Plik: `ai_docs/tasks/completed/1207-grid-training-lr-measurement.md`; commit **v1.7.638 / `49009e4ed7ea9d7c911a4489a783a0099ed6180d`**.
 - 2e-5 nie zatrzymuje spadku `abe39bce` (0,678 → 0,573) i nie daje poprawy `bf327cfa`
   (1e-4: 0,806); preset zostaje 1e-4 (D-613). Bez zmiany kodu.
 

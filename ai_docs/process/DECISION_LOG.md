@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-610](decisions/DECISION_LOG_2026.md#d-610--limit-populacji-uczenia-siatek-20-000-źródeł) | Limit populacji uczenia siatek 20 000 źródeł | accepted | 2026-11-13 | Jeden limit 20 000 źródeł w Pythonie i sześciu funkcjach SQL (migracja 0188); każdy kod blokady uczenia ma polski opis przy przycisku. |
 | [D-609](decisions/DECISION_LOG_2026.md#d-609--bramka-v5-plansze-bez-cięcia-symboli) | Bramka v5: plansze bez cięcia symboli | accepted | 2026-11-13 | Gate v5 = v4 plus nieregresja plansz, których żaden węzeł pola nie przesuwa się o więcej niż 10 % pola; migracja 0187 (bind v7, dyspozytor v9). |
 | [D-608](decisions/DECISION_LOG_2026.md#d-608--obrysy-symboli-z-zatwierdzonych-siatek) | Obrysy symboli z zatwierdzonych siatek | accepted | 2026-11-13 | Pole siatki zatwierdzonej przez człowieka jest propozycją obrysu symbolu; etykietą staje się po masowym zatwierdzeniu w oknie Admina; ręczny edytor do usunięcia. |
 | [D-607](decisions/DECISION_LOG_2026.md#d-607--limity-poleceń-kohort-300-s) | Limity poleceń kohort 300 s | accepted | 2026-11-13 | Budżet poleceń kohort, podziału korekt i pojedynczego zapytania wynosi 300 s (freeze 4847 źródeł trwał ~65 s, jedno zapytanie 38 s). |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-583](decisions/DECISION_LOG_2026.md#d-583--fizyczne-usunięcie-zastępowanego-zdjęcia-i-mały-manifest-luk) | Fizyczne usunięcie zdjęcia | accepted | 2026-11-03 | Source-only purge, compact manifest i tombstone, modele zachowane. |
 | [D-582](decisions/DECISION_LOG_2026.md#d-582--przyrostowe-wyspy-treningu-i-zwalnianie-nieużytych-rezerwacji) | Przyrostowe wyspy treningu i zwalnianie nieużytych rezerwacji | accepted | 2026-11-03 | V2 zachowuje rzeczywiste kontrole i bufory; zwalnia wyłącznie niechronione metadane v1 przy freeze, bez zmiany historii. |
 | [D-581](decisions/DECISION_LOG_2026.md#d-581--wspólne-pułapy-budżetu-uczenia-siatek) | Wspólne pułapy budżetu uczenia siatek | accepted | 2026-11-03 | 8000 kroków/7200 s, jednorazowa polityka legacy przy wznowieniu, bez resetu zużycia i zmiany planu. |
-| [D-580](decisions/DECISION_LOG_2026.md#d-580--wycofanie-całego-źródła-i-autoryzacja-otwartej-luki) | Wycofanie źródła i autoryzacja luki | accepted | 2026-11-03 | Immutable preview, per-entry request i dowiedziony wewnętrzny derive. |

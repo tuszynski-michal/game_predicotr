@@ -556,6 +556,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/source_recording_permissions_v9.py: recording_permission_errors, enforce_recording_permissions
 - storage/source_recording_providers.py: read_provider, class TrustedRecordingProviders, install_recording_provider
 - storage/source_recording_replacement_sql.py: replacement_guarded_sql, replacement_guarded_photo_sql
+- storage/source_recording_source_limit.py: raise_source_limit, restore_source_limit
 - storage/source_replacement.py: class SourceReplacementRepository
 - storage/source_replacement_admission.py: validate_ordinary_staging, immutable_entry, validate_staging, bind_job_admission, materialize_admission, require_open_admission
 - storage/source_replacement_binding.py: class ReplacementAdmission, admitted_source, authorize_working_source, replacement_claim, bind_complete_source

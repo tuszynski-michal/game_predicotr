@@ -16,6 +16,31 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-610 — Limit populacji uczenia siatek 20 000 źródeł
+
+Status: accepted. Data: 2026-11-13. Operator: „chcę mieć ten przycisk tak dostępny,
+że jeżeli dodam siatki, to mogę je uczyć”, „napraw trwale”. TASK-1204.
+
+Kontekst: uczenie bierze całe importy z korektami (zdjęcia bez korekt są buforem
+kolejności między rolami, D-577/D-603). Mumie A2 po korektach w imporcie `df5c22e1` ma
+7039 źródeł, a limit 5000 (Python oraz funkcje `recording_photo_cohort_v1–v4` i
+`recording_photo_context_data_v2–v3`) blokował przycisk kodem
+`GRID_CORRECTION_POPULATION_LIMIT`. Pomiar w wycofanej transakcji: podział 7039 źródeł
+trwa 125 s (budżet 300 s, D-607), TRAIN 379 zdjęć/517 plansz.
+
+Decyzja: jeden limit `CORRECTION_SOURCE_LIMIT = 20 000` w Pythonie (populacja, oba
+solvery, `validationAssignments`) i migracja `0188_grid_learning_source_limit`, która w
+sześciu funkcjach SQL zmienia wyłącznie dokładny predykat limitu (właściciel, granty i
+reszta treści bez zmian). Downgrade odmawia, gdy istnieje kohorta > 5000 źródeł.
+Każdy kod blokady uczenia z API ma polski opis i jest pokazany przy wyłączonym
+przycisku; test admina wymusza opis dla nowych kodów.
+
+Odrzucone: pomijanie importów (gubi nowe korekty), usuwanie zdjęć bez korekt z
+populacji (łamie bufory kolejności), automatyczny wybór podzbioru.
+
+Konsekwencje: przy ~20 000 źródłach czas podziału może przekroczyć 300 s; wtedy
+potrzebny jest pomiar i osobna decyzja. Odczyt gotowości trwa dłużej (~2 min przy 7039).
+
 ## D-609 — Bramka v5: plansze bez cięcia symboli
 
 Status: accepted. Data: 2026-11-13. Operator: „zaostrz ocenę modelu pole po polu”,

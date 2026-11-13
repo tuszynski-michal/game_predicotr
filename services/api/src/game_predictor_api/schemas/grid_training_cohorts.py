@@ -53,7 +53,7 @@ class GridCohortPrepareCommand(CohortClosedModel):
         "application-grid-corrections-v4",
     ] = Field("application-grid-cohort-v1", alias="policyVersion")
     validation_assignments: dict[UUID, Literal["A", "B", "BUFFER"]] | None = Field(
-        None, alias="validationAssignments", max_length=5000
+        None, alias="validationAssignments", max_length=20_000
     )
     content_sampling_policy: Literal["full-symbol-content-sampling-v1"] | None = Field(
         None, alias="contentSamplingPolicy"

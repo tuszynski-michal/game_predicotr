@@ -33,11 +33,14 @@ test('codes are readable, evaluation reasons are explained and unknown codes sta
     reasonLabel('VALIDATION_REGRESSED:boards_within_cells'),
     'Pogorszenie na VALIDATION: plansze bez cięcia symboli (pola w 10%)',
   );
-  assert.equal(reasonLabel('SOMETHING_NEW'), 'Inny powód (SOMETHING_NEW)');
+  assert.equal(
+    reasonLabel('SOMETHING_NEW'),
+    'Nieopisany powód blokady (SOMETHING_NEW)',
+  );
   assert.equal(reasonLabel(null), '');
   assert.equal(
     reasonList(['GRID_RUN_COHORT_EMPTY', 'X']),
-    'Kohorta nie ma danych TRAIN; Inny powód (X)',
+    'Kohorta nie ma danych TRAIN; Nieopisany powód blokady (X)',
   );
 });
 
@@ -59,7 +62,33 @@ test('scope changes and pending learning transitions explain the next safe actio
     'GRID_LEARNING_BUSY',
     'GRID_LEARNING_CANCELLATION_PENDING',
   ])
-    assert.doesNotMatch(reasonLabel(code), /Inny powód/);
+    assert.doesNotMatch(reasonLabel(code), /Nieopisany powód/);
+});
+
+test('every grid-learning blocker raised by the API has a Polish label (TASK-1204)', () => {
+  const root = new URL('../../../services/', import.meta.url);
+  const files = [
+    'api/src/game_predictor_api/application/grid_correction_learning.py',
+    'api/src/game_predictor_api/storage/grid_correction_split.py',
+    'api/src/game_predictor_api/domain/grid_correction_split.py',
+    'api/src/game_predictor_api/domain/grid_correction_incremental_split.py',
+    'worker/src/game_predictor_worker/training_core/grid_training_admission.py',
+  ];
+  const codes = new Set();
+  for (const file of files)
+    for (const match of readFileSync(new URL(file, root), 'utf8').matchAll(
+      /"((?:GRID|CONTENT)_[A-Z_]+)"/g,
+    ))
+      codes.add(match[1]);
+  assert.ok(codes.has('GRID_CORRECTION_POPULATION_LIMIT'));
+  const unlabeled = [...codes].filter((code) =>
+    /Nieopisany powód/.test(reasonLabel(code)),
+  );
+  assert.deepEqual(unlabeled, []);
+  assert.match(
+    reasonLabel('GRID_CORRECTION_POPULATION_LIMIT'),
+    /limit uczenia \(20 000\)/,
+  );
 });
 
 const manifest = (id, family, version) => ({

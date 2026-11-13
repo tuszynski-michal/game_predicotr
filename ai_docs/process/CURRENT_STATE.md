@@ -18,9 +18,9 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 - **Mumie A2 / TASK-1176–1178:** kod v1.7.597 wdrożony; API/Admin/general po restarcie. bf601495:691 zdjęć/6219 plansz/0%. Ready276 TRAIN/75 nowych (~58s), canStart=true; bez nowego treningu. Źródło: `quality/REVIEW_LEARNING_RELIABILITY_DEPLOYMENT_20261110.md`.
 
-- **Mumie A2 / TASK-1199–1200:** default i gra=`abe39bce` (rev4, 2026-11-13, PASS `31a0526b`; VAL 53/57 wobec 52/57); `bf327cfa` do powrotu. Źródło: D-606.
+- **Mumie A2 / TASK-1199–1200:** default i gra=`abe39bce` (rev4, PASS `31a0526b`); `bf327cfa` do powrotu. Źródło: D-606.
 
-- **Bramka v5 / TASK-1203:** wymaga migracji `0187` przez operatora. Źródło: D-609.
+- **Uczenie siatek / TASK-1203–1204:** bramka v5, limit 20 000 źródeł; migracja `0188` (operator). Źródło: D-610.
 
 - **Selektor1.0.5:** zaakceptowany; reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
 
@@ -99,6 +99,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1204** — Limit populacji uczenia 20 000 — v1.7.634 — tasks/completed/1204-grid-learning-source-limit.md
 - **TASK-1203** — Bramka v5 bez cięcia symboli — v1.7.632 / `db2f6357` — tasks/completed/1203-grid-gate-cell-cut.md
 - **TASK-1202** — Usunięcie ręcznego edytora etykiet — v1.7.630 / `d8b45298` — tasks/completed/1202-remove-ordinary-content-editor.md
 - **TASK-1201** — Obrysy symboli z siatek — v1.7.628 / `a7a8e567` — tasks/completed/1201-symbol-outline-review.md
@@ -108,4 +109,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1192** — Naprawa dwóch pozostałych testów API — v1.7.621 / `880c319e` — tasks/completed/1192-fix-two-legacy-api-tests.md
 - **TASK-1191** — Naprawa dwóch padających testów API — v1.7.619 / `9ab662a9` — tasks/completed/1191-fix-two-failing-api-tests.md
 - **TASK-1190** — Podgląd raportu przy zajętej blokadzie — v1.7.617 / `536aff54` — tasks/completed/1190-preflight-preview-lock-busy.md
-- **TASK-1189** — Bieżący stan kandydata w widoku uczenia — v1.7.615 / `ca101e1a` — tasks/completed/1189-learning-candidate-status.md

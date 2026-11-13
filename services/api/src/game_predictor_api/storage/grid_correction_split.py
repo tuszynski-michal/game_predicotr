@@ -16,6 +16,7 @@ from game_predictor_api.domain.grid_correction_policy import (
     SCREEN_CORRECTION_POLICY,
 )
 from game_predictor_api.domain.grid_correction_split import (
+    CORRECTION_SOURCE_LIMIT,
     ROLES,
     CorrectionSplitError,
     CorrectionSplitSource,
@@ -116,14 +117,15 @@ def population(repo: Any, game: UUID, imports: list[str]) -> list[dict[str, Any]
        AND f.file_execution_key=s.file_execution_key
       WHERE s.game_id=:game AND public.source_replacement_source_current_v1(
       s.game_id,s.id,s.checksum_sha256) AND s.import_job_id=ANY(CAST(:imports AS uuid[]))
-      ORDER BY s.id LIMIT 5001"""),
-            {"game": game, "imports": imports},
+      ORDER BY s.id LIMIT :limit"""),
+            {"game": game, "imports": imports, "limit": CORRECTION_SOURCE_LIMIT + 1},
         ).mappings()
     )
-    if len(rows) > 5000:
+    if len(rows) > CORRECTION_SOURCE_LIMIT:
         raise GridCohortError(
             "GRID_CORRECTION_POPULATION_LIMIT",
-            "The complete population exceeds 5000 sources; no subset was used.",
+            f"The complete population exceeds {CORRECTION_SOURCE_LIMIT} sources; "
+            "no subset was used.",
         )
     if {r["source"]["import_job_id"] for r in rows} != set(imports):
         raise GridCohortError("GRID_COHORT_SELECTION_UNAVAILABLE", "An import has no own sources.")

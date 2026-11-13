@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from itertools import permutations
 from pathlib import PurePosixPath
-from typing import Literal
+from typing import Final, Literal
 
 from game_predictor_api.domain.image_geometry_v2 import (
     ImageGeometryContractError,
@@ -53,6 +53,10 @@ def correction_data_availability(
         "boardDeficit": max(0, minimum_boards - boards),
         "splitStatus": split_status,
     }
+
+
+# D-610: one learning population may hold up to 20 000 current sources (whole imports).
+CORRECTION_SOURCE_LIMIT: Final = 20_000
 
 
 class CorrectionSplitError(ValueError):
@@ -483,7 +487,7 @@ def solve_correction_split(
     ordered_sources = tuple(sorted(sources, key=lambda source: source.source_id))
     if not isinstance(max_work, int) or isinstance(max_work, bool) or max_work < 1:
         raise CorrectionSplitError("GRID_CORRECTION_SPLIT_INVALID", "Invalid work budget.")
-    if len(ordered_sources) > 5000:
+    if len(ordered_sources) > CORRECTION_SOURCE_LIMIT:
         raise CorrectionSplitError("GRID_CORRECTION_SPLIT_WORK_LIMIT", "Source limit exceeded.")
     _validate(ordered_sources)
     copies, components, orders, allowed, boards, owners = _prepare(ordered_sources)

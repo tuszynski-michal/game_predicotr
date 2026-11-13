@@ -710,6 +710,8 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     ...(ready && !ready.canStart && ready.blockers.length === 0
       ? ['Dane nie są gotowe; odśwież stan']
       : []),
+    // TASK-1204: every API blocker is named next to the disabled start button.
+    ...(ready && !ready.canStart ? ready.blockers.map(reasonLabel) : []),
   ];
   return (
     <section

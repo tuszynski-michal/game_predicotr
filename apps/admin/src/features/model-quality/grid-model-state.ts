@@ -239,6 +239,67 @@ export const REASON_LABELS: Readonly<Record<string, string>> = {
   RECORDING_COHORT_PROOF_STALE: 'Dowód nagrania zmienił się',
   RECORDING_BINDING_INVALID: 'Powiązanie z nagraniem jest niezgodne',
   CAPTURE_REQUIRED: 'Zdjęcie czeka na odczyt metadanych',
+  GRID_CORRECTION_POPULATION_LIMIT:
+    'Importy z korektami mają razem więcej zdjęć niż limit uczenia (20 000); uczenie wymaga całych importów',
+  GRID_CORRECTION_CONTEXT_MISSING:
+    'Brakuje kontekstu nagrań części zdjęć; odśwież stan po zakończeniu importu',
+  GRID_CORRECTION_EXACT_ALIAS:
+    'To samo zdjęcie występuje w kilku rolach podziału',
+  GRID_CORRECTION_NEW_USE_EXCLUDED:
+    'Część zdjęć jest wyłączona z nowego użycia (wycofane źródło)',
+  GRID_CORRECTION_POPULATION_CHANGED:
+    'Zdjęcia zmieniły się od sprawdzenia; odśwież stan uczenia',
+  GRID_CORRECTION_REGISTRY_CHANGED:
+    'Rejestr nagrań zmienił się od sprawdzenia; odśwież stan uczenia',
+  GRID_CORRECTION_RESERVE_CHANGED:
+    'Rezerwa kontrolna zmieniła się od sprawdzenia; odśwież stan uczenia',
+  GRID_CORRECTION_SEQUENCE_CONFLICT:
+    'Nazwa pliku seq_ przeczy zapisanemu zakresowi sekwencji',
+  GRID_CORRECTION_SPLIT_INVALID: 'Dane zdjęć do podziału są niespójne',
+  GRID_COHORT_SELECTION_UNAVAILABLE:
+    'Jeden z importów nie ma już własnych zdjęć',
+  GRID_COHORT_ACTOR_REQUIRED: 'Brak potwierdzonego operatora polecenia',
+  GRID_COHORT_IDEMPOTENCY_CONFLICT: 'To samo polecenie zapisano z inną treścią',
+  GRID_COHORT_NOT_FOUND: 'Nie znaleziono zestawu do uczenia',
+  GRID_COHORT_REVISION_CONFLICT:
+    'Zestaw zmienił się w międzyczasie; odśwież stan',
+  GRID_CALIBRATION_GT_ALIAS_CONFLICT:
+    'Etykieta kalibracji koliduje z kopią zdjęcia',
+  GRID_VALIDATION_EXCLUDED_COMPONENT:
+    'Zdjęcie kontrolne należy do wyłączonej grupy',
+  GRID_LEARNING_CANDIDATE_MISSING: 'Brak wytrenowanego kandydata',
+  GRID_LEARNING_CHILD_BLOCKED:
+    'Krok uczenia (trening lub ocena) jest zablokowany',
+  GRID_LEARNING_COHORT_BLOCKED:
+    'Zamrożenie zestawu do uczenia jest zablokowane',
+  GRID_LEARNING_DEFAULT_CHANGED:
+    'Domyślny model zmienił się od sprawdzenia; odśwież stan',
+  GRID_LEARNING_EVALUATION_PENDING: 'Ocena kandydata jeszcze trwa',
+  GRID_LEARNING_IDEMPOTENCY_CONFLICT:
+    'To samo polecenie uczenia zapisano z inną treścią',
+  GRID_LEARNING_NOT_FOUND: 'Nie znaleziono przebiegu uczenia',
+  GRID_LEARNING_NOT_RESUMABLE: 'Tego przebiegu nie da się wznowić',
+  GRID_LEARNING_PREVIEW_CHANGED:
+    'Stan uczenia zmienił się od sprawdzenia; odśwież stan',
+  GRID_LEARNING_SCOPE_INVALID: 'Nieprawidłowy zakres importów uczenia',
+  GRID_RUN_BUDGET_CORRUPT: 'Zapis budżetu treningu jest uszkodzony',
+  GRID_RUN_BUDGET_EXHAUSTED: 'Wyczerpano budżet czasu treningu',
+  GRID_RUN_BUDGET_PRESET_MISMATCH: 'Budżet treningu nie pasuje do ustawień',
+  GRID_RUN_COHORT_MODE_MISMATCH: 'Tryb zestawu nie pasuje do trybu treningu',
+  GRID_RUN_RUNTIME_INCOMPATIBLE: 'Środowisko GPU workera jest niezgodne',
+  GRID_RUN_VRAM_INSUFFICIENT: 'Za mało pamięci GPU',
+  CONTENT_BANK_ANCESTRY_UNRESOLVED:
+    'Brak dowodu pochodzenia modelu bazowego (plik dostawcy nagrań nie jest zainstalowany)',
+  CONTENT_BLIND_A_REQUIRED: 'Wymagany ślepy pomiar zdjęć A',
+  CONTENT_EXPERIMENT_INVALID: 'Eksperyment pełnych symboli jest niespójny',
+  CONTENT_EXPERIMENT_MODE_INVALID:
+    'Eksperyment pełnych symboli wymaga trybu detektor i siatka',
+  CONTENT_EXPERIMENT_PROVIDER_CHANGED:
+    'Dostawca nagrań zmienił się od sprawdzenia',
+  CONTENT_LEGACY_REG_EXCLUDED:
+    'Dawna kontrola końcowa jest wyłączona z eksperymentu',
+  CONTENT_PURPOSE_POLICY_REQUIRED:
+    'Eksperyment wymaga zakresu oceny z celami A/B',
 };
 
 const METRIC_LABELS: Readonly<Record<string, string>> = {
@@ -266,7 +327,7 @@ export function reasonLabel(code: string | null | undefined): string {
     COVERAGE_INCOMPLETE: `Nie oceniono wszystkich zdjęć: ${detail}`,
     CANDIDATE_PARITY_FAILED: 'Eksport kandydata nie przeszedł parity',
   };
-  return pattern[head] ?? `Inny powód (${code})`;
+  return pattern[head] ?? `Nieopisany powód blokady (${code})`;
 }
 
 export function reasonList(

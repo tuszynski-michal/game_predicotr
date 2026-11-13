@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1204 — Limit populacji uczenia 20 000 (done)
+
+- Plik: `tasks/completed/1204-grid-learning-source-limit.md`; commit **v1.7.634**; decyzja D-610.
+- Jeden limit 20 000 źródeł (Python, migracja `0188` dla sześciu funkcji SQL); polskie opisy wszystkich kodów blokad uczenia przy przycisku.
+- Pomiar: podział 7039 źródeł Mumie A2 w 125 s; testy nowe zielone, PostgreSQL 2 passed, Admin 865/865; 14 zastanych porażek API jak na `main`.
+
 ### TASK-1203 — Bramka v5 bez cięcia symboli (done)
 
 - Plik: `tasks/completed/1203-grid-gate-cell-cut.md`; commit **v1.7.632 / `db2f6357fd363fc0c9000c1e395c44f9e1e266af`**; decyzja D-609.

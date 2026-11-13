@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1201 — Obrysy symboli z zatwierdzonych siatek (done)
 
-- Plik: `tasks/completed/1201-symbol-outline-review.md`; commit **v1.7.628**; decyzja D-608.
+- Plik: `tasks/completed/1201-symbol-outline-review.md`; commit **v1.7.628 / `a7a8e567af45e7bec6f1f4fe606217224e805cac`**; decyzja D-608.
 - GET `content-outline-proposals` (pola zatwierdzonej siatki jako obrysy), klient i okno Admina `/symbol-outlines` z zaznaczaniem kafelkiem i masowym zatwierdzaniem; przycisk zastępuje „Etykiety zawartości zdjęć”.
 - Testy: API 25, klient 168/168, Admin 864/864, tsc/eslint/ruff PASS; odczyt Mumie A2 386 todo / 210 approved. Okno niesprawdzone w przeglądarce (wymaga restartu API/Admin przez operatora).
 

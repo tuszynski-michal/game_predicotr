@@ -101,7 +101,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1201** — Obrysy symboli z siatek — v1.7.628 — tasks/completed/1201-symbol-outline-review.md
+- **TASK-1201** — Obrysy symboli z siatek — v1.7.628 / `a7a8e567` — tasks/completed/1201-symbol-outline-review.md
 - **TASK-1200** — Limity poleceń kohort 300 s — v1.7.626 / `1db19236` — tasks/completed/1200-grid-cohort-300s-budgets.md
 - **TASK-1199** — Domyślny zakres importów uczenia korekt — v1.7.625 / `7203e1db` — tasks/completed/1199-grid-learning-import-scope.md
 - **TASK-1195** — Szybkie wyszukiwanie członkostwa kohort — v1.7.617 / `e58e22e7` — tasks/completed/1195-grid-cohort-member-refs.md

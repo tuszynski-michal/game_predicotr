@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1202 — Usunięcie ręcznego edytora etykiet (done)
 
-- Plik: `tasks/completed/1202-remove-ordinary-content-editor.md`; commit **v1.7.630**; D-608.
+- Plik: `tasks/completed/1202-remove-ordinary-content-editor.md`; commit **v1.7.630 / `d8b45298061a09c94a91a2f86724f5f379bc6030`**; D-608.
 - Usunięto ręczny edytor zwykłych etykiet z Admina; „Oznacz zdjęcia do testu” zastąpiono „Zatwierdź obrysy symboli” (okno TASK-1201); ślepy pomiar bez zmian.
 - Testy: Admin 864/864, interakcje etykiet/uczenia/Geometrii V3 97/97, pełne interakcje 11 porażek identycznych z `main`; tsc PASS.
 

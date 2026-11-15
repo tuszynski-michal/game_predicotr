@@ -9287,6 +9287,27 @@
         "title": "ContentWriteResponse",
         "type": "object"
       },
+      "CorrectedGridSymbolTargetPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "geometryRevision": {
+            "minimum": 1.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewItemId",
+          "geometryRevision"
+        ],
+        "title": "CorrectedGridSymbolTargetPayload",
+        "type": "object"
+      },
       "CreateGridCalibrationCandidateCommand": {
         "additionalProperties": false,
         "properties": {
@@ -36624,6 +36645,22 @@
       "PendingSymbolReinferenceJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "correctedGridTargets": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CorrectedGridSymbolTargetPayload"
+                },
+                "maxItems": 20000,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correctedgridtargets"
+          },
           "inferenceKind": {
             "const": "pending_symbols_only",
             "title": "Inferencekind",
@@ -76455,6 +76492,33 @@
               "title": "Game Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "corrected_geometry",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Corrected Geometry",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "import_job_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Import Job Id"
+            }
           }
         ],
         "responses": {
@@ -76517,6 +76581,33 @@
               "format": "uuid",
               "title": "Game Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "corrected_geometry",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Corrected Geometry",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "import_job_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Import Job Id"
             }
           }
         ],

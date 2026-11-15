@@ -64,7 +64,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 - `services/api/src/game_predictor_api/application/` (111 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
 - `services/api/src/game_predictor_api/domain/` (127 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (64 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (235 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/storage/` (236 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
@@ -81,7 +81,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (546 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (548 plików w katalogu testów, rekurencyjnie)
 - `services/api/tests/integration/` (174 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
@@ -127,7 +127,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Testy
 
-- `services/worker/tests/` (328 plików w katalogu testów, rekurencyjnie)
+- `services/worker/tests/` (329 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -198,14 +198,14 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Katalogi
 
-- `apps/reviewer/src/features/` (48 ts/tsx) - funkcje (podkatalogi poniżej)
+- `apps/reviewer/src/features/` (49 ts/tsx) - funkcje (podkatalogi poniżej)
   - `access/` (2 plików): LocalReviewerWorkspace, ReviewerAccessGate
   - `board-search-panel/` (1 plików): BoardSearchPanelGate
   - `board-search-share/` (3 plików): BOARD_SEARCH_SHARE_API_BASE, BOARD_SEARCH_SHARE_GAME_ID, SEARCH_CACHE_TTL_MS, SEARCH_CACHE_MAX_ENTRIES, BoardSearchShareDataSourceOptions, BoardSearchShareDataSource, createBoardSearchShareDataSource, BoardSearchShareGate (+2)
   - `catalog/` (1 plików): apiErrorMessage
   - `management/` (3 plików): MANAGEMENT_SESSION_ID, managementStorageNamespace, managementAccessMessage, ManagementGate, MANAGEMENT_API_BASE, createManagementPublicAdapter, ManagementPublicAdapter
   - `manual-selection/` (12 plików): OperatorLocalOutputManifestV1, OperatorLocalOutputManifestV2, OperatorLocalOutputManifest, OperatorLocalOutputDirectoryState, OperatorLocalOutputResult, resetOperatorLocalOutputDirectory, writeOperatorLocalSelection, removeOperatorLocalSelection (+85)
-  - `operational-reviews/` (26 plików): gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels, BoardGeometryCorrectionView, BoardGeometryCorrectionFact (+199)
+  - `operational-reviews/` (27 plików): gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels, BoardGeometryCorrectionView, BoardGeometryCorrectionFact (+201)
 - `apps/reviewer/src/app/` (11 ts/tsx) - trasy i route handlery
 - `apps/reviewer/src/security/` (5 ts/tsx) - proxy i polityka allowlisty
 - `apps/reviewer/src/api/` (1 ts/tsx) - wrapper klienta API
@@ -218,7 +218,7 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 ### Testy
 
 - `apps/reviewer/test/` (37 plików w katalogu testów, rekurencyjnie)
-- `apps/reviewer/test-interactions/` (13 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test-interactions/` (14 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -245,7 +245,7 @@ Wspólny kod TS. Klient API jest generowany z OpenAPI (`admin-api-client/src/gen
 
 - `packages/board-search-ui/test/` (12 plików w katalogu testów, rekurencyjnie)
 - `packages/shared-ts/test/` (4 plików w katalogu testów, rekurencyjnie)
-- `packages/admin-api-client/test/` (40 plików w katalogu testów, rekurencyjnie)
+- `packages/admin-api-client/test/` (41 plików w katalogu testów, rekurencyjnie)
 - `packages/manual-image-selection-core/test/` (21 plików w katalogu testów, rekurencyjnie)
 - `packages/vision-lab-api-client/test/` (3 plików w katalogu testów, rekurencyjnie)
 

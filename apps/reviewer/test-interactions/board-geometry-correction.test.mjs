@@ -119,6 +119,9 @@ function fakeApi(state) {
     symbols: [],
   };
   const api = {
+    previewPendingSymbolReinference: async () => ({
+      data: { pendingCount: 0 },
+    }),
     listImageGridReviews: async (options) => {
       calls.list.push(options);
       const start =

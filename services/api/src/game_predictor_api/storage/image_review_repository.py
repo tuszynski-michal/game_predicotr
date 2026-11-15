@@ -626,6 +626,23 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             or 0
         )
 
+    def corrected_grid_symbol_targets(
+        self, game_id: UUID, *, import_job_id: UUID | None = None
+    ) -> tuple[tuple[UUID, int], ...]:
+        from game_predictor_api.storage.corrected_grid_symbol_targets import (
+            MAX_CORRECTED_SYMBOL_TARGETS,
+            corrected_grid_symbol_targets_query,
+        )
+
+        self._bind(game_id, intent=GameStorageIntent.READ)
+        return tuple(
+            self._session.execute(
+                corrected_grid_symbol_targets_query(game_id, import_job_id=import_job_id).limit(
+                    MAX_CORRECTED_SYMBOL_TARGETS + 1
+                )
+            ).tuples()
+        )
+
     def get_item(
         self,
         review_item_id: UUID,

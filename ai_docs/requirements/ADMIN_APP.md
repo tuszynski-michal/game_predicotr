@@ -1091,6 +1091,21 @@ odbiorcy: stawka jest zapisana w groszach wraz z zakresem (D-487) oraz korektą
 
 ### Korekta cięcia siatki
 
+TASK-1211: lokalny ekran ma sekcję „Symbole po korekcie siatek” z przyciskiem
+„Rozpoznaj symbole poprawionych plansz”. Zapis geometrii sam nie tworzy joba.
+Przycisk obejmuje bieżące, ręcznie poprawione plansze z co najmniej jednym
+dostępnym polem oczekującym na weryfikację, w wybranym imporcie albo całej
+wybranej grze. Obejmuje również korekty zapisane wcześniej, nie tylko w tej
+sesji przeglądarki. Licznik opisuje takie plansze, a nie liczbę nowych korekt
+od ostatniego rozpoznawania; sam odczyt modelu nie zatwierdza pól ręcznie.
+Job przypina aktualny model oraz zestaw plansz i rewizji geometrii. Rozpoznaje
+symbole z zapisanych wycinków, chroni decyzje człowieka i pomija plansze
+zmienione, zastąpione albo zweryfikowane po utworzeniu joba. UI pokazuje numer
+zadania, jego postęp i przycisk odświeżania. Powtórzenie identycznego startu
+odzyskuje istniejący job, również po utracie odpowiedzi. Zakres ponad 20 000
+plansz wymaga zawężenia do importu; nie jest po cichu obcinany. Zdalne sesje
+Reviewera nie otrzymują uprawnienia do uruchamiania jobów.
+
 **D-462 (TASK-0726):** lokalny Reviewer na porcie 3001 jest jednym ekranem
 ręcznej korekty cięcia siatki. Zastąpił workflow „Walidacji cięcia siatki 0.9”
 (widoki `Do walidacji`, `Do poprawy`, `Wszystkie`, całe zdjęcie z dziewięcioma
@@ -2128,6 +2143,12 @@ dostarcza listę, symbole, wersję reguł i odpytywanie stanu):
   3×5 z wyróżnionymi komórkami symbolu uruchamiającego (komórki są też
   zaznaczone na kadrze, gdy API zwraca wielokąty komórek) oraz przycisk
   „Pokaż planszę z liniami”, który otwiera okno linii z wyszukiwania plansz.
+  Przycisk „Popraw symbole” (TASK-1210), dostępny dla planszy z danymi
+  korekty i klientem obsługującym zapis, otwiera ten sam edytor od razu
+  w trybie poprawiania pól, również w modalu odbiorcy linku. Podgląd linii
+  nadal otwiera się w trybie odczytu. Po zamknięciu edytora bez zapisu fokus
+  wraca do użytego przycisku; zapis odświeża serię i oznaczenia, a zamknięcie
+  modala serii odświeża wyniki wyszukiwania.
   Symbole komórek są czytane z wersji reguł: najnowszy draft, a przy jego
   braku najnowsza opublikowana,
 - bieżący wybór symbolu serii (również przed zapisem) wyróżnia jego dokładne

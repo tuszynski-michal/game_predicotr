@@ -150,6 +150,10 @@ class OperationalImageReviewRepository(Protocol):
 
     def pending_symbol_reinference_count(self, game_id: UUID) -> int: ...
 
+    def corrected_grid_symbol_targets(
+        self, game_id: UUID, *, import_job_id: UUID | None = None
+    ) -> tuple[tuple[UUID, int], ...]: ...
+
     def game_counts(self, game_id: UUID) -> ImageReviewCounts: ...
 
     def pending_grid_reinference_preview(
@@ -479,6 +483,25 @@ class OperationalImageReviewService:
     def game_counts(self, game_id: UUID) -> ImageReviewCounts:
         with game_storage_scope(game_id):
             return self._repository.game_counts(game_id)
+
+    def corrected_grid_symbol_targets(
+        self, game_id: UUID, *, import_job_id: UUID | None = None
+    ) -> tuple[tuple[UUID, int], ...]:
+        from game_predictor_api.domain.jobs import JobError
+        from game_predictor_api.storage.corrected_grid_symbol_targets import (
+            MAX_CORRECTED_SYMBOL_TARGETS,
+        )
+
+        with game_storage_scope(game_id):
+            targets = self._repository.corrected_grid_symbol_targets(
+                game_id, import_job_id=import_job_id
+            )
+        if len(targets) > MAX_CORRECTED_SYMBOL_TARGETS:
+            raise JobError(
+                "IMAGE_SYMBOL_REINFERENCE_SCOPE_TOO_LARGE",
+                "Zakres przekracza 20 000 plansz. Wybierz konkretny import.",
+            )
+        return targets
 
     def pending_grid_reinference_preview(self, game_id: UUID) -> PendingGridReinferencePreview:
         return self._repository.pending_grid_reinference_preview(

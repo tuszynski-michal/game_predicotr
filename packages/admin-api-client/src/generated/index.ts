@@ -836,6 +836,7 @@ export type {
   CorrectBoardSearchShareCellErrors,
   CorrectBoardSearchShareCellResponse,
   CorrectBoardSearchShareCellResponses,
+  CorrectedGridSymbolTargetPayload,
   CorrectManagementBoardCellData,
   CorrectManagementBoardCellError,
   CorrectManagementBoardCellErrors,

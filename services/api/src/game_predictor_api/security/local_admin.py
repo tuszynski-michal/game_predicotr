@@ -414,8 +414,14 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
 
         origin = request.headers.get("origin")
         normalized_origin = origin.rstrip("/") if origin is not None else None
-        reviewer_origin_allowed = (
-            normalized_origin in self._reviewer_origins and _matches_reviewer_mutation_path(path)
+        reviewer_origin_allowed = normalized_origin in self._reviewer_origins and (
+            _matches_reviewer_mutation_path(path)
+            # Local owner only: this is deliberately NOT a Bearer-session
+            # mutation capability. The existing owner-intent checks apply.
+            or re.fullmatch(
+                r"/api/v1/admin/image-review-items/pending-symbol-reinference/[^/]+", path
+            )
+            is not None
         )
         if (
             normalized_origin is not None

@@ -3970,6 +3970,42 @@ wysyła kwalifikację planszy już zakwalifikowanej). Kod
 
 ### Lokalna kolejka walidacji geometrii 0.9
 
+#### Jawny job symboli po korekcie (TASK-1211)
+
+Istniejące `GET /api/v1/admin/image-review-items/pending-symbol-reinference/preview/{game_id}`
+oraz `POST /api/v1/admin/image-review-items/pending-symbol-reinference/{game_id}`
+przyjmują opcjonalne query `corrected_geometry` (bool, domyślnie false) i
+`import_job_id` (UUID). Import jest dozwolony tylko z `corrected_geometry=true`;
+inaczej `IMAGE_SYMBOL_REINFERENCE_SCOPE_INVALID`, bez rozszerzenia do całej gry.
+Bez parametrów zachowują dotychczasowy globalny zakres pending.
+
+Zakres korekt wiąże aktualny review i owner źródła, aktualną rewizję
+`image_board_geometry_revisions` z `source=manual_override`, bez aktora
+`system:*`, asset `virtual_source` oraz co najmniej jedną dostępną komórkę
+`pending` aktualnej rewizji. Import musi być `waiting_for_review` albo
+`completed` z kwalifikacją geometrii (dotychczasowy warunek joba).
+Preview zwraca istniejący `PendingSymbolReinferencePreviewResponse`; start
+ponownie wybiera zakres i zapisuje go w istniejącym jobie
+`image_symbol_reinference`, `schema_version=1`,
+`inference_kind=pending_symbols_only`. Dodatkowe opcjonalne pole payloadu
+`corrected_grid_targets` zawiera 1–20 000 par `review_item_id/geometry_revision`.
+Brak pola zachowuje stare joby; puste/uszkodzone pole blokuje worker zamiast
+rozszerzać zakres. Limit przekroczony → `IMAGE_SYMBOL_REINFERENCE_SCOPE_TOO_LARGE`;
+pusty zakres → `IMAGE_SYMBOL_REINFERENCE_EMPTY`. Brak migracji.
+
+Worker używa wspólnego selektora, filtruje snapshot po dokładnych rewizjach,
+a przed zapisem pod blokadą ponownie sprawdza aktualność źródła, geometrii i
+pól pending. Utrwalony kursor i liczniki pozwalają wznowić pracę; wykluczone
+członkostwa liczą się jako pominięte. Przetwarza dostępne wycinki bieżącego
+manifestu, dopisuje rewizję predykcji i korzysta z istniejącego write-through
+chroniącego decyzje człowieka. Identyczny input joba zachowuje istniejący
+`JOB_INPUT_ALREADY_EXISTS` z `details.existingJobId`; UI odzyskuje ten job.
+
+Lokalny origin Reviewera może wykonać start z istniejącym `X-Admin-Intent`.
+Endpoint nie zostaje dopisany do allowlisty mutacji sesji Bearer ani proxy
+zdalnego Reviewera. Wrapper wysyła istniejące nagłówki potwierdzenia, ale
+dotychczasowa polityka endpointu nie wymaga nowej capability.
+
 Od D-462 (TASK-0727) jest to lokalna kolejka korekty cięcia siatki: nie ma
 zatwierdzania planszy ani zdjęcia. Game-wide odczyt nie materializuje całej
 gry i zawsze łączy pozycję z bieżącym właścicielem

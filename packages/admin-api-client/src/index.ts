@@ -1967,7 +1967,10 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         query,
       }),
     /** Whole source photo of any image of a game, usable directly as an image URL. */
-    imageGeometryCompletenessSourceUrl: (gameId: string, sourceImageId: string) =>
+    imageGeometryCompletenessSourceUrl: (
+      gameId: string,
+      sourceImageId: string,
+    ) =>
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-review-items/geometry-completeness/${encodeURIComponent(gameId)}/images/${encodeURIComponent(sourceImageId)}/source`,
     listGridContentSessions: (gameId: string, limit = 20) =>
       generatedContentSessions({
@@ -3909,18 +3912,36 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     previewPendingSymbolReinference: (
       gameId: string,
-      options: { readonly signal?: AbortSignal } = {},
+      options: {
+        readonly signal?: AbortSignal;
+        readonly correctedGeometry?: boolean;
+        readonly importJobId?: string;
+      } = {},
     ) =>
       previewGeneratedPendingSymbolReinference({
         client,
         path: { game_id: gameId },
+        query: {
+          corrected_geometry: options.correctedGeometry,
+          import_job_id: options.importJobId,
+        },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
-    startPendingSymbolReinference: (gameId: string) =>
+    startPendingSymbolReinference: (
+      gameId: string,
+      options: {
+        readonly correctedGeometry?: boolean;
+        readonly importJobId?: string;
+      } = {},
+    ) =>
       startGeneratedPendingSymbolReinference({
         client,
         headers: confirmedTargetHeaders(`pending-symbol-reinference:${gameId}`),
         path: { game_id: gameId },
+        query: {
+          corrected_geometry: options.correctedGeometry,
+          import_job_id: options.importJobId,
+        },
       }),
     previewPendingGridReinference: (
       gameId: string,

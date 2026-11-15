@@ -18,6 +18,10 @@ import {
   CorrectionGridProposals,
   type CorrectionGridProposalsClient,
 } from './correction-grid-proposals';
+import {
+  CorrectedGridSymbolReinference,
+  type CorrectedGridSymbolReinferenceClient,
+} from './corrected-grid-symbol-reinference';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error';
 
@@ -87,6 +91,7 @@ export function BoardGeometryCorrectionWorkspace({
   importJobId,
   keyboardEnabled = true,
   reviewAll = false,
+  symbolReinferenceApi,
 }: {
   readonly api: BoardGeometryCorrectionClient;
   readonly apiBaseUrl: string;
@@ -97,6 +102,8 @@ export function BoardGeometryCorrectionWorkspace({
   readonly keyboardEnabled?: boolean;
   /** Explicit human check of ordinary boards, using the same guarded editor. */
   readonly reviewAll?: boolean;
+  /** Local owner only; omitted by existing consumers and remote sessions. */
+  readonly symbolReinferenceApi?: CorrectedGridSymbolReinferenceClient;
 }) {
   const [proposalEditing, setProposalEditing] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
@@ -487,6 +494,16 @@ export function BoardGeometryCorrectionWorkspace({
           </p>
         </div>
       </header>
+
+      {symbolReinferenceApi ? (
+        <CorrectedGridSymbolReinference
+          key={`${gameId}:${importJobId ?? 'all'}`}
+          api={symbolReinferenceApi}
+          gameId={gameId}
+          importJobId={importJobId}
+          refreshKey={historyRefresh}
+        />
+      ) : null}
 
       {notice ? (
         <p className="operationalReviewNotice" role="status">

@@ -100,6 +100,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1211** — Job symboli po korekcie siatek — v1.7.637 / `7d1a2c85` — tasks/completed/1211-corrected-grid-symbol-reinference.md
+- **TASK-1210** — Korekta symboli z modala supergry — v1.7.636 / `b4702104` — tasks/completed/1210-super-series-symbol-corrections.md
 - **TASK-1209** — Akceptacja V3 dla wiązań z brakami — v1.7.641 / `1c212b52` — tasks/completed/1209-partial-slot-acceptance.md
 - **TASK-1208** — Wiązanie plansz po pozycji strony 3 × 3 — v1.7.640 / `3abece58` — tasks/completed/1208-partial-slot-binding.md
 - **TASK-1207** — Pomiar tempa nauki — v1.7.638 / `49009e4e` — tasks/completed/1207-grid-training-lr-measurement.md
@@ -108,5 +110,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1204** — Limit populacji uczenia 20 000 — v1.7.634 / `ec2146f1` — tasks/completed/1204-grid-learning-source-limit.md
 - **TASK-1203** — Bramka v5 bez cięcia symboli — v1.7.632 / `db2f6357` — tasks/completed/1203-grid-gate-cell-cut.md
 - **TASK-1202** — Usunięcie ręcznego edytora etykiet — v1.7.630 / `d8b45298` — tasks/completed/1202-remove-ordinary-content-editor.md
-- **TASK-1201** — Obrysy symboli z siatek — v1.7.628 / `a7a8e567` — tasks/completed/1201-symbol-outline-review.md
-- **TASK-1200** — Limity poleceń kohort 300 s — v1.7.626 / `1db19236` — tasks/completed/1200-grid-cohort-300s-budgets.md

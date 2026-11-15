@@ -677,10 +677,18 @@ class SymbolTrainingJobPayload(ApiModel):
     idempotency_key: UUID
 
 
+class CorrectedGridSymbolTargetPayload(ApiModel):
+    review_item_id: UUID
+    geometry_revision: int = Field(ge=1)
+
+
 class PendingSymbolReinferenceJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     inference_kind: Literal["pending_symbols_only"]
     symbol_model: SymbolModelJobSnapshotPayload
+    corrected_grid_targets: list[CorrectedGridSymbolTargetPayload] | None = Field(
+        default=None, min_length=1, max_length=20_000
+    )
 
 
 class SymbolCellReviewBulkJobPayload(ApiModel):

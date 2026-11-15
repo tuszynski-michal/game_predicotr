@@ -5053,6 +5053,20 @@ export type ContentWriteResponse = {
 };
 
 /**
+ * CorrectedGridSymbolTargetPayload
+ */
+export type CorrectedGridSymbolTargetPayload = {
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+};
+
+/**
  * CreateGridCalibrationCandidateCommand
  */
 export type CreateGridCalibrationCandidateCommand = {
@@ -20216,6 +20230,10 @@ export type PendingGridReinferencePreviewResponse = {
  * PendingSymbolReinferenceJobPayload
  */
 export type PendingSymbolReinferenceJobPayload = {
+  /**
+   * Correctedgridtargets
+   */
+  correctedGridTargets?: Array<CorrectedGridSymbolTargetPayload> | null;
   /**
    * Inferencekind
    */
@@ -41560,7 +41578,16 @@ export type PreviewPendingSymbolReinferenceData = {
      */
     game_id: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * Corrected Geometry
+     */
+    corrected_geometry?: boolean;
+    /**
+     * Import Job Id
+     */
+    import_job_id?: string | null;
+  };
   url: '/api/v1/admin/image-review-items/pending-symbol-reinference/preview/{game_id}';
 };
 
@@ -41600,7 +41627,16 @@ export type StartPendingSymbolReinferenceData = {
      */
     game_id: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * Corrected Geometry
+     */
+    corrected_geometry?: boolean;
+    /**
+     * Import Job Id
+     */
+    import_job_id?: string | null;
+  };
   url: '/api/v1/admin/image-review-items/pending-symbol-reinference/{game_id}';
 };
 

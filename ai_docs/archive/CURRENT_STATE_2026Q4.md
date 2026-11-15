@@ -6,6 +6,11 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1211 — Job symboli po korekcie siatek (done)
+
+- Plik: `tasks/completed/1211-corrected-grid-symbol-reinference.md`; commit **v1.7.637**.
+- Przycisk w lokalnej korekcie uruchamia IMAGE_SYMBOL_REINFERENCE tylko dla ręcznie poprawionych plansz z polami pending; snapshot plansz i rewizji w payloadzie, bez migracji. Testy API/workera 23/23, UI 43/43; odbiór operatora otwarty.
+
 ### TASK-1210 — Korekta symboli z modala supergry (done)
 
 - Plik: `tasks/completed/1210-super-series-symbol-corrections.md`; commit **v1.7.636**.

@@ -86,6 +86,7 @@ export function LocalReviewerWorkspace({
           gameId={gameId}
           importJobId={importJobId}
           keyboardEnabled={tab === 'correction'}
+          symbolReinferenceApi={api}
         />
       </div>
       <div
@@ -115,6 +116,7 @@ export function LocalReviewerWorkspace({
             gameId={gameId}
             importJobId={importJobId}
             keyboardEnabled={tab === 'geometry'}
+            symbolReinferenceApi={api}
             reviewAll
           />
         </div>

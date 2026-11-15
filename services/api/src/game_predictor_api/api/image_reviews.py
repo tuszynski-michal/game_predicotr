@@ -531,8 +531,19 @@ def create_image_reviews_router(
     def preview_pending_symbol_reinference(
         game_id: UUID,
         service: Annotated[OperationalImageReviewService, service_parameter],
+        corrected_geometry: bool = False,
+        import_job_id: UUID | None = None,
     ) -> PendingSymbolReinferencePreviewResponse:
-        pending = service.pending_symbol_reinference_count(game_id)
+        if import_job_id is not None and not corrected_geometry:
+            raise JobError(
+                "IMAGE_SYMBOL_REINFERENCE_SCOPE_INVALID",
+                "Import wymaga zakresu poprawionych siatek (corrected_geometry=true).",
+            )
+        pending = (
+            len(service.corrected_grid_symbol_targets(game_id, import_job_id=import_job_id))
+            if corrected_geometry
+            else service.pending_symbol_reinference_count(game_id)
+        )
         counts = service.game_counts(game_id)
         return PendingSymbolReinferencePreviewResponse(
             game_id=game_id,
@@ -551,19 +562,41 @@ def create_image_reviews_router(
         game_id: UUID,
         service: Annotated[OperationalImageReviewService, service_parameter],
         job_service: JobService | None = job_parameter,
+        corrected_geometry: bool = False,
+        import_job_id: UUID | None = None,
     ) -> JobResponse:
+        if import_job_id is not None and not corrected_geometry:
+            raise JobError(
+                "IMAGE_SYMBOL_REINFERENCE_SCOPE_INVALID",
+                "Import wymaga zakresu poprawionych siatek (corrected_geometry=true).",
+            )
         if job_service is None:
             raise JobError(
                 "IMAGE_SYMBOL_REINFERENCE_UNAVAILABLE",
                 "Pending symbol reinference is not configured.",
             )
-        pending = service.pending_symbol_reinference_count(game_id)
+        targets = (
+            service.corrected_grid_symbol_targets(game_id, import_job_id=import_job_id)
+            if corrected_geometry
+            else None
+        )
+        pending = (
+            len(targets)
+            if targets is not None
+            else service.pending_symbol_reinference_count(game_id)
+        )
         if pending == 0:
             raise JobError(
                 "IMAGE_SYMBOL_REINFERENCE_EMPTY",
                 "There are no pending symbol predictions to recalculate.",
             )
-        job = job_service.create_pending_symbol_reinference_job(game_id=game_id)
+        job = (
+            job_service.create_pending_symbol_reinference_job(
+                game_id=game_id, corrected_grid_targets=targets
+            )
+            if targets is not None
+            else job_service.create_pending_symbol_reinference_job(game_id=game_id)
+        )
         return JobResponse.from_domain(job)
 
     @router.get(

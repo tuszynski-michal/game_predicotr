@@ -24,6 +24,7 @@ from game_predictor_api.domain.geometry_qualification import (
     GeometryQualificationError,
 )
 from game_predictor_api.domain.jobs import Job, JobStatus
+from game_predictor_api.domain.source_replacement import SourceReplacementError
 from game_predictor_api.domain.symbol_model_snapshots import (
     LAB_RGB_SYMBOL_MODEL_VERSION,
     SymbolModelJobSnapshot,
@@ -53,7 +54,7 @@ from game_predictor_api.storage.source_replacement_guards import (
     require_current_review,
 )
 from numpy.typing import NDArray
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, tuple_
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_worker.images.normalization import (
@@ -149,7 +150,12 @@ class PendingSymbolReinferenceHandler:
             input_size=snapshot.input_size,
             **symbol_onnx_variant_arguments(snapshot.model_version),
         )
-        rows = self._pending_rows(job.game_id)
+        targets = _corrected_grid_targets(job.input_payload)
+        rows = (
+            self._pending_rows(job.game_id)
+            if targets is None
+            else self._pending_rows(job.game_id, corrected_grid_targets=targets)
+        )
         saved = job.checkpoint_payload or {}
         cursor = _resume_cursor(saved)
         if cursor is not None:
@@ -159,6 +165,12 @@ class PendingSymbolReinferenceHandler:
         processed = job.success_count if cursor is not None else 0
         skipped = job.progress_current - job.success_count if cursor is not None else 0
         total = max(job.progress_total or 0, processed + skipped + len(rows))
+        if targets is not None:
+            total = len(targets)
+            # Frozen members may cease to be eligible before this process
+            # starts (new geometry, human resolution, source replacement).
+            # Account for them without inferring their newer revisions.
+            skipped = max(skipped, total - processed - len(rows))
 
         def checkpoint(*, last_row: tuple[UUID, datetime, UUID] | None = None) -> None:
             current = max(job.progress_current, processed + skipped)
@@ -200,7 +212,23 @@ class PendingSymbolReinferenceHandler:
                     )
 
                     acquire_sequence_ownership_lock(session, game_id=job.game_id)
-                    require_current_review(session, job.game_id, item.id)
+                    if targets is not None and not session.scalar(
+                        select(current_review_clause(ImageReviewItemModel.id)).where(
+                            ImageReviewItemModel.game_id == job.game_id,
+                            ImageReviewItemModel.id == item.id,
+                        )
+                    ):
+                        skipped += 1
+                        checkpoint(last_row=_row_cursor((item, board, source)))
+                        continue
+                    try:
+                        require_current_review(session, job.game_id, item.id)
+                    except SourceReplacementError:
+                        if targets is None:
+                            raise
+                        skipped += 1
+                        checkpoint(last_row=_row_cursor((item, board, source)))
+                        continue
                     locked = session.scalar(
                         select(ImageReviewItemModel)
                         .where(ImageReviewItemModel.id == item.id)
@@ -284,7 +312,27 @@ class PendingSymbolReinferenceHandler:
     def _pending_rows(
         self,
         game_id: UUID,
+        *,
+        corrected_grid_targets: tuple[tuple[UUID, int], ...] | None = None,
     ) -> list[tuple[ImageReviewItemModel, RecognizedBoardModel, SourceImageModel]]:
+        from game_predictor_api.storage.corrected_grid_symbol_targets import (
+            corrected_grid_symbol_targets_query,
+        )
+
+        scope = (
+            []
+            if corrected_grid_targets is None
+            else [
+                tuple_(ImageReviewItemModel.id, RecognizedBoardModel.geometry_revision).in_(
+                    corrected_grid_targets
+                ),
+                ImageReviewItemModel.id.in_(
+                    corrected_grid_symbol_targets_query(game_id)
+                    .with_only_columns(ImageReviewItemModel.id)
+                    .order_by(None)
+                ),
+            ]
+        )
         with self._session_factory() as session:
             return list(
                 session.execute(
@@ -307,6 +355,7 @@ class PendingSymbolReinferenceHandler:
                         ),
                     )
                     .where(
+                        *scope,
                         current_review_clause(ImageReviewItemModel.id),
                         ImageSymbolReviewCellModel.game_id == game_id,
                         ImageSymbolReviewCellModel.source_available.is_(True),
@@ -557,6 +606,37 @@ def _virtual_records(
             "Pending virtual cells are not a complete row-major 3 by 5 grid.",
         )
     return records
+
+
+def _corrected_grid_targets(
+    payload: Mapping[str, object],
+) -> tuple[tuple[UUID, int], ...] | None:
+    """Validate the durable scope; corrupt/empty scope must never become game-wide."""
+    raw = payload.get("corrected_grid_targets")
+    if raw is None and "corrected_grid_targets" not in payload:
+        return None
+    from game_predictor_api.storage.corrected_grid_symbol_targets import (
+        MAX_CORRECTED_SYMBOL_TARGETS,
+    )
+
+    try:
+        if not isinstance(raw, list) or not 1 <= len(raw) <= MAX_CORRECTED_SYMBOL_TARGETS:
+            raise ValueError("Invalid target count.")
+        targets = []
+        for target in raw:
+            if not isinstance(target, dict):
+                raise ValueError("Invalid target.")
+            revision = target.get("geometry_revision")
+            if type(revision) is not int or revision < 1:
+                raise ValueError("Invalid geometry revision.")
+            targets.append((UUID(str(target["review_item_id"])), revision))
+        if len({item_id for item_id, _ in targets}) != len(targets):
+            raise ValueError("Duplicate target.")
+        return tuple(targets)
+    except (KeyError, TypeError, ValueError) as error:
+        raise JobHandlerError(
+            "IMAGE_SYMBOL_REINFERENCE_SCOPE_INVALID", "Invalid corrected-grid job scope."
+        ) from error
 
 
 def _available_indices(raw: Mapping[str, object] | None) -> tuple[int, ...]:

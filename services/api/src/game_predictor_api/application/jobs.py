@@ -1156,7 +1156,9 @@ class JobService:
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
             raise JobConflictError(code, str(error)) from error
 
-    def create_pending_symbol_reinference_job(self, *, game_id: UUID) -> Job:
+    def create_pending_symbol_reinference_job(
+        self, *, game_id: UUID, corrected_grid_targets: Sequence[tuple[UUID, int]] | None = None
+    ) -> Job:
         """Create an explicit job that may update pending symbol predictions only."""
 
         if not self._repository.game_exists(game_id):
@@ -1177,6 +1179,16 @@ class JobService:
                 "schema_version": 1,
                 "inference_kind": "pending_symbols_only",
                 "symbol_model": snapshot.to_payload(),
+                **(
+                    {}
+                    if corrected_grid_targets is None
+                    else {
+                        "corrected_grid_targets": [
+                            {"review_item_id": str(item_id), "geometry_revision": revision}
+                            for item_id, revision in corrected_grid_targets
+                        ]
+                    }
+                ),
             },
             game_already_validated=True,
         )

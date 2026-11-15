@@ -23,7 +23,7 @@ VALIDATION `boardCorrectRate` 0,678; wszystkie checkpointy 600–3600 kroków mi
 Reguła `validation-board-correct-photo-macro-error-earliest-v1` wybiera najlepszy krok
 treningu, ale nie porównuje go z krokiem 0, więc wyeksportowała kandydata `01767a49`,
 gorszego od bazy we wszystkich miarach. Operator: „Tak, napraw”, „Etap A, potem B”.
-Decyzja: D-611.
+Decyzja: D-612.
 
 ## Dependencies / entry conditions
 
@@ -39,7 +39,7 @@ workera, operator zatwierdził etap bez audytu krzyżowego w tej sesji).
 ## Relevant docs
 
 - `AGENTS.md`
-- [D-578](../../process/decisions/DECISION_LOG_2026.md) (uczenie korekt), D-611 (nowa)
+- [D-578](../../process/decisions/DECISION_LOG_2026.md) (uczenie korekt), D-612 (nowa)
 - `ai_docs/architecture/ADMIN_APP.md`
 
 ## Scope
@@ -116,7 +116,7 @@ Commit: v1.7.636 / `3867087b35dba85b1e144aefd8bd9a411ca2efd3`.
 ### Verification results
 
 - `test_grid_training_baseline_floor.py`: 11 passed (przypadek 12ffda06, ścisła poprawa,
-  remis, wznowienie z zapisanym progiem, checkpoint sprzed D-611, child bez eksportu).
+  remis, wznowienie z zapisanym progiem, checkpoint sprzed D-612, child bez eksportu).
 - Szersze testy treningu siatek (child, handler, durable, shared, content, rescue,
   visibility, admission): 137 passed, 1 failed —
   `test_presets_are_versioned_distinct_and_fingerprint_their_parameters`, identycznie na `main`.
@@ -129,7 +129,7 @@ Commit: v1.7.636 / `3867087b35dba85b1e144aefd8bd9a411ca2efd3`.
 
 ### Documentation updates
 
-- D-611 (wpis, indeks; D-581 do archiwum indeksu), `API_CONTRACT.md`.
+- D-612 (wpis, indeks; D-581 do archiwum indeksu), `API_CONTRACT.md`.
 
 ### Recommended next task
 

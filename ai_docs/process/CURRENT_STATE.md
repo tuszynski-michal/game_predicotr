@@ -20,7 +20,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 - **Mumie A2 / TASK-1199–1200:** default i gra=`abe39bce` (rev4, PASS `31a0526b`); `bf327cfa` do powrotu. Źródło: D-606.
 
-- **Uczenie siatek / TASK-1203–1206:** bramka v6, limit 20 000, trening bije bazę; `0189`. Źródło: D-612.
+- **Uczenie siatek / TASK-1203–1206:** bramka v6, limit 20 000, trening bije bazę; `0189`. Źródło: D-613.
 
 - **Selektor1.0.5:** zaakceptowany; reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
 

@@ -124,7 +124,7 @@ def qualify_v3_engine_acceptance(
 ) -> tuple[str, ...]:
     """Return stable blockers; empty means a complete, bound engine result.
 
-    D-614: slots listed in ``missingPositionIndexes`` are outside the engine
+    D-615: slots listed in ``missingPositionIndexes`` are outside the engine
     result. Their boards and deferred geometry stay manual (the D-484 image
     gate keeps the photo incomplete); only assigned positions are qualified.
 

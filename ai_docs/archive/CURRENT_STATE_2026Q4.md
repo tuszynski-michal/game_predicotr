@@ -24,26 +24,26 @@ last_updated: 2026-10-16
 ### TASK-1208 — Wiązanie plansz po pozycji strony 3 × 3 (done)
 
 - Plik: `tasks/completed/1208-partial-slot-binding.md`; commit **v1.7.640 / `3abece5808add4fb49eb095256560bf9f9b90f1a`**.
-- D-614: wiązanie z ≤ 2 brakami, gdy wykrycia wyznaczają 3 rzędy i 3 kolumny; bramka cięcia przepuszcza przypisane sloty. 5 z 8 pominiętych zdjęć Mumie A2 dostaje wiązanie.
+- D-615: wiązanie z ≤ 2 brakami, gdy wykrycia wyznaczają 3 rzędy i 3 kolumny; bramka cięcia przepuszcza przypisane sloty. 5 z 8 pominiętych zdjęć Mumie A2 dostaje wiązanie.
 
 ### TASK-1207 — Pomiar tempa nauki (done)
 
 - Plik: `ai_docs/tasks/completed/1207-grid-training-lr-measurement.md`; commit **v1.7.638 / `49009e4ed7ea9d7c911a4489a783a0099ed6180d`**.
 - 2e-5 nie zatrzymuje spadku `abe39bce` (0,678 → 0,573) i nie daje poprawy `bf327cfa`
-  (1e-4: 0,806); preset zostaje 1e-4 (D-613). Bez zmiany kodu.
+  (1e-4: 0,806); preset zostaje 1e-4 (D-614). Bez zmiany kodu.
 
 ### TASK-1206 — Bramka v6: realna poprawa (done)
 
 - Plik: `ai_docs/tasks/completed/1206-grid-gate-improvement.md`; commit **v1.7.637 / `27012521e666f58e48fed1fd56d858458fc1114f`**.
 - Gate v6 = v5 plus co najmniej +1 plansza poprawna albo bez cięcia (VALIDATION+REGRESSION
-  gry treningowej) bez żadnej straty; migracja 0189 (bind v8, dyspozytor v10) (D-612).
+  gry treningowej) bez żadnej straty; migracja 0189 (bind v8, dyspozytor v10) (D-613).
 - Testy: 76 domeny, 3 PostgreSQL passed; szersze API 579 passed, porażki zastane jak na `main`.
 
 ### TASK-1205 — Uczenie korekt bez kandydata gorszego od bazy (done)
 
 - Plik: `ai_docs/tasks/completed/1205-grid-training-baseline-floor.md`; commit **v1.7.636 / `3867087b35dba85b1e144aefd8bd9a411ca2efd3`**.
 - Trening `grid-corrections-v1` mierzy bazę na VALIDATION przed krokiem 1; checkpoint nie
-  lepszy od niej kończy uczenie kodem `GRID_TRAINING_NO_IMPROVEMENT` bez kandydata (D-611).
+  lepszy od niej kończy uczenie kodem `GRID_TRAINING_NO_IMPROVEMENT` bez kandydata (D-612).
 - Testy: 11 nowych passed; szersze testy treningu 137 passed, 1 zastany błąd jak na `main`.
 
 ### TASK-1204 — Limit populacji uczenia 20 000 (done)

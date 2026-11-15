@@ -45,7 +45,7 @@ inne: przypisane plansze dostają automatyczne cięcie, akceptację V3 i
 rozpoznanie symboli, a nieprzypisane pozycje zostają brakami w ręcznej
 kolejce geometrii.
 
-## Decyzja (D-614, proponowana)
+## Decyzja (D-615, proponowana)
 
 Wiązanie częściowe jest dozwolone tylko, gdy cała siatka strony jest
 zakotwiczona przez wykrycia; nie zgadujemy przesunięcia strony.
@@ -107,7 +107,7 @@ zdjęcie pozostaje `geometry_incomplete` (D-484) do zapisania tej planszy.
   scaleniu, za zgodą.
 - `associate_quad_slots` (używane też przez `grid_rescue_strategy`) zostaje
   bez zmian; reinferencja (`grid_reinference_handler`) dostaje nową regułę
-  automatycznie przez `associate_expected_slots` (odnotować w D-614).
+  automatycznie przez `associate_expected_slots` (odnotować w D-615).
 
 ## TASK-1208 — wiązanie częściowe i bramka cięcia
 
@@ -119,7 +119,7 @@ zdjęcie pozostaje `geometry_incomplete` (D-484) do zapisania tej planszy.
   `services/api/tests/test_neural_auto_crop_v2.py`, nowy
   `services/api/tests/test_partial_slot_binding.py` (proponowany) z fixture
   węzłów siatek 8 zdjęć (tylko `latticeNodes`/`structurallyValid`, bez pikseli).
-- Kryteria: wyniki z tabeli D-614; dotychczasowe testy dokładnego wiązania i
+- Kryteria: wyniki z tabeli D-615; dotychczasowe testy dokładnego wiązania i
   bramki bez zmian asercji; pozycja brakująca nadal zablokowana
   (`NEURAL_GRID_SLOT_DETECTION_MISSING`).
 - Weryfikacja: `.\.venv\Scripts\python.exe -m pytest services/api/tests/test_neural_grid_proposal.py services/api/tests/test_neural_auto_crop_v2.py services/api/tests/test_partial_slot_binding.py services/worker/tests/test_neural_page_geometry_preflight.py`, `npm run python:lint`, `npm run python:typecheck`.
@@ -150,5 +150,5 @@ zdjęcie pozostaje `geometry_incomplete` (D-484) do zapisania tej planszy.
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-1208 | Claude Opus 5.5 | high | Czysta logika geometryczna z testami na prawdziwych danych; średnie ryzyko. | Nie; eskalacja do audytu, jeśli wyniki odbiegną od tabeli D-614. |
+| TASK-1208 | Claude Opus 5.5 | high | Czysta logika geometryczna z testami na prawdziwych danych; średnie ryzyko. | Nie; eskalacja do audytu, jeśli wyniki odbiegną od tabeli D-615. |
 | TASK-1209 | Claude Opus 5.5 | high | Zmiana bramki akceptacji w kilku repozytoriach i test PostgreSQL; wysokie ryzyko danych. | Tak: Codex (domyślny model CLI `codex`, warunkowo), reasoning high, skill `audit-task`. |

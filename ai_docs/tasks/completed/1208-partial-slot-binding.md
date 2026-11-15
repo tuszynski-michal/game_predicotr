@@ -20,7 +20,7 @@ przepuszcza przypisane sloty takiego wiązania.
 
 Import Mumie A2 pominął 8 zdjęć `slot_binding_required`; na `seq_246592-246600`
 sieć przeoczyła widoczną planszę 246594 i przepadło 9 plansz. Operator: „Tak, dodaj”,
-„Pełny automat”. Decyzja D-614; plan
+„Pełny automat”. Decyzja D-615; plan
 [PARTIAL_SLOT_BINDING_PLAN_20261115](../../delivery/PARTIAL_SLOT_BINDING_PLAN_20261115.md).
 
 ## Dependencies / entry conditions
@@ -31,13 +31,13 @@ sieć przeoczyła widoczną planszę 246594 i przepadło 9 plansz. Operator: „
 ## Recommended execution
 
 Claude Opus 5.5, reasoning high; bez dodatkowego review (eskalacja do audytu, jeśli
-wyniki odbiegną od tabeli D-614). Audyt krzyżowy operatora obejmie TASK-1209.
+wyniki odbiegną od tabeli D-615). Audyt krzyżowy operatora obejmie TASK-1209.
 
 ## Relevant docs
 
 - `AGENTS.md`
-- [D-614](../../process/decisions/DECISION_LOG_2026.md#d-614--przypisanie-plansz-po-pozycji-strony-3--3-przy-niepełnym-wykryciu)
-- `ai_docs/requirements/IMAGE_INGESTION.md` (sekcja D-614)
+- [D-615](../../process/decisions/DECISION_LOG_2026.md#d-615--przypisanie-plansz-po-pozycji-strony-3--3-przy-niepełnym-wykryciu)
+- `ai_docs/requirements/IMAGE_INGESTION.md` (sekcja D-615)
 
 ## Scope
 
@@ -52,7 +52,7 @@ wyniki odbiegną od tabeli D-614). Audyt krzyżowy operatora obejmie TASK-1209.
 
 ## Acceptance criteria
 
-- [x] Wyniki tabeli D-614 na zapisanych węzłach 8 zdjęć (fixture).
+- [x] Wyniki tabeli D-615 na zapisanych węzłach 8 zdjęć (fixture).
 - [x] Dotychczasowe testy wiązania, bramki i preflightu bez zmian asercji.
 - [x] Brakujący slot nadal `NEURAL_GRID_SLOT_DETECTION_MISSING`; niespójny podział
       zakresu → `NEURAL_GRID_SLOT_BINDING_REQUIRED`.
@@ -76,7 +76,7 @@ $env:PYTHONPATH = "services/api/src;services/worker/src;services/api/tests"
 Commit: v1.7.640 / `3abece5808add4fb49eb095256560bf9f9b90f1a`.
 
 - `associate_expected_slots`: wiązanie dokładne bez zmian; po jego porażce
-  `associate_partial_slots` (D-614). `associate_quad_slots` korzysta ze wspólnego
+  `associate_partial_slots` (D-615). `associate_quad_slots` korzysta ze wspólnego
   `_page_frame` (te same osie, rzuty i tolerancja; testy ratunku bez zmian).
 - `neural_auto_crop_blockers`: zamiast `missingPositionIndexes == []` wymóg, by sloty
   przypisane i brakujące dzieliły zakres bez luk i powtórzeń.

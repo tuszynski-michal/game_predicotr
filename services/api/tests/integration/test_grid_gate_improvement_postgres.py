@@ -1,4 +1,4 @@
-"""Gate v6 binding (D-612) on real SQL: exact pairs, grants and history guard."""
+"""Gate v6 binding (D-613) on real SQL: exact pairs, grants and history guard."""
 
 import json
 import os

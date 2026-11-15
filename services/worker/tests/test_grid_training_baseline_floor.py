@@ -1,4 +1,4 @@
-"""TASK-1205/D-611: a correction run must beat its own base network on VALIDATION."""
+"""TASK-1205/D-612: a correction run must beat its own base network on VALIDATION."""
 
 from __future__ import annotations
 

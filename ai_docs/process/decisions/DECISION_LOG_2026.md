@@ -16,7 +16,7 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
-## D-614 — Przypisanie plansz po pozycji strony 3 × 3 przy niepełnym wykryciu
+## D-615 — Przypisanie plansz po pozycji strony 3 × 3 przy niepełnym wykryciu
 
 Status: accepted. Data: 2026-11-15. Operator: „Tak, dodaj”, „Pełny automat”, „jak
 skończysz zmiany to zrób audyt krzyżowy”. TASK-1208, TASK-1209;
@@ -46,7 +46,7 @@ Konsekwencje: nie zgadujemy przesunięcia strony (brak rzędu lub kolumny,
 fałszywe wykrycie poza siatką → ręczne przypisanie). Reinferencja siatek używa
 tej samej funkcji. `associate_quad_slots` (ratunek ekranu) bez zmian zachowania.
 
-## D-613 — Tempo nauki korekt siatek bez zmian po pomiarze
+## D-614 — Tempo nauki korekt siatek bez zmian po pomiarze
 
 Status: accepted. Data: 2026-11-13. Etap B zatwierdzony przez operatora („Etap A,
 potem B”) z warunkiem pomiaru. TASK-1207.
@@ -55,10 +55,10 @@ Pomiar ([raport](../../quality/GRID_TRAINING_LR_MEASUREMENT_20261113.md)): tempo
 nie zatrzymało spadku `abe39bce` (0,678 → 0,573 po 600 krokach, jak przy 1e-4), a w
 runie, w którym 1e-4 poprawiło `bf327cfa` z 0,743 do 0,806, nie dało żadnej poprawy.
 Preset `grid-corrections-v1` zachowuje `learning_rate` 1e-4; ochronę przed gorszym
-modelem dają D-611 (próg kroku 0) i D-612 (bramka v6). Skuteczna poprawa wymaga
+modelem dają D-612 (próg kroku 0) i D-613 (bramka v6). Skuteczna poprawa wymaga
 większego przyrostu korekt, nie zmiany tempa.
 
-## D-612 — Bramka v6: realna poprawa gry treningowej
+## D-613 — Bramka v6: realna poprawa gry treningowej
 
 Status: accepted. Data: 2026-11-13. Operator: „Wdrożenie i ocena PASS tylko przy realnej
 poprawie, liczonej także po cięciu symboli”, „Etap A, potem B”. TASK-1206.
@@ -82,7 +82,7 @@ migracja 0189); wcześniejsze funkcje pozostają bez zmian.
 Zastępuje część D-604: wymóg poprawy wraca, ale w liczbach plansz, nie w progach błędu.
 Tolerancja szumu dla regresji ról pozostaje.
 
-## D-611 — Uczenie korekt siatek musi pobić własny model bazowy
+## D-612 — Uczenie korekt siatek musi pobić własny model bazowy
 
 Status: accepted. Data: 2026-11-13. Operator: „Tak, napraw”, „Etap A, potem B”.
 TASK-1205.
@@ -100,7 +100,7 @@ checkpoint nie jest ściśle lepszy od progu według klucza reguły
 (`boardCorrectRate`, potem niższy `normalizedError`; remis to brak poprawy), trener
 kończy się wynikiem `no_improvement` i kodem `GRID_TRAINING_NO_IMPROVEMENT`, bez
 eksportu i rejestracji kandydata; uczenie kończy się tym kodem z polskim opisem.
-Wznowienie używa zapisanego progu; checkpoint sprzed D-611 wznawia się bez progu.
+Wznowienie używa zapisanego progu; checkpoint sprzed D-612 wznawia się bez progu.
 Manifesty, nazwa reguły i kontrakt API pozostają bez zmian. Preset ekranowy i
 eksperymenty treści nie są objęte.
 

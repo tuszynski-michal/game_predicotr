@@ -13,13 +13,13 @@ Przegląd statyczny. Audytor nie zmieniał żadnych plików.
 
 ## Streszczenie
 
-Sprawdzono kwalifikację V3, jej trzy repozytoria, powiązaną bramkę cięcia oraz testy i dokumentację D-614. Rozróżnienie pozycji przypisanych i brakujących jest zaimplementowane poprawnie w kwalifikacji. Pozostaje jednak sprzeczność z decyzją operatora o zachowaniu D-484: niekompletne zdjęcie może otrzymać nowe komórki do weryfikacji symboli przed uzupełnieniem brakującej planszy.
+Sprawdzono kwalifikację V3, jej trzy repozytoria, powiązaną bramkę cięcia oraz testy i dokumentację D-615. Rozróżnienie pozycji przypisanych i brakujących jest zaimplementowane poprawnie w kwalifikacji. Pozostaje jednak sprzeczność z decyzją operatora o zachowaniu D-484: niekompletne zdjęcie może otrzymać nowe komórki do weryfikacji symboli przed uzupełnieniem brakującej planszy.
 
 ## Znaleziska
 
 ### P0
 
-- [P0-1] `services/api/tests/integration/test_v3_engine_acceptance_postgres.py:817` — test utrwala materializację 15 komórek symboli przy brakującym slocie, mimo że poprzednia asercja potwierdza `geometry_incomplete`. `after[6]` zawiera rekordy `ImageSymbolReviewCellModel` (`services/api/tests/integration/test_v3_engine_acceptance_postgres.py:443`); fixture rozpoczyna od odroczonych pozycji, bez wcześniejszych plansz i komórek. Przyczyną jest dopuszczenie częściowego wiązania w `services/api/src/game_predictor_api/domain/neural_crop_policy.py:113`, które przez `full_neural_prediction_geometry` uruchamia istniejące pominięcie blokady w `services/api/src/game_predictor_api/storage/image_geometry_completeness_state_repository.py:499`. Przypisana plansza omija więc bramkę niekompletnego zdjęcia. Narusza to doprecyzowanie D-614 w `ai_docs/process/decisions/DECISION_LOG_2026.md:39`: całe zdjęcie ma przejść do cięcia i symboli dopiero po zapisaniu brakującej planszy. Należy zachować akceptację przypisanych pozycji, ale zablokować nową materializację symboli dla tego niekompletnego zdjęcia. Test powinien oczekiwać zera nowych komórek przed ręcznym uzupełnieniem oraz ich utworzenia po uzupełnieniu, z zachowaniem istniejących danych przy ponowieniu.
+- [P0-1] `services/api/tests/integration/test_v3_engine_acceptance_postgres.py:817` — test utrwala materializację 15 komórek symboli przy brakującym slocie, mimo że poprzednia asercja potwierdza `geometry_incomplete`. `after[6]` zawiera rekordy `ImageSymbolReviewCellModel` (`services/api/tests/integration/test_v3_engine_acceptance_postgres.py:443`); fixture rozpoczyna od odroczonych pozycji, bez wcześniejszych plansz i komórek. Przyczyną jest dopuszczenie częściowego wiązania w `services/api/src/game_predictor_api/domain/neural_crop_policy.py:113`, które przez `full_neural_prediction_geometry` uruchamia istniejące pominięcie blokady w `services/api/src/game_predictor_api/storage/image_geometry_completeness_state_repository.py:499`. Przypisana plansza omija więc bramkę niekompletnego zdjęcia. Narusza to doprecyzowanie D-615 w `ai_docs/process/decisions/DECISION_LOG_2026.md:39`: całe zdjęcie ma przejść do cięcia i symboli dopiero po zapisaniu brakującej planszy. Należy zachować akceptację przypisanych pozycji, ale zablokować nową materializację symboli dla tego niekompletnego zdjęcia. Test powinien oczekiwać zera nowych komórek przed ręcznym uzupełnieniem oraz ich utworzenia po uzupełnieniu, z zachowaniem istniejących danych przy ponowieniu.
 
 ### P1
 
@@ -52,6 +52,6 @@ Otwarte: P0-1.
 
 ## Zakres przeglądu i ograniczenia
 
-Przeczytano brief, aktywne zadanie, plan, wymagane dokumenty procesu, D-614, właściwe fragmenty wymagań i architektury oraz kod i testy objęte zmianą. Prześledzono również konsumenta bramki kompletności, wywołanie finalizacji w pipeline i fixture PostgreSQL w celu oceny P0-1.
+Przeczytano brief, aktywne zadanie, plan, wymagane dokumenty procesu, D-615, właściwe fragmenty wymagań i architektury oraz kod i testy objęte zmianą. Prześledzono również konsumenta bramki kompletności, wywołanie finalizacji w pipeline i fixture PostgreSQL w celu oceny P0-1.
 
 Nie uruchamiano testów, usług, migracji ani operacji na bazie. Ocena kryteriów oznaczonych jako spełnione dotyczy analizy statycznej; nie potwierdza wykonania testów ani działania po restarcie procesu.

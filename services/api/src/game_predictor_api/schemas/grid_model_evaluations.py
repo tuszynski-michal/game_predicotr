@@ -286,7 +286,7 @@ class GridCorrectionImprovementPolicy(EvaluationClosedModel):
 
 
 class GridCorrectionImprovementEvaluationPolicy(EvaluationClosedModel):
-    """Gate v6 (D-612): gate v5 plus a real gain of the training game."""
+    """Gate v6 (D-613): gate v5 plus a real gain of the training game."""
 
     policyVersion: Literal["grid-model-per-game-gate-v6"]
     metricsVersion: Literal["grid-correction-metrics-v1"]

@@ -1,4 +1,4 @@
-"""Gate v6 (D-612): gate v5 plus a real gain of the training game."""
+"""Gate v6 (D-613): gate v5 plus a real gain of the training game."""
 
 import copy
 from typing import Any

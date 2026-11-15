@@ -807,7 +807,7 @@ def test_complete_acceptance_and_legacy_or_deferred_cold_replay(
     with game_storage_scope(game):
         SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
     after = snapshot_state(factory, game, seed)
-    # D-614: the assigned slot of a binding with a missing slot is engine
+    # D-615: the assigned slot of a binding with a missing slot is engine
     # accepted and, as a full neural slot (D-523), reaches symbol review now;
     # the missing slot stays deferred, so the image stays incomplete (D-484).
     assert after[0] == ("needs_review" if legacy else "accepted")

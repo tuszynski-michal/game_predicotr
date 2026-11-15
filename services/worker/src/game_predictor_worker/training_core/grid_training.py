@@ -662,8 +662,8 @@ class TrainingResult:
     exposure: dict[str, Any] | None = None
     visibility_exposure: dict[str, int] | None = None
     content_head_exposure: dict[str, int] | None = None
-    # D-611: VALIDATION of the base network before step 1 ({"boardCorrectRate",
-    # "normalizedError"}); None when the floor is off or a pre-D-611 run resumed.
+    # D-612: VALIDATION of the base network before step 1 ({"boardCorrectRate",
+    # "normalizedError"}); None when the floor is off or a pre-D-612 run resumed.
     baseline_floor: dict[str, float] | None = None
 
     @property
@@ -737,7 +737,7 @@ def train(
 ) -> TrainingResult:
     """Step-deterministic loop with an evaluation and a checkpoint every ``evaluation_steps``.
 
-    ``baseline_floor`` (D-611, correction rule only) measures the base network on
+    ``baseline_floor`` (D-612, correction rule only) measures the base network on
     VALIDATION before step 1 and carries it in every checkpoint; it does not change the
     selection or early stopping, the caller compares it with the selected checkpoint.
     """

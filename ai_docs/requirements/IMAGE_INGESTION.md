@@ -105,7 +105,7 @@ ciche:
 Częściowe automatyczne wiązanie przy mniej niż 9 wykryciach pozostaje poza
 zakresem: wymaga decyzji operatora i nowego wpisu D-.
 
-## Przypisanie plansz po pozycji strony 3 × 3 — D-614 (TASK-1208, TASK-1209)
+## Przypisanie plansz po pozycji strony 3 × 3 — D-615 (TASK-1208, TASK-1209)
 
 Gdy wykrycia sieci nie pokrywają dokładnie zakresu z nazwy pliku (przeoczona
 plansza, wykrycie strukturalnie błędne, fałszywe wykrycie w pustym slocie końca

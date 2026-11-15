@@ -100,7 +100,7 @@ def neural_auto_crop_blockers(
             indexes = [x.get("positionIndex") for x in assignments if isinstance(x, Mapping)]
             identities = [x.get("detectionId") for x in assignments if isinstance(x, Mapping)]
             missing = binding.get("missingPositionIndexes")
-            # D-614: an assigned slot qualifies even when other slots are missing,
+            # D-615: an assigned slot qualifies even when other slots are missing,
             # as long as assigned and missing slots partition the active range.
             if (
                 type(start) is not int

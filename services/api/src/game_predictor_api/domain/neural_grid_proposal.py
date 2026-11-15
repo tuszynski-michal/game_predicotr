@@ -553,14 +553,14 @@ def _overlap(a: SourceQuad, b: SourceQuad) -> bool:
 
 PAGE_SLOT_ROWS = 3
 PAGE_SLOT_COLUMNS = 3
-# D-614: a page-anchored partial draft may leave at most this many slots missing.
+# D-615: a page-anchored partial draft may leave at most this many slots missing.
 PARTIAL_SLOT_MAXIMUM_MISSING = 2
 
 
 def associate_expected_slots(proposal: object) -> dict[str, object] | None:
     """Offer a draft only for a spatially unambiguous inventory.
 
-    An exact inventory binds first. Otherwise (D-614) a draft may leave slots
+    An exact inventory binds first. Otherwise (D-615) a draft may leave slots
     missing, but only when the valid detections anchor the whole 3 × 3 page.
     """
     source = validate_neural_source_proposal(proposal)

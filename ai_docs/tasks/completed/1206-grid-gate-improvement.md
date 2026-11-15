@@ -22,7 +22,7 @@ Bramka v5 przepuściła `01767a49` (52/60 zamiast 53/60 poprawnych plansz VALIDA
 40 zamiast 41 plansz bez cięcia, 7 zamiast 8 na REGRESSION), bo straty mieściły się w
 tolerancji szumu, a `improvementRequired=false` (D-604). Operator: „Wdrożenie i ocena
 PASS tylko przy realnej poprawie, liczonej także po cięciu symboli”, „Etap A, potem B”.
-Decyzja: D-612 (częściowo zastępuje rezygnację z wymogu poprawy z D-604).
+Decyzja: D-613 (częściowo zastępuje rezygnację z wymogu poprawy z D-604).
 
 ## Dependencies / entry conditions
 
@@ -123,7 +123,7 @@ Commit: v1.7.637 / `27012521e666f58e48fed1fd56d858458fc1114f`.
 
 ### Documentation updates
 
-- D-612 (wpis, indeks; D-582 do archiwum indeksu), `API_CONTRACT.md`, `CURRENT_STATE.md`.
+- D-613 (wpis, indeks; D-582 do archiwum indeksu), `API_CONTRACT.md`, `CURRENT_STATE.md`.
 
 ### Recommended next task
 

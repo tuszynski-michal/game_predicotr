@@ -6,7 +6,7 @@ last_updated: 2026-11-13
 
 # Kontrakty API i danych mobilnych
 
-## Uczenie korekt bez poprawy bazy (TASK-1205, D-611)
+## Uczenie korekt bez poprawy bazy (TASK-1205, D-612)
 
 Trening `grid-corrections-v1` zapisuje pomiar bazy na VALIDATION (`baselineFloor`
 {boardCorrectRate, normalizedError}) w checkpointach i w `result-<attempt>.json`. Gdy
@@ -14,7 +14,7 @@ wybrany checkpoint nie jest ściśle lepszy, job treningu i uczenie kończą si�
 `GRID_TRAINING_NO_IMPROVEMENT` bez kandydata. Manifest, `checkpointSelection`, OpenAPI
 i klient są bez zmian.
 
-## Bramka v6: realna poprawa (TASK-1206, D-612)
+## Bramka v6: realna poprawa (TASK-1206, D-613)
 
 Nowe raporty z `cellCut` mają `policyVersion=grid-model-per-game-gate-v6`: polityka v5
 plus `improvementRequired=true` i `improvement` {scope `training-game`, roles

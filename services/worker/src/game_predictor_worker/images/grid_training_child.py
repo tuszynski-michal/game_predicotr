@@ -576,7 +576,7 @@ def _train(
         {"baselineFloor": result.baseline_floor} if corrections and not screen_corrections else {}
     )
     if not result.beats_baseline:
-        # D-611: a run that never beat its own base produces no candidate to evaluate.
+        # D-612: a run that never beat its own base produces no candidate to evaluate.
         return {
             "status": "no_improvement",
             "code": "GRID_TRAINING_NO_IMPROVEMENT",

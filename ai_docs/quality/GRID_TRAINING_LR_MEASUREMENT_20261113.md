@@ -7,7 +7,7 @@ last_updated: 2026-11-13
 # Pomiar tempa nauki uczenia korekt siatek (TASK-1207)
 
 Cel: sprawdzić, czy niższe tempo nauki (`learning_rate` 2e-5 zamiast 1e-4 presetu
-`grid-corrections-v1`) zapobiega pogorszeniu modelu przy ponownym uczeniu (D-611).
+`grid-corrections-v1`) zapobiega pogorszeniu modelu przy ponownym uczeniu (D-612).
 
 Metoda: dwa przebiegi trenera z gałęzi TASK-1205 (z progiem kroku 0) na GPU RTX 4050,
 uruchomione plikowo poza kolejką jobów (bez bazy i rejestracji), z tą samą specyfikacją,

@@ -12,7 +12,7 @@ last_updated: 2026-11-15
 
 ## Goal
 
-Zdjęcie z wiązaniem z brakami (D-614) dostaje akceptację V3 dla przypisanych pozycji,
+Zdjęcie z wiązaniem z brakami (D-615) dostaje akceptację V3 dla przypisanych pozycji,
 a brakujące pozycje zostają planszami do ręcznej geometrii, bez blokowania akceptacji.
 
 ## Context
@@ -33,7 +33,7 @@ warunkowo), reasoning high, skill `audit-task` — zlecony przez operatora.
 ## Relevant docs
 
 - `AGENTS.md`
-- [D-614](../../process/decisions/DECISION_LOG_2026.md#d-614--przypisanie-plansz-po-pozycji-strony-3--3-przy-niepełnym-wykryciu)
+- [D-615](../../process/decisions/DECISION_LOG_2026.md#d-615--przypisanie-plansz-po-pozycji-strony-3--3-przy-niepełnym-wykryciu)
 - [plan](../../delivery/PARTIAL_SLOT_BINDING_PLAN_20261115.md)
 
 ## Decision update
@@ -92,9 +92,9 @@ Commit: v1.7.641 / `1c212b529785b43e7927009e64b09df2228c6fab`.
   `virtual_grid_geometry_repository.py` (Row vs tuple, ~l. 2923) istnieje na bazie.
 - Audyt krzyżowy Codex (CLI 0.162.0, reasoning high, diff obu tasków od 08c3a4db):
   [raport](../../quality/TASK-1209_AUDIT_codex.md), REVISE, P0-1: materializacja
-  symboli przypisanej planszy niekompletnego zdjęcia sprzeczna z ówczesnym opisem D-614.
+  symboli przypisanej planszy niekompletnego zdjęcia sprzeczna z ówczesnym opisem D-615.
   Przyczyna: mój opis pominął wyjątek D-523. Operator wybrał „8 plansz od razu”
-  (zachowanie D-523, bez zmiany bramki); P0-1 zamknięte korektą D-614, wymagań,
+  (zachowanie D-523, bez zmiany bramki); P0-1 zamknięte korektą D-615, wymagań,
   planu i komentarza testu. Bez drugiej rundy (zachowanie objęte P0 nie zmieniło się).
 - Nie wykonano: ponownego preflightu i importu 8 zdjęć na bazie operatora (po
   scaleniu, za zgodą); end-to-end zapisania brakującej planszy po imporcie.

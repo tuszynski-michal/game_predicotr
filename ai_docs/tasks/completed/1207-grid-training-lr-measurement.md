@@ -17,7 +17,7 @@ uczeniu korekt, i wprowadzić je tylko przy korzystnym wyniku obu przypadków.
 
 ## Context
 
-Etap B naprawy po uczeniu `12ffda06` (D-611). Operator: „Etap A, potem B”, z pomiarem
+Etap B naprawy po uczeniu `12ffda06` (D-612). Operator: „Etap A, potem B”, z pomiarem
 1–2 przebiegów na GPU.
 
 ## Dependencies / entry conditions
@@ -31,7 +31,7 @@ Claude Opus 5.5, reasoning medium; bez dodatkowego review (pomiar bez zmiany kod
 ## Relevant docs
 
 - `AGENTS.md`
-- [D-611](../../process/decisions/DECISION_LOG_2026.md#d-611--uczenie-korekt-siatek-musi-pobić-własny-model-bazowy)
+- [D-612](../../process/decisions/DECISION_LOG_2026.md#d-612--uczenie-korekt-siatek-musi-pobić-własny-model-bazowy)
 
 ## Scope
 
@@ -45,7 +45,7 @@ Claude Opus 5.5, reasoning medium; bez dodatkowego review (pomiar bez zmiany kod
 ## Acceptance criteria
 
 - [x] Oba przebiegi zmierzone na tych samych danych i ziarnie co oryginały.
-- [x] Decyzja oparta na pomiarze zapisana w D-613 i raporcie jakości.
+- [x] Decyzja oparta na pomiarze zapisana w D-614 i raporcie jakości.
 
 ## Verification
 
@@ -57,7 +57,7 @@ Commit: v1.7.638 / `49009e4ed7ea9d7c911a4489a783a0099ed6180d`.
 
 ### Changed
 
-- Raport `ai_docs/quality/GRID_TRAINING_LR_MEASUREMENT_20261113.md`, decyzja D-613.
+- Raport `ai_docs/quality/GRID_TRAINING_LR_MEASUREMENT_20261113.md`, decyzja D-614.
   Bez zmiany kodu: preset zachowuje 1e-4.
 
 ### Verification results
@@ -72,7 +72,7 @@ Commit: v1.7.638 / `49009e4ed7ea9d7c911a4489a783a0099ed6180d`.
 
 ### Documentation updates
 
-- D-613 (wpis, indeks; D-583 do archiwum indeksu), raport jakości.
+- D-614 (wpis, indeks; D-583 do archiwum indeksu), raport jakości.
 
 ### Recommended next task
 

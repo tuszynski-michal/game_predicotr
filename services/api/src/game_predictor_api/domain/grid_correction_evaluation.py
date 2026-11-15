@@ -99,7 +99,7 @@ CELL_CUT_POLICY: Final[dict[str, Any]] = {
         "nonRegression": "boards_within_cells",
     },
 }
-# D-612: gate v6 = v5 plus a real gain of the training game on its control roles.
+# D-613: gate v6 = v5 plus a real gain of the training game on its control roles.
 IMPROVEMENT_POLICY_VERSION: Final = "grid-model-per-game-gate-v6"
 IMPROVEMENT_METRICS: Final = ("boards_correct", "boards_within_cells")
 IMPROVEMENT_REASON: Final = "VALIDATION_NOT_IMPROVED:boards_correct_or_boards_within_cells"
@@ -228,7 +228,7 @@ def decide_game(
 
     ``tolerant`` applies gate v4 (D-604): losses within the noise allowance are not
     regressions and the current game needs no improvement. ``improvement`` (gate v6,
-    D-612) adds the training game's real gain on its control roles.
+    D-613) adds the training game's real gain on its control roles.
     """
     if improvement and not cell_cut:
         raise GridEvaluationReportError("Gate v6 extends only gate v5.")
@@ -308,7 +308,7 @@ def decide_game(
 
 
 def training_game_improved(roles: Mapping[str, Any]) -> bool:
-    """D-612: summed over VALIDATION and REGRESSION, the candidate loses no correct board
+    """D-613: summed over VALIDATION and REGRESSION, the candidate loses no correct board
     and no board within its cells, and gains at least one of either. Error-only gains
     and the noise allowance of gate v5 do not count as an improvement."""
     gains = {
@@ -594,7 +594,7 @@ def build_report(
     report = {
         "schemaVersion": SCREEN_REPORT_SCHEMA if screen else REPORT_SCHEMA,
         "producer": PRODUCER,
-        # D-612: new cell-cut measurements are decided by gate v6; v5 stays for history.
+        # D-613: new cell-cut measurements are decided by gate v6; v5 stays for history.
         "policyVersion": SCREEN_POLICY_VERSION
         if screen
         else IMPROVEMENT_POLICY_VERSION

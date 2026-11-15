@@ -110,7 +110,7 @@ def test_v5_extends_only_the_tolerant_gate() -> None:
 
 
 def test_measured_cell_cut_rejects_cut_boards_in_the_newest_gate_and_it_replays() -> None:
-    # D-612: new cell-cut measurements are decided by gate v6, which keeps every v5 rule.
+    # D-613: new cell-cut measurements are decided by gate v6, which keeps every v5 rule.
     manifest, report = report_for(roles(validation=(15, 13)))
     assert report["policyVersion"] == "grid-model-per-game-gate-v6"
     assert {

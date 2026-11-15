@@ -1,4 +1,4 @@
-"""Gate v6 binding (D-612) uses the existing non-login recording capability."""
+"""Gate v6 binding (D-613) uses the existing non-login recording capability."""
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection

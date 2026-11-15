@@ -15352,7 +15352,7 @@
       },
       "GridCorrectionImprovementEvaluationPolicy": {
         "additionalProperties": false,
-        "description": "Gate v6 (D-612): gate v5 plus a real gain of the training game.",
+        "description": "Gate v6 (D-613): gate v5 plus a real gain of the training game.",
         "properties": {
           "cellCut": {
             "$ref": "#/components/schemas/GridCorrectionCellCutPolicy"

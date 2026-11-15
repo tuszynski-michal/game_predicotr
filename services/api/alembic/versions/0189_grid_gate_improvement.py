@@ -1,4 +1,4 @@
-"""Record gate v6 improvement reports (D-612) without changing historical binds."""
+"""Record gate v6 improvement reports (D-613) without changing historical binds."""
 
 from alembic import op
 from game_predictor_api.storage.source_recording_permissions import validate_recording_capability

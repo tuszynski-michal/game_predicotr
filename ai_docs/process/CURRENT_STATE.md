@@ -100,7 +100,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1209** — Akceptacja V3 dla wiązań z brakami — v1.7.641 — tasks/completed/1209-partial-slot-acceptance.md
+- **TASK-1209** — Akceptacja V3 dla wiązań z brakami — v1.7.641 / `1c212b52` — tasks/completed/1209-partial-slot-acceptance.md
 - **TASK-1208** — Wiązanie plansz po pozycji strony 3 × 3 — v1.7.640 / `3abece58` — tasks/completed/1208-partial-slot-binding.md
 - **TASK-1207** — Pomiar tempa nauki — v1.7.638 / `49009e4e` — tasks/completed/1207-grid-training-lr-measurement.md
 - **TASK-1206** — Bramka v6: realna poprawa — v1.7.637 / `27012521` — tasks/completed/1206-grid-gate-improvement.md

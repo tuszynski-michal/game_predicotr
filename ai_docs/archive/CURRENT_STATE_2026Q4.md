@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1209 — Akceptacja V3 dla wiązań z brakami (done)
 
-- Plik: `tasks/completed/1209-partial-slot-acceptance.md`; commit **v1.7.641**.
+- Plik: `tasks/completed/1209-partial-slot-acceptance.md`; commit **v1.7.641 / `1c212b529785b43e7927009e64b09df2228c6fab`**.
 - Akceptacja ocenia tylko przypisane sloty; odroczony slot brakujący nie blokuje. Audyt Codex REVISE (P0-1) zamknięty decyzją operatora (zachowanie D-523) i korektą dokumentacji.
 
 ### TASK-1208 — Wiązanie plansz po pozycji strony 3 × 3 (done)

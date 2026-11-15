@@ -68,7 +68,7 @@ Testy jednostkowe akceptacji + integracyjne PostgreSQL z
 
 ## Outcome
 
-Commit: v1.7.641 (hash dopisuje kolejny commit).
+Commit: v1.7.641 / `1c212b529785b43e7927009e64b09df2228c6fab`.
 
 - `qualify_v3_engine_acceptance`: oczekiwane pozycje = zakres minus
   `missingPositionIndexes`; plansze brakujących slotów pomijane; parametr

@@ -82,7 +82,7 @@ Główny checkout jest na main, a zapis metadanych Git i utworzenie osobnego che
 
 ## Outcome
 
-Commit: v1.7.636 (hash dopisuje kolejny commit).
+Commit: v1.7.636 / `b47021044c84603749f398f0fbcda72843ae46eb`.
 
 ### Changed
 

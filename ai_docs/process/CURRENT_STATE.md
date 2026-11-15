@@ -99,8 +99,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1211** — Job symboli po korekcie siatek — v1.7.637 — tasks/completed/1211-corrected-grid-symbol-reinference.md
-- **TASK-1210** — Korekta symboli z modala supergry — v1.7.636 — tasks/completed/1210-super-series-symbol-corrections.md
+- **TASK-1211** — Job symboli po korekcie siatek — v1.7.637 / `7d1a2c85` — tasks/completed/1211-corrected-grid-symbol-reinference.md
+- **TASK-1210** — Korekta symboli z modala supergry — v1.7.636 / `b4702104` — tasks/completed/1210-super-series-symbol-corrections.md
 - **TASK-1204** — Limit populacji uczenia 20 000 — v1.7.634 / `ec2146f1` — tasks/completed/1204-grid-learning-source-limit.md
 - **TASK-1203** — Bramka v5 bez cięcia symboli — v1.7.632 / `db2f6357` — tasks/completed/1203-grid-gate-cell-cut.md
 - **TASK-1202** — Usunięcie ręcznego edytora etykiet — v1.7.630 / `d8b45298` — tasks/completed/1202-remove-ordinary-content-editor.md

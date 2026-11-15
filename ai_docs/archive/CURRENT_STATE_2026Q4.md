@@ -8,12 +8,12 @@ last_updated: 2026-10-16
 
 ### TASK-1211 — Job symboli po korekcie siatek (done)
 
-- Plik: `tasks/completed/1211-corrected-grid-symbol-reinference.md`; commit **v1.7.637**.
+- Plik: `tasks/completed/1211-corrected-grid-symbol-reinference.md`; commit **v1.7.637 / `7d1a2c85e2ddc317dfc8af635ae0a1be6ed4ee30`**.
 - Przycisk w lokalnej korekcie uruchamia IMAGE_SYMBOL_REINFERENCE tylko dla ręcznie poprawionych plansz z polami pending; snapshot plansz i rewizji w payloadzie, bez migracji. Testy API/workera 23/23, UI 43/43; odbiór operatora otwarty.
 
 ### TASK-1210 — Korekta symboli z modala supergry (done)
 
-- Plik: `tasks/completed/1210-super-series-symbol-corrections.md`; commit **v1.7.636**.
+- Plik: `tasks/completed/1210-super-series-symbol-corrections.md`; commit **v1.7.636 / `b47021044c84603749f398f0fbcda72843ae46eb`**.
 - Przycisk „Popraw symbole” w modalu serii otwiera istniejący edytor od razu w trybie poprawiania; podgląd linii bez zmian, bez zmiany API. Testy 10/11 (zastany konflikt kopii Reacta w Adminie), build Reviewera PASS.
 
 ### TASK-1204 — Limit populacji uczenia 20 000 (done)

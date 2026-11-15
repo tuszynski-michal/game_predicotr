@@ -77,7 +77,7 @@ Komendy z katalogu repo, każda z limitem 120 s: `.venv/Scripts/python.exe -m py
 
 ## Outcome
 
-Commit: v1.7.637 (hash dopisuje kolejny commit).
+Commit: v1.7.637 / `7d1a2c85e2ddc317dfc8af635ae0a1be6ed4ee30`.
 
 ### Changed
 

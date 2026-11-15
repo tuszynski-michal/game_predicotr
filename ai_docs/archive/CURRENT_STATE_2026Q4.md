@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1212 — Uczenie bez limitu zdjęć (done)
 
-- Plik: `tasks/completed/1212-grid-learning-without-source-cap.md`; commit **v1.7.639**; decyzja D-611.
+- Plik: `tasks/completed/1212-grid-learning-without-source-cap.md`; commit **v1.7.639 / `c73fda9dbce1b95eb8d32037751c9b82aeb5e32b`**; decyzja D-611.
 - Brak progu liczby źródeł w odczycie populacji, obu solverach, validationAssignments i sześciu funkcjach SQL (migracja `0189_grid_learning_no_source_cap`); budżety pracy, czasu i treningu bez zmian.
 - Testy: scoped 40 + 24 PASS, PostgreSQL 2/2 PASS, ruff/mypy/OpenAPI/docs PASS. 0189 już w bazie dev; kolidująca 0189 na `claude/partial-slot-binding` do przenumerowania przed merge.
 

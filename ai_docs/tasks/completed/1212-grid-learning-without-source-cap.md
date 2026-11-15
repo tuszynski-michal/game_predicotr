@@ -61,7 +61,7 @@ Pełna populacja nadal trafia do pamięci; bardzo duży zakres może przekroczy�
 
 ## Outcome
 
-Commit: v1.7.639 (hash dopisuje kolejny commit).
+Commit: v1.7.639 / `c73fda9dbce1b95eb8d32037751c9b82aeb5e32b`.
 
 Implementacja: Codex (bez zapisu `.git`). Weryfikację PostgreSQL, zamknięcie i
 commit na `main` wykonał Claude Code 2026-11-15. Commit obejmuje wyłącznie pliki

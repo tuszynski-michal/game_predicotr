@@ -99,7 +99,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1212** — Uczenie bez limitu zdjęć — v1.7.639 — tasks/completed/1212-grid-learning-without-source-cap.md
+- **TASK-1212** — Uczenie bez limitu zdjęć — v1.7.639 / `c73fda9d` — tasks/completed/1212-grid-learning-without-source-cap.md
 - **TASK-1211** — Job symboli po korekcie siatek — v1.7.637 / `7d1a2c85` — tasks/completed/1211-corrected-grid-symbol-reinference.md
 - **TASK-1210** — Korekta symboli z modala supergry — v1.7.636 / `b4702104` — tasks/completed/1210-super-series-symbol-corrections.md
 - **TASK-1204** — Limit populacji uczenia 20 000 — v1.7.634 / `ec2146f1` — tasks/completed/1204-grid-learning-source-limit.md

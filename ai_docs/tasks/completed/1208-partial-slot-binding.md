@@ -73,7 +73,7 @@ $env:PYTHONPATH = "services/api/src;services/worker/src;services/api/tests"
 
 ## Outcome
 
-Commit: v1.7.640 (hash dopisuje kolejny commit).
+Commit: v1.7.640 / `3abece5808add4fb49eb095256560bf9f9b90f1a`.
 
 - `associate_expected_slots`: wiązanie dokładne bez zmian; po jego porażce
   `associate_partial_slots` (D-614). `associate_quad_slots` korzysta ze wspólnego

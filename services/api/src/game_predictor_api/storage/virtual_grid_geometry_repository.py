@@ -582,17 +582,13 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     grid_issue=issue,
                 )
             )
-        deferred = bool(
-            self._session.scalar(
-                select(ImageBoardGeometryPendingModel.id)
-                .where(
-                    ImageBoardGeometryPendingModel.game_id == context.game_id,
-                    ImageBoardGeometryPendingModel.source_image_id == context.source_image_id,
-                    ImageBoardGeometryPendingModel.status == "pending",
-                )
-                .limit(1)
+        deferred_positions = self._session.scalars(
+            select(ImageBoardGeometryPendingModel.position_index).where(
+                ImageBoardGeometryPendingModel.game_id == context.game_id,
+                ImageBoardGeometryPendingModel.source_image_id == context.source_image_id,
+                ImageBoardGeometryPendingModel.status == "pending",
             )
-        )
+        ).all()
         source = self._session.get(SourceImageModel, context.source_image_id)
         newest = self._session.scalar(
             select(ImageSourceGeometryRevisionModel.id)
@@ -643,7 +639,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             sequence_start=context.sequence_range_start,
             sequence_end=context.sequence_range_end,
             positions=positions,
-            deferred=deferred,
+            deferred_positions=deferred_positions,
             source_current=source_current,
         )
 

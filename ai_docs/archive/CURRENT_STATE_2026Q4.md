@@ -6,9 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1209 — Akceptacja V3 dla wiązań z brakami (done)
+
+- Plik: `tasks/completed/1209-partial-slot-acceptance.md`; commit **v1.7.641**.
+- Akceptacja ocenia tylko przypisane sloty; odroczony slot brakujący nie blokuje. Audyt Codex REVISE (P0-1) zamknięty decyzją operatora (zachowanie D-523) i korektą dokumentacji.
+
 ### TASK-1208 — Wiązanie plansz po pozycji strony 3 × 3 (done)
 
-- Plik: `tasks/completed/1208-partial-slot-binding.md`; commit **v1.7.640**.
+- Plik: `tasks/completed/1208-partial-slot-binding.md`; commit **v1.7.640 / `3abece5808add4fb49eb095256560bf9f9b90f1a`**.
 - D-614: wiązanie z ≤ 2 brakami, gdy wykrycia wyznaczają 3 rzędy i 3 kolumny; bramka cięcia przepuszcza przypisane sloty. 5 z 8 pominiętych zdjęć Mumie A2 dostaje wiązanie.
 
 ### TASK-1207 — Pomiar tempa nauki (done)

@@ -807,11 +807,30 @@ def test_complete_acceptance_and_legacy_or_deferred_cold_replay(
     with game_storage_scope(game):
         SqlAlchemyImagePipelineStore(factory).project_recognition(candidate, stage_results=stages)
     after = snapshot_state(factory, game, seed)
-    assert after[0] == ("needs_review" if legacy or missing else "accepted")
+    # D-614: the assigned slot of a binding with a missing slot is engine
+    # accepted and, as a full neural slot (D-523), reaches symbol review now;
+    # the missing slot stays deferred, so the image stays incomplete (D-484).
+    assert after[0] == ("needs_review" if legacy else "accepted")
     assert after[1] == ("system:image-pipeline-v0.10" if legacy else V3_ENGINE_ACCEPTANCE_ACTOR)
     assert after[2:5] == before[2:5]
     assert after[5] == ("geometry_incomplete" if legacy or missing else "geometry_complete")
-    assert len(after[6]) == ((15 if version == 1 else 0) if missing else 30)
+    assert len(after[6]) == (15 if missing else 30)
+    if missing:
+        with game_storage_scope(game), factory() as session:
+            open_slots = session.scalars(
+                select(ImageBoardGeometryPendingModel.position_index).where(
+                    ImageBoardGeometryPendingModel.game_id == game,
+                    ImageBoardGeometryPendingModel.source_image_id == seed.source_image_id,
+                    ImageBoardGeometryPendingModel.status == "pending",
+                )
+            ).all()
+            boards = session.scalars(
+                select(RecognizedBoardModel.position_index).where(
+                    RecognizedBoardModel.source_image_id == seed.source_image_id
+                )
+            ).all()
+        assert open_slots == [1]
+        assert sorted(boards) == [0]
     with game_storage_scope(game):
         SqlAlchemyImagePipelineStore(factory).project_source_geometry(
             candidate, stage_results=stages

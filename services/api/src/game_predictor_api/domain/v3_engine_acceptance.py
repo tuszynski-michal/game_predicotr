@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
@@ -116,13 +116,17 @@ def qualify_v3_engine_acceptance(
     sequence_start: int,
     sequence_end: int,
     positions: Sequence[V3EnginePosition],
-    deferred: bool,
+    deferred_positions: Collection[int],
     source_current: bool,
     operation_pin: object = None,
     qualification_blockers: tuple[str, ...] | None = None,
     available_source_box: Sequence[int] | None = None,
 ) -> tuple[str, ...]:
     """Return stable blockers; empty means a complete, bound engine result.
+
+    D-614: slots listed in ``missingPositionIndexes`` are outside the engine
+    result. Their boards and deferred geometry stay manual (the D-484 image
+    gate keeps the photo incomplete); only assigned positions are qualified.
 
     Uncalibrated confidence remains diagnostic. No score threshold, approval
     field or training eligibility follows from this structural qualification.
@@ -171,22 +175,24 @@ def qualify_v3_engine_acceptance(
         or source["engineSnapshot"] != model_snapshot
     ):
         reasons.append("V3_ACCEPTANCE_SOURCE_OR_MODEL_DRIFT")
-    expected = tuple(range(sequence_end - sequence_start + 1))
+    slots = tuple(range(sequence_end - sequence_start + 1))
+    missing = set(cast(list[int], checked["missingPositionIndexes"]))
+    expected = [slot for slot in slots if slot not in missing]
+    assigned = [item for item in positions if item.position not in missing]
     if (
         not expected
-        or tuple(active_slots) != expected
+        or tuple(active_slots) != slots
         or checked["confirmedRange"]
         != {"sequenceRangeStart": sequence_start, "sequenceRangeEnd": sequence_end}
-        or checked["missingPositionIndexes"]
-        or sorted(item.position for item in positions) != list(expected)
+        or sorted(item.position for item in assigned) != expected
     ):
         reasons.append("V3_ACCEPTANCE_POSITION_CONFLICT")
-    if deferred:
+    if any(position not in missing for position in deferred_positions):
         reasons.append("V3_ACCEPTANCE_DEFERRED")
     detections = {
         item["detectionId"]: item for item in cast(list[Mapping[str, object]], source["detections"])
     }
-    for item in positions:
+    for item in assigned:
         geometry = item.geometry
         if not item.complete:
             reasons.append("V3_ACCEPTANCE_PARTIAL")

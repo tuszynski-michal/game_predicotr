@@ -85,6 +85,11 @@ Pozycje z `missingPositionIndexes` są pomijane w ocenie kompletności, a
 odroczona geometria (`deferred`) blokuje akceptację tylko wtedy, gdy dotyczy
 pozycji przypisanej. Wiązanie ręczne z brakami podlega tej samej regule.
 
+Rewizja 2 (2026-11-15): bramka kompletności bez zmian. Po audycie (P0-1) operator
+wybrał „8 plansz od razu”: zgodnie z wyjątkiem D-523 przypisane pełne sloty
+neuronowe idą od razu do weryfikacji symboli, brakujący slot czeka pojedynczo, a
+zdjęcie pozostaje `geometry_incomplete` (D-484) do zapisania tej planszy.
+
 ## Zakres
 
 - TASK-1208: wiązanie częściowe w domenie + złagodzenie bramki cięcia, testy

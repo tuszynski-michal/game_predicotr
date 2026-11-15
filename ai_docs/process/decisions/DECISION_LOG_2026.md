@@ -35,7 +35,12 @@ wykrycia na slotach poza zakresem z nazwy pliku są ignorowane; brakować mogą
 najwyżej 2 sloty. Bramka cięcia ocenia przypisany slot wiązania z brakami jak w
 wiązaniu pełnym, jeżeli przypisane i brakujące sloty dzielą zakres bez luk i
 powtórzeń; brakujący slot pozostaje zablokowany (`NEURAL_GRID_SLOT_DETECTION_MISSING`).
-Akceptacja V3 ocenia tylko przypisane pozycje (TASK-1209).
+Akceptacja V3 ocenia tylko przypisane pozycje (TASK-1209): sloty brakujące i ich
+odroczona geometria nie blokują akceptacji, odroczony slot przypisany nadal blokuje.
+Bramka kompletności bez zmian (operator: „8 plansz od razu”): zgodnie z wyjątkiem
+D-523 przypisane plansze z pełną siatką neuronową idą od razu do cięcia i weryfikacji
+symboli, a brakujący slot czeka pojedynczo w kolejce siatek; zdjęcie pozostaje
+`geometry_incomplete` (D-484), dopóki operator nie zapisze tej planszy.
 
 Konsekwencje: nie zgadujemy przesunięcia strony (brak rzędu lub kolumny,
 fałszywe wykrycie poza siatką → ręczne przypisanie). Reinferencja siatek używa

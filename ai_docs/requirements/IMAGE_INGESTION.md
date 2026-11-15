@@ -113,8 +113,11 @@ zakresu), preflight nadal proponuje wiązanie, jeżeli wykrycia wyznaczają peł
 3 rzędy i 3 kolumny strony. Każde wykrycie dostaje slot `rząd × 3 + kolumna`,
 wykrycia na slotach poza zakresem są ignorowane, a brakować mogą najwyżej 2
 sloty (`missingPositionIndexes`). Zdjęcie ma wtedy status `review_required`,
-przypisane plansze przechodzą automatyczne cięcie jak przy pełnym wiązaniu, a
-brakujący slot pozostaje planszą do ręcznej geometrii. Brak całego rzędu lub
+przypisane plansze przechodzą automatyczne cięcie i akceptację silnika V3 jak przy
+pełnym wiązaniu i, jak każdy pełny slot neuronowy (wyjątek D-523), od razu trafiają
+do weryfikacji symboli. Brakujący slot pozostaje odroczoną planszą do ręcznej
+geometrii, a zdjęcie jest `geometry_incomplete` (D-484), dopóki operator jej nie
+zapisze. Brak całego rzędu lub
 kolumny, dodatkowy rząd z fałszywego wykrycia, nakładanie albo dwa wykrycia w
 jednym slocie pozostawiają `slot_binding_required` i ręczne przypisanie.
 

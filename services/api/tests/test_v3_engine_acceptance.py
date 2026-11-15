@@ -55,7 +55,7 @@ def facts():
             )
             for index, item in enumerate(value["detections"])
         ],
-        "deferred": False,
+        "deferred_positions": [],
         "source_current": True,
     }
 
@@ -102,8 +102,10 @@ def test_fail_closed_qualification(fault, reason):
         value["positions"][0] = replace(
             value["positions"][0], **{fault: True if fault == "grid_issue" else None}
         )
-    elif fault in ("deferred", "source_current"):
-        value[fault] = fault == "deferred"
+    elif fault == "deferred":
+        value["deferred_positions"] = [0]
+    elif fault == "source_current":
+        value["source_current"] = False
     elif fault == "nodes":
         # A different but valid full lattice must not impersonate the proposal.
         value["positions"][0].geometry["latticeNodes"][8]["x"] += 1

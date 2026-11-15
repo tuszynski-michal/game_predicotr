@@ -49,7 +49,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/PARTIAL_SLOT_BINDING_PLAN_20261115.md` | accepted 2026-11-15 (D-614); audyt po zmianach | TASK-1208–1209 | `claude/partial-slot-binding` |
+| `delivery/PARTIAL_SLOT_BINDING_PLAN_20261115.md` | 1208–1209 done (v1.7.640–641), audyt Codex P0 zamknięty | scalenie i ponowny import 8 zdjęć za zgodą | `claude/partial-slot-binding` |
 | `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md` | accepted 2026-11-12; TASK-1195 done (v1.7.617, migracja 0186 nie wykonana na bazie operatora) | TASK-1196–1197 (osobne polecenie); scalenie i migracja za zgodą | `claude/grid-cohort-refs` |
 | `delivery/EFFECTIVE_GRID_LEARNING_PLAN_20261111.md` | accepted; T1–T4 lokalnie v1.7.602–605; audyty Codex T2–T4 niewykonane (operator) | brak tasków; odbiór i zgoda na scalenie, potem osobno migracja0184 i dane A | `codex/effective-grid-delivery` |
 | `delivery/FULL_SYMBOL_CROPS_PLAN_20261108.md` | T0–T5 i poprawka startu Opus PASS; main/origin, baza0183, usługi działają lokalnie | obrysy z siatek w oknie TASK-1201 (Mumie A2: 210 zatwierdzonych), ślepy pomiar, świeże kontrole i dowód rodowodu; trening nieuruchomiony | `main` |
@@ -94,17 +94,14 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1209 — Akceptacja V3 dla wiązań z brakami (todo)
-
-- Plik: `tasks/1209-partial-slot-acceptance.md`. Audyt krzyżowy Codex na polecenie operatora.
-
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1208** — Wiązanie plansz po pozycji strony 3 × 3 — v1.7.640 — tasks/completed/1208-partial-slot-binding.md
+- **TASK-1209** — Akceptacja V3 dla wiązań z brakami — v1.7.641 — tasks/completed/1209-partial-slot-acceptance.md
+- **TASK-1208** — Wiązanie plansz po pozycji strony 3 × 3 — v1.7.640 / `3abece58` — tasks/completed/1208-partial-slot-binding.md
 - **TASK-1207** — Pomiar tempa nauki — v1.7.638 / `49009e4e` — tasks/completed/1207-grid-training-lr-measurement.md
 - **TASK-1206** — Bramka v6: realna poprawa — v1.7.637 / `27012521` — tasks/completed/1206-grid-gate-improvement.md
 - **TASK-1205** — Uczenie korekt bez kandydata gorszego od bazy — v1.7.636 / `3867087b` — tasks/completed/1205-grid-training-baseline-floor.md
@@ -113,4 +110,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1202** — Usunięcie ręcznego edytora etykiet — v1.7.630 / `d8b45298` — tasks/completed/1202-remove-ordinary-content-editor.md
 - **TASK-1201** — Obrysy symboli z siatek — v1.7.628 / `a7a8e567` — tasks/completed/1201-symbol-outline-review.md
 - **TASK-1200** — Limity poleceń kohort 300 s — v1.7.626 / `1db19236` — tasks/completed/1200-grid-cohort-300s-budgets.md
-- **TASK-1199** — Domyślny zakres importów uczenia korekt — v1.7.625 / `7203e1db` — tasks/completed/1199-grid-learning-import-scope.md

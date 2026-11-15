@@ -600,15 +600,13 @@ class SqlAlchemyHistoricalAcceptanceRepository:
             boards
         ):
             reasons.append("HISTORICAL_EXISTING_PROJECTION_MISSING")
-        pending = self.session.scalar(
-            select(ImageBoardGeometryPendingModel.id)
-            .where(
+        deferred_positions = self.session.scalars(
+            select(ImageBoardGeometryPendingModel.position_index).where(
                 ImageBoardGeometryPendingModel.game_id == game_id,
                 ImageBoardGeometryPendingModel.source_image_id == source_id,
                 ImageBoardGeometryPendingModel.status == "pending",
             )
-            .limit(1)
-        )
+        ).all()
         reasons.extend(
             qualify_v3_engine_acceptance(
                 policy=LEGACY_V3_ENGINE_ACCEPTANCE_POLICY,
@@ -623,7 +621,7 @@ class SqlAlchemyHistoricalAcceptanceRepository:
                 sequence_start=revision.sequence_range_start,
                 sequence_end=revision.sequence_range_end,
                 positions=positions,
-                deferred=pending is not None,
+                deferred_positions=deferred_positions,
                 source_current=job is not None
                 and job.game_id == game_id
                 and revision.source_checksum_sha256 == source.checksum_sha256

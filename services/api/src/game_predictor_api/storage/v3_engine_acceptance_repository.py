@@ -174,15 +174,13 @@ def finalize_v3_engine_acceptance(
                 )
             ).all()
         )
-        deferred = session.scalar(
-            select(ImageBoardGeometryPendingModel.id)
-            .where(
+        deferred_positions = session.scalars(
+            select(ImageBoardGeometryPendingModel.position_index).where(
                 ImageBoardGeometryPendingModel.game_id == job.game_id,
                 ImageBoardGeometryPendingModel.source_image_id == source.id,
                 ImageBoardGeometryPendingModel.status == "pending",
             )
-            .limit(1)
-        )
+        ).all()
         stored_slots = {item.get("positionIndex"): item for item in revision.board_geometries}
         positions = []
         for board in boards:
@@ -260,7 +258,7 @@ def finalize_v3_engine_acceptance(
             sequence_start=revision.sequence_range_start,
             sequence_end=revision.sequence_range_end,
             positions=positions,
-            deferred=deferred is not None,
+            deferred_positions=deferred_positions,
             source_current=latest_id == revision.id
             and revision.game_id == job.game_id
             and revision.source_image_id == source.id

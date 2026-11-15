@@ -34,7 +34,7 @@ def test_gate_v6_pairs_bind_through_the_new_dispatcher_and_history_survives():
     from alembic import command
 
     with application_role_database(
-        "t1206gate", ("gate-v6",), revision="0189_grid_gate_improvement"
+        "t1206gate", ("gate-v6",), revision="0190_grid_gate_improvement"
     ) as db:
         config = _config(db)
         # Empty downgrade is reversible; roles keep only the public wrapper grant.

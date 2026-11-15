@@ -6,6 +6,16 @@ last_updated: 2026-11-11
 
 # Laboratorium wizji
 
+## Liczba zdjęć a koszt uczenia (TASK-1212, D-611)
+
+Przygotowanie korekt nie odmawia wyłącznie z powodu liczby zdjęć całych
+importów. Zdjęcia kontekstu kolejności nie są automatycznie przykładami
+treningowymi. Pełna populacja i ochrona podziału pozostają; nie wolno
+przycinać zakresu. Nadal obowiązują istniejące budżety pracy algorytmu,
+czasu zapytań/poleceń i treningu. Ich przekroczenie jest jawną blokadą,
+nie zgodą na niepełny wynik. Zniesienie progu nie gwarantuje obsługi
+dowolnie dużego zbioru w pamięci.
+
 ## Panel i porównanie skutecznego uczenia (TASK-1185, D-602)
 
 Panel uczenia pokazuje osobno korekty i dobre przykłady w puli „Do nauki” oraz

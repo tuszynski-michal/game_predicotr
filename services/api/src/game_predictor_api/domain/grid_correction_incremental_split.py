@@ -10,7 +10,6 @@ from collections.abc import Iterable
 
 from .grid_correction_split import (
     BUFFER_PHOTOS,
-    CORRECTION_SOURCE_LIMIT,
     ROLES,
     CorrectionRoleCount,
     CorrectionSplitError,
@@ -34,8 +33,6 @@ def solve_incremental_split(
     values = tuple(sorted(sources, key=lambda item: item.source_id))
     if not isinstance(max_work, int) or isinstance(max_work, bool) or max_work < 1:
         raise CorrectionSplitError("GRID_CORRECTION_SPLIT_INVALID", "Invalid work budget.")
-    if len(values) > CORRECTION_SOURCE_LIMIT:
-        raise CorrectionSplitError("GRID_CORRECTION_SPLIT_WORK_LIMIT", "Source limit exceeded.")
     _validate(values)
     copies, components, orders, allowed, boards, _ = _prepare(values)
     work = _Work(max_work)

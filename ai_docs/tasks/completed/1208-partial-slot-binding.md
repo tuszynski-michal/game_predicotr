@@ -26,7 +26,7 @@ sieć przeoczyła widoczną planszę 246594 i przepadło 9 plansz. Operator: „
 ## Dependencies / entry conditions
 
 - Gałąź `claude/partial-slot-binding` na szczycie `claude/grid-training-baseline-floor`
-  (v1.7.639, niescalona; migracja 0189 tamtej gałęzi). Ten task nie zmienia schematu.
+  (v1.7.639, niescalona; migracja 0190, pierwotnie 0189, tamtej gałęzi). Ten task nie zmienia schematu.
 
 ## Recommended execution
 

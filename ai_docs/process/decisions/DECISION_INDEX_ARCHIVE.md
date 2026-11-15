@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-585](DECISION_LOG_2026.md#d-585--jawne-możliwości-i-przypięta-kwalifikacja-gry-w-nowych-operacjach-sieci) | Możliwości modelu i kwalifikacja gry | accepted | 2026-11-03 | Nowe v14/v3 przypina capabilities i exact per-game report lub unqualified, bez zmiany historii. |
 | [D-584](DECISION_LOG_2026.md#d-584--wersjonowana-bezpieczna-akceptacja-siatek) | Wersjonowana bezpieczna akceptacja siatek | accepted | 2026-11-03 | Nowe v2 blokuje błędy fit i niepełne dowody; stare piny v1 zachowują semantykę. |
 | [D-583](DECISION_LOG_2026.md#d-583--fizyczne-usunięcie-zastępowanego-zdjęcia-i-mały-manifest-luk) | Fizyczne usunięcie zdjęcia | accepted | 2026-11-03 | Source-only purge, compact manifest i tombstone, modele zachowane. |
 | [D-582](DECISION_LOG_2026.md#d-582--przyrostowe-wyspy-treningu-i-zwalnianie-nieużytych-rezerwacji) | Przyrostowe wyspy treningu i zwalnianie nieużytych rezerwacji | accepted | 2026-11-03 | V2 zachowuje rzeczywiste kontrole i bufory; zwalnia wyłącznie niechronione metadane v1 przy freeze, bez zmiany historii. |

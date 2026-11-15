@@ -21,7 +21,7 @@ plus `improvementRequired=true` i `improvement` {scope `training-game`, roles
 [VALIDATION, REGRESSION], metrics [boards_correct, boards_within_cells], minimumGain 1,
 lossAllowed false}. Nowy powód gry treningowej:
 `VALIDATION_NOT_IMPROVED:boards_correct_or_boards_within_cells`. Raporty v5 pozostają
-ważne. Bind przez `recording_cohort_command_v10` (migracja 0189).
+ważne. Bind przez `recording_cohort_command_v10` (migracja 0190).
 
 ## Bramka v5: plansze bez cięcia symboli (TASK-1203, D-609)
 

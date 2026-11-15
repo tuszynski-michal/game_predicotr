@@ -77,7 +77,7 @@ VALIDATION dostaje `fail` i powód
 Sama poprawa błędu nie wystarcza. Pozostałe wymagane gry zachowują reguły v5. Raporty
 v5 i starsze zachowują ścisłe odtworzenie. Baza zapisuje v6 przez
 `recording_correction_report_bind_v8` (dyspozytor `recording_cohort_command_v10`,
-migracja 0189); wcześniejsze funkcje pozostają bez zmian.
+migracja 0190, przenumerowana z 0189 po TASK-1212); wcześniejsze funkcje pozostają bez zmian.
 
 Zastępuje część D-604: wymóg poprawy wraca, ale w liczbach plansz, nie w progach błędu.
 Tolerancja szumu dla regresji ról pozostaje.
@@ -107,6 +107,32 @@ eksperymenty treści nie są objęte.
 Alternatywy odrzucone: wliczenie kroku 0 do wczesnego zatrzymania (zmienia moment
 zatrzymania historycznych przebiegów) i eksport bazy jako „kandydata” (bramka
 porównywałaby model sam ze sobą).
+## D-611 — Uczenie korekt bez limitu liczby źródeł
+
+Status: accepted. Data: 2026-11-15. Operator: „zrób taki limit żeby miał sens”,
+„a może znieść go całkiem”. TASK-1212. Zastępuje próg D-610 dla nowego kodu po migracji 0189.
+
+Kontekst: około 200 korekt może dotyczyć importów z ponad 20 000 zdjęć.
+Liczba źródeł kontekstu kolejności nie jest liczbą przykładów treningowych.
+Podnoszenie stałej do 100 000 lub miliona tylko przenosi arbitralną blokadę.
+
+Decyzja: usuwamy próg liczby źródeł z odczytu populacji, obu solverów,
+validationAssignments i sześciu funkcji SQL przez migrację
+`0189_grid_learning_no_source_cap`. Całe importy, role, kopie, bufory,
+walidacja kolejności, limit iteracji domknięcia, budżet pracy solvera,
+300 s poleceń/zapytań i budżety treningu pozostają bez zmian.
+Nie wybieramy podzbioru ani nie uruchamiamy treningu automatycznie.
+
+Migracja podmienia wyłącznie dokładne predykaty liczności na false;
+pozostała treść funkcji, właściciel i uprawnienia zostają. Downgrade
+odmawia przy kohortach przekraczających 20 000 członków.
+0188 zachowuje historyczną implementację i testy.
+
+Konsekwencje: populacja nadal jest przetwarzana w pamięci; zniesienie progu
+nie dowodzi wykonalności miliona zdjęć. Rzeczywisty limit czasu/pracy może
+nadal zatrzymać przygotowanie z jawnym błędem. Zmiana budżetów lub skalowanie
+algorytmu wymaga odrębnej analizy; nie wykonujemy benchmarku ani migracji
+bazy operatora w ramach tej poprawki.
 
 ## D-610 — Limit populacji uczenia siatek 20 000 źródeł
 

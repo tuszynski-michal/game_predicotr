@@ -15,8 +15,11 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0189_grid_gate_improvement"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0190_grid_gate_improvement"
     assert script.get_revision(schema_readiness.EXPECTED_ALEMBIC_HEAD).down_revision == (
+        "0189_grid_learning_no_source_cap"
+    )
+    assert script.get_revision("0189_grid_learning_no_source_cap").down_revision == (
         "0188_grid_learning_source_limit"
     )
     assert script.get_revision("0188_grid_learning_source_limit").down_revision == (

@@ -10,8 +10,8 @@ from game_predictor_api.storage.source_recording_permissions_v13 import (
 from game_predictor_api.storage.source_recording_sql_v13 import BIND_SQL, WRAPPER_SQL
 from sqlalchemy import text
 
-revision = "0189_grid_gate_improvement"
-down_revision = "0188_grid_learning_source_limit"
+revision = "0190_grid_gate_improvement"
+down_revision = "0189_grid_learning_no_source_cap"
 branch_labels = depends_on = None
 
 

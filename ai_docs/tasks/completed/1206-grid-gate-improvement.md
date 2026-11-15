@@ -27,7 +27,7 @@ Decyzja: D-613 (częściowo zastępuje rezygnację z wymogu poprawy z D-604).
 ## Dependencies / entry conditions
 
 - TASK-1205 (v1.7.636) na tej samej gałęzi; baza operatora na `0188`.
-- Zmiana dodaje migrację `0189_grid_gate_improvement` (operator: stop usług → merge →
+- Zmiana dodaje migrację `0190_grid_gate_improvement` (operator: stop usług → merge →
   `db:migrate` → start, po zakończeniu importów).
 
 ## Recommended execution
@@ -48,7 +48,7 @@ Claude Opus 5.5, reasoning medium; bez dodatkowego review (wzorzec 1:1 z TASK-12
 - Schematy `GridCorrectionImprovement*`, unie polityk raportu surowego i kalibrowanego,
   OpenAPI i klient.
 - SQL v13 (bind v8, dyspozytor `recording_cohort_command_v10`, uprawnienia v13), migracja
-  0189, repozytorium kohort, `database_roles`, `EXPECTED_ALEMBIC_HEAD`.
+  0190, repozytorium kohort, `database_roles`, `EXPECTED_ALEMBIC_HEAD`.
 - Admin: „bramka v6 (wymagana poprawa)” i opis powodu.
 
 ## Out of scope
@@ -65,7 +65,7 @@ Claude Opus 5.5, reasoning medium; bez dodatkowego review (wzorzec 1:1 z TASK-12
 - [x] Pozostałe wymagane gry oceniane bez wymogu poprawy (reguły v5).
 - [x] Historyczny raport v5 przechodzi odtworzenie; przemianowanie v5↔v6 i podrobiona
   decyzja są odrzucane; schemat API przyjmuje raport v6.
-- [x] Migracja 0189 wiąże pary v3/v5 × gate v4–v6 przez dyspozytor v10, odrzuca inne,
+- [x] Migracja 0190 wiąże pary v3/v5 × gate v4–v6 przez dyspozytor v10, odrzuca inne,
   utrzymuje uprawnienia i blokuje downgrade przy historii v6.
 
 ## Test cases
@@ -100,7 +100,7 @@ Commit: v1.7.637 / `27012521e666f58e48fed1fd56d858458fc1114f`.
 - Schematy `GridCorrectionImprovementPolicy`, `GridCorrectionImprovementEvaluationPolicy`
   w uniach raportu v3 i kalibrowanego v5; OpenAPI i klient wygenerowane.
 - `source_recording_sql_v13`, `source_recording_permissions_v13`, migracja
-  `0189_grid_gate_improvement`, repozytorium kohort na `recording_cohort_command_v10`,
+  `0190_grid_gate_improvement`, repozytorium kohort na `recording_cohort_command_v10`,
   `database_roles`, `EXPECTED_ALEMBIC_HEAD`.
 - Admin: „bramka v6 (wymagana poprawa)”, opis powodu i kodu TASK-1205 w teście.
 
@@ -119,7 +119,7 @@ Commit: v1.7.637 / `27012521e666f58e48fed1fd56d858458fc1114f`.
 
 ### Not completed
 
-- Migracja 0189 na bazie operatora i restart usług (operator, po zakończeniu importów).
+- Migracja 0190 na bazie operatora i restart usług (operator, po zakończeniu importów).
 
 ### Documentation updates
 

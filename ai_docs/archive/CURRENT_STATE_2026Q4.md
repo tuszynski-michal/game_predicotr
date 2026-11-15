@@ -6,6 +6,11 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1208 — Wiązanie plansz po pozycji strony 3 × 3 (done)
+
+- Plik: `tasks/completed/1208-partial-slot-binding.md`; commit **v1.7.640**.
+- D-614: wiązanie z ≤ 2 brakami, gdy wykrycia wyznaczają 3 rzędy i 3 kolumny; bramka cięcia przepuszcza przypisane sloty. 5 z 8 pominiętych zdjęć Mumie A2 dostaje wiązanie.
+
 ### TASK-1207 — Pomiar tempa nauki (done)
 
 - Plik: `ai_docs/tasks/completed/1207-grid-training-lr-measurement.md`; commit **v1.7.638 / `49009e4ed7ea9d7c911a4489a783a0099ed6180d`**.

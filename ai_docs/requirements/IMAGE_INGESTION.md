@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-10-16
+last_updated: 2026-11-15
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -104,6 +104,19 @@ ciche:
 
 Częściowe automatyczne wiązanie przy mniej niż 9 wykryciach pozostaje poza
 zakresem: wymaga decyzji operatora i nowego wpisu D-.
+
+## Przypisanie plansz po pozycji strony 3 × 3 — D-614 (TASK-1208, TASK-1209)
+
+Gdy wykrycia sieci nie pokrywają dokładnie zakresu z nazwy pliku (przeoczona
+plansza, wykrycie strukturalnie błędne, fałszywe wykrycie w pustym slocie końca
+zakresu), preflight nadal proponuje wiązanie, jeżeli wykrycia wyznaczają pełne
+3 rzędy i 3 kolumny strony. Każde wykrycie dostaje slot `rząd × 3 + kolumna`,
+wykrycia na slotach poza zakresem są ignorowane, a brakować mogą najwyżej 2
+sloty (`missingPositionIndexes`). Zdjęcie ma wtedy status `review_required`,
+przypisane plansze przechodzą automatyczne cięcie jak przy pełnym wiązaniu, a
+brakujący slot pozostaje planszą do ręcznej geometrii. Brak całego rzędu lub
+kolumny, dodatkowy rząd z fałszywego wykrycia, nakładanie albo dwa wykrycia w
+jednym slocie pozostawiają `slot_binding_required` i ręczne przypisanie.
 
 ## Profil 777 v2 importuje przez V3 — D-544 (TASK-0974)
 

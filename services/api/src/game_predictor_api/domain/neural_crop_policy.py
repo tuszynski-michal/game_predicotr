@@ -99,14 +99,18 @@ def neural_auto_crop_blockers(
             start, end = active.get("sequenceRangeStart"), active.get("sequenceRangeEnd")
             indexes = [x.get("positionIndex") for x in assignments if isinstance(x, Mapping)]
             identities = [x.get("detectionId") for x in assignments if isinstance(x, Mapping)]
+            missing = binding.get("missingPositionIndexes")
+            # D-614: an assigned slot qualifies even when other slots are missing,
+            # as long as assigned and missing slots partition the active range.
             if (
                 type(start) is not int
                 or type(end) is not int
                 or not 1 <= end - start + 1 <= MAX_PAGE_BOARD_SLOTS
-                or binding.get("missingPositionIndexes") != []
+                or not isinstance(missing, list)
+                or any(type(x) is not int for x in missing)
                 or len(indexes) != len(assignments)
                 or any(type(x) is not int for x in indexes)
-                or sorted(cast(list[int], indexes)) != list(range(end - start + 1))
+                or sorted(cast(list[int], [*indexes, *missing])) != list(range(end - start + 1))
                 or any(not isinstance(x, str) for x in identities)
                 or len(set(cast(list[str], identities))) != len(identities)
                 or not any(

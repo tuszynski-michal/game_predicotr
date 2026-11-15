@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-11-13
+last_updated: 2026-11-15
 ---
 
 # Decision Log — wpisy 2026
@@ -15,6 +15,31 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+
+## D-614 — Przypisanie plansz po pozycji strony 3 × 3 przy niepełnym wykryciu
+
+Status: accepted. Data: 2026-11-15. Operator: „Tak, dodaj”, „Pełny automat”, „jak
+skończysz zmiany to zrób audyt krzyżowy”. TASK-1208, TASK-1209;
+[plan](../../delivery/PARTIAL_SLOT_BINDING_PLAN_20261115.md).
+
+Kontekst: import Mumie A2 pominął 8 zdjęć `slot_binding_required`, bo wiązanie
+wymagało dokładnej inwentaryzacji wykryć. Przykład: na `seq_246592-246600` sieć
+przeoczyła widoczną planszę w rogu i przepadło 9 plansz zamiast jednej.
+
+Decyzja: po nieudanym wiązaniu dokładnym (bez zmian) `associate_expected_slots`
+wiąże wykrycia strukturalnie poprawne po pozycji strony, tylko gdy ich rzuty na
+osie plansz tworzą dokładnie 3 rzędy i 3 kolumny (tolerancja: połowa mediany
+wysokości/szerokości planszy; klaster szerszy od tolerancji, nakładanie lub dwa
+wykrycia w jednym slocie → brak wiązania). Pozycja = rząd × 3 + kolumna;
+wykrycia na slotach poza zakresem z nazwy pliku są ignorowane; brakować mogą
+najwyżej 2 sloty. Bramka cięcia ocenia przypisany slot wiązania z brakami jak w
+wiązaniu pełnym, jeżeli przypisane i brakujące sloty dzielą zakres bez luk i
+powtórzeń; brakujący slot pozostaje zablokowany (`NEURAL_GRID_SLOT_DETECTION_MISSING`).
+Akceptacja V3 ocenia tylko przypisane pozycje (TASK-1209).
+
+Konsekwencje: nie zgadujemy przesunięcia strony (brak rzędu lub kolumny,
+fałszywe wykrycie poza siatką → ręczne przypisanie). Reinferencja siatek używa
+tej samej funkcji. `associate_quad_slots` (ratunek ekranu) bez zmian zachowania.
 
 ## D-613 — Tempo nauki korekt siatek bez zmian po pomiarze
 

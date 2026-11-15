@@ -551,46 +551,90 @@ def _overlap(a: SourceQuad, b: SourceQuad) -> bool:
     return True
 
 
+PAGE_SLOT_ROWS = 3
+PAGE_SLOT_COLUMNS = 3
+# D-614: a page-anchored partial draft may leave at most this many slots missing.
+PARTIAL_SLOT_MAXIMUM_MISSING = 2
+
+
 def associate_expected_slots(proposal: object) -> dict[str, object] | None:
-    """Offer a draft only for an exact, spatially unambiguous inventory."""
+    """Offer a draft only for a spatially unambiguous inventory.
+
+    An exact inventory binds first. Otherwise (D-614) a draft may leave slots
+    missing, but only when the valid detections anchor the whole 3 × 3 page.
+    """
     source = validate_neural_source_proposal(proposal)
     sequence = _range(source["originalRange"])
     snapshot = NeuralGridSnapshot.from_payload(source["engineSnapshot"])
     detections = cast(list[Mapping[str, object]], source["detections"])
-    if (
-        sequence.end > snapshot.expected_layout_count
-        or len(detections) != sequence.board_count
-        or any(item["structurallyValid"] is not True for item in detections)
-    ):
+    if sequence.end > snapshot.expected_layout_count:
         return None
-    quads = [_outer(item) for item in detections]
-    ordered = associate_quad_slots(quads, sequence.board_count)
-    if ordered is None:
+    if len(detections) == sequence.board_count and all(
+        item["structurallyValid"] is True for item in detections
+    ):
+        ordered = associate_quad_slots([_outer(item) for item in detections], sequence.board_count)
+        if ordered is not None:
+            return build_neural_source_binding(
+                source,
+                confirmed_range=sequence,
+                assignments=[
+                    {"detectionId": detections[index]["detectionId"], "positionIndex": position}
+                    for position, index in enumerate(ordered)
+                ],
+            )
+    valid = [item for item in detections if item["structurallyValid"] is True]
+    slots = associate_partial_slots([_outer(item) for item in valid], sequence.board_count)
+    if slots is None:
         return None
     return build_neural_source_binding(
         source,
         confirmed_range=sequence,
         assignments=[
-            {"detectionId": detections[index]["detectionId"], "positionIndex": position}
-            for position, index in enumerate(ordered)
+            {"detectionId": valid[index]["detectionId"], "positionIndex": position}
+            for position, index in sorted(slots.items())
         ],
     )
 
 
-def associate_quad_slots(quads: list[SourceQuad], board_count: int) -> list[int] | None:
-    """Shared geometric binding only; it never claims a correct board or sequence."""
-    if not 1 <= board_count <= 9 or len(quads) != board_count:
+def associate_partial_slots(quads: list[SourceQuad], board_count: int) -> dict[int, int] | None:
+    """Map quads to page slots when three rows and three columns anchor the page.
+
+    Returns ``{positionIndex: quadIndex}``. Detections on page slots past the
+    attested range (an end-of-range page) are left out; the caller records
+    them as ignored. Any ambiguity returns None instead of a guess.
+    """
+    if not 1 <= board_count <= PAGE_SLOT_ROWS * PAGE_SLOT_COLUMNS or not quads:
         return None
     if any(
         _overlap(quad, other) for index, quad in enumerate(quads) for other in quads[index + 1 :]
     ):
         return None
-    source_centres = [
-        (sum(point.x for point in quad.corners) / 4, sum(point.y for point in quad.corners) / 4)
-        for quad in quads
-    ]
-    # Camera rotation can move a later column below the next row in raw y.
-    # Derive axes from actual board edges before proposing a row-major draft.
+    frame = _page_frame(quads)
+    if frame is None:
+        return None
+    centres, widths, heights = frame
+    rows = _axis_clusters([centre[1] for centre in centres], statistics.median(heights) * 0.5)
+    columns = _axis_clusters([centre[0] for centre in centres], statistics.median(widths) * 0.5)
+    if rows is None or columns is None:
+        return None
+    if len(set(rows)) != PAGE_SLOT_ROWS or len(set(columns)) != PAGE_SLOT_COLUMNS:
+        return None
+    slots: dict[int, int] = {}
+    for index in range(len(quads)):
+        position = rows[index] * PAGE_SLOT_COLUMNS + columns[index]
+        if position in slots:
+            return None
+        slots[position] = index
+    active = {position: index for position, index in slots.items() if position < board_count}
+    if not active or len(active) < board_count - PARTIAL_SLOT_MAXIMUM_MISSING:
+        return None
+    return active
+
+
+def _page_frame(
+    quads: list[SourceQuad],
+) -> tuple[list[tuple[float, float]], list[float], list[float]] | None:
+    """Project centres onto the median board axes; return centres, widths, heights."""
     right_vectors = []
     down_vectors = []
     for quad in quads:
@@ -630,13 +674,56 @@ def associate_quad_slots(quads: list[SourceQuad], board_count: int) -> list[int]
             (right[0] * y - right[1] * x) / determinant,
         )
 
-    centres = [project(x, y) for x, y in source_centres]
-    heights = sorted(
+    centres = [
+        project(
+            sum(point.x for point in quad.corners) / 4, sum(point.y for point in quad.corners) / 4
+        )
+        for quad in quads
+    ]
+    widths = [
+        abs(
+            project(quad.corners[1].x - quad.corners[0].x, quad.corners[1].y - quad.corners[0].y)[0]
+        )
+        for quad in quads
+    ]
+    heights = [
         abs(
             project(quad.corners[3].x - quad.corners[0].x, quad.corners[3].y - quad.corners[0].y)[1]
         )
         for quad in quads
-    )
+    ]
+    return centres, widths, heights
+
+
+def _axis_clusters(values: list[float], tolerance: float) -> list[int] | None:
+    """Rank 1-D clusters; a cluster wider than the tolerance is ambiguous."""
+    if tolerance <= 0:
+        return None
+    order = sorted(range(len(values)), key=lambda index: values[index])
+    labels = [0] * len(values)
+    label, first = 0, values[order[0]]
+    for previous, index in zip(order, order[1:], strict=False):
+        if values[index] - values[previous] > tolerance:
+            label, first = label + 1, values[index]
+        elif values[index] - first > tolerance:
+            return None
+        labels[index] = label
+    return labels
+
+
+def associate_quad_slots(quads: list[SourceQuad], board_count: int) -> list[int] | None:
+    """Shared geometric binding only; it never claims a correct board or sequence."""
+    if not 1 <= board_count <= 9 or len(quads) != board_count:
+        return None
+    if any(
+        _overlap(quad, other) for index, quad in enumerate(quads) for other in quads[index + 1 :]
+    ):
+        return None
+    frame = _page_frame(quads)
+    if frame is None:
+        return None
+    centres, _widths, raw_heights = frame
+    heights = sorted(raw_heights)
     tolerance = max(1.0, heights[len(heights) // 2] * 0.5)
     rows: list[list[int]] = []
     for index in sorted(range(len(quads)), key=lambda i: (centres[i][1], centres[i][0])):

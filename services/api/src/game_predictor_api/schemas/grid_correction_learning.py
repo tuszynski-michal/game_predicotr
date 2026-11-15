@@ -36,9 +36,7 @@ class GridCorrectionLearningPreviewCommand(CorrectionLearningClosedModel):
     )
     trainingMode: Literal["grid-only", "screen+grid"] = "grid-only"
     policyVersion: Literal["application-grid-corrections-v4"] | None = None
-    validationAssignments: dict[UUID, Literal["A", "B", "BUFFER"]] | None = Field(
-        None, max_length=20_000
-    )
+    validationAssignments: dict[UUID, Literal["A", "B", "BUFFER"]] | None = None
     rescueVariant: GridRescueVariantV1 | None = None
     historicalCohorts: list[GridModelEvaluationCohortPin] = Field(
         default_factory=list, max_length=7

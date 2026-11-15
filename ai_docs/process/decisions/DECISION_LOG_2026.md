@@ -16,6 +16,33 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-611 — Uczenie korekt bez limitu liczby źródeł
+
+Status: accepted. Data: 2026-11-15. Operator: „zrób taki limit żeby miał sens”,
+„a może znieść go całkiem”. TASK-1212. Zastępuje próg D-610 dla nowego kodu po migracji 0189.
+
+Kontekst: około 200 korekt może dotyczyć importów z ponad 20 000 zdjęć.
+Liczba źródeł kontekstu kolejności nie jest liczbą przykładów treningowych.
+Podnoszenie stałej do 100 000 lub miliona tylko przenosi arbitralną blokadę.
+
+Decyzja: usuwamy próg liczby źródeł z odczytu populacji, obu solverów,
+validationAssignments i sześciu funkcji SQL przez migrację
+`0189_grid_learning_no_source_cap`. Całe importy, role, kopie, bufory,
+walidacja kolejności, limit iteracji domknięcia, budżet pracy solvera,
+300 s poleceń/zapytań i budżety treningu pozostają bez zmian.
+Nie wybieramy podzbioru ani nie uruchamiamy treningu automatycznie.
+
+Migracja podmienia wyłącznie dokładne predykaty liczności na false;
+pozostała treść funkcji, właściciel i uprawnienia zostają. Downgrade
+odmawia przy kohortach przekraczających 20 000 członków.
+0188 zachowuje historyczną implementację i testy.
+
+Konsekwencje: populacja nadal jest przetwarzana w pamięci; zniesienie progu
+nie dowodzi wykonalności miliona zdjęć. Rzeczywisty limit czasu/pracy może
+nadal zatrzymać przygotowanie z jawnym błędem. Zmiana budżetów lub skalowanie
+algorytmu wymaga odrębnej analizy; nie wykonujemy benchmarku ani migracji
+bazy operatora w ramach tej poprawki.
+
 ## D-610 — Limit populacji uczenia siatek 20 000 źródeł
 
 Status: accepted. Data: 2026-11-13. Operator: „chcę mieć ten przycisk tak dostępny,

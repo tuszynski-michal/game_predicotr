@@ -1,30 +1,11 @@
 """D-610: one 20 000-source limit for grid-learning populations, in Python and SQL."""
 
-from types import SimpleNamespace
-
 import pytest
-from game_predictor_api.domain.grid_correction_incremental_split import solve_incremental_split
-from game_predictor_api.domain.grid_correction_split import (
-    CORRECTION_SOURCE_LIMIT,
-    CorrectionSplitError,
-    solve_correction_split,
-)
 from game_predictor_api.storage import source_recording_source_limit as limit
 
 
-def test_limit_is_twenty_thousand_sources() -> None:
-    assert CORRECTION_SOURCE_LIMIT == limit.SOURCE_LIMIT == 20_000
-
-
-@pytest.mark.parametrize("solve", [solve_correction_split, solve_incremental_split])
-def test_solvers_reject_only_populations_above_the_limit(solve) -> None:
-    too_many = [SimpleNamespace(source_id=f"{i:06d}") for i in range(CORRECTION_SOURCE_LIMIT + 1)]
-    with pytest.raises(CorrectionSplitError, match="Source limit exceeded"):
-        solve(too_many)
-    # 7039 sources (Mumie A2, 2026-11-13) pass the limit and reach source validation.
-    with pytest.raises(CorrectionSplitError) as error:
-        solve([SimpleNamespace(source_id=f"{i:06d}", import_id="") for i in range(7039)])
-    assert "Source limit exceeded" not in str(error.value)
+def test_historical_migration_limit_is_twenty_thousand_sources() -> None:
+    assert limit.SOURCE_LIMIT == 20_000
 
 
 class Connection:

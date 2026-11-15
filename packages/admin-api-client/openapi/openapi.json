@@ -13311,7 +13311,6 @@
                   ],
                   "type": "string"
                 },
-                "maxProperties": 20000,
                 "propertyNames": {
                   "format": "uuid"
                 },
@@ -16012,7 +16011,6 @@
                   ],
                   "type": "string"
                 },
-                "maxProperties": 20000,
                 "propertyNames": {
                   "format": "uuid"
                 },
@@ -16209,7 +16207,6 @@
                   ],
                   "type": "string"
                 },
-                "maxProperties": 20000,
                 "propertyNames": {
                   "format": "uuid"
                 },

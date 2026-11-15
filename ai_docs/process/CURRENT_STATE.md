@@ -20,7 +20,7 @@ Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `don
 
 - **Mumie A2 / TASK-1199–1200:** default i gra=`abe39bce` (rev4, PASS `31a0526b`); `bf327cfa` do powrotu. Źródło: D-606.
 
-- **Uczenie siatek / TASK-1203–1204:** bramka v5, limit 20 000 źródeł; migracja `0188` (operator). Źródło: D-610.
+- **Uczenie / TASK-1212:** bez progu zdjęć; `0189` w bazie dev; kolizja 0189 z `claude/partial-slot-binding`. Źródło: D-611.
 
 - **Selektor1.0.5:** zaakceptowany; reboot/odbiorca pending. Źródło: `quality/SELECTOR_SMOOTH_1_0_5_20261103.md`.
 
@@ -99,6 +99,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1212** — Uczenie bez limitu zdjęć — v1.7.639 — tasks/completed/1212-grid-learning-without-source-cap.md
 - **TASK-1211** — Job symboli po korekcie siatek — v1.7.637 / `7d1a2c85` — tasks/completed/1211-corrected-grid-symbol-reinference.md
 - **TASK-1210** — Korekta symboli z modala supergry — v1.7.636 / `b4702104` — tasks/completed/1210-super-series-symbol-corrections.md
 - **TASK-1204** — Limit populacji uczenia 20 000 — v1.7.634 / `ec2146f1` — tasks/completed/1204-grid-learning-source-limit.md
@@ -108,4 +109,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1200** — Limity poleceń kohort 300 s — v1.7.626 / `1db19236` — tasks/completed/1200-grid-cohort-300s-budgets.md
 - **TASK-1199** — Domyślny zakres importów uczenia korekt — v1.7.625 / `7203e1db` — tasks/completed/1199-grid-learning-import-scope.md
 - **TASK-1195** — Szybkie wyszukiwanie członkostwa kohort — v1.7.617 / `e58e22e7` — tasks/completed/1195-grid-cohort-member-refs.md
-- **TASK-1192** — Naprawa dwóch pozostałych testów API — v1.7.621 / `880c319e` — tasks/completed/1192-fix-two-legacy-api-tests.md

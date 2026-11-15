@@ -6,6 +6,16 @@ last_updated: 2026-11-11
 
 # Architektura laboratorium wizji
 
+## Correction source population admission (TASK-1212, D-611)
+
+Population reads and both correction solvers have no source-cardinality cap.
+The API's validationAssignments maps likewise have no maxProperties cap.
+Migration 0189 replaces only the six source/context cardinality predicates
+installed by 0188; closure iteration limits, security, ownership, SQL deadlines,
+solver work budgets and training budgets remain. Whole-import chronology and
+role protections are unchanged. The population remains materialized in memory;
+this is not a scalability claim. Downgrade refuses cohorts above 20 000 members.
+
 ## Effective learning panel and comparison (TASK-1185, D-602)
 
 `GridCorrectionLearningService` projects the v4 split's `learningMaterial` and,

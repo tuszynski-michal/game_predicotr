@@ -6,6 +6,11 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1210 — Korekta symboli z modala supergry (done)
+
+- Plik: `tasks/completed/1210-super-series-symbol-corrections.md`; commit **v1.7.636**.
+- Przycisk „Popraw symbole” w modalu serii otwiera istniejący edytor od razu w trybie poprawiania; podgląd linii bez zmian, bez zmiany API. Testy 10/11 (zastany konflikt kopii Reacta w Adminie), build Reviewera PASS.
+
 ### TASK-1204 — Limit populacji uczenia 20 000 (done)
 
 - Plik: `tasks/completed/1204-grid-learning-source-limit.md`; commit **v1.7.634 / `ec2146f1bf3895b41896848cbf381b96f324a3db`**; decyzja D-610.

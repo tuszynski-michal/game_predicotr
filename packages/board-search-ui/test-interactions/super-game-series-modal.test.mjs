@@ -664,6 +664,11 @@ test('Esc in the lines window closes only that window; a cell correction there r
   );
   await click(button('Pokaż planszę z liniami', dialog()));
   await eventually(() => linesDialog() !== null, 'the lines window opens');
+  assert.equal(
+    linesDialog().querySelector('.boardSearchBoardCellTarget'),
+    null,
+    'the existing lines action still starts outside edit mode',
+  );
   // The browser turns Esc on the top-most dialog into its `cancel` event.
   await act(async () =>
     linesDialog().dispatchEvent(
@@ -708,6 +713,104 @@ test('Esc in the lines window closes only that window; a cell correction there r
     'the results are read again after the correction',
   );
   await act(async () => root.unmount());
+});
+
+test('the series modal opens corrections directly and refreshes the same board and search after saving', async () => {
+  const { calls, client } = makeClient();
+  const root = await renderWithResults(client);
+  try {
+    await click(card().querySelector('button.boardSearchSuperGameLink'));
+    await eventually(
+      () => button('Popraw symbole', dialog() ?? document) !== undefined,
+      'the series offers a direct correction action',
+    );
+    const searches = calls.searches;
+    await click(button('Popraw symbole', dialog()));
+    await eventually(
+      () => linesDialog()?.querySelector('.boardSearchBoardCellTarget'),
+      'the editor opens with editable cells immediately',
+    );
+    assert.ok(button('Zakończ poprawianie', linesDialog()));
+    await press('2');
+    await press('Enter');
+    assert.equal(calls.saves.length, 0, 'series shortcuts stay blocked');
+    await click(linesDialog().querySelector('.boardSearchBoardCellTarget'));
+    await click(linesDialog().querySelector('button[title="Symbol lemon"]'));
+    await eventually(
+      () => calls.corrections.length === 1,
+      'the correction is saved',
+    );
+    assert.equal(calls.corrections[0].sequence, 103);
+    assert.equal(calls.corrections[0].cellIndex, 0);
+    assert.equal(calls.corrections[0].body.targetSymbolCode, 'LEMON');
+    await click(button('Zamknij', linesDialog()));
+    await eventually(
+      () =>
+        dialog()?.querySelector('.superGameSeriesSymbolGrid')?.textContent ===
+        'LEMON'.repeat(15),
+      'the series rereads its corrected symbols',
+    );
+    assert.match(dialog().querySelector('h4').textContent, /#103/);
+    assert.equal(
+      calls.searches,
+      searches,
+      'search waits for the series to close',
+    );
+    await click(button('Zamknij', dialog()));
+    await eventually(
+      () => calls.searches === searches + 1,
+      'search is refreshed',
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('cancelling direct correction restores its opener and preserves the unsaved super symbol', async () => {
+  const { calls, client } = makeClient();
+  const root = await renderWithResults(client);
+  try {
+    await click(card().querySelector('button.boardSearchSuperGameLink'));
+    await eventually(
+      () => button('Popraw symbole', dialog() ?? document),
+      'correction action appears',
+    );
+    await press('1');
+    const opener = button('Popraw symbole', dialog());
+    await click(opener);
+    await eventually(() => linesDialog() !== null, 'the editor opens');
+    await act(async () =>
+      linesDialog().dispatchEvent(
+        new dom.window.Event('cancel', { bubbles: false, cancelable: true }),
+      ),
+    );
+    await eventually(() => linesDialog() === null, 'the editor closes');
+    assert.equal(document.activeElement, opener);
+    assert.equal(dialog().querySelector('select').value, 'symbol-cherry');
+    assert.equal(calls.corrections.length, 0);
+    assert.equal(calls.saves.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('a read-only series client does not offer the direct correction action', async () => {
+  const { client } = makeClient();
+  delete client.correctBoardSearchCell;
+  const root = await renderWithResults(client);
+  try {
+    await click(card().querySelector('button.boardSearchSuperGameLink'));
+    await eventually(
+      () =>
+        dialog()?.querySelector('.superGameSeriesSymbolGrid') !== null &&
+        dialog() !== null,
+      'the board reading is ready',
+    );
+    assert.equal(button('Popraw symbole', dialog()), undefined);
+    assert.ok(button('Pokaż planszę z liniami', dialog()));
+  } finally {
+    await act(async () => root.unmount());
+  }
 });
 
 test('Admin opens the editable series modal in StrictMode, saves with its revision, refreshes search and stays on the same page', async () => {

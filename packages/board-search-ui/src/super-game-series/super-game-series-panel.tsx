@@ -8,14 +8,7 @@ import type {
   SuperGameStateResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BoardSearchBoardLinesModal } from '../board-search-board-lines-modal';
 import type { BoardSearchModalDetail } from '../board-search-data-source';
@@ -220,7 +213,10 @@ export function SuperGameSeriesPanel({
   const [details, setDetails] = useState<Readonly<Record<string, DetailEntry>>>(
     {},
   );
-  const [linesSequence, setLinesSequence] = useState<number | null>(null);
+  const [linesTarget, setLinesTarget] = useState<{
+    readonly sequenceNumber: number;
+    readonly startInEditMode: boolean;
+  } | null>(null);
   // The search for the next series without a super symbol is in flight.
   const [findingNext, setFindingNext] = useState(false);
   const findingNextRef = useRef(false);
@@ -680,7 +676,7 @@ export function SuperGameSeriesPanel({
     latest.current = {
       cancel: () =>
         setView((state) => state && cancelSuperSymbolCandidate(state)),
-      linesOpen: linesSequence !== null,
+      linesOpen: linesTarget !== null,
       move: (direction) =>
         setView((state) => state && moveSeriesPosition(state, direction)),
       nextUndefined: openNextUndefinedSeries,
@@ -739,7 +735,6 @@ export function SuperGameSeriesPanel({
         detailEntry={detailKey === null ? undefined : details[detailKey]}
         findingNext={findingNext}
         gameId={gameId}
-        linesTrigger={linesTrigger}
         onBack={onBack}
         onCancel={() =>
           setView((state) => state && cancelSuperSymbolCandidate(state))
@@ -754,7 +749,10 @@ export function SuperGameSeriesPanel({
           setView((state) => state && moveSeriesPosition(state, direction))
         }
         onNextUndefined={openNextUndefinedSeries}
-        onOpenLines={setLinesSequence}
+        onOpenLines={(sequenceNumber, startInEditMode, trigger) => {
+          linesTrigger.current = trigger;
+          setLinesTarget({ sequenceNumber, startInEditMode });
+        }}
         onSave={save}
         onSelect={(symbolId) =>
           setView(
@@ -768,13 +766,13 @@ export function SuperGameSeriesPanel({
         viewError={viewError}
       />
 
-      {linesSequence !== null ? (
+      {linesTarget !== null ? (
         <BoardSearchBoardLinesModal
           api={api}
           formatAmount={formatAmount}
           gameId={gameId}
           onClose={(edited) => {
-            setLinesSequence(null);
+            setLinesTarget(null);
             if (edited) {
               refreshSeries();
               callbacks.current.onBoardEdited?.();
@@ -790,7 +788,8 @@ export function SuperGameSeriesPanel({
           row={null}
           rulesVersionId={null}
           rulesVersions={rulesVersions}
-          sequenceNumber={linesSequence}
+          sequenceNumber={linesTarget.sequenceNumber}
+          startInEditMode={linesTarget.startInEditMode}
           symbols={symbols}
         />
       ) : null}
@@ -817,7 +816,6 @@ function SeriesView({
   detailEntry,
   findingNext,
   gameId,
-  linesTrigger,
   onBack,
   onCancel,
   onClear,
@@ -838,14 +836,17 @@ function SeriesView({
   readonly detailEntry: DetailEntry | undefined;
   readonly findingNext: boolean;
   readonly gameId: string;
-  readonly linesTrigger: RefObject<HTMLButtonElement | null>;
   readonly onBack: (() => void) | undefined;
   readonly onCancel: () => void;
   readonly onClear: () => void;
   readonly onGo: (index: number) => void;
   readonly onMove: (direction: -1 | 1) => void;
   readonly onNextUndefined: () => void;
-  readonly onOpenLines: (sequenceNumber: number) => void;
+  readonly onOpenLines: (
+    sequenceNumber: number,
+    startInEditMode: boolean,
+    trigger: HTMLButtonElement,
+  ) => void;
   readonly onSave: () => void;
   readonly onSelect: (symbolId: string | null) => void;
   readonly ordinary: readonly SymbolResponse[];
@@ -964,7 +965,6 @@ function SeriesView({
                   entry={detailEntry}
                   gameId={gameId}
                   key={activeCard.sequenceNumber}
-                  linesTrigger={linesTrigger}
                   onOpenLines={onOpenLines}
                   selectedSymbol={candidate}
                   triggerCodes={triggerCodes}
@@ -1122,7 +1122,6 @@ function SeriesBoardView({
   card,
   entry,
   gameId,
-  linesTrigger,
   onOpenLines,
   selectedSymbol,
   triggerCodes,
@@ -1131,8 +1130,11 @@ function SeriesBoardView({
   readonly card: SeriesPositionCard;
   readonly entry: DetailEntry | undefined;
   readonly gameId: string;
-  readonly linesTrigger: RefObject<HTMLButtonElement | null>;
-  readonly onOpenLines: (sequenceNumber: number) => void;
+  readonly onOpenLines: (
+    sequenceNumber: number,
+    startInEditMode: boolean,
+    trigger: HTMLButtonElement,
+  ) => void;
   readonly selectedSymbol: SymbolResponse | undefined;
   readonly triggerCodes: readonly string[];
 }) {
@@ -1140,6 +1142,10 @@ function SeriesBoardView({
   const board = card.board;
   const checksum = board?.boardChecksumSha256 ?? null;
   const detail = entry?.kind === 'ready' ? entry.detail : null;
+  const canCorrect =
+    (api.correctBoardSearchCell !== undefined ||
+      api.applySymbolCellReviewDecision !== undefined) &&
+    detail?.cells != null;
   const marked =
     detail === null ? [] : triggerCellIndexes(detail.symbolCodes, triggerCodes);
   const selected =
@@ -1262,10 +1268,22 @@ function SeriesBoardView({
       )}
 
       <div className="superGameSeriesActions">
+        {canCorrect ? (
+          <button
+            className="primaryButton"
+            onClick={(event) =>
+              onOpenLines(card.sequenceNumber, true, event.currentTarget)
+            }
+            type="button"
+          >
+            Popraw symbole
+          </button>
+        ) : null}
         <button
           className="secondaryButton"
-          onClick={() => onOpenLines(card.sequenceNumber)}
-          ref={linesTrigger}
+          onClick={(event) =>
+            onOpenLines(card.sequenceNumber, false, event.currentTarget)
+          }
           type="button"
         >
           Pokaż planszę z liniami

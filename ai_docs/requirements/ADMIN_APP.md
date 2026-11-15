@@ -2128,6 +2128,12 @@ dostarcza listę, symbole, wersję reguł i odpytywanie stanu):
   3×5 z wyróżnionymi komórkami symbolu uruchamiającego (komórki są też
   zaznaczone na kadrze, gdy API zwraca wielokąty komórek) oraz przycisk
   „Pokaż planszę z liniami”, który otwiera okno linii z wyszukiwania plansz.
+  Przycisk „Popraw symbole” (TASK-1210), dostępny dla planszy z danymi
+  korekty i klientem obsługującym zapis, otwiera ten sam edytor od razu
+  w trybie poprawiania pól, również w modalu odbiorcy linku. Podgląd linii
+  nadal otwiera się w trybie odczytu. Po zamknięciu edytora bez zapisu fokus
+  wraca do użytego przycisku; zapis odświeża serię i oznaczenia, a zamknięcie
+  modala serii odświeża wyniki wyszukiwania.
   Symbole komórek są czytane z wersji reguł: najnowszy draft, a przy jego
   braku najnowsza opublikowana,
 - bieżący wybór symbolu serii (również przed zapisem) wyróżnia jego dokładne

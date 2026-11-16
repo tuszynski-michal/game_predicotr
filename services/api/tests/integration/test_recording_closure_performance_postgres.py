@@ -74,7 +74,19 @@ def _function_metadata(connection):
     }
 
 
-def _cohort(session, game, family, pins, *, stale=False, conflict=False, diagnostic=False):
+def _cohort(
+    session,
+    game,
+    family,
+    pins,
+    *,
+    stale=False,
+    conflict=False,
+    diagnostic=False,
+    mode="grid-only",
+    full_photos=False,
+    policy="application-grid-corrections-v4",
+):
     identifier = uuid4()
     values = deepcopy(pins)
     if stale:
@@ -84,8 +96,8 @@ def _cohort(session, game, family, pins, *, stale=False, conflict=False, diagnos
     if diagnostic:
         values[30]["role"] = "REGRESSION"
     document = {
-        "policyVersion": "application-grid-corrections-v4",
-        "mode": "grid-only",
+        "policyVersion": policy,
+        "mode": mode,
         "familyId": str(family),
         "photoSplit": {
             "sha256": "b" * 64,
@@ -100,17 +112,18 @@ def _cohort(session, game, family, pins, *, stale=False, conflict=False, diagnos
     )
     for index, pin in enumerate(values):
         used = index < 20
+        boards = 9 if full_photos and index < 15 else 3
         frozen = {
             "used": used,
-            "boardEligibleCount": 3 if used else 0,
-            "screenEligible": False,
+            "boardEligibleCount": boards if used else 0,
+            "screenEligible": full_photos and index < 15,
             "recording": {
                 "qualification": "eligible",
                 "evidenceLevel": "photo-only",
                 "validationPurpose": pin["validationPurpose"],
                 "assessmentPolicy": "human-labeled-targets-v1",
             },
-            "positions": [{"label": {} if used and n < 3 else None} for n in range(9)],
+            "positions": [{"label": {} if used and n < boards else None} for n in range(9)],
         }
         session.execute(
             text("""INSERT INTO grid_training_cohort_members(game_id,cohort_id,source_id,
@@ -283,6 +296,11 @@ def test_context_parity_migration_security_and_two_page_registration():
             }
             metadata = _function_metadata(session.connection())
         print("1235 original contexts captured", flush=True)
+        command.upgrade(_config(db), "0191_grid_cohort_linear_closure")
+        with db.owner_engine.connect() as connection:
+            before_header = connection.scalar(
+                text("SELECT pg_get_functiondef(to_regprocedure(:s))"), {"s": COHORT}
+            )
         command.upgrade(_config(db), "head")
         with Session(db.owner_engine) as session, session.begin():
             scope(session, game)
@@ -315,6 +333,18 @@ def test_context_parity_migration_security_and_two_page_registration():
             bad_role = _cohort(session, game, family, pins, conflict=True)
             stale = _cohort(session, game, family, pins, stale=True)
             bad_diagnostic = _cohort(session, game, family, pins, diagnostic=True)
+            bad_full = _cohort(session, game, family, pins, mode="screen+grid")
+            bad_binding = _cohort(session, game, family, pins, policy="invalid")
+            excluded_pins = deepcopy(pins)
+            excluded_pins[21]["role"] = "TRAIN"
+            bad_excluded = _cohort(session, game, family, excluded_pins)
+            selection_pins = deepcopy(pins)
+            selection_pins[23]["role"] = "VALIDATION"
+            selection_pins[23]["validationPurpose"] = "B"
+            bad_selection = _cohort(session, game, family, selection_pins)
+            screen_ready = _cohort(
+                session, game, family, pins, mode="screen+grid", full_photos=True
+            )
             ready = _cohort(session, game, family, pins)
         with Session(db.app_engine) as session, session.begin():
             scope(session, game)
@@ -324,9 +354,17 @@ def test_context_parity_migration_security_and_two_page_registration():
                 (bad_role, "RECORDING_ROLE_CONFLICT"),
                 (stale, "GRID_CORRECTION_REGISTRY_CHANGED"),
                 (bad_diagnostic, "GRID_VALIDATION_DIAGNOSTIC_EXPOSED"),
+                (bad_full, "GRID_COHORT_FULL_PHOTO_REQUIRED"),
+                (bad_binding, "RECORDING_BINDING_INVALID"),
+                (bad_excluded, "GRID_CORRECTION_REGISTRY_CHANGED"),
+                (bad_selection, "GRID_VALIDATION_SELECTION_EXPOSED"),
             ):
                 with pytest.raises(DBAPIError, match=error), session.begin_nested():
                     _command(session, game, identifier, "register_cohort_use", 4)
+            with session.begin_nested() as screen_attempt:
+                screen_registered = _command(session, game, screen_ready, "register_cohort_use", 4)
+                assert screen_registered["cohortId"] == str(screen_ready)
+                screen_attempt.rollback()
             registered = _command(session, game, ready, "register_cohort_use", 4)
         with Session(db.owner_engine) as session, session.begin():
             scope(session, game)
@@ -334,12 +372,30 @@ def test_context_parity_migration_security_and_two_page_registration():
                 session.scalar(
                     text(
                         "SELECT count(*) FROM public.recording_photo_uses "
-                        "WHERE cohort_id IN (:a,:b)"
+                        "WHERE cohort_id IN (:a,:b,:d,:f,:i,:e,:s,:screen)"
                     ),
-                    {"a": bad_role, "b": stale},
+                    {
+                        "a": bad_role,
+                        "b": stale,
+                        "d": bad_diagnostic,
+                        "f": bad_full,
+                        "i": bad_binding,
+                        "e": bad_excluded,
+                        "s": bad_selection,
+                        "screen": screen_ready,
+                    },
                 )
                 == 0
             )
+            assert set(
+                session.scalars(
+                    text(
+                        "SELECT source_id FROM public.recording_photo_reservation_releases "
+                        "WHERE released_by_game=:g AND released_by_cohort=:c"
+                    ),
+                    {"g": game, "c": ready},
+                )
+            ) == {ids[23], ids[24]}
             session.execute(
                 text(
                     "UPDATE grid_training_cohorts SET status='frozen',revision=5 "
@@ -353,6 +409,15 @@ def test_context_parity_migration_security_and_two_page_registration():
             validated = _command(session, game, ready, "validate_cohort_use", 5)
             assert validated["splitSha256"] == registered["splitSha256"]
         print("1235 role/stale guards and fresh-connection validation passed", flush=True)
+        command.downgrade(_config(db), "0191_grid_cohort_linear_closure")
+        with db.owner_engine.connect() as connection:
+            assert (
+                connection.scalar(
+                    text("SELECT pg_get_functiondef(to_regprocedure(:s))"), {"s": COHORT}
+                )
+                == before_header
+            )
+            assert _function_metadata(connection) == metadata
         command.downgrade(_config(db), "0190_grid_gate_improvement")
         with Session(db.app_engine) as session, session.begin():
             scope(session, game)

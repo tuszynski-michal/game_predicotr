@@ -151,3 +151,48 @@ def rewrite_closure_functions(connection: Connection, *, restore: bool = False) 
         replacements.append(rewrite_definition(signature, definition, restore=restore))
     for definition in replacements:
         connection.exec_driver_sql(definition)
+
+
+_HEADER_SELECT = " SELECT c.revision,c.status,c.document,c.manifest_sha256 INTO header"
+_HEADER_PROJECTED = """ -- TASK-1235: project once to avoid repeated document detoasting.
+ SELECT c.revision,c.status,c.document->>'policyVersion' AS policy_version,
+  c.document->>'mode' AS cohort_mode,c.document->>'familyId' AS family_id,
+  c.document->'photoSplit'->'contentSampling'->>'policy' AS sampling_policy,
+  c.document->'photoSplit' AS photo_split,c.manifest_sha256 INTO header"""
+_HEADER_REPLACEMENTS = (
+    (_HEADER_SELECT, _HEADER_PROJECTED, 1),
+    ("header.document->>'policyVersion'", "header.policy_version", 1),
+    ("header.document->>'mode'", "header.cohort_mode", 3),
+    ("header.document->>'familyId'", "header.family_id", 1),
+    (
+        "header.document->'photoSplit'->'contentSampling'->>'policy'",
+        "header.sampling_policy",
+        1,
+    ),
+    ("header.document->'photoSplit'", "header.photo_split", 1),
+)
+
+
+def rewrite_header_definition(definition: str, *, restore: bool = False) -> str:
+    """Cache immutable header fields without changing admission or cast timing."""
+    replacements: tuple[tuple[str, str, int], ...] = _HEADER_REPLACEMENTS
+    if restore:
+        replacements = tuple((new, old, count) for old, new, count in reversed(replacements))
+    for before, after, count in replacements:
+        if definition.count(before) != count:
+            raise RuntimeError(f"{COHORT} does not carry the expected header fragments.")
+        definition = definition.replace(before, after)
+    if not restore and "header.document" in definition:
+        raise RuntimeError(f"{COHORT} has an unexpected large-header access.")
+    return definition
+
+
+def rewrite_header_function(connection: Connection, *, restore: bool = False) -> None:
+    """Preserve the existing function identity, privileges and security settings."""
+    definition = connection.scalar(
+        text("SELECT pg_get_functiondef(to_regprocedure(:signature))"),
+        {"signature": COHORT},
+    )
+    if not isinstance(definition, str):
+        raise RuntimeError(f"Missing closure function: {COHORT}.")
+    connection.exec_driver_sql(rewrite_header_definition(definition, restore=restore))

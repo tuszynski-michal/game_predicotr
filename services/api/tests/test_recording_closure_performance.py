@@ -8,6 +8,8 @@ from game_predictor_api.storage.source_recording_closure_performance import (
     CONTEXT,
     rewrite_closure_functions,
     rewrite_definition,
+    rewrite_header_definition,
+    rewrite_header_function,
 )
 from game_predictor_api.storage.source_recording_sql_v8 import CONTEXT_SQL
 from game_predictor_api.storage.source_recording_sql_v10 import PHOTO_SQL
@@ -91,3 +93,28 @@ def test_rewrite_uses_complete_definitions_in_their_original_order():
     connection = FakeConnection(originals)
     rewrite_closure_functions(cast(Connection, connection))
     assert connection.writes == [rewrite_definition(key, value) for key, value in originals.items()]
+
+
+def test_header_projection_roundtrip_preserves_guards_and_cast_timing():
+    import re
+
+    original = rewrite_definition(COHORT, definitions()[COHORT])
+    improved = rewrite_header_definition(original)
+    assert rewrite_header_definition(improved, restore=True) == original
+    assert "header.document" not in improved
+    assert re.findall(r"RAISE EXCEPTION\s+'([^']+)'", improved) == re.findall(
+        r"RAISE EXCEPTION\s+'([^']+)'", original
+    )
+    assert "IF NOT FOUND OR header.policy_version" in improved
+    assert "(header.family_id)::uuid" in improved
+    assert "AS family_id" in improved and "AS family_id::uuid" not in improved
+    with pytest.raises(RuntimeError):
+        rewrite_header_definition(improved)
+
+
+@pytest.mark.parametrize("broken", [None, "unexpected body", PHOTO_SQL + " header.document->'x'"])
+def test_header_preflight_fails_without_writing(broken):
+    connection = FakeConnection({COHORT: broken})
+    with pytest.raises(RuntimeError):
+        rewrite_header_function(cast(Connection, connection))
+    assert not connection.writes

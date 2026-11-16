@@ -29,6 +29,10 @@ The 25,631-source plan contains 428 TRAIN, 41 VALIDATION, 13 REGRESSION,
 402 BUFFER and 24,747 unassigned sources. All sources must retain their
 registry proof validation, including those not used for training.
 
+After the 0191 retry, the operator approved the additional 20–40-minute repair,
+test/review cost and deployment/resume after successful checks. Continuation
+targets repeated large-header reads only; no new product or architecture decision.
+
 ## Relevant docs
 
 - `AGENTS.md`
@@ -62,7 +66,7 @@ registry proof validation, including those not used for training.
 
 - Existing: `storage/schema_readiness.py`, schema readiness tests, architecture,
   code maps, this task and current state.
-- Proposed: migration 0191 and focused PostgreSQL regression tests; exact SQL
+- Proposed: migrations 0191/0192 and focused PostgreSQL regression tests; exact SQL
   changes will follow the measured bottleneck rather than a broad registry rewrite.
 
 ## Technical notes
@@ -98,8 +102,9 @@ source has no registry links. The repair will preserve byte-identical context JS
 
 ## Outcome
 
-Implementation prepared; existing SQL function definitions captured read-only under
-`.runtime/task1235-baseline`. No operator database schema or workflow state changed.
+Migration 0191 was deployed and its full-data retry timed out. The measured
+header-read continuation (0192) passed focused review; deployment/resume is pending.
+Existing definitions/evidence are under `.runtime/task1235-baseline`.
 
 ### Changed
 
@@ -136,19 +141,101 @@ Implementation prepared; existing SQL function definitions captured read-only un
 
 ### Not completed
 
-- Commit, approved database cutover and same-parent resume.
-- Live full-cohort registration within 300 seconds remains to be verified after
-  migration. Original parent/cohort/command/artifact identities remain preserved.
+- Complete live registration within 300 seconds. Migration 0191, restart and
+  same-parent resume were completed, but the full retry still timed out.
+
+### Deployment and full-data result
+
+- Operator accepted the audited result and explicitly authorized merge/push,
+  migration, service restart and same-parent resume. Commit `v1.7.651`,
+  `4dbb57b5ecae9d966f86957fafbfe27d76e048f4`, is in main and origin/main.
+- Alembic 0190 -> 0191 completed with API/all three lanes stopped. New-connection
+  SHA verification matched both function definitions to the approved preview.
+  45 tracked operator changes were restored and verified; recovery stash retained.
+- API and all lanes restarted with budgets 7/5/1 and the same CUDA interpreter.
+  Resume at 16:15:01 UTC retained all original IDs and command/artifact bindings.
+  Attempt 5265 completed the Python member loop, then its registry SQL reached
+  the 300-second budget again. No trainingRunId/candidate was created.
+- Bounded read-only follow-up on the actual header (22,235,980 bytes): 32
+  `header.document->>'mode'` accesses took 1.428059 s, versus 0.000081 s using
+  the already-extracted scalar. PostgreSQL detoasts the large document repeatedly
+  through the record field. Cohort v4 repeats this access inside the population
+  loop. Evidence: `.runtime/task1235-header-probe.json`. No schema/workflow write
+  or new retry occurred during this measurement.
+- The context optimization is valid but insufficient. Remaining repair: extract
+  immutable header scalars once, preserve every conditional/admission check, and
+  publish the next function-body change through a new Alembic migration. Additional
+  implementation/test/audit cost approval was requested before starting that work.
+
+### Authorized continuation
+
+- Migration 0192 will project immutable policy/mode/family/content-sampling scalars
+  and the split once in the existing header SELECT. Replace every later document
+  access with its equivalent projected field; preserve FOUND/NULL logic and keep
+  the family UUID cast at the original insert site. No historical migration edit.
+- Expected changes: existing rewrite module, migration 0192, schema head/test,
+  unit/PostgreSQL regressions, maps, architecture, task/current-state documentation.
+- Recheck both grid-only and screen+grid admission, invalid binding/full-photo/
+  exclusion/selection guards, releases, exact 0191 downgrade, permissions and fresh
+  connections. Focused Claude round 2 covers this measured continuation.
+
+### Continuation verification
+
+- Unit/schema regressions: 39 PASS. Dedicated disposable PostgreSQL test:
+  PASS, 84.86 s. Both grid-only and screen+grid registration paths passed; invalid
+  policy binding, partial full-photo material, newUseExcluded inconsistency,
+  validation-B selection exposure, stale proof and diagnostic/alias conflicts
+  failed as required. Failed attempts and rolled-back screen registration left
+  no use; successful registration released exactly the two expected reservations.
+- Downgrade 0192 -> 0191 restored the complete function definition byte-for-byte;
+  downgrade to 0190 and upgrade to head also passed. Function metadata remained
+  identical and restricted-role/fresh-connection checks passed.
+- Bounded read-only preview of the actual header projection: all scalar fields
+  and photoSplit exactly equal; 32 reads through the projected record took
+  0.000516 s. No function/schema publication. Evidence:
+  `.runtime/task1235-header-preview.json`. This is not a full-registration forecast.
+- Scoped ruff lint/format PASS; maps regenerated/check PASS; docs/check/window
+  PASS; strict scoped mypy with silent imports PASS (3 source/migration files).
+- Migration 0192 remains unapplied to operator data; no further resume yet.
+
+### Focused-review transport checkpoint
+
+- Round 2 transport 1 returned an auditor report, but validation rejected it:
+  `Finding cannot be both open and closed.` The closed-list explanation mentioned
+  P2-4 while P2-4 was listed open. This is not a validated PASS and was not used
+  to commit, migrate or resume. No automatic retry was started.
+- Failed request `81e626a96dbe9aec1a8dcef25bd7fb5cfc7d4e58649cf3863255a0fb63a66770`,
+  payload `9eb9bc7b0c24e5b6414eb3256a910f925416ad655d9c92b17685c9f25ff86199`;
+  receipt/limited diagnostics are preserved under `artifacts/audits/requests/`.
+  Explicit permission requested for one repeat with unambiguous list formatting.
+
+- Operator approved that single repeat. Local transport 2 stopped before launching
+  an auditor because the direct runner lacked its CLI argument; discovery via
+  `Resolve-AuditorCli` resolved it. Transport 3 performed the one approved paid
+  repeat on the unchanged package. The prompt added only a list-format clarification;
+  scope, verdict rules and validator were unchanged. Full original report was saved
+  before validation. No content or finding was edited to obtain PASS.
+- Focused round 2: Claude Opus 5.5, requested effort high, CLI PASS, 0 P0 / 0 P1.
+  Report: `../quality/TASK-1235_AUDIT_claude-opus-5-5.md`; its receipt/report SHA
+  and the retained round-1 receipt/report SHA were verified. Request history retains
+  the failed transports. P2-1 is closed by the expanded PostgreSQL regression.
+- P2-2/P2-3 retained as documented below. P2-4 retained: invalid-policy rejection
+  tests wrapper routing, not the rewritten private header rejection branch;
+  geometryOnlyTraining/contentSampling=true lacks a positive fixture. Static exact
+  rewrites/roundtrip and real-header field parity cover equivalence; this limitation
+  is accepted for the measured optimization. No claim of those branch tests passing.
 
 ### Independent review
 
 - Claude Opus 5.5, requested effort high, CLI round 1: PASS, 0 P0 / 0 P1.
-  Report: `../quality/TASK-1235_AUDIT_claude-opus-5-5.md`; adjacent receipt
+  Report: `../quality/TASK-1235_AUDIT_claude-opus-5-5_ROUND1.md`; adjacent receipt
   validates the report and frozen payload SHA
   `960675034f23080ba28146b971ad14a7f87b287e55356aca8f536532551be255`.
 - P2-1 retained: the historical effective-material assertion blocks its later
   cases. Dedicated parity/registration tests cover both preview modes and page
   boundaries, but not all later negative admission/release cases independently.
+  Continuation adds the requested full-photo, binding, exclusion, selection-B
+  and reservation-release assertions without weakening the historical test.
 - P2-2 retained: an absent page-cache entry would yield NULL; current identity
   validation and matching ID/preview arrays make this unreachable. Page prefetch
   can change precedence between two invalid-input errors, without admitting input.

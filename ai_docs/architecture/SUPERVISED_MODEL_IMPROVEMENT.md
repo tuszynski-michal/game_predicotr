@@ -8,17 +8,15 @@ last_updated: 2026-10-07
 
 ## Odczyt dowodów rejestracji kohort — TASK-1235
 
-Migracja `0191_grid_cohort_linear_closure` zachowuje podpisy, właścicieli,
-uprawnienia i JSON funkcji rejestru. Kontekst v3 rozpoznaje w partii do 200 źródeł
-brak początkowych powiązań po bajtach/pikselach i własnej historii użyć; tylko
-wtedy wylicza równoważny pusty kontekst, uwzględniając rzeczywiste zdarzenia
-diagnostyczne. Źródła powiązane lub z brakującą tożsamością nadal przechodzą
-dotychczasowe domknięcie. Kohorta v4 pobiera konteksty partiami, rozdzielając
-tryby preview, a wszystkie dotychczasowe kontrole wykonuje dla każdego źródła
-przed pierwszym zapisem użycia. Blokady, atomowość i limit 300 s pozostają bez zmian.
-Wywołania kontekstu przez `recording_training_scope_v1` i wyzwalacz
-`recording_validation_fence_v1` pozostają osobne dla źródeł. Przyspieszenie
-odczytu partii nie gwarantuje czasu pełnej rejestracji z historią powiązań.
+Migracje `0191_grid_cohort_linear_closure` i `0192_grid_cohort_header_cache`
+zachowują podpisy, właścicieli, uprawnienia i JSON rejestru. Kontekst v3 grupuje
+do 200 źródeł; bez powiązań bajtów/pikseli i historii użyć wylicza równoważny
+pusty kontekst z rzeczywistymi dowodami diagnostycznymi. Źródła powiązane lub
+z niepełną tożsamością przechodzą dotychczasowe domknięcie. Kohorta v4 pobiera
+partie z osobnymi trybami preview, a pola dużego nagłówka odczytuje raz. Każde
+źródło zachowuje kontrole przed zapisem. Blokady, atomowość i limit 300 s pozostają.
+Konteksty w `recording_training_scope_v1` i `recording_validation_fence_v1`
+pozostają osobne dla źródeł; czas całej kohorty wymaga weryfikacji.
 
 ## Ograniczone metadane JSON kohort siatek — TASK-1234
 

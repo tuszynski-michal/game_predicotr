@@ -1,16 +1,16 @@
 {
-  "request_sha256": "94dbefa67264bef04d0fa7019dd36ace1ab7f5f7ef7dcd0610d83666f949f436",
-  "payload_sha256": "960675034f23080ba28146b971ad14a7f87b287e55356aca8f536532551be255",
+  "request_sha256": "81e626a96dbe9aec1a8dcef25bd7fb5cfc7d4e58649cf3863255a0fb63a66770",
+  "payload_sha256": "9eb9bc7b0c24e5b6414eb3256a910f925416ad655d9c92b17685c9f25ff86199",
   "task": "TASK-1235",
-  "review_round": 1,
+  "review_round": 2,
   "requested_model": "claude-opus-5-5",
   "requested_effort": "high",
-  "report_sha256": "212e917a3f737b1b5e4535443567b5074b5d76522e474eb61fd7cd479c1d7f95",
+  "report_sha256": "b0ee6c1fbccd3e4d531d0cf06abc27483aadb56d3ba608fd62278a8d46c28cef",
   "verdict": "PASS",
   "transport": "cli",
   "evidence_source": "cli-system.init;effort-requested-only",
   "observed_model": "claude-opus-5-5",
-  "session_ref": "f0d70456-7157-4c85-b1cd-2cfc09cf4e2e",
+  "session_ref": "fcd74ce1-09e3-4392-ba23-382796c69d9b",
   "effort_evidence": {
     "requested_only": "high"
   }

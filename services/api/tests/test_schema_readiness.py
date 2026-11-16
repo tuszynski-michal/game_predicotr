@@ -15,8 +15,11 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0191_grid_cohort_linear_closure"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0192_grid_cohort_header_cache"
     assert script.get_revision(schema_readiness.EXPECTED_ALEMBIC_HEAD).down_revision == (
+        "0191_grid_cohort_linear_closure"
+    )
+    assert script.get_revision("0191_grid_cohort_linear_closure").down_revision == (
         "0190_grid_gate_improvement"
     )
     assert script.get_revision("0190_grid_gate_improvement").down_revision == (

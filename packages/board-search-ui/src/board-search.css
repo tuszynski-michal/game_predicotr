@@ -1044,3 +1044,53 @@
 .boardSearchSuperGameStale {
   border-color: var(--warning, #f2c66d);
 }
+
+.boardSearchChartPreview {
+  box-sizing: border-box;
+  width: min(100%, 380px);
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--border, #666);
+  border-radius: 8px;
+}
+
+.boardSearchChartPreviewHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.boardSearchChartPreview img {
+  display: block;
+  width: 100%;
+  max-height: min(230px, 35vh);
+  object-fit: contain;
+}
+
+.boardSearchChartPreview button {
+  min-height: 44px;
+}
+
+.boardSearchChartPreviewAction {
+  cursor: pointer;
+}
+
+.boardSearchChartPreviewAction rect {
+  fill: var(--panel-raised);
+  stroke: var(--line-strong);
+}
+
+.boardSearchChartPreviewAction text {
+  fill: var(--accent);
+}
+
+.boardSearchChartPreviewButton {
+  min-height: 44px;
+}
+
+.boardSearchChartPreviewAction:focus rect {
+  stroke: currentColor;
+  stroke-width: 2px;
+}

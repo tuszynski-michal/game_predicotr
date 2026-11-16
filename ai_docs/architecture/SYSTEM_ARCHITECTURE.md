@@ -6,6 +6,17 @@ last_updated: 2026-10-05
 
 # Architektura systemu
 
+## Podgląd planszy z wykresu — TASK-1232
+
+`ApproximateWinBalanceChart` w `board-search-ui` przyjmuje opcjonalny klient
+podglądu. Bieżąca wyszukiwarka Admina, Reviewer i dziennik zapytań używają
+istniejących portów szczegółów i zdjęcia planszy; nie powstaje endpoint ani
+osobna logika dla linków. `BoardSearchChartPreview` jest nieblokującą kartą
+pod wykresem, powiązaną z fingerprintem wyniku, spinem i pozycją planszy
+z wiersza API. Asset wiąże checksum i rewizję widoku. Spóźniona odpowiedź
+z zamkniętego lub zastąpionego podglądu jest ignorowana. Niezmienne widoki
+historyczne bez klienta zachowują dotychczasowe zachowanie.
+
 ## Zapis przez udostępnioną wyszukiwarkę — D-492 / TASK-0845
 
 Powierzchnia `board-search-api` Reviewera dopuszcza dokładny POST decyzji

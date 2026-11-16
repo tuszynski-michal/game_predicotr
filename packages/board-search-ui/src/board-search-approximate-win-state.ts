@@ -378,7 +378,7 @@ export function approximateWinPointAtSpin(
   };
 }
 
-/** Highest end-of-spin balance near a click; ties prefer proximity, then earlier spins. */
+/** Highest recognized winning point near a click; never snap to an empty spin. */
 export function approximateWinBestPointNearSpin(
   result: ApproximateWinResponse,
   spinNumber: number,
@@ -390,30 +390,29 @@ export function approximateWinBestPointNearSpin(
     spinNumber + APPROXIMATE_WIN_CLICK_SNAP_RADIUS,
   );
   const costs = approximateWinCostSchedule(result);
-  let bestSpin = first;
-  let bestBalance = Number.NEGATIVE_INFINITY;
-  let rowIndex = 0;
-  let payout = 0;
-  // Scan sorted payout rows once, including those preceding the click window.
-  for (let spin = first; spin <= last; spin += 1) {
-    while (
-      rowIndex < result.rows.length &&
-      result.rows[rowIndex]!.spinNumber <= spin
-    ) {
-      payout = result.rows[rowIndex]!.cumulativePayoutCredits;
-      rowIndex += 1;
-    }
-    const balance = payout - approximateWinCostAtSpin(costs, spin);
+  let best: ApproximateWinChartPoint | null = null;
+  for (const row of result.rows) {
+    if (row.spinNumber < first) continue;
+    if (row.spinNumber > last) break;
+    if (approximateWinBalancePayout(row) <= 0) continue;
+    const point: ApproximateWinChartPoint = {
+      spinNumber: row.spinNumber,
+      kind: row.spinNumber === result.evaluatedSpinCount ? 'end' : 'payout',
+      cumulativeBalanceCredits:
+        row.cumulativePayoutCredits -
+        approximateWinCostAtSpin(costs, row.spinNumber),
+    };
     if (
-      balance > bestBalance ||
-      (balance === bestBalance &&
-        Math.abs(spin - spinNumber) < Math.abs(bestSpin - spinNumber))
+      best === null ||
+      point.cumulativeBalanceCredits > best.cumulativeBalanceCredits ||
+      (point.cumulativeBalanceCredits === best.cumulativeBalanceCredits &&
+        Math.abs(point.spinNumber - spinNumber) <
+          Math.abs(best.spinNumber - spinNumber))
     ) {
-      bestBalance = balance;
-      bestSpin = spin;
+      best = point;
     }
   }
-  return approximateWinPointAtSpin(result, bestSpin);
+  return best;
 }
 
 /** Chart geometry in SVG units, shared with the label layout tests. */

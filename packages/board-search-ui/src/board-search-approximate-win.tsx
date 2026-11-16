@@ -18,6 +18,7 @@ import {
 
 import { apiErrorMessage } from './api-error';
 import type { BoardSearchDataSource } from './board-search-data-source';
+import { BoardSearchChartPreview } from './board-search-chart-preview';
 
 import {
   APPROXIMATE_WIN_CHART_LABEL,
@@ -655,6 +656,7 @@ function ApproximateWinResultView({
             <summary>Wybierz punkty na wykresie</summary>
             {chartOpen ? (
               <ApproximateWinBalanceChart
+                boardPreviewClient={api}
                 compact
                 display={{ ...display, unit: 'pln' }}
                 result={result}
@@ -696,6 +698,7 @@ function ApproximateWinResultView({
           </p>
           {!tableOnly ? (
             <ApproximateWinBalanceChart
+              boardPreviewClient={api}
               display={display}
               pinnedSpinPositions={pinnedSpinPositions}
               onPinsChange={onPinsChange}
@@ -708,6 +711,7 @@ function ApproximateWinResultView({
         <>
           {!tableOnly ? (
             <ApproximateWinBalanceChart
+              boardPreviewClient={api}
               display={display}
               pinnedSpinPositions={pinnedSpinPositions}
               onPinsChange={onPinsChange}
@@ -1074,12 +1078,17 @@ function ApproximateWinPinnedRows({
  * explanation for places that show many charts (the share query log).
  */
 export function ApproximateWinBalanceChart({
+  boardPreviewClient,
   compact = false,
   display,
   result,
   pinnedSpinPositions,
   onPinsChange,
 }: {
+  readonly boardPreviewClient?: Pick<
+    BoardSearchDataSource,
+    'getBoardSearchBoardDetail' | 'boardSearchBoardViewUrl'
+  >;
   readonly compact?: boolean;
   readonly display: ApproximateWinDisplay;
   readonly result: ApproximateWinResponse;
@@ -1101,6 +1110,26 @@ export function ApproximateWinBalanceChart({
     readonly ApproximateWinChartPoint[]
   >([]);
   const [pinLimitReached, setPinLimitReached] = useState(false);
+  const [noNearbyWin, setNoNearbyWin] = useState(false);
+  const previewScope = `${result.gameId}:${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`;
+  const [preview, setPreview] = useState<{
+    scope: string;
+    spin: number;
+  } | null>(null);
+  const previewRow =
+    preview?.scope === previewScope
+      ? rows.find((row) => row.spinNumber === preview.spin)
+      : undefined;
+  const previewableRow = (point: ApproximateWinChartPoint) =>
+    rows.find((row) => row.spinNumber === point.spinNumber);
+  const openPreview = (point: ApproximateWinChartPoint) => {
+    if (boardPreviewClient !== undefined && previewableRow(point) !== undefined)
+      setPreview({ scope: previewScope, spin: point.spinNumber });
+  };
+  const chartLabel = {
+    ...CHART_LABEL,
+    height: boardPreviewClient ? 74 : CHART_LABEL.height,
+  };
   const svgRef = useRef<SVGSVGElement>(null);
   const controlled = pinnedSpinPositions !== undefined;
   const hoveredPoint =
@@ -1251,9 +1280,9 @@ export function ApproximateWinBalanceChart({
       minX: chartLeft + 2,
       minY: chartTop,
     },
-    height: CHART_LABEL.height,
+    height: chartLabel.height,
     obstacles,
-    width: CHART_LABEL.width,
+    width: chartLabel.width,
   };
   const labelRequest = (point: ApproximateWinChartPoint) => ({
     key: approximateWinPointKey(point),
@@ -1345,7 +1374,11 @@ export function ApproximateWinBalanceChart({
       result,
       spinAtPointer(pointerX),
     );
-    if (best === null) return;
+    setNoNearbyWin(best === null);
+    if (best === null) {
+      setPreview(null);
+      return;
+    }
     // Keep existing label identities, including a payout on the final spin.
     const point = controlled
       ? best
@@ -1353,6 +1386,7 @@ export function ApproximateWinBalanceChart({
         best);
     setHoveredPoint(point);
     togglePin(point);
+    openPreview(point);
   };
   const handleKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
@@ -1389,6 +1423,7 @@ export function ApproximateWinBalanceChart({
       if (hoveredPoint !== null) {
         event.preventDefault();
         togglePin(hoveredPoint);
+        openPreview(hoveredPoint);
       }
       return;
     }
@@ -1408,11 +1443,15 @@ export function ApproximateWinBalanceChart({
     return point === undefined ? [] : [{ pinned, placement, point }];
   });
   // Leaders and markers are drawn first so no leader crosses a label box.
-  const renderLeader = ({ pinned, placement }: (typeof labels)[number]) => {
+  const renderLeader = ({
+    pinned,
+    placement,
+    point,
+  }: (typeof labels)[number]) => {
     const { left, pointX, pointY, top } = placement;
     // The leader ends at the nearest edge of the label box.
-    const anchorX = Math.min(left + CHART_LABEL.width, Math.max(left, pointX));
-    const anchorY = Math.min(top + CHART_LABEL.height, Math.max(top, pointY));
+    const anchorX = Math.min(left + chartLabel.width, Math.max(left, pointX));
+    const anchorY = Math.min(top + chartLabel.height, Math.max(top, pointY));
     return (
       <g key={`leader:${pinned ? 'pin' : 'hover'}:${placement.key}`}>
         <polyline
@@ -1424,7 +1463,16 @@ export function ApproximateWinBalanceChart({
           className="boardSearchApproximateWinChartMarker"
           cx={placement.pointX}
           cy={pointY}
-          r={4}
+          r={boardPreviewClient ? 6 : 4}
+          onClick={
+            boardPreviewClient !== undefined &&
+            previewableRow(point) !== undefined
+              ? (event) => {
+                  event.stopPropagation();
+                  openPreview(point);
+                }
+              : undefined
+          }
         />
       </g>
     );
@@ -1447,11 +1495,12 @@ export function ApproximateWinBalanceChart({
         // A label sits over other points; clicking it must not
         // toggle whichever point is nearest to the pointer.
         onClick={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
       >
         <rect
-          height={CHART_LABEL.height}
+          height={chartLabel.height}
           rx={5}
-          width={CHART_LABEL.width}
+          width={chartLabel.width}
           x={left}
           y={top}
         />
@@ -1461,7 +1510,7 @@ export function ApproximateWinBalanceChart({
         <text
           className="boardSearchApproximateWinChartLabelStake"
           textAnchor="end"
-          x={left + CHART_LABEL.width - 6}
+          x={left + chartLabel.width - 6}
           y={top + 14}
         >
           wkład: {stakeLabel(point)}
@@ -1472,6 +1521,31 @@ export function ApproximateWinBalanceChart({
         <text x={left + 6} y={top + 40}>
           Kredyty maszyna: {creditsLabel(point)}
         </text>
+        {boardPreviewClient !== undefined &&
+        previewableRow(point) !== undefined ? (
+          <g
+            className="boardSearchChartPreviewAction"
+            role="button"
+            tabIndex={0}
+            aria-label={`Podgląd planszy dla spinu ${point.spinNumber}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              openPreview(point);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                event.stopPropagation();
+                openPreview(point);
+              }
+            }}
+          >
+            <rect x={left + 4} y={top + 44} width={140} height={28} rx={4} />
+            <text x={left + 10} y={top + 62}>
+              Podgląd planszy
+            </text>
+          </g>
+        ) : null}
         {pinned && (!controlled || onPinsChange !== undefined) ? (
           <g
             aria-label={`Odepnij punkt: ${description}`}
@@ -1493,12 +1567,12 @@ export function ApproximateWinBalanceChart({
             <rect
               height={16}
               width={16}
-              x={left + CHART_LABEL.width - 19}
-              y={top + CHART_LABEL.height - 19}
+              x={left + chartLabel.width - 19}
+              y={top + chartLabel.height - 19}
             />
             <text
-              x={left + CHART_LABEL.width - 11}
-              y={top + CHART_LABEL.height - 7}
+              x={left + chartLabel.width - 11}
+              y={top + chartLabel.height - 7}
               textAnchor="middle"
             >
               ×
@@ -1619,6 +1693,25 @@ export function ApproximateWinBalanceChart({
           {labels.map(renderLabel)}
         </svg>
       </div>
+      {boardPreviewClient !== undefined && previewRow !== undefined ? (
+        <BoardSearchChartPreview
+          key={`${previewScope}:${previewRow.spinNumber}:${previewRow.sequenceNumber}`}
+          client={boardPreviewClient}
+          gameId={result.gameId}
+          sequenceNumber={previewRow.sequenceNumber}
+          spinNumber={previewRow.spinNumber}
+          onClose={() => {
+            setPreview(null);
+            svgRef.current?.focus();
+          }}
+        />
+      ) : null}
+      {noNearbyWin ? (
+        <p className="boardSearchApproximateWinChartNotice" role="status">
+          W odległości do 50 spinów od wskazanego miejsca nie ma rozpoznanej
+          wygranej wliczonej do bilansu.
+        </p>
+      ) : null}
       {pinLimitReached ? (
         <p className="boardSearchApproximateWinChartNotice" role="status">
           Można przypiąć najwyżej {APPROXIMATE_WIN_PIN_LIMIT} punktów. Odepnij
@@ -1661,6 +1754,16 @@ export function ApproximateWinBalanceChart({
                   · kasa na czysto {wholeLabel(point.cumulativeBalanceCredits)}{' '}
                   · kredyty maszyna {creditsLabel(point)}
                 </span>
+                {boardPreviewClient !== undefined &&
+                previewableRow(point) !== undefined ? (
+                  <button
+                    className="textButton boardSearchChartPreviewButton"
+                    type="button"
+                    onClick={() => openPreview(point)}
+                  >
+                    Podgląd planszy · spin {point.spinNumber}
+                  </button>
+                ) : null}
                 {controlled && onPinsChange === undefined ? null : (
                   <button
                     aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}

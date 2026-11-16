@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1232 — Wygrane na wykresie i miniatura (done)
+
+- Plik: `tasks/completed/1232-board-search-winning-chart-preview.md`.
+- Wersja przygotowana: **v1.7.647**; commit oczekuje na uprawnioną sesję Git.
+- Maksimum tylko z rzeczywistych wygranych ±50 i miniatura pod wspólnym wykresem Admin/link; marker otwiera dokładnie własną planszę.
+- Logika i interakcje zmienionego obszaru PASS, publiczne trasy 38/38, typy/lint i Chrome desktop/mobile PASS. Pełne interakcje: 120/121, jeden błąd dwóch kopii Reacta w niezmienionym wrapperze Admina. Bez restartu, buildów Next, merge, push i wdrożenia.
+
 ### TASK-1212 — Uczenie bez limitu zdjęć (done)
 
 - Plik: `tasks/completed/1212-grid-learning-without-source-cap.md`; commit **v1.7.639 / `c73fda9dbce1b95eb8d32037751c9b82aeb5e32b`**; decyzja D-611.

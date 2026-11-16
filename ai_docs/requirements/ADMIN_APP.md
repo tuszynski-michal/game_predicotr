@@ -846,14 +846,27 @@ tak samo lista przypiętych punktów) oraz trzecią wartością „Wkład”
 najgłębszym dołkiem bilansu od pierwszego spinu do punktu (reguła kafelka
 „Maksymalny wkład” ograniczona do odcinka); etykieta leży w pasie nad obszarem danych i łączy
 się z punktem kropkowaną pionową linią, więc nie zasłania linii bilansu.
-**TASK-1116 (2026-11-01).** Kliknięcie lub tapnięcie przyciąga kursor do
-spinu o najwyższej „kasie na czysto” w domkniętym oknie 50 spinów w lewo
+**TASK-1232 (2026-11-16), zastępuje wybór TASK-1116.** Kliknięcie lub tapnięcie przyciąga kursor do
+wygrywającego spinu o najwyższej „kasie na czysto” w domkniętym oknie 50 spinów w lewo
 i 50 w prawo od klikniętego spinu (według osi X, zaokrąglonego do całości).
-Okno jest ograniczone do 0…ostatni oceniony spin. Liczy się bilans po wypłacie,
-również dla spinów bez wygranej i darmowych; remisy rozstrzyga odległość od
+Okno jest ograniczone do 0…ostatni oceniony spin. Kandydat musi mieć dodatnią
+wypłatę wliczoną do bilansu; prowizoryczna wypłata supergry nie jest kandydatem.
+Puste spiny i sam początek zakresu nie są maksimami do przypinania kliknięciem.
+Gdy okno nie zawiera wygranej, UI pokazuje komunikat i nie dodaje punktu.
+Liczy się bilans po wypłacie, także ujemny i w darmowych spinach; remisy rozstrzyga odległość od
 kliknięcia, następnie wcześniejszy spin. Filtr tabeli nie zmienia wyboru.
 Dotyczy Admina, online i zapisanych paneli. Najechanie i strzałki zachowują
-dotychczasowy precyzyjny wybór. Kliknięcie przypina wybrany punkt: jego etykieta zostaje widoczna na
+dotychczasowy precyzyjny wybór. W bieżącej wyszukiwarce Admina, linku online,
+panelu wielu gier i dzienniku wyszukiwań wybór wygranej otwiera jedną miniaturę
+pod wykresem (do 380 px szerokości, zdjęcie do 230 px i 35% wysokości okna).
+Kliknięcie jej znacznika lub akcji „Podgląd planszy” w etykiecie/liście przypięć
+otwiera dokładnie tę planszę, bez ponownego szukania maksimum ani odpinania punktu.
+Miniatura ma zamknięcie, stan ładowania, błąd i ponowienie; nie zasłania ekranu.
+Numer planszy bierze z wiersza wypłaty, uwzględniając zawijanie sekwencji.
+Zmiana wyniku ukrywa stary podgląd i odrzuca spóźnione odpowiedzi. Pełne okno
+„Pokaż planszę” z tabeli zachowuje dotychczasowe działanie. Niezmienne wyniki
+historyczne zachowują dotychczasowy widok.
+Kliknięcie wykresu przypina wybrany punkt: jego etykieta zostaje widoczna na
 stałe w tym samym pasie. Ponowne kliknięcie punktu albo „×” na etykiecie
 odpina go, „Wyczyść punkty” odpina wszystkie. Można przypiąć najwyżej 8
 punktów; kolejne kliknięcie pokazuje komunikat i nie usuwa starszego

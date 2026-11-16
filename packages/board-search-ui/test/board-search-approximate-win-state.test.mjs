@@ -378,7 +378,7 @@ test('equal peaks prefer the closest spin, then the earlier spin', () => {
   assert.equal(approximateWinBestPointNearSpin(result, 110).spinNumber, 120);
 });
 
-test('free-spin plateaus preserve the clicked spin and provisional payouts are excluded', () => {
+test('free-spin plateaus snap to a recognized winning board, excluding provisional payouts', () => {
   const result = snapResult(
     [
       [50, 200],
@@ -391,7 +391,7 @@ test('free-spin plateaus preserve the clicked spin and provisional payouts are e
       },
     },
   );
-  assert.equal(approximateWinBestPointNearSpin(result, 100).spinNumber, 100);
+  assert.equal(approximateWinBestPointNearSpin(result, 100).spinNumber, 50);
   assert.equal(
     approximateWinBestPointNearSpin(result, 100).cumulativeBalanceCredits,
     150,
@@ -400,9 +400,9 @@ test('free-spin plateaus preserve the clicked spin and provisional payouts are e
 
 test('click snapping handles losing stretches, origin, final spin and invalid input', () => {
   const result = snapResult();
-  assert.equal(approximateWinBestPointNearSpin(result, 100).spinNumber, 50);
-  assert.equal(approximateWinBestPointNearSpin(result, 0).kind, 'start');
-  assert.equal(approximateWinBestPointNearSpin(result, 300).spinNumber, 250);
+  assert.equal(approximateWinBestPointNearSpin(result, 100), null);
+  assert.equal(approximateWinBestPointNearSpin(result, 0), null);
+  assert.equal(approximateWinBestPointNearSpin(result, 300), null);
   assert.equal(
     approximateWinBestPointNearSpin(snapResult([[300, 1000]]), 300).kind,
     'end',
@@ -410,6 +410,23 @@ test('click snapping handles losing stretches, origin, final spin and invalid in
   for (const spin of [-1, 301, 1.5, Number.NaN]) {
     assert.equal(approximateWinBestPointNearSpin(result, spin), null);
   }
+});
+
+test('a losing left boundary cannot displace a real winning board with a negative balance', () => {
+  const result = snapResult([[120, 5]]);
+  assert.equal(approximateWinBestPointNearSpin(result, 100).spinNumber, 120);
+  assert.equal(
+    approximateWinBestPointNearSpin(result, 100).cumulativeBalanceCredits,
+    -115,
+  );
+  assert.equal(
+    approximateWinBestPointNearSpin(snapResult([[100, 0]]), 100),
+    null,
+  );
+  assert.equal(
+    approximateWinBestPointNearSpin(snapResult([[100, 1000, true]]), 100),
+    null,
+  );
 });
 
 const pinPoint = (spinNumber, kind = 'payout') => ({

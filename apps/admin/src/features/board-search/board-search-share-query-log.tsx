@@ -498,6 +498,7 @@ function QueryChart({
         </p>
       ) : (
         <ApproximateWinBalanceChart
+          boardPreviewClient={client}
           compact
           display={{ stakeGrosze: stakeGrosze ?? null, unit: 'pln' }}
           result={state.result}

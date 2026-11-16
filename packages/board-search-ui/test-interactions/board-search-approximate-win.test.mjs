@@ -32,6 +32,9 @@ const { ApproximateWinBalanceChart } =
 
 after(() => dom.window.close());
 
+const { createBoardSearchShareDataSource } =
+  await import('../../../apps/reviewer/src/features/board-search-share/board-search-share-data-source.ts');
+
 const gameId = '11111111-1111-4111-8111-111111111111';
 const symbol = {
   code: 'cherry',
@@ -219,6 +222,288 @@ function deferred() {
   return { promise, resolve };
 }
 
+function previewCalculation() {
+  return approximateWinResponse(499990, {
+    rows: [
+      {
+        spinNumber: 200,
+        sequenceNumber: 7,
+        payoutCredits: 10000,
+        cumulativePayoutCredits: 10000,
+        cumulativeBalanceCredits: 6000,
+        payoutKind: 'exact',
+      },
+      {
+        spinNumber: 240,
+        sequenceNumber: 47,
+        payoutCredits: 50000,
+        cumulativePayoutCredits: 60000,
+        cumulativeBalanceCredits: 55200,
+        payoutKind: 'exact',
+      },
+    ],
+    summary: {
+      balanceCredits: 10000,
+      recognizedPayoutCredits: 60000,
+      spinCostCredits: 50000,
+    },
+  });
+}
+
+function previewDetail(sequenceNumber, overrides = {}) {
+  return {
+    gameId,
+    sequenceNumber,
+    boardChecksumSha256: `checksum-${sequenceNumber}`,
+    documentStale: false,
+    view: { revision: `revision-${sequenceNumber}` },
+    ...overrides,
+  };
+}
+
+function clickChart(chart, spin) {
+  Object.defineProperty(chart, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({ left: 0, width: 800 }),
+  });
+  chart.dispatchEvent(
+    new dom.window.MouseEvent('click', {
+      bubbles: true,
+      clientX: 72 + (spin / 2500) * 710,
+    }),
+  );
+}
+
+for (const source of ['admin', 'share']) {
+  for (const controlled of [false, true]) {
+    test(`compact board preview uses the winning row identity (${source}, controlled=${controlled})`, async () => {
+      const reads = [];
+      const client =
+        source === 'share'
+          ? createBoardSearchShareDataSource({
+              sessionId: 'preview-test',
+              storage: window.sessionStorage,
+              fetchImplementation: async (url) => {
+                reads.push(String(url));
+                const sequence = Number(String(url).split('/').at(-1));
+                return new Response(JSON.stringify(previewDetail(sequence)), {
+                  status: 200,
+                });
+              },
+            })
+          : {
+              getBoardSearchBoardDetail: async (_game, sequence) => {
+                reads.push(sequence);
+                return { data: previewDetail(sequence) };
+              },
+              boardSearchBoardViewUrl: (_game, sequence, checksum, revision) =>
+                `/boards/${sequence}/view?checksum=${checksum}&revision=${revision}`,
+            };
+      function Chart() {
+        const [pins, setPins] = React.useState([]);
+        return React.createElement(ApproximateWinBalanceChart, {
+          boardPreviewClient: client,
+          result: previewCalculation(),
+          display: { unit: 'pln', stakeGrosze: null },
+          ...(controlled
+            ? { pinnedSpinPositions: pins, onPinsChange: setPins }
+            : {}),
+        });
+      }
+      const root = createRoot(document.getElementById('root'));
+      await act(async () => root.render(React.createElement(Chart)));
+      try {
+        const chart = document.querySelector(
+          '.boardSearchApproximateWinChart svg',
+        );
+        await act(async () => clickChart(chart, 160));
+        const image = document.querySelector('.boardSearchChartPreview img');
+        assert.ok(image, document.getElementById('root').textContent);
+        assert.match(image.src, /boards\/7\/view/);
+        assert.match(image.src, /checksum-7/);
+        assert.match(image.src, /revision-7/);
+        assert.equal(document.querySelector('dialog'), null);
+        assert.match(
+          document.querySelector('.boardSearchChartPreview').textContent,
+          /Plansza #7 · spin 200/,
+        );
+
+        const close = () =>
+          document
+            .querySelector('[aria-label="Zamknij podgląd planszy"]')
+            .click();
+        await act(async () => close());
+        assert.equal(document.querySelector('.boardSearchChartPreview'), null);
+        const pinsBefore = document.querySelector(
+          '.boardSearchApproximateWinChartPins',
+        ).textContent;
+        // The nearby higher peak at spin 240 must not steal this marker's identity.
+        await act(async () =>
+          document
+            .querySelector('.boardSearchApproximateWinChartMarker')
+            .dispatchEvent(new MouseEvent('click', { bubbles: true })),
+        );
+        assert.match(
+          document.querySelector('.boardSearchChartPreview img').src,
+          /boards\/7\/view/,
+        );
+        assert.equal(
+          document.querySelector('.boardSearchApproximateWinChartPins')
+            .textContent,
+          pinsBefore,
+        );
+        await act(async () => close());
+        const action = document.querySelector(
+          '[aria-label="Podgląd planszy dla spinu 200"]',
+        );
+        await act(async () =>
+          action.dispatchEvent(
+            new KeyboardEvent('keydown', {
+              bubbles: true,
+              key: 'Enter',
+              cancelable: true,
+            }),
+          ),
+        );
+        assert.match(
+          document.querySelector('.boardSearchChartPreview img').src,
+          /boards\/7\/view/,
+        );
+        assert.equal(
+          document.querySelector('.boardSearchApproximateWinChartPins')
+            .textContent,
+          pinsBefore,
+        );
+        assert.ok(reads.length > 0);
+        await act(async () => clickChart(chart, 1000));
+        assert.match(
+          document.querySelector('.boardSearchApproximateWinChartNotice')
+            .textContent,
+          /nie ma rozpoznanej wygranej/,
+        );
+        assert.equal(
+          document.querySelector('.boardSearchApproximateWinChartPins')
+            .textContent,
+          pinsBefore,
+        );
+      } finally {
+        await act(async () => root.unmount());
+      }
+    });
+  }
+}
+
+test('preview ignores late responses, retries errors, and is cleared by a new calculation', async () => {
+  const first = deferred();
+  let fail = true;
+  const client = {
+    getBoardSearchBoardDetail: async (_game, sequence) => {
+      if (sequence === 7) return first.promise;
+      return fail
+        ? { error: { message: 'Błąd podglądu' } }
+        : { data: previewDetail(sequence) };
+    },
+    boardSearchBoardViewUrl: (_game, sequence) => `/boards/${sequence}/view`,
+  };
+  const renderChart = (overrides = {}) =>
+    React.createElement(ApproximateWinBalanceChart, {
+      boardPreviewClient: client,
+      display: { unit: 'pln', stakeGrosze: null },
+      result: { ...previewCalculation(), ...overrides },
+    });
+  const root = createRoot(document.getElementById('root'));
+  await act(async () => root.render(renderChart()));
+  try {
+    const chart = document.querySelector('.boardSearchApproximateWinChart svg');
+    await act(async () => clickChart(chart, 160));
+    assert.match(
+      document.querySelector('.boardSearchChartPreview').textContent,
+      /Wczytywanie/,
+    );
+    await act(async () => clickChart(chart, 240));
+    assert.ok(
+      document.querySelector('.boardSearchChartPreview [role="alert"]'),
+    );
+    await act(async () => first.resolve({ data: previewDetail(7) }));
+    assert.equal(document.querySelector('.boardSearchChartPreview img'), null);
+    fail = false;
+    await act(async () =>
+      document
+        .querySelector('.boardSearchChartPreview button.secondaryButton')
+        .click(),
+    );
+    assert.match(
+      document.querySelector('.boardSearchChartPreview img').src,
+      /boards\/47\/view/,
+    );
+    await act(async () =>
+      document
+        .querySelector('.boardSearchChartPreview img')
+        .dispatchEvent(new Event('error')),
+    );
+    assert.match(
+      document.querySelector('.boardSearchChartPreview').textContent,
+      /Zdjęcie planszy jest niedostępne/,
+    );
+    await act(async () =>
+      document
+        .querySelector('.boardSearchChartPreview button.secondaryButton')
+        .click(),
+    );
+    assert.ok(document.querySelector('.boardSearchChartPreview img'));
+    await act(async () =>
+      root.render(renderChart({ dataFingerprintSha256: 'changed' })),
+    );
+    assert.equal(document.querySelector('.boardSearchChartPreview'), null);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+for (const [overrides, message] of [
+  [{ view: null }, /Zdjęcie planszy jest niedostępne/],
+  [{ documentStale: true }, /Zdjęcie planszy zmieniło się/],
+  [{ sequenceNumber: 8 }, /Podgląd dotyczy innej planszy/],
+  [{ gameId: 'another-game' }, /Podgląd dotyczy innej planszy/],
+]) {
+  test(`preview rejects missing, stale or mismatched photos: ${JSON.stringify(overrides)}`, async () => {
+    const root = createRoot(document.getElementById('root'));
+    const client = {
+      getBoardSearchBoardDetail: async () => ({
+        data: previewDetail(7, overrides),
+      }),
+      boardSearchBoardViewUrl: () => '/must-not-be-shown',
+    };
+    await act(async () =>
+      root.render(
+        React.createElement(ApproximateWinBalanceChart, {
+          boardPreviewClient: client,
+          display: { unit: 'pln', stakeGrosze: null },
+          result: previewCalculation(),
+        }),
+      ),
+    );
+    try {
+      await act(async () =>
+        clickChart(
+          document.querySelector('.boardSearchApproximateWinChart svg'),
+          160,
+        ),
+      );
+      assert.equal(
+        document.querySelector('.boardSearchChartPreview img'),
+        null,
+      );
+      assert.match(
+        document.querySelector('.boardSearchChartPreview').textContent,
+        message,
+      );
+    } finally {
+      await act(async () => root.unmount());
+    }
+  });
+}
+
 async function settle() {
   await act(async () => {
     // Long enough for the calculation debounce across `eventually`'s retries.
@@ -336,6 +621,9 @@ async function toggleDetails(_section, open) {
 function makeClient({ searchImpl, approximateWinImpl }) {
   return {
     boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
+    getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => ({
+      data: previewDetail(sequenceNumber),
+    }),
     getBoardSearchApproximateWin: approximateWinImpl,
     // No quad in `geometry`: the crop-preview feature (TASK-0655) falls back
     // to showing the full image, which is all these tests care about.
@@ -895,10 +1183,25 @@ test('renders every payout row in one scrollable table and shows its cumulative-
     'the label is connected to its point by a dotted leader line',
   );
 
-  // A click at the end selects the best balance in its preceding 50 spins.
+  // No winning board near the end: no fabricated pin on the losing stretch.
   await act(async () =>
     chart.dispatchEvent(
       new dom.window.MouseEvent('click', { bubbles: true, clientX: 800 }),
+    ),
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchApproximateWinChartLabelPinned')
+      .length,
+    0,
+  );
+  assert.match(
+    document.querySelector('.boardSearchApproximateWinChartNotice').textContent,
+    /nie ma rozpoznanej wygranej/,
+  );
+  // Select the real peak at spin 25; the table filter must not affect snapping.
+  await act(async () =>
+    chart.dispatchEvent(
+      new dom.window.MouseEvent('click', { bubbles: true, clientX: 79 }),
     ),
   );
   // Escape clears the hover highlight (as leaving the chart would).
@@ -919,7 +1222,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartPins').textContent,
-    /2450 spinów · wkład: 1650,00 zł · kasa na czysto -1650 zł · kredyty maszyna 0/,
+    /25 spinów · wkład: .* · kasa na czysto 3200 zł · kredyty maszyna/,
   );
 
   // Keyboard: ArrowRight from nothing highlights the first point; Enter pins it.

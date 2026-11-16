@@ -540,6 +540,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/source_image_crop_repository.py: class SourceImageCropRepository
 - storage/source_original_availability.py: deleted_original_checksums
 - storage/source_purge_retention.py: lock_purge_games, class SourcePurgeRetention
+- storage/source_recording_closure_performance.py: rewrite_definition, rewrite_closure_functions
 - storage/source_recording_group_models.py: class RecordingGroupModel, class RecordingOccurrenceModel, class RecordingEvidenceModel, class RecordingRoleHeadModel, class RecordingCommandModel
 - storage/source_recording_groups.py: class SqlAlchemySourceRecordingRepository
 - storage/source_recording_lab_import.py: lab_group_id, lab_photo_group_id, class MetadataPin, class LabGroup, class LabImportManifest, read_lab_import_manifest, read_lab_import_page, import_lab_page, finalize_lab_import, install_provider_proof

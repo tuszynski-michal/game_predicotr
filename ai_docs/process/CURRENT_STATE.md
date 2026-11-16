@@ -8,7 +8,7 @@ last_updated: 2026-11-12
 
 Ten plik jest obowiązkowym odczytem startowym i ma **okno kroczące z budżetami** (łącznie ≤ 30 000 B). Zawiera tylko (1) obowiązujące ograniczenia operacyjne (≤ 8 000 B), (2) plany z niezakończonymi taskami jako jedną tabelę (≤ 5 000 B), (3) otwarte decyzje i pytania, (4) po jednym wskaźniku ≤ 1 200 B na task aktywny (`in_progress`, `blocked`, `todo`: każdy task z plikiem w `ai_docs/tasks/`) oraz (5) 10 jednowierszowych wpisów `done` (≤ 400 B każdy). Pełna historia leży bez zmian w [archiwum Q4 2026](../archive/CURRENT_STATE_2026Q4.md) (od 2026-10-01) i [archiwum Q3 2026](../archive/CURRENT_STATE_2026Q3.md) (wcześniej); szczegóły taska aktywnego są w jego pliku.
 
-Reguła utrzymania: przy zamykaniu taska agent (1) dopisuje pełną sekcję `done` na początku najnowszego pliku archiwum (tuż pod nagłówkiem, bez edycji tekstu), (2) dopisuje w oknie jeden wiersz `done` na początku sekcji „Ostatnie 10 ukończonych tasków” w formacie `- **TASK-NNNN** — tytuł — vX.Y.N / krótki hash — tasks/completed/<plik>.md`, (3) usuwa z okna najstarszy wiersz ponad 10 (jego pełna sekcja jest już w archiwum), (4) usuwa wskaźnik zamkniętego taska z „Aktywne taski” i (5) aktualizuje „Obowiązujące ograniczenia” oraz „Plany”. Wskaźnik aktywnego taska ma status, ścieżkę pliku, jedno zdanie blokera lub następnego kroku i ≤ 1 200 B; szczegóły idą do `Outcome` pliku taska. Lead dopisuje hashe commitów jak dotychczas. Spójność okna sprawdzają `scripts/check_current_state_window.py` i `scripts/check_startup_read_budget.py` (część `npm run docs:check`).
+Zamykaj task przez `scripts/close_task.py` ([procedura](../../.agents/skills/task-close/SKILL.md)): pełna sekcja `done` trafia bez zmian pod nagłówek najnowszego archiwum, a na początku okna powstaje `- **TASK-NNNN** — tytuł — vX.Y.N / krótki hash — tasks/completed/<plik>.md`. Skrypt usuwa wiersz ponad 10 i aktywny wskaźnik. Ograniczenia/plany aktualizuj osobno. Wskaźnik zawiera status, ścieżkę i bloker/następny krok; szczegóły są w `Outcome`. Lead dopisuje hash kolejnym commitem przez `record-hash`. `npm run docs:check` kontroluje format i budżety.
 
 ## Obowiązujące ograniczenia
 
@@ -93,6 +93,10 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-1235 — Timeout zatwierdzania kohorty (in_progress)
+
+- `tasks/1235-grid-cohort-closure-timeout.md`: naprawa kosztu odczytów rejestracji przy zachowaniu limitu 300 s i dowodów; koszt i audyt zatwierdzone.
 
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 

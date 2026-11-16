@@ -75,7 +75,7 @@ Claude CLI review uses the repository runner, with no authentication changes.
 
 ## Outcome
 
-Commit: v1.7.649 (hash dopisuje kolejny commit).
+Commit: v1.7.649 / `a79b12aba25192a02276d670f31d85f0278505ed`.
 
 Implementation is isolated in `codex/grid-cohort-large-manifest`; Git writes work.
 

@@ -102,7 +102,7 @@ source has no registry links. The repair will preserve byte-identical context JS
 
 ## Outcome
 
-Commit: v1.7.653 (hash dopisuje kolejny commit).
+Commit: v1.7.653 / `3c1e143d22a3a449f161dd9da5ca8667a165c94a`.
 
 Migration 0191 was deployed and its full-data retry timed out. The measured
 header-read continuation (0192) passed focused review and fixed full registration.

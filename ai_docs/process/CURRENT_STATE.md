@@ -100,7 +100,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1235** — Timeout rejestracji kohorty — v1.7.653 — tasks/completed/1235-grid-cohort-closure-timeout.md
+- **TASK-1235** — Timeout rejestracji kohorty — v1.7.653 / `3c1e143d` — tasks/completed/1235-grid-cohort-closure-timeout.md
 - **TASK-1234** — Large grid cohort metadata — v1.7.649 / `a79b12ab` — tasks/completed/1234-grid-cohort-large-metadata.md
 - **TASK-1232** — Wygrane na wykresie i miniatura — v1.7.647 / `3eee4c31` — tasks/completed/1232-board-search-winning-chart-preview.md
 - **TASK-1212** — Uczenie bez limitu zdjęć — v1.7.639 / `c73fda9d` — tasks/completed/1212-grid-learning-without-source-cap.md

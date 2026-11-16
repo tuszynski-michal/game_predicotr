@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import numpy as np
 import pytest
@@ -184,6 +184,31 @@ def test_grid_only_partial_photo_preserves_deformed_nodes_and_weights(tmp_path):
     assert item["sampleWeight"] == 4 and dataset[1]["sampleWeight"] == 1
     assert item["positionIndex"] == 0 and item["sequenceNumber"] == 17
     assert not item["sourceRgb"].flags.writeable
+
+
+def test_snapshot_uses_publisher_bound_and_reopens_identical_manifest(tmp_path, monkeypatch):
+    from game_predictor_api.domain.grid_training_cohorts import METADATA_BYTE_LIMIT
+    from game_predictor_api.storage import grid_training_cohort_artifacts as artifacts
+
+    assert grid_dataset._METADATA_LIMIT == artifacts.METADATA_BYTE_LIMIT == METADATA_BYTE_LIMIT
+    assert METADATA_BYTE_LIMIT > 21_181_768  # Preserved TASK-1230 manifest.
+    fixture = SnapshotFixture(tmp_path)
+    source = fixture.source()
+    first = fixture.publish()
+    content = long_path_aware(tmp_path / fixture.manifest_pin["path"]).read_bytes()
+    # Re-publish through the production writer; hashes and split metadata stay identical.
+    published = artifacts.GridCohortArtifactStore(tmp_path).publish_json(
+        UUID(fixture.game), UUID(fixture.cohort), first.manifest
+    )
+    assert published["sha256"] == fixture.manifest_pin["sha256"]
+    monkeypatch.setattr(grid_dataset, "_METADATA_LIMIT", len(content))
+    restarted = GridCohortSnapshot(tmp_path, published["path"], published["sha256"])
+    assert restarted.manifest == first.manifest
+    assert GridBoardDataset(restarted)[0]["sourceId"] == source["sourceId"]
+    monkeypatch.setattr(grid_dataset, "_METADATA_LIMIT", len(content) - 1)
+    with pytest.raises(GridCohortDatasetError) as error:
+        GridCohortSnapshot(tmp_path, published["path"], published["sha256"])
+    assert error.value.code == "ASSET_SIZE_LIMIT"
 
 
 @pytest.mark.parametrize("role", ["VALIDATION", "REGRESSION"])

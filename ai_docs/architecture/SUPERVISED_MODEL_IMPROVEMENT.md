@@ -6,6 +6,17 @@ last_updated: 2026-10-07
 
 # Architektura iteracyjnego ulepszania modelu symboli
 
+## Ograniczone metadane JSON kohort siatek — TASK-1234
+
+Publikacja JSON, odczyt API podczas freeze/przygotowania i adapter treningowej
+migawki współdzielą `METADATA_BYTE_LIMIT` (64 MiB). Obejmuje to manifesty główne
+z dowodami `photoSplit` całej populacji. Zapis odrzuca większy zakodowany JSON
+przed utworzeniem niezmiennego pliku; czytniki ograniczają rzeczywisty odczyt
+i sprawdzają SHA-256 dokładnie tych bajtów, które dekodują. Istniejące manifesty
+i hashe pozostają bez zmian. To budżet pamięci metadanych, nie polityka wyboru
+zdjęć. Kontrole źródeł/indeksu, aktualności zamrożenia, ochrony podziałów
+i bramki jakości zachowują dotychczasowe działanie.
+
 ## Przygotowanie poza blokadą i fence zapisu — D-600
 
 Produkcyjny provider symbol-cell odczytuje monotoniczną rewizję katalogu oraz

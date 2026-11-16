@@ -30,13 +30,14 @@ from game_predictor_api.domain.grid_model_registry import (
     descriptor_sha256,
     validate_manifest,
 )
+from game_predictor_api.domain.grid_training_cohorts import METADATA_BYTE_LIMIT
 from PIL import __version__ as PILLOW_VERSION
 
 from game_predictor_worker.filesystem import long_path_aware
 
 _ROLES = {"TRAIN", "VALIDATION", "REGRESSION"}
 _SHA = re.compile(r"^[0-9a-f]{64}$")
-_METADATA_LIMIT = 16 * 1024 * 1024
+_METADATA_LIMIT = METADATA_BYTE_LIMIT
 _SOURCE_LIMIT = 64 * 1024 * 1024
 
 

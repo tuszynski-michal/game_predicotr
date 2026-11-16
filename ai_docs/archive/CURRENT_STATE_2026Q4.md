@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1234 — Large grid cohort metadata (done)
+
+- Task: `tasks/completed/1234-grid-cohort-large-metadata.md`.
+- Commit: **v1.7.649**.
+- Shared 64 MiB metadata publication/API/training budget; preserved 20.20 MiB manifest verified in isolated storage and a fresh process.
+- 79 tests passed; 6 baseline failures reproduced. Scoped lint/format/mypy/docs/maps passed. PostgreSQL freeze/replay/dataset passed before stale-case soft deadline.
+- Claude Opus 5.5 PASS, 0 P0/P1; P2 export/coverage/memory limitations recorded. Parent TASK-1230 still awaits authorized deployment and same-parent resume.
+
 ### TASK-1232 — Wygrane na wykresie i miniatura (done)
 
 - Plik: `tasks/completed/1232-board-search-winning-chart-preview.md`.

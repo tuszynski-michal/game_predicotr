@@ -18,6 +18,7 @@ from game_predictor_api.domain.canonical_source import (
     decode_canonical_source_bytes,
 )
 from game_predictor_api.domain.grid_training_cohorts import (
+    METADATA_BYTE_LIMIT,
     SOURCE_BYTE_LIMIT,
     GridCohortError,
     canonical,
@@ -79,12 +80,21 @@ class GridCohortArtifactStore:
         return path
 
     def read_json(self, relative: str, expected: str) -> dict[str, Any]:
-        path = self.verify(relative, expected)
-        if path.stat().st_size > 16 * 1024 * 1024:
+        path = self.safe(relative)
+        if not path.is_file():
+            raise GridCohortError(
+                "DATASET_ASSET_UNAVAILABLE", "The immutable artifact is unavailable."
+            )
+        # Hash and decode the same bounded bytes, even if the file changes after stat.
+        with path.open("rb") as stream:
+            content = stream.read(METADATA_BYTE_LIMIT + 1)
+        if len(content) > METADATA_BYTE_LIMIT:
             raise GridCohortError(
                 "GRID_COHORT_METADATA_TOO_LARGE", "Metadata page exceeds its bound."
             )
-        value = json.loads(path.read_bytes())
+        if hashlib.sha256(content).hexdigest() != expected:
+            raise GridCohortError("CHECKSUM_MISMATCH", "The immutable artifact changed.")
+        value = json.loads(content)
         if not isinstance(value, dict):
             raise GridCohortError("GRID_COHORT_MANIFEST_INVALID", "Expected an object manifest.")
         return value
@@ -129,7 +139,12 @@ class GridCohortArtifactStore:
             temporary.unlink(missing_ok=True)
 
     def publish_json(self, game: UUID, cohort: UUID, value: object) -> dict[str, Any]:
-        return self._publish(self._directory(game, cohort) + "/pages", "json", [canonical(value)])
+        content = canonical(value)
+        if len(content) > METADATA_BYTE_LIMIT:
+            raise GridCohortError(
+                "GRID_COHORT_METADATA_TOO_LARGE", "Metadata page exceeds its bound."
+            )
+        return self._publish(self._directory(game, cohort) + "/pages", "json", [content])
 
     def publish_index(
         self, game: UUID, cohort: UUID, pages: Iterable[dict[str, Any]]

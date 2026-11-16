@@ -516,6 +516,66 @@ def test_immutable_publish_survives_new_store_and_lost_response(tmp_path):
         restarted.read_json(first["path"], first["sha256"])
 
 
+def test_json_publication_and_reader_share_exact_byte_bound(tmp_path, monkeypatch):
+    import hashlib
+
+    from game_predictor_api.storage import grid_training_cohort_artifacts as module
+
+    # Small byte budget exercises the real boundary without a large artificial dataset.
+    monkeypatch.setattr(module, "METADATA_BYTE_LIMIT", 64)
+    value = {"split": "ą" * 26}
+    content = module.canonical(value)
+    assert len(content) == 64  # Bound applies to encoded bytes, not characters.
+    store = module.GridCohortArtifactStore(tmp_path)
+    game, cohort = uuid4(), uuid4()
+    pin = store.publish_json(game, cohort, value)
+    assert pin["sha256"] == hashlib.sha256(content).hexdigest()
+    restarted = module.GridCohortArtifactStore(tmp_path)
+    assert restarted.read_json(pin["path"], pin["sha256"]) == value
+    assert restarted.publish_json(game, cohort, value) == pin
+    files = list(tmp_path.rglob("*"))
+    with pytest.raises(GridCohortError) as error:
+        store.publish_json(game, cohort, {"split": "ą" * 27})
+    assert error.value.code == "GRID_COHORT_METADATA_TOO_LARGE"
+    assert list(tmp_path.rglob("*")) == files
+    # An older writer could publish beyond the bound. Reject it before decoding.
+    store.safe(pin["path"]).write_bytes(content + b" ")
+    with pytest.raises(GridCohortError) as error:
+        restarted.read_json(pin["path"], hashlib.sha256(content + b" ").hexdigest())
+    assert error.value.code == "GRID_COHORT_METADATA_TOO_LARGE"
+
+
+def test_json_reader_decodes_only_checksum_verified_bytes(tmp_path, monkeypatch):
+    import hashlib
+    from contextlib import contextmanager
+    from io import BytesIO
+    from pathlib import Path
+
+    from game_predictor_api.storage import grid_training_cohort_artifacts as module
+
+    store = module.GridCohortArtifactStore(tmp_path)
+    pin = store.publish_json(uuid4(), uuid4(), {"split": "original"})
+    content = store.safe(pin["path"]).read_bytes()
+    original_open = Path.open
+    reads = []
+
+    @contextmanager
+    def changing_file(path, mode="r", *args, **kwargs):
+        if path == store.safe(pin["path"]) and mode == "rb":
+            reads.append(path)
+            yield BytesIO(content if len(reads) == 1 else b'{"split":"changed"}')
+        else:
+            with original_open(path, mode, *args, **kwargs) as stream:
+                yield stream
+
+    monkeypatch.setattr(Path, "open", changing_file)
+    assert store.read_json(pin["path"], pin["sha256"]) == {"split": "original"}
+    assert len(reads) == 1
+    with pytest.raises(GridCohortError) as error:
+        store.read_json(pin["path"], hashlib.sha256(content).hexdigest())
+    assert error.value.code == "CHECKSUM_MISMATCH"
+
+
 @pytest.mark.parametrize("path", ["../outside", "C:/outside", "data\\outside", "/outside"])
 def test_artifact_namespace_rejects_escaping_paths(tmp_path, path):
     with pytest.raises(GridCohortError):

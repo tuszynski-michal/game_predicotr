@@ -21,6 +21,8 @@ SNAPSHOT_FORMAT = "application-grid-snapshot-v1"
 WEIGHT_POLICY = "correction-weight-4-to-1-v1"
 ROLES = ("TRAIN", "VALIDATION", "REGRESSION")
 SOURCE_BYTE_LIMIT = 64 * 1024 * 1024
+# Shared publication/API/training budget, including whole-population photoSplit roots.
+METADATA_BYTE_LIMIT = 64 * 1024 * 1024
 METADATA_PAGE_SIZE = 200
 MATERIALIZATION_PAGE_SIZE = 5
 # D-607: real correction cohorts (~4800 sources) exceeded 60 s freeze and 30 s statements.

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1232 — Wygrane na wykresie i miniatura (done)
 
 - Plik: `tasks/completed/1232-board-search-winning-chart-preview.md`.
-- Wersja przygotowana: **v1.7.647**; commit oczekuje na uprawnioną sesję Git.
+- Wersja przygotowana: **v1.7.647 / `3eee4c3105a78fe48816f6ba3d74510aff5969a9`**; commit oczekuje na uprawnioną sesję Git.
 - Maksimum tylko z rzeczywistych wygranych ±50 i miniatura pod wspólnym wykresem Admin/link; marker otwiera dokładnie własną planszę.
 - Logika i interakcje zmienionego obszaru PASS, publiczne trasy 38/38, typy/lint i Chrome desktop/mobile PASS. Pełne interakcje: 120/121, jeden błąd dwóch kopii Reacta w niezmienionym wrapperze Admina. Bez restartu, buildów Next, merge, push i wdrożenia.
 

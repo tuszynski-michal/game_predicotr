@@ -78,7 +78,7 @@ Komendy z katalogu repo, każda z timeoutem 120 s: testy Node/tsx pakietu, ESLin
 
 ## Outcome
 
-Commit: v1.7.647 (hash dopisuje kolejny commit).
+Commit: v1.7.647 / `3eee4c3105a78fe48816f6ba3d74510aff5969a9`.
 
 ### Changed
 

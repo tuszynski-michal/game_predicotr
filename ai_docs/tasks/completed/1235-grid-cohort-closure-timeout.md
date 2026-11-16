@@ -1,6 +1,6 @@
 ---
 title: Grid cohort registration timeout repair
-status: in_progress
+status: done
 last_updated: 2026-11-16
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-11-16
 
 ## Status
 
-in_progress
+`done`
 
 ## Goal
 
@@ -60,7 +60,7 @@ targets repeated large-header reads only; no new product or architecture decisio
 - [x] Existing source/currentness/protected-role/purpose guards remain effective.
 - [x] Targeted unit/PostgreSQL regressions, scoped quality and audit completed.
 - [x] Database upgrade/downgrade and existing function security are verified.
-- [ ] Same parent proceeds past registration, or a concrete remaining blocker is recorded.
+- [x] Same parent proceeds past registration, or a concrete remaining blocker is recorded.
 
 ## Expected files
 
@@ -102,8 +102,10 @@ source has no registry links. The repair will preserve byte-identical context JS
 
 ## Outcome
 
+Commit: v1.7.653 (hash dopisuje kolejny commit).
+
 Migration 0191 was deployed and its full-data retry timed out. The measured
-header-read continuation (0192) passed focused review; deployment/resume is pending.
+header-read continuation (0192) passed focused review and fixed full registration.
 Existing definitions/evidence are under `.runtime/task1235-baseline`.
 
 ### Changed
@@ -139,10 +141,11 @@ Existing definitions/evidence are under `.runtime/task1235-baseline`.
 - Docs/window/startup/mirrored-skill checks PASS; regenerated code maps and
   `code-map:check` PASS. `git diff --check` PASS.
 
-### Not completed
+### Remaining operational scope
 
-- Complete live registration within 300 seconds. Migration 0191, restart and
-  same-parent resume were completed, but the full retry still timed out.
+- GPU training/evaluation is owned by the preserved parent/TASK-1230. The timeout
+  repair does not claim a trained candidate or activation. No new parent/cohort
+  or start key was created.
 
 ### Deployment and full-data result
 
@@ -243,3 +246,35 @@ Existing definitions/evidence are under `.runtime/task1235-baseline`.
   connected sources retain their full closure. The read-only 200-source speedup
   is not evidence that the complete registration fits 300 seconds. Verify the
   preserved live parent after cutover; retain any remaining concrete blocker.
+
+### Final live verification and Definition of Done
+
+- Implementation continuation `v1.7.652` / `7c833c7c6555ae8f841a2a5cbe3f438341b51fde`
+  was fast-forwarded to main and pushed to origin after matched schema preflight.
+  No new numbering collision for this commit; the earlier v1.7.651 collision on
+  another branch is informational/accepted by the repository procedure.
+- API/all three worker lanes stopped for 0191 -> 0192. New-connection verification
+  matched function SHA `1b1f3380e4721db5742dbcacec973ef116594e13368c1d59501656d0b569a631`
+  to the approved preview; OID/owner/ACL/security/volatility/search_path and context
+  definition remained unchanged. Operator files were backed up/restored and
+  verified; recovery stash `33b11dbd70090f201ae5c7c5624f0511977b6b5c` is retained.
+- API PID 36176 and all lanes restarted with budgets 7/5/1 and the same CUDA
+  interpreter. At 17:32:11 UTC the original parent was resumed once (attempt 5266).
+  It completed registration under the unchanged 300-second statement budget and
+  advanced to the next durable claim (5267), with no error.
+- Fresh connection at 17:39 UTC confirmed original cohort `19a52a6c-99ea-56ba-b713-c918338db415`
+  is frozen, revision 5258; all 25,631 plan sources remain. Registry has exactly
+  428 TRAIN + 41 VALIDATION + 13 REGRESSION + 402 BUFFER uses, 884 total.
+  The 24,747 unassigned sources retained their proof checks before the insert phase.
+  No reservation release was needed. Manifest SHA remains
+  `d2c9c9c552fcaf3ff89c5acb6803ab9f6061ad67c962b487bddd4a35d4f22620`,
+  and disk bytes were verified again. Split SHA also remains unchanged.
+  Evidence: `.runtime/task1235-live-verified.json`, observation history and header
+  resume response. Parent/base/default/command identities remain unchanged.
+- Acceptance criteria: measured cause/fix documented; every source admission guard
+  preserved; unit/PG/lint/types/maps/docs passed; cross-family review PASS with
+  receipts; reversible migration/security/new-process verification passed; same
+  parent passed registration. No API/UI/schema-table contract changed, no synthetic
+  human GT or activation, no data deletion. Remaining P2 risks are recorded above.
+- Complete audit request history, failed transports, frozen package and unmodified
+  final report were copied to `.runtime/task1235-audit-history` before worktree cleanup.

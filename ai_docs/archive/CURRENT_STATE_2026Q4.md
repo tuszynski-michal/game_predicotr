@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1235 — Timeout rejestracji kohorty (done)
+
+- Plik: `tasks/completed/1235-grid-cohort-closure-timeout.md`.
+- Commit: **v1.7.653** (hash dopisuje kolejny commit).
+- Wynik: migracje 0191/0192 ograniczają koszt kontekstów i usuwają wielokrotne rozpakowywanie nagłówka. Zachowano wszystkie kontrole i limit 300 s. Ta sama kohorta 19a52a6c jest frozen/rev5258: 25 631 źródeł, 884 użycia, manifest i split bez zmian. Ten sam rodzic 42f30e0e wznowiony i przeszedł rejestrację; trening/ocena pozostają w TASK-1230, bez aktywacji.
+- Weryfikacja: 39 testów jednostkowych/schema PASS, rozszerzony PostgreSQL PASS (84,86 s), lint/format/mypy/maps/docs PASS. Migracje w obie strony, dokładny rollback funkcji, uprawnienia i nowe połączenie sprawdzone. Claude Opus 5.5 rundy 1 i 2 PASS, 0 P0/P1; zachowane receipts i historia transportu.
+- Ryzyka: trzy P2 odnotowane w Outcome; historyczny test materiału efektywnego ma odtworzony wcześniejszy FAIL. GPU i kandydat nie są wynikiem tej poprawki. Lokalne zmiany operatora zabezpieczone i odtworzone.
+
 ### TASK-1234 — Large grid cohort metadata (done)
 
 - Task: `tasks/completed/1234-grid-cohort-large-metadata.md`.

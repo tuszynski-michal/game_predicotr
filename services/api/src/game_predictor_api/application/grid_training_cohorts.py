@@ -75,11 +75,20 @@ class GridTrainingCohortService:
         return prepare(self, game, command, actor)
 
     def command(
-        self, game: UUID, cohort: UUID, kind: str, command: dict[str, Any], actor: str
+        self,
+        game: UUID,
+        cohort: UUID,
+        kind: str,
+        command: dict[str, Any],
+        actor: str,
+        *,
+        materialization_pages: int = 1,
     ) -> dict[str, Any]:
         from game_predictor_api.application.grid_training_cohort_commands import execute
 
-        return execute(self, game, cohort, kind, command, actor)
+        return execute(
+            self, game, cohort, kind, command, actor, materialization_pages=materialization_pages
+        )
 
     def eligibility(self, game: UUID, cohort: UUID) -> dict[str, Any]:
         from game_predictor_api.storage.grid_training_cohort_currentness import eligibility

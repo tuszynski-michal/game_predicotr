@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
+from time import monotonic
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid5
 
@@ -527,8 +528,17 @@ def _materialize(
             },
         )
     repo.bind(game, write=True)
-    locked = repo.cohort(game, row.id, lock=True)
+    locked = repo.lock_materialization(row, body["expectedRevision"])
     repo.cas(locked, body["expectedRevision"])
+    source_counts = [
+        {
+            "role": value["role"],
+            "used": value["used"],
+            "boards": len(value["targets"]),
+            "full": value["screenEligible"],
+        }
+        for value in sources
+    ]
     repo.session.add(
         Page(
             game_id=game,
@@ -539,15 +549,7 @@ def _materialize(
             sha256=published["sha256"],
             document={
                 **published,
-                "sources": [
-                    {
-                        "role": value["role"],
-                        "used": value["used"],
-                        "boards": len(value["targets"]),
-                        "full": value["screenEligible"],
-                    }
-                    for value in sources
-                ],
+                "sources": source_counts,
                 "assets": [
                     published,
                     *(value["original"] for value in sources if value["original"] is not None),
@@ -557,6 +559,7 @@ def _materialize(
         )
     )
     repo.session.flush()
+    repo.record_materialized_counts(locked, cursor, source_counts, sources[-1]["ordinal"] + 1)
     locked.status = "ready_to_freeze" if root else "materializing"
     if root:
         locked.manifest_path, locked.manifest_sha256 = root["path"], root["sha256"]
@@ -570,7 +573,11 @@ def execute(
     kind: str,
     body: dict[str, Any],
     actor: str,
+    *,
+    materialization_pages: int = 1,
 ) -> dict[str, Any]:
+    if type(materialization_pages) is not int or not 1 <= materialization_pages <= 20:
+        raise ValueError("Internal materialization group must contain 1..20 pages.")
     if kind == "freeze":
         from game_predictor_api.application.grid_training_cohort_freeze import freeze
 
@@ -587,7 +594,16 @@ def execute(
     if kind == "prepare-page":
         _capture(service, game, row, body, deadline)
     elif kind == "materialize-page":
-        _materialize(service, game, row, body, deadline)
+        started = monotonic()
+        page_body = dict(body)
+        for _ in range(materialization_pages):
+            _materialize(service, game, row, page_body, deadline)
+            if row.status == "ready_to_freeze" or monotonic() - started >= 2:
+                break
+            page_body.update(
+                expectedRevision=row.revision,
+                cursor=repo.next_materialization(row),
+            )
     elif kind == "cancel":
         repo.bind(game, write=True)
         row = repo.cohort(game, identifier, lock=True)

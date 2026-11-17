@@ -898,12 +898,16 @@ def test_materialize_excluded_member_never_reads_pixels_or_generates_negatives(t
             "used": False,
             "reasons": ["RECORDING_SELECTION_REQUIRED"],
             "source": {},
+            "recording": {},
             "positions": [{"label": {"ignored": True}}],
             "screenEligible": False,
         },
     )
     row = SimpleNamespace(
-        id=identifier, status="preview_ready", document={"sourceCount": 2}, revision=2
+        id=identifier,
+        status="preview_ready",
+        document={"sourceCount": 2, "policyVersion": "application-grid-snapshot-v1"},
+        revision=2,
     )
     session = SimpleNamespace(add=lambda value: None, flush=lambda: None)
     repo = SimpleNamespace(
@@ -914,6 +918,8 @@ def test_materialize_excluded_member_never_reads_pixels_or_generates_negatives(t
         bind=lambda *args, **kwargs: None,
         cohort=lambda *args, **kwargs: row,
         cas=lambda *args: None,
+        record_materialized_counts=lambda *args: None,
+        lock_materialization=lambda value, expected: value,
     )
     store = GridCohortArtifactStore(tmp_path)
     store.copy_source = lambda *args: pytest.fail("Excluded source decoded")

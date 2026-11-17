@@ -592,6 +592,27 @@ się przed POST, a oddzielny przyszły przebieg wymaga osobnego `-CommandFile`.
 Skrypt wymaga kontraktu trwałego przygotowania TASK-1230 i kontroluje jego pola
 przez OpenAPI. Brak funkcji zatrzymuje operację przed wysłaniem treningu.
 
+### Materialization throughput — TASK-1242
+
+The learning parent groups at most 20 existing five-source materialization pages
+in one atomic command, yielding after a two-second slice between pages. HTTP
+commands retain their previous single-page default. Page bytes, ordinal cursors,
+per-page header revisions, deletion/currentness guards and immutable receipts
+remain unchanged. An interrupted group rolls back its database changes; previously
+committed pages are reused. Existing immutable file publication handles orphaned
+uncommitted copies through content-addressed replay.
+
+Derived role counts live in `summary.materializationProgressV1`, fenced by header
+revision and exclusive source cursor. Legacy/stale counters are rebuilt from
+committed page metadata once and advanced in the same transaction as each new
+page. They affect progress display only; eligibility, training labels and frozen
+manifests continue to use their existing authoritative evidence. No schema or
+HTTP contract change. A new process can continue an existing cohort directly.
+Materialization locks only the revision using PostgreSQL `FOR NO KEY UPDATE`;
+the immutable document is already loaded for the command. This still serializes
+header writes and permits concurrent `KEY SHARE` checks when correction-notice
+events reference the cohort. Other cohort operations keep their original locks.
+
 ## Ledger i snapshot wymiany — TASK-1127
 
 A2 label dopisuje `symbol_readability_decisions` w tej samej transakcji co etykieta i command receipt. Kolejny ordinal jest wyznaczany pod istniejącą EXCLUSIVE sequence ownership lock. Retry nie dopisuje ledgeru. Kwalifikacja B1 wybiera najwyższy ordinal rozstrzygający dla current crop identity; fallback legacy wymaga zgodności wszystkich aktualnych dowodów. Snapshot przypina rewizję kwalifikującej oceny i aktualny crop. Nowy podgląd jest konieczny przed przyszłym retirement.

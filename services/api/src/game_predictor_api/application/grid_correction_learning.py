@@ -1011,7 +1011,10 @@ class GridCorrectionLearningService:
                         if kind == "prepare-page"
                         else header["nextMaterializationCursor"]
                     )
-                service.command(game, cohort_id, kind, body, actor)
+                if kind == "materialize-page":
+                    service.command(game, cohort_id, kind, body, actor, materialization_pages=20)
+                else:
+                    service.command(game, cohort_id, kind, body, actor)
                 return state, False
         # Separate advisory lock serializes child creation and cancellation without
         # blocking the parent's independent lease heartbeat transaction.

@@ -439,6 +439,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - storage/grid_cell_content_pins.py: require_content_target_identity, content_pin, apply_blind_a_geometry, require_current_content_pin
 - storage/grid_cell_content_targets.py: list_targets, target_source_asset, list_source_targets, annotation_source_asset, require_source_annotation_access
 - storage/grid_cohort_asset_retention.py: class AssetDeadline, class CohortAssetDeadline, cohort_asset_guard_key, acquire_cohort_asset_guard, parse_cohort_asset_path, read_cohort_asset_reference
+- storage/grid_cohort_materialization_progress.py: empty_counts, add_sources, saved_counts
 - storage/grid_cohort_member_refs_migration.py: guard, manifest, protect, upgrade, downgrade
 - storage/grid_content_bundle.py: read_content_bundle_bytes, read_content_bundle
 - storage/grid_content_diagnostic_measurement.py: diagnostic_render_oracle, diagnostic_measurement_ready

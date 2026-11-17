@@ -1,0 +1,43 @@
+{
+  "task": "TASK-1242",
+  "operatorParent": "6ac108a6-7b99-4701-bbf3-b5d78fae3b89",
+  "operatorCohort": "8d571c98-bbcc-5d00-9792-4ec77e53c491",
+  "baseline": {
+    "cohortDocumentDecodedBytes": 20981684,
+    "cohortDocumentReadSeconds": 0.3891601,
+    "preparedDocumentBytes": 12344909,
+    "preparedReadVerifyDecodeSeconds": 0.1490788,
+    "pageMetadataRows": 1758,
+    "pageMetadataReadSeconds": 0.1069796
+  },
+  "readOnlyCounterParity": {
+    "physicalPages": 2057,
+    "cursor": 10285,
+    "equal": true,
+    "oldFullPageScansPerSummary": 1,
+    "newFullPageScansPerSummary": 0,
+    "oldInMemorySummarySeconds": 0.002118,
+    "newInMemorySummarySeconds": 0.0001075,
+    "excludesSqlAndLiveThroughput": true
+  },
+  "compatibility": {
+    "samePhysicalPageSize": 5,
+    "ordinaryHttpCommandPages": 1,
+    "internalMaximumPages": 20,
+    "yieldSliceSecondsBetweenPages": 2,
+    "materializationLock": "revision-only FOR NO KEY UPDATE",
+    "concurrentNoticeFkInsertVerified": true,
+    "existingPagesAndReceiptsRetained": true,
+    "groupAtomic": true,
+    "derivedCountsRebuildable": true,
+    "selectedImagesLabelsPagesAndRootByteParityTest": true,
+    "disposablePostgresRollbackReplayAndFreshInterpreterTest": true,
+    "repairPatchAppliesToLiveBackgroundHooks": true,
+    "liveFilesModified": false
+  },
+  "passingTests": 85,
+  "operatorDatabaseWrites": 0,
+  "migrationsAdded": 0,
+  "liveSpeedupMeasured": false,
+  "deploymentState": "not yet deployed"
+}

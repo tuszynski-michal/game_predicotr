@@ -165,6 +165,22 @@ class SqlAlchemyGridTrainingCohortRepository:
                 "GRID_COHORT_REVISION_CONFLICT", "Reload the current cohort revision."
             )
 
+    def lock_materialization(self, row: Cohort, expected: int) -> Cohort:
+        # Keys and document are immutable. Lock only the revision: NO KEY UPDATE
+        # serializes header writers while allowing event FKs to take KEY SHARE.
+        revision = self.session.scalar(
+            select(Cohort.revision)
+            .where(Cohort.game_id == row.game_id, Cohort.id == row.id)
+            .with_for_update(key_share=True)
+        )
+        if revision is None:
+            raise GridCohortError("GRID_COHORT_NOT_FOUND", "The cohort is unavailable.", 404)
+        if revision != expected:
+            raise GridCohortError(
+                "GRID_COHORT_REVISION_CONFLICT", "Reload the current cohort revision."
+            )
+        return row
+
     def members(
         self, game: UUID, cohort: UUID, after: int, limit: int = METADATA_PAGE_SIZE
     ) -> list[Member]:
@@ -236,6 +252,8 @@ class SqlAlchemyGridTrainingCohortRepository:
         )
 
     def summary_view(self, row: Cohort) -> dict[str, Any]:
+        from .grid_cohort_materialization_progress import add_sources, empty_counts, saved_counts
+
         result = json.loads(
             json.dumps(
                 {
@@ -244,14 +262,11 @@ class SqlAlchemyGridTrainingCohortRepository:
                 }
             )
         )
-        counts = {item["role"]: {"boards": 0, "photos": 0, "full": 0} for item in result["roles"]}
-        for page in self.pages(row.game_id, row.id, "materialization"):
-            for source in page.document["sources"]:
-                if source["used"]:
-                    count = counts[source["role"]]
-                    count["boards"] += source["boards"]
-                    count["photos"] += 1
-                    count["full"] += source["full"]
+        counts = saved_counts(row.summary, row.revision, row.document["sourceCount"])
+        if counts is None:
+            counts = empty_counts(row.summary)
+            for page in self.pages(row.game_id, row.id, "materialization"):
+                add_sources(counts, page.document["sources"])
         for item in result["roles"]:
             count = counts[item["role"]]
             item.update(
@@ -267,6 +282,33 @@ class SqlAlchemyGridTrainingCohortRepository:
                 for purpose in ("A", "B")
             }
         return cast(dict[str, Any], result)
+
+    def record_materialized_counts(
+        self, row: Cohort, cursor: int, sources: list[dict[str, Any]], through: int
+    ) -> None:
+        from .grid_cohort_materialization_progress import (
+            PROGRESS_KEY,
+            add_sources,
+            empty_counts,
+            saved_counts,
+        )
+
+        counts = saved_counts(row.summary, row.revision, row.document["sourceCount"], cursor=cursor)
+        if counts is None:
+            # An old cohort needs one reconstruction; never rewrite its pages/receipts.
+            counts = empty_counts(row.summary)
+            for page in self.pages(row.game_id, row.id, "materialization"):
+                if page.page_index < cursor:
+                    add_sources(counts, page.document["sources"])
+        add_sources(counts, sources)
+        row.summary = {
+            **row.summary,
+            PROGRESS_KEY: {
+                "revision": row.revision + 1,
+                "throughCursor": through,
+                "counts": counts,
+            },
+        }
 
     def view(self, row: Cohort) -> dict[str, Any]:
         return {

@@ -392,6 +392,18 @@ W przeglądzie jakości zaznaczenia i ich tożsamości/rewizje pozostają pomię
 
 Jawne porzucenie pozostałych porcji wymaga potwierdzenia operatora i nie cofa zapisów. Niepotwierdzona porcja mogła już zostać zapisana; UI mówi o tej niepewności. Porzucenie jest zablokowane podczas requestu i dostępne również dla uszkodzonej kolejki bez zgadywania postępu.
 
+## Jawny nadzór postępu jednego treningu — TASK-1244 / D-617
+
+Operator może zatwierdzić dla jednego istniejącego treningu korekt punktów
+politykę bez limitu łącznego czasu. Zgoda nie zmienia domyślnych limitów nowych
+przebiegów ani limitu kroków, recepty, danych lub jakości. Zużyty czas i wykonana
+praca pozostają rozliczone. 300 sekund bez ukończonej jednostki pracy zatrzymuje
+trening z widocznym błędem zastoju. Heartbeat, sam żywy proces i aktywność CPU
+nie przedłużają tego okna. Ukończone jednostki obejmują zweryfikowane strony,
+pomiary walidacyjne i kroki optymalizacji. Restart zachowuje zgodę i checkpoint;
+ponowne odczytanie danych nie zeruje zużycia treningu. Ochrona utraty nadzorcy
+i dzierżawy GPU, anulowanie i osobna zgoda na aktywację pozostają obowiązkowe.
+
 ## Wykorzystanie częściowych korekt siatki — TASK-1240
 
 Domyślne polecenie operatorskie uczenia korekt wybiera punkty siatki, aby

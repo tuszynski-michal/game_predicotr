@@ -24,10 +24,12 @@ from game_predictor_worker.images.grid_training_handler import (
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from game_predictor_worker.training_core.gpu_lease import GpuLease, lease_path
 from game_predictor_worker.training_core.grid_training_admission import (
+    GRID_CORRECTIONS_V1,
     GRID_ONLY_V1,
     RunBudget,
     RuntimeFacts,
 )
+from game_predictor_worker.training_core.run_activity import PROGRESS_LIMIT_POLICY
 
 GPU = RuntimeFacts(
     cuda_available=True,
@@ -281,6 +283,94 @@ def handler(root: Path, store: Store, child: FakeChild, **kwargs: Any) -> GridTr
         poll_seconds=0.0,
         **kwargs,
     )
+
+
+def test_progress_supervision_spec_has_json_null_without_replenishing_work(tmp_path):
+    current = job()
+    current = replace(
+        current,
+        input_payload={
+            **current.input_payload,
+            "preset_id": GRID_CORRECTIONS_V1.preset_id,
+            "preset_fingerprint": GRID_CORRECTIONS_V1.fingerprint,
+        },
+    )
+    state = RunState(
+        replace(
+            RunBudget.for_preset(GRID_CORRECTIONS_V1, "train"),
+            max_seconds=None,
+            limit_policy=PROGRESS_LIMIT_POLICY,
+            used_seconds=7500,
+            reserved_steps=800,
+        )
+    )
+    store = Store(tmp_path)
+    value = handler(tmp_path, store, FakeChild())._spec(
+        current,
+        state,
+        store.cohort(current.game_id, UUID(current.input_payload["cohort_id"])),
+        store.base_version(UUID(current.input_payload["base_version_id"])),
+    )
+    encoded = json.dumps(value, allow_nan=False)
+    assert json.loads(encoded)["budget"]["remainingSeconds"] is None
+    assert value["budget"]["timePolicy"] == PROGRESS_LIMIT_POLICY
+    assert value["budget"]["remainingSteps"] == 7200
+    assert value["budget"]["chargedSeconds"] == 7500
+    assert value["jobId"] == str(current.id)
+
+
+@pytest.mark.parametrize(
+    "finished",
+    [
+        None,
+        {"status": "no_improvement", "code": "GRID_TRAINING_NO_IMPROVEMENT", "steps": 600},
+        {"status": "failed", "code": "ACTUAL_TRAINING_FAILURE", "steps": 600},
+    ],
+)
+def test_progress_supervisor_stops_a_live_child_without_completed_work(tmp_path, finished):
+    current = job()
+    current = replace(current, input_payload={**current.input_payload, "planned_steps": 3600})
+    context = Context(current)
+    budget = replace(
+        RunBudget.for_preset(GRID_CORRECTIONS_V1, "train"),
+        max_seconds=None,
+        limit_policy=PROGRESS_LIMIT_POLICY,
+        reserved_steps=800,
+    )
+    state = RunState(budget, attempt=1)
+    state.attempt_start = {"step": 600, "reserved": 800}
+    state.checkpoint = {"path": "a.pt", "sha256": "a" * 64, "step": 600}
+    ticks = [-1]
+
+    def clock():
+        ticks[0] += 1
+        return 0.0 if ticks[0] < 2 else 301.0 + ticks[0]
+
+    class IdleChild:
+        killed = False
+
+        def poll(self):
+            if finished is not None:
+                (tmp_path / "result-1.json").write_text(json.dumps(finished))
+                return 3
+            return 3 if self.killed else None
+
+        def kill(self):
+            self.killed = True
+
+        def wait(self, **_):
+            return 3
+
+    child = IdleChild()
+    value = handler(tmp_path, Store(tmp_path), FakeChild(), monotonic=clock)._supervise(
+        context, current, state, tmp_path, child, tmp_path / "supervisor.heartbeat", 800, 600
+    )
+    if finished is None:
+        assert child.killed and value["code"] == "RUN_PROGRESS_STALLED"
+    else:
+        assert value == finished and not child.killed
+    assert state.checkpoint["step"] == 600
+    assert (tmp_path / "cancel.intent").read_text() == "stalled"
 
 
 def test_run_trains_installs_and_registers_one_not_evaluated_candidate(tmp_path: Path) -> None:

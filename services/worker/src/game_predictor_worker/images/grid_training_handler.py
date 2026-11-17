@@ -48,6 +48,7 @@ from ..training_core.grid_training_admission import (
     summed_counts,
 )
 from ..training_core.process_identity import own_identity
+from ..training_core.run_activity import PROGRESS_LIMIT_POLICY, ActivityObserver
 from .grid_shared_candidate import plan_for
 from .grid_training_child import (
     RECIPE_FILE,
@@ -575,10 +576,17 @@ class GridTrainingJobHandler:
             "seed": int(payload["seed"]),
             "plannedSteps": int(payload["planned_steps"]),
             "budget": {
-                "remainingSeconds": state.budget.remaining_seconds,
+                "remainingSeconds": None
+                if state.budget.max_seconds is None
+                else state.budget.remaining_seconds,
                 "remainingSteps": state.budget.remaining_steps,
                 "chargedSeconds": state.budget.used_seconds,
                 "startedMonotonic": self.monotonic(),
+                **(
+                    {"timePolicy": PROGRESS_LIMIT_POLICY, "stallSeconds": 300}
+                    if state.budget.limit_policy == PROGRESS_LIMIT_POLICY
+                    else {}
+                ),
                 **(
                     {"logicalCompletedSteps": state.budget.logical_completed_steps}
                     if state.budget.limit_policy == CONTENT_LIMIT_POLICY
@@ -845,6 +853,12 @@ class GridTrainingJobHandler:
         if state.budget.limit_policy == CONTENT_LIMIT_POLICY:
             allowance = min(state.budget.max_steps, start_step + ALLOWANCE_STEPS)
         step = start_step
+        activity = (
+            ActivityObserver(run_dir, str(job.id), state.attempt, clock=self.monotonic)
+            if state.budget.limit_policy == PROGRESS_LIMIT_POLICY
+            else None
+        )
+        stall_detected = False
         while True:
             heartbeat.write_text(self._now_iso(), encoding="utf-8")
             now = self.monotonic()
@@ -853,9 +867,13 @@ class GridTrainingJobHandler:
             state.charged_at = self._now_iso()
             context.heartbeat()
             cancel_requested = context.job.cancel_requested_at is not None
-            if (cancel_requested or state.budget.remaining_seconds <= 0) and not cancel_written:
+            stall_detected = stall_detected or (activity is not None and activity.stalled())
+            if (
+                cancel_requested or state.budget.remaining_seconds <= 0 or stall_detected
+            ) and not cancel_written:
                 (run_dir / "cancel.intent").write_text(
-                    "cancel" if cancel_requested else "budget", encoding="utf-8"
+                    "cancel" if cancel_requested else "stalled" if stall_detected else "budget",
+                    encoding="utf-8",
                 )
                 cancel_written = True
                 deadline = self.monotonic() + CANCEL_WAIT_SECONDS
@@ -911,6 +929,11 @@ class GridTrainingJobHandler:
         if cancel_requested:
             state.charged_at = None
             self._persist(context, state, "cancelled", 0, None)  # acknowledges the cancel
+        if stall_detected:
+            if result is None:
+                return {"status": "interrupted", "code": "RUN_PROGRESS_STALLED"}
+            if result.get("code") == "RUN_CANCELLED":
+                return {**result, "code": "RUN_PROGRESS_STALLED"}
         if result is None:
             return {"status": "failed", "code": "GRID_TRAINING_CHILD_EXITED"}
         return result

@@ -168,6 +168,44 @@ class SnapshotFixture:
         return GridCohortSnapshot(self.root, pin["path"], pin["sha256"])
 
 
+def test_indexing_copies_manifest_per_scan_and_publishes_verified_page_progress(
+    tmp_path, monkeypatch
+):
+    fixture = SnapshotFixture(tmp_path)
+    for _ in range(6):
+        fixture.source()
+    plain = fixture.publish()
+    expected = GridBoardDataset(plain).indexed()
+    calls = []
+    snapshot = GridCohortSnapshot(
+        tmp_path,
+        fixture.manifest_pin["path"],
+        fixture.manifest_pin["sha256"],
+        activity=lambda phase, count: calls.append((phase, count)),
+    )
+    original = GridCohortSnapshot.manifest.fget
+    copies = []
+
+    def counted(value):
+        copies.append(1)
+        return original(value)
+
+    monkeypatch.setattr(GridCohortSnapshot, "manifest", property(counted))
+    actual = GridBoardDataset(snapshot).indexed()
+    assert len(actual) == len(expected) == 6
+    assert [item[0] for item in actual] == [item[0] for item in expected]
+    for left, right in zip(actual, expected, strict=True):
+        np.testing.assert_array_equal(left[1][0][0], right[1][0][0])
+        assert left[1][0][1] == right[1][0][1]
+    assert len(copies) <= 4  # constructor plus two independent scans, not per source/target
+    assert len(calls) == 4  # two pages, count check and indexing pass
+    assert calls[-1][1] == 6
+    assert calls[0][0] != calls[-1][0]
+    changed = snapshot.manifest
+    changed["gameId"] = "changed"
+    assert snapshot.manifest["gameId"] == fixture.game
+
+
 def test_grid_only_partial_photo_preserves_deformed_nodes_and_weights(tmp_path):
     fixture = SnapshotFixture(tmp_path)
     corrected = fixture.source()

@@ -285,7 +285,11 @@ export const REASON_LABELS: Readonly<Record<string, string>> = {
     'Stan uczenia zmienił się od sprawdzenia; odśwież stan',
   GRID_LEARNING_SCOPE_INVALID: 'Nieprawidłowy zakres importów uczenia',
   GRID_RUN_BUDGET_CORRUPT: 'Zapis budżetu treningu jest uszkodzony',
+  GRID_RUN_CLOCK_INVALID:
+    'Zegar systemowy cofnął się; sprawdź czas przed wznowieniem treningu',
   GRID_RUN_BUDGET_EXHAUSTED: 'Wyczerpano budżet czasu treningu',
+  RUN_PROGRESS_STALLED:
+    'Trening zatrzymany: przez 5 minut nie ukończono kolejnej jednostki pracy',
   GRID_RUN_BUDGET_PRESET_MISMATCH: 'Budżet treningu nie pasuje do ustawień',
   GRID_RUN_COHORT_MODE_MISMATCH: 'Tryb zestawu nie pasuje do trybu treningu',
   GRID_RUN_RUNTIME_INCOMPATIBLE: 'Środowisko GPU workera jest niezgodne',

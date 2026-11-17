@@ -110,6 +110,34 @@ def test_precision_restores_process_defaults_after_exception_and_disables_autoca
         torch.backends.cudnn.allow_tf32, torch.backends.cuda.matmul.allow_tf32 = previous
 
 
+def test_completed_validation_measurements_renew_activity_with_new_passes(tmp_path, monkeypatch):
+    from game_predictor_worker.training_core.run_activity import ActivityObserver, ActivityPublisher
+
+    evaluator, photos = setup(tmp_path, monkeypatch)
+    now = [0.0]
+    observer = ActivityObserver(tmp_path, "run", 1, clock=lambda: now[0])
+    publisher = ActivityPublisher(tmp_path, "run", 1, clock=lambda: now[0])
+    original = photos.rgb
+
+    def rgb(index):
+        now[0] += 100
+        return original(index)
+
+    photos.rgb = rgb
+    calls = []
+
+    def activity(phase, current):
+        publisher.advance(phase, current)
+        calls.append((phase, current))
+        assert not observer.stalled()
+
+    evaluator.activity = activity
+    evaluator(Network())
+    evaluator(Network())
+    assert now[0] == 2600
+    assert calls == [(phase, n) for phase in ("validation-1", "validation-2") for n in range(1, 14)]
+
+
 def test_full_a_includes_last_partial_photo_and_all_actual_graph_calls(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

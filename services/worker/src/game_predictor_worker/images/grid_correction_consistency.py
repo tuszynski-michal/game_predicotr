@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
@@ -112,12 +112,20 @@ def checkpoint_order_preserved(
 
 class CorrectionEvaluator:
     def __init__(
-        self, parts: Sequence[Any], recipe: Any, device: str, *, photo_first: bool = False
+        self,
+        parts: Sequence[Any],
+        recipe: Any,
+        device: str,
+        *,
+        photo_first: bool = False,
+        activity: Callable[[str, int], None] | None = None,
     ) -> None:
         if not parts or any(part.role != "VALIDATION" for part in parts):
             raise ValueError("GRID_TRAINING_VALIDATION_ONLY")
         self.parts, self.recipe, self.device = list(parts), recipe, device
         self.photo_first = photo_first
+        self.activity = activity
+        self._measure_number = 0
 
     def __call__(self, network: Any) -> dict[str, float]:
         with torch.no_grad():
@@ -127,8 +135,11 @@ class CorrectionEvaluator:
             )
 
     def measure(self, engine: NeuralGridEngine) -> dict[str, Any]:
+        self._measure_number += 1
+        completed = 0
         games, rows = {}, []
         for part in self.parts:
+            game_id = str(part.snapshot.manifest["gameId"])
             evaluated = []
             for index, (source, _) in enumerate(part.rows):
                 rgb = part.rgb(index)
@@ -142,9 +153,12 @@ class CorrectionEvaluator:
                     full_geometry=has_full_geometry(source),
                 )
                 evaluated.append(result)
+                completed += 1
+                if self.activity is not None:
+                    self.activity(f"validation-{self._measure_number}", completed)
                 rows.append(
                     {
-                        "gameId": str(part.snapshot.manifest["gameId"]),
+                        "gameId": game_id,
                         "manifestSha256": part.snapshot.manifest_sha256,
                         "sourceId": str(source["sourceId"]),
                         "rgbSha256": hashlib.sha256(
@@ -161,7 +175,6 @@ class CorrectionEvaluator:
                         "evaluation": result.as_dict(),
                     }
                 )
-            game_id = str(part.snapshot.manifest["gameId"])
             if game_id in games:
                 raise ValueError("GRID_TRAINING_DUPLICATE_VALIDATION_GAME")
             games[game_id] = checkpoint_metrics(evaluated, photo_first=self.photo_first)

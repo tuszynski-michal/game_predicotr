@@ -18,6 +18,7 @@ import contextlib
 import faulthandler
 import hashlib
 import json
+import math
 import os
 import shutil
 import sys
@@ -34,6 +35,7 @@ from typing import Any, cast
 from ..training_core.gpu_lease import GpuLease, GpuLeaseError, lease_path
 from ..training_core.grid_training_admission import PRESETS, digest, probe_runtime
 from ..training_core.process_identity import process_created
+from ..training_core.run_activity import ActivityObserver, ActivityPublisher, progress_supervised
 from ..training_core.runtime import TrainingInterrupted
 
 SPEC_FORMAT = "grid-training-spec-v1"
@@ -131,12 +133,16 @@ class ChildControl:
         lease: GpuLease,
         record: Any,
         counter: dict[str, int] | None = None,
+        activity: ActivityPublisher | None = None,
     ) -> None:
         self.counter = counter if counter is not None else {"step": 0}
+        self.activity = activity
         self.spec, self.run_dir = spec, run_dir
         self.lease, self.record = lease, record
         self.started = time.monotonic()
-        self.limit = float(spec["budget"]["remainingSeconds"])
+        self.limit = (
+            math.inf if progress_supervised(spec) else float(spec["budget"]["remainingSeconds"])
+        )
         self.remaining_steps = int(spec["budget"]["remainingSteps"])
         resume = spec.get("resume")
         self.start_step = int(resume["step"]) if resume else 0
@@ -200,6 +206,8 @@ class ChildControl:
         self.write_progress(step, None, {}, force=True)
 
     def progress(self, step: int, total: int, losses: Mapping[str, float]) -> None:
+        if self.activity is not None:
+            self.activity.advance("optimizer", step)
         self.counter["step"] = max(self.counter["step"], step)  # ``step`` steps are completed
         self.write_progress(step, total, losses)
 
@@ -264,7 +272,17 @@ class Watchdog:
         self.spec, self.run_dir, self.result_path = spec, run_dir, result_path
         self.alive, self.exit_process, self.clock = alive, exit_process, clock
         self.started = clock()
-        self.limit = float(spec["budget"]["remainingSeconds"]) + WATCHDOG_GRACE_SECONDS
+        supervised = progress_supervised(spec)
+        self.activity = (
+            ActivityObserver(run_dir, spec["jobId"], spec["attempt"], clock=clock)
+            if supervised
+            else None
+        )
+        self.limit = (
+            math.inf
+            if supervised
+            else float(spec["budget"]["remainingSeconds"]) + WATCHDOG_GRACE_SECONDS
+        )
         self._stopped = threading.Event()
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
@@ -274,6 +292,8 @@ class Watchdog:
         now = self.clock()
         if now - self.started > self.limit:
             return "RUN_BUDGET_EXHAUSTED"
+        if self.activity is not None and self.activity.stalled():
+            return "RUN_PROGRESS_STALLED"
         if self.alive(self.spec, self.run_dir):
             self._lost_since = None
             return None
@@ -366,6 +386,13 @@ def _train(
     record: Any,
     counter: dict[str, int],
 ) -> dict[str, Any]:
+    activity = (
+        ActivityPublisher(run_dir, spec["jobId"], spec["attempt"])
+        if progress_supervised(spec)
+        else None
+    )
+    if activity is not None:
+        activity.advance("startup", 0)
     if spec.get("contentExperiment") is not None:
         from .grid_content_experiment_run import run_experiment
 
@@ -413,7 +440,12 @@ def _train(
         if output_contract.trainedVisibility or recipe.board.visibility_loss_weight <= 0:
             raise ChildError("GRID_VISIBILITY_TRAINING_CONTRACT_INVALID")
     cohort = spec["cohort"]
-    snapshot = GridCohortSnapshot(artifact_root, cohort["manifestPath"], cohort["manifestSha256"])
+    snapshot = GridCohortSnapshot(
+        artifact_root,
+        cohort["manifestPath"],
+        cohort["manifestSha256"],
+        **({"activity": activity.advance} if activity is not None else {}),
+    )
     if snapshot.manifest.get("mode") != preset.mode:
         raise ChildError("GRID_RUN_COHORT_MODE_MISMATCH")
     device = "cuda" if torch.cuda.is_available() else spec.get("device", "cpu")
@@ -438,7 +470,9 @@ def _train(
     ):
         raise ChildError("GRID_RUN_COHORT_POLICY_MISMATCH")
     validation = CohortPhotos(snapshot, "VALIDATION", full_only=screen_mode or not corrections)
-    crops, labels = validation_crops(validation, recipe)
+    crops, labels = validation_crops(
+        validation, recipe, **({"activity": activity.advance} if activity is not None else {})
+    )
     joint = spec.get("joint")
     snapshots = [snapshot]
     strata = None
@@ -517,7 +551,13 @@ def _train(
     if corrections:
         from .grid_training_data import correction_evaluator
 
-        evaluate = correction_evaluator(validations, recipe, device, photo_first=screen_corrections)
+        evaluate = correction_evaluator(
+            validations,
+            recipe,
+            device,
+            photo_first=screen_corrections,
+            **({"activity": activity.advance} if activity is not None else {}),
+        )
     if screen_corrections:
         evaluate = photo_evaluator(
             validation,
@@ -548,7 +588,14 @@ def _train(
         },
     )
     resume = spec.get("resume")
-    control = ChildControl(spec, run_dir, lease, record, counter)
+    control = ChildControl(
+        spec,
+        run_dir,
+        lease,
+        record,
+        counter,
+        **({"activity": activity} if activity is not None else {}),
+    )
     try:
         result = train(
             network=network,
@@ -610,6 +657,7 @@ def _train(
         result,
         (crops, None if not screen_mode else validation),
         correction_evaluator=evaluate if corrections and not screen_corrections else None,
+        **({"activity": activity} if activity is not None else {}),
         **(
             {"screen_evaluator": evaluate, "selection_binding": selection_binding}
             if screen_corrections
@@ -651,6 +699,7 @@ def _export(
     content_finalize: Any = None,
     correction_evaluator: Any = None,
     content_verify: Any = None,
+    activity: ActivityPublisher | None = None,
 ) -> dict[str, Any]:
     """Immutable export directory named by the final checkpoint; re-use an identical one."""
     import torch
@@ -734,10 +783,14 @@ def _export(
             content_auxiliary=arm == "R3",
         )
         shutil.copyfile(result.checkpoint_path, staging / "checkpoint.pt")
+        if activity is not None:
+            activity.advance("export", 1)
         (staging / "preset.json").write_bytes(preset_bytes)
         crops, photos = parity_source
         board, pixels = parity_inputs(crops, photos, recipe)
         parity = raw_parity(network, staging, board, pixels)
+        if activity is not None:
+            activity.advance("export", 2)
         if not parity["passed"]:
             # The measured deltas stay with the run for diagnosis; the result keeps its code.
             write_json_atomic(run_dir / "parity-failed.json", parity)
@@ -873,6 +926,8 @@ def _export(
         if content_experiment is not None:
             require_content_bundle_size(bundle)
         write_json_atomic(staging / "bundle.json", bundle)
+        if activity is not None:
+            activity.advance("export", 3)
         for path in staging.iterdir():
             with path.open("r+b") as stream:  # Windows fsync needs a writable handle
                 os.fsync(stream.fileno())

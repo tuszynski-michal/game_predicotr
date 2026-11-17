@@ -331,7 +331,7 @@ class GridTrainingRunCreate(CohortClosedModel):
 
 class GridTrainingRunBudget(CohortClosedModel):
     maxSteps: int
-    maxSeconds: float
+    maxSeconds: float | None
     reservedSteps: int
     usedSeconds: float
 

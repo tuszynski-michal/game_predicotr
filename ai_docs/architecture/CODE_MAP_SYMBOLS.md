@@ -914,7 +914,9 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - training_core/neural_grid_augmentation.py: random_homography, photometric, screen_targets, perturb_quad, build_training_item, build_screen_item, build_screen_item_with_indices, build_board_crop
 - training_core/neural_grid_network.py: class FeaturePyramid, class ScreenNetwork, class BoardNetwork, soft_argmax, class NeuralGridNetwork, class ScreenExport, class BoardExport, class ContentExport, focal_loss, offset_loss, node_heatmap_loss, parameter_count
 - training_core/process_identity.py: process_created, own_identity
+- training_core/run_activity.py: progress_supervised, class ActivityPublisher, class ActivityObserver
 - training_core/run_budget_extension.py: prepare_extension, verify_extension
+- training_core/run_progress_supervision.py: prepare_supervision, verify_supervision
 - training_core/runtime.py: class TrainingInterrupted, class TrainingControl, train_epochs
 - vision_lab/annotation_cli.py: main
 - vision_lab/annotation_contracts.py: class Mutation, class GeometryAnnotation, class AnnotationRequest, class FamilyDecision, class PhotoReviewRequest, class BoardReviewIssue, class PhotoReview, class FamilyRequest, class GeometryQualificationBinding, class GeometryQualificationRequest, class StoredGeometryQualification, class SplitRequest, class StoredFamily, class Timing, class FrozenSplit, class AssistedBoard, class AssistedPhoto, class AssistedRequest, class AnnotationState, class BackupResult, class BackupRequest, class TimingReport

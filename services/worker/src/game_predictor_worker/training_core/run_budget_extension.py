@@ -111,7 +111,9 @@ def verify_extension(row: Mapping[str, Any], preview: Mapping[str, Any], expecte
         budget = RunBudget.from_payload(current["budget"])
         prior = RunBudget.from_payload(payload["afterState"]["budget"])
         if (
-            budget.max_seconds < prior.max_seconds
+            budget.max_seconds is None
+            or prior.max_seconds is None
+            or budget.max_seconds < prior.max_seconds
             or budget.used_seconds < prior.used_seconds
             or budget.reserved_steps < prior.reserved_steps
             or budget.attempts < prior.attempts

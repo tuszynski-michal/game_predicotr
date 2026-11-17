@@ -1694,6 +1694,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     listGridTrainingRuns: (gameId: string) =>
       listGeneratedGridTrainingRuns({ client, path: { game_id: gameId } }),
+    // maxSeconds=null is the explicit per-run progress policy; preserve null.
     getGridTrainingRun: (gameId: string, runId: string) =>
       getGeneratedGridTrainingRun({
         client,

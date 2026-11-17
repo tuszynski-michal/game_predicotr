@@ -11,7 +11,7 @@ import hashlib
 import json
 import math
 import re
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path, PurePosixPath
 from threading import Lock
 from typing import Any, NoReturn
@@ -80,9 +80,16 @@ class GridCohortSnapshot:
     """Keep at most one metadata page and one canonical image frame in memory."""
 
     def __init__(
-        self, artifact_root: Path, manifest_relative_path: str, expected_manifest_sha256: str
+        self,
+        artifact_root: Path,
+        manifest_relative_path: str,
+        expected_manifest_sha256: str,
+        *,
+        activity: Callable[[str, int], None] | None = None,
     ) -> None:
         self.manifest_sha256 = expected_manifest_sha256
+        self.activity = activity
+        self._scan_number = 0
         original_root = Path(artifact_root).absolute()
         if any(
             path.is_symlink() or path.is_junction()
@@ -293,6 +300,8 @@ class GridCohortSnapshot:
     def sources(self) -> Iterator[dict[str, Any]]:
         """Stream metadata only; retain excluded and control rows without reading images."""
         path = self._verify_index()
+        self._scan_number += 1
+        phase = f"snapshot-scan-{self._scan_number}"
         previous = -1
         with path.open("rb") as stream:
             for line in stream:
@@ -357,6 +366,8 @@ class GridCohortSnapshot:
                 if board_count != pin["boardCount"] or screen_count != pin["screenCount"]:
                     _fail("PAGE_COUNTS_MISMATCH", "Page target counts differ from their index.")
                 yield from page["sources"]
+                if self.activity is not None:
+                    self.activity(phase, page["lastOrdinal"] + 1)
 
     def frame(
         self, source: dict[str, Any], role: str, *, validation_purpose: str = "A"
@@ -528,6 +539,9 @@ class GridBoardDataset:
         )
 
     def _sources(self) -> Iterator[dict[str, Any]]:
+        manifest = self.snapshot.manifest
+        content_policy = manifest.get("photoSplit", {}).get("contentSampling")
+        game_id = UUID(manifest["gameId"])
         for source in self.snapshot.sources():
             if source["used"] and source["role"] == self.role:
                 if self.validation_purpose is not None:
@@ -543,9 +557,8 @@ class GridBoardDataset:
                     _fail("TARGETS_INVALID", "Each target must be a metadata object.")
                 from .grid_cell_content_reference import frozen_content_reference
 
-                content_policy = self.snapshot.manifest.get("photoSplit", {}).get("contentSampling")
                 for target in targets:
-                    frozen_content_reference(UUID(self.snapshot.manifest["gameId"]), source, target)
+                    frozen_content_reference(game_id, source, target)
                     if (
                         content_policy
                         and source.get("validationPurpose") == "A"

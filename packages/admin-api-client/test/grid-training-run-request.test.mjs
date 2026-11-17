@@ -2,6 +2,28 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('the run wrapper preserves the explicit null cumulative time limit', async () => {
+  const budget = {
+    maxSteps: 8000,
+    maxSeconds: null,
+    reservedSteps: 800,
+    usedSeconds: 7500,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async () =>
+      new Response(JSON.stringify({ budget }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+  });
+  const response = await client.getGridTrainingRun(
+    '11111111-1111-4111-8111-111111111111',
+    '22222222-2222-4222-8222-222222222222',
+  );
+  assert.deepEqual(response.data.budget, budget);
+});
+
 test('grid-training run wrappers use scoped routes and exact bodies', async () => {
   const calls = [];
   const client = createAdminApiClient({

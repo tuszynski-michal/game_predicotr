@@ -23020,8 +23020,15 @@
         "additionalProperties": false,
         "properties": {
           "maxSeconds": {
-            "title": "Maxseconds",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxseconds"
           },
           "maxSteps": {
             "title": "Maxsteps",

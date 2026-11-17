@@ -106,13 +106,27 @@ def cohort(tmp_path: Path) -> SnapshotFixture:
     return fixture
 
 
+@pytest.mark.parametrize("supervised", [False, True])
 def test_real_trainer_trains_checkpoints_exports_and_releases_the_gpu_lease(
-    tmp_path: Path, cohort: SnapshotFixture, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, cohort: SnapshotFixture, monkeypatch: pytest.MonkeyPatch, supervised: bool
 ) -> None:
     preset = tiny_preset()
     monkeypatch.setitem(admission.PRESETS, preset.preset_id, preset)
     path = spec(tmp_path, cohort, preset)
+    if supervised:
+        from game_predictor_worker.training_core.run_activity import PROGRESS_LIMIT_POLICY
+
+        body = json.loads(path.read_text())["payload"]
+        body["budget"].update(
+            remainingSeconds=None, timePolicy=PROGRESS_LIMIT_POLICY, stallSeconds=300
+        )
+        path.write_text(
+            json.dumps({"payload": body, "sha256": child.sha256_bytes(child.canonical(body))})
+        )
     assert child.run(path) == 0
+    if supervised:
+        activity = json.loads((path.parent / "activity.json").read_text())
+        assert activity["attempt"] == 1 and activity["sequence"] > 1
     result = json.loads((path.parent / "result-1.json").read_text(encoding="utf-8"))
     assert result["status"] == "exported", result
     assert result["steps"] == 2 and len(result["history"]) == 2

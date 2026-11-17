@@ -1,4 +1,7 @@
-"""Owner-only preview/apply for an explicitly approved 7200 -> 14400 second grant.
+"""Owner-only preview/apply for an explicitly approved single-run policy grant.
+
+Default: 7200 -> 14400 seconds for screen+grid recovery. --progress-supervision:
+no cumulative time stop for grid-only corrections, with completed-work supervision.
 
 Does not cancel, resume, change a preset, create a run, or modify artifacts.
 Run with the repository Python; checkpoint validation uses PyTorch on CPU.
@@ -30,6 +33,13 @@ from game_predictor_worker.training_core.grid_training_admission import (  # noq
 from game_predictor_worker.training_core.run_budget_extension import (  # noqa: E402
     prepare_extension,
     verify_extension,
+)
+from game_predictor_worker.training_core.run_progress_supervision import (  # noqa: E402
+    FORMAT as SUPERVISION_FORMAT,
+)
+from game_predictor_worker.training_core.run_progress_supervision import (  # noqa: E402
+    prepare_supervision,
+    verify_supervision,
 )
 from sqlalchemy import Connection, Engine, create_engine, text  # noqa: E402
 
@@ -63,6 +73,7 @@ def checkpoint_pointer(row: dict[str, Any], artifact_root: Path, name: str) -> d
         selection_input,
     )
     from game_predictor_worker.training_core.grid_training import (
+        CORRECTION_CHECKPOINT_RULE,
         PHOTO_CHECKPOINT_RULE,
         EarlyStopping,
         TrainingPlan,
@@ -103,14 +114,20 @@ def checkpoint_pointer(row: dict[str, Any], artifact_root: Path, name: str) -> d
         or spec.get("joint") is not None
         or spec.get("gridOutputContract") is not None
         or spec.get("contentExperiment") is not None
-        or spec["rescueRecipe"] != inputs["rescue_recipe"]
+        or spec.get("rescueRecipe") != inputs.get("rescue_recipe")
     ):
         raise ValueError("SPEC_INPUT_MISMATCH")
     manifest = GridCohortArtifactStore(artifact_root).read_json(
         spec["cohort"]["manifestPath"], spec["cohort"]["manifestSha256"]
     )
-    selection = selection_input([(str(manifest["gameId"]), manifest["photoSplit"])])
-    require_recipe(spec["rescueRecipe"], spec["base"]["presetSha256"], selection)
+    grid_only = inputs.get("mode") == "grid-only"
+    selection_binding = {}
+    if not grid_only:
+        selection = selection_input([(str(manifest["gameId"]), manifest["photoSplit"])])
+        require_recipe(spec["rescueRecipe"], spec["base"]["presetSha256"], selection)
+        selection_binding = {"selectionInput": selection, "rescueRecipe": spec["rescueRecipe"]}
+    elif spec.get("rescueRecipe") is not None:
+        raise ValueError("CHECKPOINT_RECIPE_UNSUPPORTED")
     binding = TrainingPlan.of(
         row["id"],
         spec["seed"],
@@ -121,15 +138,14 @@ def checkpoint_pointer(row: dict[str, Any], artifact_root: Path, name: str) -> d
             "baseWeightsSha256": spec["base"]["weightsSha256"],
             "basePresetSha256": spec["base"]["presetSha256"],
             "mode": PRESETS[inputs["preset_id"]].mode,
-            "selectionInput": selection,
-            "rescueRecipe": spec["rescueRecipe"],
+            **selection_binding,
         },
     ).binding
     value = load_checkpoint(path, name[:64], expected_binding=binding)
     if value["schemaVersion"] != 2:
         raise ValueError("CHECKPOINT_VERSION_UNSUPPORTED")
     stored = value.get("bestState")
-    if not isinstance(stored, dict) or "early" not in stored or "exposureCurrent" not in stored:
+    if not isinstance(stored, dict) or "early" not in stored:
         raise ValueError("CHECKPOINT_RESUME_STATE_INVALID")
     policy = PRESETS[inputs["preset_id"]].early_stopping
     stopping = EarlyStopping(
@@ -137,10 +153,17 @@ def checkpoint_pointer(row: dict[str, Any], artifact_root: Path, name: str) -> d
         policy.patience,
         policy.min_delta,
         policy.min_evaluations,
-        selection_rule=PHOTO_CHECKPOINT_RULE,
+        selection_rule=CORRECTION_CHECKPOINT_RULE if grid_only else PHOTO_CHECKPOINT_RULE,
     )
     stopping.restore(stored["early"])
-    TrainingExposure(spec["rescueRecipe"]).restore(stored["exposureCurrent"], value["globalStep"])
+    if grid_only:
+        from game_predictor_worker.training_core.grid_training import require_baseline_floor
+
+        require_baseline_floor(stored.get("baselineFloor"))
+    else:
+        TrainingExposure(spec["rescueRecipe"]).restore(
+            stored["exposureCurrent"], value["globalStep"]
+        )
     return {"path": name, "sha256": name[:64], "step": value["globalStep"]}
 
 
@@ -154,7 +177,12 @@ def apply_preview(
 ) -> dict[str, Any]:
     with engine.connect() as connection:
         row = read_row(connection, run, game)
-    if not verify_extension(row, preview, expected_sha):
+    verify = (
+        verify_supervision
+        if preview["payload"]["format"] == SUPERVISION_FORMAT
+        else verify_extension
+    )
+    if not verify(row, preview, expected_sha):
         return {"applied": False, "alreadyApplied": True, "runId": str(run)}
     quiescent(artifact_root)
     pointer = checkpoint_pointer(row, artifact_root, preview["payload"]["checkpoint"]["path"])
@@ -164,7 +192,7 @@ def apply_preview(
         connection.exec_driver_sql("SET LOCAL lock_timeout='5s'")
         connection.exec_driver_sql("SET LOCAL statement_timeout='10s'")
         current = read_row(connection, run, game, lock=True)
-        if not verify_extension(current, preview, expected_sha):
+        if not verify(current, preview, expected_sha):
             return {"applied": False, "alreadyApplied": True, "runId": str(run)}
         quiescent(artifact_root)
         connection.execute(
@@ -176,7 +204,7 @@ def apply_preview(
         "applied": True,
         "alreadyApplied": False,
         "runId": str(run),
-        "maxSeconds": 14400,
+        "maxSeconds": preview["payload"]["maxSeconds"],
         "checkpoint": pointer,
         "previewSha256": expected_sha,
     }
@@ -190,6 +218,11 @@ def main() -> None:
     parser.add_argument("--preview", type=Path, required=True)
     parser.add_argument("--checkpoint")
     parser.add_argument("--reason")
+    parser.add_argument(
+        "--progress-supervision",
+        action="store_true",
+        help="Explicit single-run grant: no cumulative time stop; completed-work watchdog remains",
+    )
     parser.add_argument("--apply-sha", help="Explicit approval of the exact preview bytes")
     args = parser.parse_args()
     engine = create_engine(
@@ -220,16 +253,15 @@ def main() -> None:
                 row = read_row(connection, args.run_id, args.game_id)
             quiescent(args.artifact_root)
             pointer = checkpoint_pointer(row, args.artifact_root, args.checkpoint)
-            preview = prepare_extension(
-                row, pointer, at=datetime.now(UTC).isoformat(), reason=args.reason
-            )
+            prepare = prepare_supervision if args.progress_supervision else prepare_extension
+            preview = prepare(row, pointer, at=datetime.now(UTC).isoformat(), reason=args.reason)
             args.preview.write_text(json.dumps(preview, indent=2), encoding="utf-8")
             print(
                 json.dumps(
                     {
                         "previewSha256": preview["sha256"],
                         "runId": str(args.run_id),
-                        "maxSeconds": 14400,
+                        "maxSeconds": preview["payload"]["maxSeconds"],
                         "checkpoint": pointer,
                         "stateChangesApplied": False,
                     }

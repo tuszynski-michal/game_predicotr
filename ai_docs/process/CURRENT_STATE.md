@@ -62,6 +62,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
+- **TASK-1244 / P2:** 2 stare fixture'y (`baseline_floor`, `beats_baseline`) nadal FAIL; błędny wewnętrzny spec nadzoru ma ogólny błąd. Ryzyka przyjęte w Outcome.
+
 - **Bramka v4 / TASK-1188:** baza na 0185; `bf327cfa` zastosowany poleceniami rejestru, bo panel uczenia `63767b36` przypina starą ocenę REVISE.
 
 - **Mumie A2 / TASK-1152:** naprawa licznika wdrożona po Opus PASS i zgodzie; ten sam apply zakończony, default i MumieA2 revision2. Porównanie151plansz w root artifacts/grid-applied-comparison-20261103/comparison.html.
@@ -100,6 +102,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1244** — Nadzór postępu treningu — v1.7.667 — tasks/completed/1244-grid-progress-supervision.md
 - **TASK-1242** — Przyspieszenie danych — v1.7.665 / `cd83092b` — tasks/completed/1242-grid-preparation-throughput.md
 - **TASK-1240** — Częściowe korekty i porównanie modeli — v1.7.663 / `049c4855` — tasks/completed/1240-partial-grid-corrections-and-model-comparison.md
 - **TASK-1239** — Doprecyzowanie zwartej wyszukiwarki — v1.7.661 / `95e4f9c2` — tasks/completed/1239-board-search-refinements.md
@@ -109,4 +112,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1234** — Large grid cohort metadata — v1.7.649 / `a79b12ab` — tasks/completed/1234-grid-cohort-large-metadata.md
 - **TASK-1232** — Wygrane na wykresie i miniatura — v1.7.647 / `3eee4c31` — tasks/completed/1232-board-search-winning-chart-preview.md
 - **TASK-1212** — Uczenie bez limitu zdjęć — v1.7.639 / `c73fda9d` — tasks/completed/1212-grid-learning-without-source-cap.md
-- **TASK-1211** — Job symboli po korekcie siatek — v1.7.637 / `7d1a2c85` — tasks/completed/1211-corrected-grid-symbol-reinference.md

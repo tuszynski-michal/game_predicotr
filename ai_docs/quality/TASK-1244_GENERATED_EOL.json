@@ -1,0 +1,71 @@
+{
+  "verifiedOnlyLineEndings": [
+    {
+      "path": "packages/admin-api-client/src/generated/client.gen.ts",
+      "normalizedSha256": "db8f338281a6bb7fc2eac91216d669cda2112bcceecc2b29d9455b44a6915f86"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/client/client.gen.ts",
+      "normalizedSha256": "7078cf4485a7196eb68c0bb4a9a5cdcba041822c6237b3ba9854afebc56b1eff"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/client/index.ts",
+      "normalizedSha256": "949cc7333527c91928c32410c4a4a2dd2b90b99fe080eb8ce4505647852fbe1b"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/client/types.gen.ts",
+      "normalizedSha256": "675e57f9d3828d8a2341fe79e8730f39397c7a68b33fce911ff0ee2bcabbdebe"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/client/utils.gen.ts",
+      "normalizedSha256": "93710bdf96060f49f8dca84cb44bcd50033c310e9079f9a56f5d3255636070b5"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/core/auth.gen.ts",
+      "normalizedSha256": "3dd0d06bbfbd25f64b2c32b2bde55fef1c21661c24bf78317872d83f50e350f6"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/core/bodySerializer.gen.ts",
+      "normalizedSha256": "e07888c79ab5de9c75e125d81c6533597a9a5853b33734962737d7cece4265b7"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/core/params.gen.ts",
+      "normalizedSha256": "0c1545ae295f21e247f6b831696895e3bd67f5164b335a201ce04299b3fdcd2a"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/core/pathSerializer.gen.ts",
+      "normalizedSha256": "b43da0f92306b0320c39dd5093ea8f67d978326f6d040515944dd570c13e99a8"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/core/queryKeySerializer.gen.ts",
+      "normalizedSha256": "a45b22f3639deaa5d0e5a86a939e29b494843686d3c9c3efbc68821da0793c67"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/core/serverSentEvents.gen.ts",
+      "normalizedSha256": "c0b1d357ad5a4409ee9a684875103b76837fd18b70980e1a705fe305b4c42337"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/core/types.gen.ts",
+      "normalizedSha256": "fa9cd6c22f0d7d56b3a47245b225c0f82003f25eba10535da6142fad717d8ae5"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/core/utils.gen.ts",
+      "normalizedSha256": "f747c12a89e214166aee9681b3f66ad0dda16ef6554392a420ddbf6a6419f62f"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/index.ts",
+      "normalizedSha256": "2535871075b64b3b359a933cf2e453b27419820098dde189c755c0c0d90692bb"
+    },
+    {
+      "path": "packages/admin-api-client/src/generated/sdk.gen.ts",
+      "normalizedSha256": "1832a7e3ea8367c5ace45bf4499e0bd6385aa062463f9b9cd0c2506a436ab854"
+    }
+  ],
+  "restoredOwnRegeneratedFilesOnly": true,
+  "semanticGeneratedChanges": [
+    "packages/admin-api-client/openapi/openapi.json",
+    "packages/admin-api-client/src/generated/types.gen.ts",
+    "packages/admin-api-client/src/index.ts",
+    "packages/admin-api-client/test/grid-training-run-request.test.mjs"
+  ]
+}

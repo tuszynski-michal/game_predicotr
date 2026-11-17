@@ -12741,7 +12741,7 @@ export type GridTrainingRunBudget = {
   /**
    * Maxseconds
    */
-  maxSeconds: number;
+  maxSeconds: number | null;
   /**
    * Maxsteps
    */

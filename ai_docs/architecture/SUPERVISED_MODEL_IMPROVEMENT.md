@@ -6,6 +6,23 @@ last_updated: 2026-10-07
 
 # Architektura iteracyjnego ulepszania modelu symboli
 
+## Nadzór postępu jednego przebiegu — TASK-1244 / D-617
+
+`extend_grid_training_run.py --progress-supervision` udostępnia oddzielny, jawny
+podgląd/SHA/CAS dla zatrzymanego, niedzierżawionego `grid-corrections-v1`.
+Sprawdza bajty i wiązanie checkpointu, RNG/optimizer oraz baseline floor.
+Nadaje w istniejącym checkpoint_payload politykę `operator-progress-supervised-v1`
+z `max_seconds=null`; zachowuje wejście, checkpoint, zużycie i rezerwacje kroków.
+Zapis zgody jest idempotentny. Nie zmienia globalnych presetów ani schematu bazy.
+
+Supervisor i niezależny watchdog dziecka odczytują ograniczony `activity.json`
+przypięty do joba i próby. Tylko nowa sekwencja z nową ukończoną jednostką
+odnawia okno 300 s; powtórki, stara próba i heartbeat nie odnawiają go. Brak
+postępu kończy się `RUN_PROGRESS_STALLED`, z zachowaniem ostatniego checkpointu.
+Publikacja aktywności jest atomowa i ograniczona czasowo. Po restarcie dane są
+ponownie weryfikowane, a rozliczenie treningu pozostaje trwałe. API raportuje
+null zamiast fikcyjnego dużego limitu; klient i panel zachowują to znaczenie.
+
 ## Zgoda operatora na limit jednego zatrzymanego treningu — TASK-1237
 
 `scripts/extend_grid_training_run.py` przygotowuje podgląd, a następnie stosuje

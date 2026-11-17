@@ -13,6 +13,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from typing import Any, Literal
 
+from .run_activity import PROGRESS_LIMIT_POLICY
+
 PRESET_POLICY = "grid-training-preset-v1"
 ADMISSION_POLICY = "grid-training-admission-v1"
 BUDGET_FORMAT = "grid-training-budget-v1"
@@ -456,7 +458,7 @@ class RunBudget:
     preset_fingerprint: str
     purpose: Purpose
     max_steps: int
-    max_seconds: float
+    max_seconds: float | None
     reserved_steps: int = 0
     used_seconds: float = 0.0
     attempts: int = 0
@@ -524,6 +526,8 @@ class RunBudget:
 
     @property
     def remaining_seconds(self) -> float:
+        if self.max_seconds is None:
+            return math.inf
         return max(0.0, self.max_seconds - self.used_seconds)
 
     @property
@@ -550,7 +554,14 @@ class RunBudget:
     def charge(self, seconds: float) -> RunBudget:
         """Add elapsed seconds; a negative or non-finite value (clock moved back) exhausts."""
         if not math.isfinite(seconds) or seconds < 0:
+            if self.max_seconds is None:
+                raise GridRunBudgetError("GRID_RUN_CLOCK_INVALID")
             return replace(self, used_seconds=self.max_seconds)
+        if self.max_seconds is None:
+            consumed = self.used_seconds + seconds
+            if not math.isfinite(consumed):
+                raise GridRunBudgetError("GRID_RUN_CLOCK_INVALID")
+            return replace(self, used_seconds=consumed)
         return replace(self, used_seconds=min(self.max_seconds, self.used_seconds + seconds))
 
     def to_payload(self) -> dict[str, Any]:
@@ -574,7 +585,15 @@ class RunBudget:
         if (
             budget.purpose not in ("train", "smoke")
             or budget.limit_policy
-            not in (LEGACY_LIMIT_POLICY, TRAIN_LIMIT_POLICY, CONTENT_LIMIT_POLICY)
+            not in (
+                LEGACY_LIMIT_POLICY,
+                TRAIN_LIMIT_POLICY,
+                CONTENT_LIMIT_POLICY,
+                PROGRESS_LIMIT_POLICY,
+            )
+            or (budget.max_seconds is None) != (budget.limit_policy == PROGRESS_LIMIT_POLICY)
+            or budget.limit_policy == PROGRESS_LIMIT_POLICY
+            and (budget.purpose != "train" or budget.preset_id != "grid-corrections-v1")
             or budget.reserved_steps < 0
             or type(budget.logical_completed_steps) is not int
             or budget.logical_completed_steps < 0

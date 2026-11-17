@@ -9,10 +9,12 @@ from uuid import UUID, uuid4
 import pytest
 from _application_role_database import application_role_database
 from game_predictor_worker.training_core.grid_training_admission import (
+    GRID_CORRECTIONS_V1,
     SCREEN_GRID_CORRECTIONS_V1,
     RunBudget,
 )
 from game_predictor_worker.training_core.run_budget_extension import prepare_extension
+from game_predictor_worker.training_core.run_progress_supervision import prepare_supervision
 from sqlalchemy import text
 
 pytestmark = pytest.mark.skipif(
@@ -21,12 +23,13 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_operator_update_cas_and_idempotent_replay(tmp_path, monkeypatch):
+@pytest.mark.parametrize("progress_policy", [False, True])
+def test_operator_update_cas_and_idempotent_replay(tmp_path, monkeypatch, progress_policy):
     from scripts import extend_grid_training_run as cli
 
     with application_role_database("t1237", ("budget",)) as db:
         game = next(iter(db.games.values()))
-        preset = SCREEN_GRID_CORRECTIONS_V1
+        preset = GRID_CORRECTIONS_V1 if progress_policy else SCREEN_GRID_CORRECTIONS_V1
         budget = replace(
             RunBudget.for_preset(preset, "train"),
             used_seconds=7200,
@@ -45,6 +48,7 @@ def test_operator_update_cas_and_idempotent_replay(tmp_path, monkeypatch):
                 "training_kind": "grid-training-run-v1",
                 "preset_id": preset.preset_id,
                 "preset_fingerprint": preset.fingerprint,
+                "mode": preset.mode,
                 "planned_steps": 1200,
             },
             "checkpoint_payload": {
@@ -74,7 +78,8 @@ def test_operator_update_cas_and_idempotent_replay(tmp_path, monkeypatch):
                 },
             )
         monkeypatch.setattr(cli, "checkpoint_pointer", lambda *_: recovery)
-        change = prepare_extension(
+        prepare = prepare_supervision if progress_policy else prepare_extension
+        change = prepare(
             row,
             recovery,
             at="2026-11-17T00:45:00+00:00",

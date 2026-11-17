@@ -1336,6 +1336,13 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               )}
             </section>
           ) : null}
+          {trainingBudget?.maxSeconds === null ? (
+            <p role="status">
+              Trening jest nadzorowany według postępu, bez limitu łącznego
+              czasu. Zużyto {trainingBudget.usedSeconds.toFixed(1)} s. Brak
+              postępu zatrzyma trening; zapisane kroki zostaną zachowane.
+            </p>
+          ) : null}
           {selected.contentExperiment ? (
             <section aria-label="Budżet eksperymentu">
               <p>

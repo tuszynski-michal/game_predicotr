@@ -787,6 +787,42 @@ test('v6 content verdict controls the result even when historical raw quality pa
   }
 });
 
+test('a progress-supervised run shows no cumulative time limit without starting another run', async () => {
+  const current = {
+    ...run,
+    trainingRunId: 'training',
+    contentExperiment: null,
+  };
+  const setup = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [current] } }),
+    getGridCorrectionLearning: () => ({ data: current }),
+    getGridTrainingRun: () => ({
+      data: {
+        runId: 'training',
+        gameId: GAME,
+        budget: {
+          usedSeconds: 7500,
+          maxSeconds: null,
+          reservedSteps: 800,
+          maxSteps: 8000,
+        },
+      },
+    }),
+  });
+  const view = await mount(setup.api);
+  try {
+    await settle();
+    assert.match(
+      document.body.textContent,
+      /nadzorowany według postępu, bez limitu łącznego czasu/,
+    );
+    assert.match(document.body.textContent, /Zużyto 7500.0 s/);
+    assertOnlyReads(setup.calls);
+  } finally {
+    await view.close();
+  }
+});
+
 test('failed worker budget read stays unavailable and manual refresh retries the same unchanged run', async () => {
   let budgetReads = 0;
   const unchangedRun = {

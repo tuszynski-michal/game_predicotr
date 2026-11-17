@@ -16,6 +16,32 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-617 — Nadzór postępu jednego zatwierdzonego treningu bez limitu czasu
+
+Status: accepted. Data: 2026-11-17. Operator: „Tak, zastąp limit nadzorem
+postępu”, a następnie „Tak, napraw i nadzoruj” po ostrzeżeniu o koszcie 1–2 h.
+TASK-1244. D-616 jest zarezerwowana przez lokalny pion przygotowania w tle.
+
+Kontekst: limit 7200 s obejmuje również kosztowne indeksowanie danych przed
+pierwszym krokiem GPU. Sam heartbeat albo aktywność CPU nie dowodzą postępu.
+Operator żąda kontynuacji tego samego przebiegu, dopóki wykonuje użyteczną pracę.
+
+Decyzja: jawna polityka `operator-progress-supervised-v1` dla jednego zwykłego
+treningu `grid-corrections-v1`, nadana narzędziem owner z podglądem/SHA/CAS po
+bezpiecznym zatrzymaniu i weryfikacji checkpointu. `max_seconds=null` oznacza
+brak limitu łącznego czasu; zużycie czasu, rezerwacje i limit kroków pozostają.
+300 s bez ukończonej jednostki pracy zatrzymuje trening z błędem zastoju.
+Jednostki obejmują zweryfikowane strony, zakończone pomiary i kroki optymalizacji.
+Heartbeat i powtarzany komunikat nie odnawiają okna. Zachowujemy ochronę dzierżawy
+GPU, utraty nadzorcy, anulowania, podziałów danych i jakości. Pozostałe presety,
+eksperymenty, smoke i nowe przebiegi zachowują dotychczasowe limity domyślne.
+
+Konsekwencje: polityka i zgoda są trwałe w istniejącym checkpoint_payload;
+brak migracji. API i klient raportują null bez sztucznego wysokiego limitu.
+Wdrożenie i wymagany restart workera wymagają akceptacji gotowego wyniku.
+Zakończonego treningu nie uruchamiamy ponownie wyłącznie dla zmiany polityki.
+Aktywacja modelu jest osobną decyzją.
+
 ## D-615 — Przypisanie plansz po pozycji strony 3 × 3 przy niepełnym wykryciu
 
 Status: accepted. Data: 2026-11-15. Operator: „Tak, dodaj”, „Pełny automat”, „jak

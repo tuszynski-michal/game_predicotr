@@ -203,6 +203,36 @@ def test_grid_training_has_its_own_slot_and_payload_version() -> None:
     assert error.value.code == "UNSUPPORTED_JOB_PAYLOAD_VERSION"
 
 
+def test_http_get_preserves_the_progress_supervised_null_time_limit() -> None:
+    jobs = Jobs()
+    service = GridTrainingRunService(Cohorts(), jobs)  # type: ignore[arg-type]
+    run = UUID(service.create(GAME, command())["runId"])
+    jobs.rows[run] = replace(
+        jobs.rows[run],
+        checkpoint_payload={
+            "attempt": 1,
+            "budget": {
+                "payload": {
+                    "max_steps": 8000,
+                    "max_seconds": None,
+                    "reserved_steps": 800,
+                    "used_seconds": 7500,
+                }
+            },
+        },
+    )
+    application = FastAPI()
+    application.include_router(create_grid_training_runs_router(lambda: service), prefix="/api/v1")
+    response = TestClient(application).get(f"/api/v1/admin/games/{GAME}/grid-training-runs/{run}")
+    assert response.status_code == 200
+    assert response.json()["budget"] == {
+        "maxSteps": 8000,
+        "maxSeconds": None,
+        "reservedSteps": 800,
+        "usedSeconds": 7500,
+    }
+
+
 def test_http_routes_require_the_local_actor_for_mutations() -> None:
     jobs = Jobs()
     service = GridTrainingRunService(Cohorts(), jobs)  # type: ignore[arg-type]

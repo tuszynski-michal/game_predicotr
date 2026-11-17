@@ -6,6 +6,16 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1244 — Nadzór postępu treningu (done)
+
+- Plik: `ai_docs/tasks/completed/1244-grid-progress-supervision.md`.
+- Commit: **v1.7.667** (hash dopisuje kolejny commit).
+- Wynik: jawna trwała polityka jednego treningu bez łącznego limitu czasu; postęp stron, wycinków, walidacji, kroków i eksportu odnawia nadzór 300 s. Zachowane checkpointy, rozliczenie pracy, rozłączność i bramki jakości. Brak migracji.
+- Weryfikacja: 126 testów Python PASS (2 PostgreSQL), 62 UI PASS, 2 klienta PASS; lint, zakresowe typy, OpenAPI/klient, mapy i docs PASS. 2 wcześniejsze błędy fixture'ów odtworzone na HEAD, poza zakresem.
+- Audyt Claude: runda 2 PASS, 0 P0/P1; przyjęte P2-7 i P2-8 w Outcome.
+- Nadzór: ten sam parent `6ac108a6`, trening `6d003b6e` zakończony po 2400 krokach, wybór 1200; ocena `19119701` 4/4 PASS. Kandydat `6cc10344` nieaktywny. Nowej polityki nie nadano zakończonemu treningowi, bez restartu i dodatkowego uczenia.
+- Odbiór: gotowa gałąź czeka na wyraźną zgodę na merge/push/wdrożenie/sprzątanie. 45 zmian użytkownika zachowane.
+
 ### TASK-1242 — Przyspieszenie danych (done)
 
 - Plik: `tasks/completed/1242-grid-preparation-throughput.md`.

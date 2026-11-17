@@ -101,6 +101,7 @@ class CohortPhotos:
         if not rows:
             raise GridTrainingDataError("GRID_TRAINING_EMPTY_ROLE")
         self.rows = rows
+        self._content_game_id: str | None = None
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -120,11 +121,11 @@ class CohortPhotos:
             return [None] * len(targets)
         from uuid import UUID
 
+        if self._content_game_id is None:
+            self._content_game_id = str(self.snapshot.manifest["gameId"])
+        game_id = UUID(self._content_game_id)
         labels = sorted(source["targets"], key=lambda target: target["positionIndex"])
-        return [
-            frozen_content_reference(UUID(self.snapshot.manifest["gameId"]), source, label)
-            for label in labels
-        ]
+        return [frozen_content_reference(game_id, source, label) for label in labels]
 
 
 class JointPhotos:
@@ -528,7 +529,9 @@ class ScreenGridBatches(_Prefetched):
         return result
 
 
-def validation_crops(photos: CohortPhotos, recipe: Any) -> tuple[np.ndarray, np.ndarray]:
+def validation_crops(
+    photos: CohortPhotos, recipe: Any, *, activity: Any = None, phase: str = "validation-crops"
+) -> tuple[np.ndarray, np.ndarray]:
     """True-corner crops (uint8 NCHW) and nodes in crop pixels of every VALIDATION board."""
     crops, labels = [], []
     for index in range(len(photos)):
@@ -537,6 +540,8 @@ def validation_crops(photos: CohortPhotos, recipe: Any) -> tuple[np.ndarray, np.
             matrix = board_rectifier(corners(label), recipe.board)
             crops.append(crop_board(rgb, matrix, recipe.board))
             labels.append(transform_points(label, matrix))
+        if activity is not None:
+            activity(phase, index + 1)
     return (
         np.ascontiguousarray(np.stack(crops).transpose(0, 3, 1, 2)),
         np.stack(labels).astype(np.float64),
@@ -632,7 +637,12 @@ def frozen_manifest(snapshot: GridCohortSnapshot) -> Mapping[str, Any]:
 
 
 def correction_evaluator(
-    parts: Sequence[CohortPhotos], recipe: Any, device: str, *, photo_first: bool = False
+    parts: Sequence[CohortPhotos],
+    recipe: Any,
+    device: str,
+    *,
+    photo_first: bool = False,
+    activity: Any = None,
 ) -> Any:
     """Photo-macro VALIDATION from full frames, with equal weight for each game."""
     from .grid_correction_consistency import CorrectionEvaluator
@@ -640,4 +650,4 @@ def correction_evaluator(
     if any(part.role != "VALIDATION" for part in parts):
         raise GridTrainingDataError("GRID_TRAINING_VALIDATION_ONLY")
 
-    return CorrectionEvaluator(parts, recipe, device, photo_first=photo_first)
+    return CorrectionEvaluator(parts, recipe, device, photo_first=photo_first, activity=activity)

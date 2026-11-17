@@ -760,7 +760,16 @@ test('ordinary search is compact while the management editor retains its default
     ),
     ['Cofnij', 'Resetuj', 'Szukaj plansz'],
   );
-  assert.equal(actions.nextElementSibling.className, 'boardSearchResultLimit');
+  assert.ok(
+    document.querySelector(
+      '.boardSearchEntryOrder .boardSearchResultLimit input[aria-label="Liczba wyników wyszukiwania"]',
+    ),
+  );
+  assert.ok(
+    [...document.querySelectorAll('.boardSearchPalette header p')].every(
+      (node) => node.hidden,
+    ),
+  );
   assert.equal(
     document.querySelector('.boardSearchPattern > header').hidden,
     true,
@@ -791,6 +800,16 @@ test('ordinary search is compact while the management editor retains its default
       .nextElementSibling.classList.contains('boardSearchApproximateWinChart'),
   );
   assert.equal(document.getElementById('approximateWinHeading').hidden, true);
+  assert.equal(
+    document
+      .querySelector('.boardSearchApproximateWin .importSubsectionHeader')
+      .textContent.trim(),
+    '0 częściowych, 2500 brakujących',
+  );
+  assert.equal(
+    document.querySelector('.boardSearchResults footer > span').hidden,
+    true,
+  );
   await unmount(root);
   root = await mount(api, { fixedStakeGrosze: 500 });
   assert.equal(document.querySelector('.boardSearchWorkspaceSimplified'), null);

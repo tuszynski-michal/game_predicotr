@@ -100,6 +100,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1239** — Doprecyzowanie zwartej wyszukiwarki — v1.7.661 — tasks/completed/1239-board-search-refinements.md
 - **TASK-1238** — Uproszczenie wyszukiwarki plansz — v1.7.659 / `d14cb6c7` — tasks/completed/1238-board-search-compact-ui.md
 - **TASK-1237** — Odzyskanie treningu i limit 4 h — v1.7.656 / `8137a434` — tasks/completed/1237-grid-run-budget-extension.md
 - **TASK-1235** — Timeout rejestracji kohorty — v1.7.653 / `3c1e143d` — tasks/completed/1235-grid-cohort-closure-timeout.md
@@ -109,4 +110,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1211** — Job symboli po korekcie siatek — v1.7.637 / `7d1a2c85` — tasks/completed/1211-corrected-grid-symbol-reinference.md
 - **TASK-1210** — Korekta symboli z modala supergry — v1.7.636 / `b4702104` — tasks/completed/1210-super-series-symbol-corrections.md
 - **TASK-1209** — Akceptacja V3 dla wiązań z brakami — v1.7.641 / `1c212b52` — tasks/completed/1209-partial-slot-acceptance.md
-- **TASK-1208** — Wiązanie plansz po pozycji strony 3 × 3 — v1.7.640 / `3abece58` — tasks/completed/1208-partial-slot-binding.md

@@ -585,7 +585,11 @@ Automatyczne odświeżenie limitu lub korekty nie rozpoczyna nowego wzoru.
 „Resetuj” czyści edytor, wyniki, kontekst i zapis przeglądarki; osobnego
 przycisku „Nowe szukanie” nie ma. Cofnij, Resetuj i Szukaj stoją w jednym
 rzędzie, z największym przyciskiem Szukaj wypełniającym resztę szerokości.
-Pole liczby wyników stoi bezpośrednio pod przyciskiem szukania.
+TASK-1239: liczba wyników stoi po prawej od „Wierszami”, w tym samym rzędzie
+co radio buttony, z dostępną nazwą inputu. Opisy kliknięć i klawiatury pod
+tytułem palety oraz opis przechodzenia między dopasowaniami są ukryte.
+Mobilne kafelki palety powiększono o 15% do 50,6–55,2 px. Pod wykresem
+podsumowanie brzmi „N częściowych, M brakujących”, bez liczby kompletnych.
 
 Podczas zapytania stary podgląd i sekcja wygranej są ukryte. Po błędzie
 pokazywany jest komunikat bez starej planszy, po sukcesie nowy wynik albo

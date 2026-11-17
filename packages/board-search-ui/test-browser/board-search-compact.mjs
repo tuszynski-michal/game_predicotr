@@ -141,6 +141,14 @@ try {
             '.boardSearchApproximateWinControls label',
           ),
         ].map(bounds),
+        entryOrder: [
+          ...document.querySelectorAll('.boardSearchEntryOrder > label'),
+        ].map(bounds),
+        resultLimit: bounds(
+          document.querySelector(
+            '.boardSearchEntryOrder .boardSearchResultLimit',
+          ),
+        ),
         summary: bounds(document.querySelector('.boardSearchResultSummary')),
         summaryScroll: document.querySelector('.boardSearchResultSummary')
           .scrollWidth,
@@ -149,6 +157,14 @@ try {
     assert.ok(
       dimensions.pageWidth <= width,
       `no horizontal page overflow at ${width}: ${JSON.stringify(dimensions)}`,
+    );
+    assert.ok(
+      dimensions.resultLimit.x > dimensions.entryOrder[1].x,
+      'limit is to the right of Wierszami',
+    );
+    assert.ok(
+      Math.abs(dimensions.resultLimit.y - dimensions.entryOrder[1].y) < 8,
+      'limit stays in the radio row',
     );
     assert.ok(
       dimensions.summaryScroll <= dimensions.summary.width + 1,
@@ -175,9 +191,10 @@ try {
     if (width < 520)
       assert.ok(
         dimensions.tiles.every(
-          (tile) => tile.width >= 44 && tile.width <= 49 && tile.height >= 44,
+          (tile) =>
+            tile.width >= 50.5 && tile.width <= 55.3 && tile.height >= 50.5,
         ),
-        'mobile symbol tiles are smaller but retain 44px targets',
+        'mobile symbol tiles have grown by 15 percent',
       );
     await page.getByRole('button', { name: 'Następna →', exact: true }).click();
     assert.match(

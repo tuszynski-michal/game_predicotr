@@ -647,8 +647,12 @@ function ApproximateWinResultView({
           </div>
 
           <p className="importSubsectionHeader">
-            {result.completeness.completeBoardCount.toLocaleString('pl-PL')}{' '}
-            plansz kompletnych,{' '}
+            {simplified ? null : (
+              <>
+                {result.completeness.completeBoardCount.toLocaleString('pl-PL')}{' '}
+                plansz kompletnych,{' '}
+              </>
+            )}
             {result.completeness.partialBoardCount.toLocaleString('pl-PL')}{' '}
             częściowych,{' '}
             {result.completeness.missingBoardCount.toLocaleString('pl-PL')}{' '}

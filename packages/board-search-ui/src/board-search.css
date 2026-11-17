@@ -40,12 +40,29 @@
 }
 
 .boardSearchWorkspaceSimplified .boardSearchEntryOrder {
+  flex-wrap: nowrap;
   gap: 6px 14px;
   padding: 4px 8px;
 }
 
 .boardSearchWorkspaceSimplified .boardSearchEntryOrder label {
   min-height: 36px;
+  white-space: nowrap;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchEntryOrder .boardSearchResultLimit {
+  flex: 0 0 52px;
+  margin-left: auto;
+}
+
+.boardSearchWorkspaceSimplified
+  .boardSearchEntryOrder
+  .boardSearchResultLimit
+  input {
+  width: 52px;
+  min-width: 0;
+  padding: 4px;
+  font-size: 12px;
 }
 
 .boardSearchWorkspaceSimplified .boardSearchSubmitActions {
@@ -135,7 +152,7 @@
   }
 
   .boardSearchWorkspaceSimplified .boardSearchPaletteGrid {
-    grid-template-columns: repeat(auto-fit, minmax(44px, 48px));
+    grid-template-columns: repeat(auto-fit, minmax(50.6px, 55.2px));
     gap: 6px;
   }
 

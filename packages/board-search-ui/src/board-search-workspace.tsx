@@ -839,7 +839,11 @@ function BoardSearchWorkspaceContent({
   const resultLimitControl = (
     <div className="boardSearchResultLimit">
       <label>
-        <span>Liczba wyników</span>
+        <span
+          className={sequenceEnabled ? 'boardSearchVisuallyHidden' : undefined}
+        >
+          Liczba wyników
+        </span>
         <input
           aria-label="Liczba wyników wyszukiwania"
           disabled={searchState.kind === 'loading'}
@@ -938,8 +942,10 @@ function BoardSearchWorkspaceContent({
           <aside className="boardSearchPalette" aria-label="Paleta symboli">
             <header>
               <h2>Symbole</h2>
-              <p>Kliknij symbol, aby wstawić go do zaznaczonego pola.</p>
-              <p className="boardSearchShortcutHint">
+              <p hidden={sequenceEnabled}>
+                Kliknij symbol, aby wstawić go do zaznaczonego pola.
+              </p>
+              <p hidden={sequenceEnabled} className="boardSearchShortcutHint">
                 Klawiatura: <kbd>1</kbd>–<kbd>9</kbd>
                 {activeSymbols.length >= 10 ? (
                   <>
@@ -1041,6 +1047,7 @@ function BoardSearchWorkspaceContent({
                 />
                 Wierszami
               </label>
+              {sequenceEnabled ? resultLimitControl : null}
               <small hidden={sequenceEnabled}>
                 {entryOrder === 'columns'
                   ? 'Od góry do dołu, następnie kolejna kolumna.'
@@ -1135,7 +1142,6 @@ function BoardSearchWorkspaceContent({
                     : 'Szukaj plansz'}
               </button>
             </footer>
-            {sequenceEnabled ? resultLimitControl : null}
             {sequenceEnabled &&
             sequence.inputError !== null &&
             patternCellCount > 0 ? (

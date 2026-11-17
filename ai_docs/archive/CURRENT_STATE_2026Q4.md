@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1239 — Doprecyzowanie zwartej wyszukiwarki (done)
+
+- Plik: tasks/completed/1239-board-search-refinements.md.
+- Commit: **v1.7.661** (hash dopisuje kolejny commit).
+- Piec korekt wygladu: mniej opisow, kafelki mobilne +15%, limit obok Wierszami, skrocone podsumowanie pod wykresem.
+- Interakcje 53/53, Edge z dotykiem 320/375/768 px, lint, typy i format PASS. Bez API, builda, restartow, scalenia i pushu.
+
 ### TASK-1238 — Uproszczenie wyszukiwarki plansz (done)
 
 - Plik: tasks/completed/1238-board-search-compact-ui.md.

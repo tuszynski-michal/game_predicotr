@@ -374,7 +374,9 @@ export function BoardSearchResults({
         >
           ← Poprzednia
         </button>
-        <span>Użyj ← / →, aby przejść do innego dopasowania.</span>
+        <span hidden={simplified}>
+          Użyj ← / →, aby przejść do innego dopasowania.
+        </span>
         <button
           className="secondaryButton"
           disabled={state.activeIndex >= state.results.length - 1}

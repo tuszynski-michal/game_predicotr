@@ -94,6 +94,10 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
+### TASK-1237 — Limit jednego treningu (in_progress)
+
+- `tasks/1237-grid-run-budget-extension.md`: zgoda na 4 h; odzyskanie checkpointu 575, bez resetu zużycia.
+
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.

@@ -6,6 +6,17 @@ last_updated: 2026-10-07
 
 # Architektura iteracyjnego ulepszania modelu symboli
 
+## Zgoda operatora na limit jednego zatrzymanego treningu — TASK-1237
+
+`scripts/extend_grid_training_run.py` przygotowuje podgląd, a następnie stosuje
+zatwierdzenie przez SHA podglądu. Obsługuje wyłącznie zatrzymany, niedzierżawiony
+przebieg screen+grid z istniejącym budżetem 7200 s; jawna zgoda podnosi jego limit
+do 14400 s bez zmiany globalnego presetu, zużytych sekund, rezerwacji kroków,
+recepty i bramek. Wskazany checkpoint musi mieć poprawne bajty, pełne powiązanie
+wejścia oraz stan RNG/optimizera i ekspozycji. Zapis jednego joba porównuje stan
+pod blokadą i dopisuje historię zgody; ponowienie nie przyznaje limitu ponownie.
+Zwykłe API resume nadal sprawdza aktualność danych i uruchamia ten sam job.
+
 ## Odczyt dowodów rejestracji kohort — TASK-1235
 
 Migracje `0191_grid_cohort_linear_closure` i `0192_grid_cohort_header_cache`

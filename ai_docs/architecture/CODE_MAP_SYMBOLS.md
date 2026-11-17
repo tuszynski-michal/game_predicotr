@@ -913,6 +913,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - training_core/neural_grid_augmentation.py: random_homography, photometric, screen_targets, perturb_quad, build_training_item, build_screen_item, build_screen_item_with_indices, build_board_crop
 - training_core/neural_grid_network.py: class FeaturePyramid, class ScreenNetwork, class BoardNetwork, soft_argmax, class NeuralGridNetwork, class ScreenExport, class BoardExport, class ContentExport, focal_loss, offset_loss, node_heatmap_loss, parameter_count
 - training_core/process_identity.py: process_created, own_identity
+- training_core/run_budget_extension.py: prepare_extension, verify_extension
 - training_core/runtime.py: class TrainingInterrupted, class TrainingControl, train_epochs
 - vision_lab/annotation_cli.py: main
 - vision_lab/annotation_contracts.py: class Mutation, class GeometryAnnotation, class AnnotationRequest, class FamilyDecision, class PhotoReviewRequest, class BoardReviewIssue, class PhotoReview, class FamilyRequest, class GeometryQualificationBinding, class GeometryQualificationRequest, class StoredGeometryQualification, class SplitRequest, class StoredFamily, class Timing, class FrozenSplit, class AssistedBoard, class AssistedPhoto, class AssistedRequest, class AnnotationState, class BackupResult, class BackupRequest, class TimingReport
@@ -1501,6 +1502,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - export_m6_symbol_dataset.py: main
 - export_v7_selection_feedback.py: publish_feedback_manifest, main
 - export_vision_lab_openapi.py: main
+- extend_grid_training_run.py: read_row, quiescent, checkpoint_pointer, apply_preview, main
 - freeze_shape_geometry_v2_corpus.py: main
 - freeze_v7_corpus.py: main
 - generate_code_map.py: class Unit, class Area, class Module, walk_files, rel, python_module, ts_module, is_ts_test, collect_modules, count_files, format_symbols, package_doc, unit_line, subdirectories, feature_lines, entry_point_lines, test_lines, scripts_groups, docs_lines, render_overview, render_symbols, write_lf, read_lf, main_with_args, main

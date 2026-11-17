@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1238 — Uproszczenie wyszukiwarki plansz (done)
 
 - Plik: tasks/completed/1238-board-search-compact-ui.md.
-- Commit: **v1.7.659** (hash dopisuje kolejny commit).
+- Commit: **v1.7.659 / `d14cb6c7e6a89fe0444ef3a533c53dcf07d6fc1c`** (hash dopisuje kolejny commit).
 - Wszystkie 13 zmian UI Admina i linkow: nowy wzor, trwaly reset, zwarty uklad, mniejsze symbole mobilne i wykres pod kontrolkami. Usunieto sasiednie zdjecia, zachowano ranking dopasowan i domyslny panel zarzadzania.
 - Interakcje pakietu 131/131, logika 115/115, Reviewer 2/2, koncowy pion 23/23 PASS. Lint, typy pakietu/Admina/Reviewera, format i mapa PASS. Edge z dotykiem 320/375/768 px i podglad z wykresu PASS.
 - Bez pelnych buildow, fizycznego Androida, restartow, migracji, audytu (niewymagany w planie), scalenia i pushu.

@@ -149,7 +149,7 @@ i aplikacja mobilna offline. Restart usług, migracje, wdrożenie, merge i push.
 
 ## Outcome
 
-Commit: v1.7.659 (hash dopisuje kolejny commit).
+Commit: v1.7.659 / `d14cb6c7e6a89fe0444ef3a533c53dcf07d6fc1c`.
 
 ### Changed
 

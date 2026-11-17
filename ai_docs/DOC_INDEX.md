@@ -235,6 +235,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 - [Wspólna procedura audytu krzyżowego](process/CROSS_AUDIT.md) — terminal, diagnostyka, import Desktop i trwały dowód wykonania.
 - [Zapis przeglądów planu pełnych symboli](quality/FULL_SYMBOL_CROPS_PLAN_REVIEW_20261108.md) — rzeczywiste REVISE i doprecyzowania, bez zastępczego PASS.
 
+- [Zgodność konfiguracji kalkulacji Mumie A1 i A2](quality/MUMIE_A2_CALCULATION_PARITY_20261117.json) — TASK-1244, odczyt API: 10 symboli, 5 linii i 34 reguły wypłat.
 - [Wdrożenie pełnych plansz i dane Mumie A2](quality/FULL_BOARD_DETECTION_DEPLOYMENT_20261107.md).
 
 - [AI workflow](process/AI_DRIVEN_DEVELOPMENT.md)

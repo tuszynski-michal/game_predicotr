@@ -317,8 +317,15 @@ def test_series_spins_cost_nothing_and_the_trigger_costs_the_rules_spin_cost() -
     assert markers.calls == [tuple(range(2, 52))]
 
 
-def test_mumie_temporary_base_keeps_expansions_and_free_spins() -> None:
-    game_id = UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be")
+@pytest.mark.parametrize(
+    "game_id",
+    [
+        UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be"),
+        UUID("246a1f54-eee8-49d5-b11a-0fde70e5eecd"),
+    ],
+    ids=["mumie-a1", "mumie-a2"],
+)
+def test_mumie_temporary_base_keeps_expansions_and_free_spins(game_id: UUID) -> None:
     markers = SeriesMarkers(((10, 10, "K"),))
     service = BoardSearchApproximateWinService(
         MemoryBoardSearchApproximateWinRepository(

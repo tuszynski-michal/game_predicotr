@@ -19,14 +19,18 @@ export const APPROXIMATE_WIN_STAKES_GROSZE: readonly number[] = Object.freeze([
   120, 200, 400, 600, 1000, 2000,
 ]);
 
-// Temporary operator-approved profile (D-565, TASK-1063), until stakes live in rules.
-const MUMIE_GAME_ID = 'fea55cc1-ebf4-4cee-b3ab-a520017ed1be';
+// Temporary operator-approved profile (D-565), shared by A1 and A2 (TASK-1244).
+// Replace with versioned configuration when stakes live in rules.
+const MUMIE_GAME_IDS: ReadonlySet<string> = new Set([
+  'fea55cc1-ebf4-4cee-b3ab-a520017ed1be',
+  '246a1f54-eee8-49d5-b11a-0fde70e5eecd',
+]);
 const MUMIE_STAKES_GROSZE: readonly number[] = Object.freeze([
   100, 200, 500, 1000, 2000,
 ]);
 
 function gameStakesGrosze(gameId?: string): readonly number[] {
-  return gameId === MUMIE_GAME_ID
+  return MUMIE_GAME_IDS.has(gameId ?? '')
     ? MUMIE_STAKES_GROSZE
     : APPROXIMATE_WIN_STAKES_GROSZE;
 }
@@ -88,7 +92,7 @@ export function effectiveApproximateWinStakeGrosze(
   // Saved entries and fixed management slots may carry an older stake. The
   // selector still offers only gameStakesGrosze; rendering must preserve it.
   const savedMumieStake =
-    gameId === MUMIE_GAME_ID &&
+    MUMIE_GAME_IDS.has(gameId ?? '') &&
     APPROXIMATE_WIN_STAKES_GROSZE.includes(display.stakeGrosze);
   return gameStakesGrosze(gameId).includes(display.stakeGrosze) ||
     savedMumieStake

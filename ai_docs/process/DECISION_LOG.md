@@ -34,7 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
-| [D-617](decisions/DECISION_LOG_2026.md#d-617--nadzór-postępu-jednego-zatwierdzonego-treningu-bez-limitu-czasu) | Nadzór postępu jednego treningu | accepted | 2026-11-17 | Jawna polityka per run usuwa łączny limit czasu; 300 s bez ukończonej pracy zatrzymuje, pozostałe limity i bramki zostają. |
+| [D-617](decisions/DECISION_LOG_2026.md#d-617--nadzór-postępu-jednego-zatwierdzonego-treningu-bez-limitu-czasu) | Nadzór postępu jednego treningu | accepted | 2026-11-17 | Jawna zgoda per run: bez łącznego limitu czasu, 300 s bez postępu; reszta barier zostaje. |
 | [D-615](decisions/DECISION_LOG_2026.md#d-615--przypisanie-plansz-po-pozycji-strony-3--3-przy-niepełnym-wykryciu) | Przypisanie plansz po pozycji strony 3 × 3 przy niepełnym wykryciu | accepted | 2026-11-15 | Gdy wykrycia wyznaczają pełne 3 rzędy i 3 kolumny strony, plansze wiąże pozycja (≤ 2 braki); przypisane sloty idą do cięcia i akceptacji, brakujące zostają ręczne. |
 | [D-614](decisions/DECISION_LOG_2026.md#d-614--tempo-nauki-korekt-siatek-bez-zmian-po-pomiarze) | Tempo nauki korekt siatek bez zmian po pomiarze | accepted | 2026-11-13 | 2e-5 nie zatrzymuje spadku i blokuje realną poprawę; zostaje 1e-4, ochronę dają D-612 i D-613. |
 | [D-613](decisions/DECISION_LOG_2026.md#d-613--bramka-v6-realna-poprawa-gry-treningowej) | Bramka v6: realna poprawa gry treningowej | accepted | 2026-11-13 | Gate v6 = v5 plus co najmniej +1 plansza poprawna albo bez cięcia na VALIDATION+REGRESSION gry treningowej, bez żadnej straty; migracja 0190 (bind v8, dyspozytor v10). |

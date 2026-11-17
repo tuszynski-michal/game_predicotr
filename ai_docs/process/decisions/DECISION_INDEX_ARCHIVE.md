@@ -1,7 +1,7 @@
 ---
 title: Decision index — older entries
 status: active
-last_updated: 2026-11-11
+last_updated: 2026-11-17
 ---
 
 # Indeks starszych decyzji (D-1..D-540)
@@ -32,7 +32,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 | [D-568](DECISION_LOG_2026.md#d-568--zachowanie-wygranych-sprzed-rozwinięcia-super-symbolu) | Zachowanie wygranych sprzed rozwinięcia super symbolu | accepted | 2026-10-21 | Większa wypłata per (linia, symbol), sztuki raz; próg rozwinięcia i bazowa plansza uruchamiająca bez zmian. |
 | [D-567](DECISION_LOG_2026.md#d-567--edytowalny-kierunek-i-granica-500000-w-selektorze-windows) | Edytowalny kierunek i granica 500000 w selektorze Windows | accepted | 2026-10-21 | Jeden wybór folderu, wspólne kompaktowe przyciski, limit nowych zakresów i trwała zmiana kierunku dalszej numeracji. |
 | [D-566](DECISION_LOG_2026.md#d-566--kolejka-masowej-weryfikacji-symboli) | Kolejka masowej weryfikacji symboli | accepted | 2026-10-19 | Wyjątek od D-551 pozwala kolejkować bulk za bulk; wykonanie pozostaje pojedyncze, konflikty z innymi typami bez zmian. |
-| [D-565](DECISION_LOG_2026.md#d-565--tymczasowa-baza-wypłat-i-stawki-mumii) | Tymczasowa baza wypłat i stawki Mumii | accepted | 2026-10-19 | Tabela Mumii dotyczy 10 kredytów (1 zł); wyszukiwarka ma stawki 1/2/5/10/20 zł jako tymczasowy wyjątek w kodzie dla jednej gry, bez przeliczania historii. |
+| [D-565](DECISION_LOG_2026.md#d-565--tymczasowa-baza-wypłat-i-stawki-mumii) | Tymczasowa baza wypłat i stawki Mumii | accepted | 2026-10-19 | Baza 10 kredytów (1 zł) i stawki 1/2/5/10/20 zł obejmują A1 i używaną A2 (rozszerzenie TASK-1244 z 2026-11-17), bez przeliczania historii. |
 | [D-564](DECISION_LOG_2026.md#d-564--super-symbol-serii-definiowany-także-przez-odbiorcę-linku-udostępniania) | Super symbol serii definiowany także przez odbiorcę linku udostępniania | accepted | 2026-10-18 | Odbiorca linku otwiera serię z każdego znacznika supergry i definiuje super symbol przez cztery trasy publiczne z aktorem sesji; `seriesId` w markerach udostępnienia, panel zarządzania bez zmian. |
 | [D-563](DECISION_LOG_2026.md#d-563--przycinanie-i-usuwanie-oryginałów-importów-oczekujących-na-przegląd) | Przycinanie i usuwanie oryginałów importów oczekujących na przegląd | accepted | 2026-10-18 | Import `completed` albo `waiting_for_review` kwalifikuje oryginał; aktywne, przerwane i anulowane importy wykluczają (`IMPORT_NOT_SETTLED`). |
 | [D-562](DECISION_LOG_2026.md#d-562--przycięty-wariant-zarządzanego-oryginału) | Przycięty wariant zarządzanego oryginału | accepted | 2026-10-17 | Bezstratny crop JPEG z atestem obok pliku zastępuje usunięty oryginał; współrzędne i zatwierdzenia bez zmian, odczyt poza kadrem kończy się błędem. |

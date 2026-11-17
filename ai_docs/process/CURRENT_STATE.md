@@ -103,6 +103,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 ## Ostatnie 10 ukończonych tasków
 
 - **TASK-1245** — Nadzór postępu treningu — v1.7.667 / `c2b73c98` — tasks/completed/1245-grid-progress-supervision.md
+- **TASK-1244** — Zgodność kalkulacji Mumie A2 z A1 — v1.7.667 / `2c8e910c` — tasks/completed/1244-mumie-a2-calculation-parity.md
 - **TASK-1242** — Przyspieszenie danych — v1.7.665 / `cd83092b` — tasks/completed/1242-grid-preparation-throughput.md
 - **TASK-1240** — Częściowe korekty i porównanie modeli — v1.7.663 / `049c4855` — tasks/completed/1240-partial-grid-corrections-and-model-comparison.md
 - **TASK-1239** — Doprecyzowanie zwartej wyszukiwarki — v1.7.661 / `95e4f9c2` — tasks/completed/1239-board-search-refinements.md
@@ -111,4 +112,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1235** — Timeout rejestracji kohorty — v1.7.653 / `3c1e143d` — tasks/completed/1235-grid-cohort-closure-timeout.md
 - **TASK-1234** — Large grid cohort metadata — v1.7.649 / `a79b12ab` — tasks/completed/1234-grid-cohort-large-metadata.md
 - **TASK-1232** — Wygrane na wykresie i miniatura — v1.7.647 / `3eee4c31` — tasks/completed/1232-board-search-winning-chart-preview.md
-- **TASK-1212** — Uczenie bez limitu zdjęć — v1.7.639 / `c73fda9d` — tasks/completed/1212-grid-learning-without-source-cap.md

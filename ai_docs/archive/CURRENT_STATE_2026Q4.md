@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1239 — Doprecyzowanie zwartej wyszukiwarki (done)
 
 - Plik: tasks/completed/1239-board-search-refinements.md.
-- Commit: **v1.7.661** (hash dopisuje kolejny commit).
+- Commit: **v1.7.661 / `95e4f9c2455aeb3c1776135280b5d9cb0994655f`** (hash dopisuje kolejny commit).
 - Piec korekt wygladu: mniej opisow, kafelki mobilne +15%, limit obok Wierszami, skrocone podsumowanie pod wykresem.
 - Interakcje 53/53, Edge z dotykiem 320/375/768 px, lint, typy i format PASS. Bez API, builda, restartow, scalenia i pushu.
 

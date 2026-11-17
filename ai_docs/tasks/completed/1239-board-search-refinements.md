@@ -55,7 +55,7 @@ przez task-close, kontrola dokumentacji i osobny commit oraz zapis hasha.
 
 ## Outcome
 
-Commit: v1.7.661 (hash dopisuje kolejny commit).
+Commit: v1.7.661 / `95e4f9c2455aeb3c1776135280b5d9cb0994655f`.
 
 - Wszystkie pięć kryteriów spełnione, domyślne zachowanie panelu zarządzania
   zachowane. API i semantyka szukania bez zmian.

@@ -746,10 +746,8 @@ async function assertMumieStakeProfile(context, selectedGameId) {
     stake.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
   });
   assert.equal(stake.value, '500');
-  assert.match(
-    document.querySelector('#approximateWinStakeHint').textContent,
-    /Stawka 5,00 zł · mnożnik 5/,
-  );
+  assert.equal(document.querySelector('#approximateWinStakeHint'), null);
+  assert.equal(stake.getAttribute('aria-describedby'), null);
   await eventually(
     () =>
       document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
@@ -794,7 +792,8 @@ test('the result stays hidden until a stake is chosen; złote is the default uni
     'prompt to choose a stake',
   );
   assert.equal(document.querySelector('.boardSearchApproximateWinChart'), null);
-  // The section title names the start board and the range (TASK-0784).
+  // The ordinary search hides the redundant title (TASK-1238).
+  assert.equal(document.querySelector('#approximateWinHeading').hidden, true);
   assert.equal(
     document.querySelector('#approximateWinHeading').textContent,
     'Plansza startowa #10 · 2500 spinów',
@@ -826,6 +825,8 @@ test('the result stays hidden until a stake is chosen; złote is the default uni
   assert.equal(controls.querySelector('select[aria-label="Jednostka"]'), null);
 
   // A new pattern clears the stake again; the same pattern keeps it.
+  // The first input now starts fresh; the second makes a different pattern.
+  await click(symbolButton());
   await click(symbolButton());
   await click(searchButton());
   await eventually(
@@ -1410,10 +1411,8 @@ test('stake scales amounts in PLN and an old credits preference never restores t
     1,
   );
   assert.equal(firstPayout(), '300 zł');
-  assert.match(
-    document.querySelector('.boardSearchApproximateWinControls').textContent,
-    /mnożnik 3/,
-  );
+  assert.equal(document.querySelector('#approximateWinStakeHint'), null);
+  assert.equal(stakeSelect.value, '600');
   // The chart label names the unit and follows the stake.
   const chart = document.querySelector('.boardSearchApproximateWinChart svg');
   Object.defineProperty(chart, 'getBoundingClientRect', {

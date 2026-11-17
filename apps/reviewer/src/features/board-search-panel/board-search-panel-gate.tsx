@@ -4,10 +4,7 @@ import type { BoardSearchPanelContextResponse } from '@game-predictor/admin-api-
 import { BoardSearchWorkspace } from '@game-predictor/board-search-ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createBoardSearchShareDataSource } from '../board-search-share/board-search-share-data-source';
-import {
-  formatShareTimeLeft,
-  shareErrorMessage,
-} from '../board-search-share/board-search-share-state';
+import { shareErrorMessage } from '../board-search-share/board-search-share-state';
 
 export function BoardSearchPanelGate({
   panelId,
@@ -135,9 +132,8 @@ export function BoardSearchPanelGate({
     <main className="boardSearchShareApp">
       <header className="boardSearchShareHeader">
         <div>
-          <strong>{context.label || 'Udostępnione gry'}</strong>
           <label className="boardSearchPanelGame">
-            Gra{' '}
+            <span className="boardSearchVisuallyHidden">Gra</span>
             <select
               aria-label="Gra"
               value={sessionId}
@@ -153,10 +149,6 @@ export function BoardSearchPanelGate({
             </select>
           </label>
         </div>
-        <p role="status">
-          Dostęp wygasa za {formatShareTimeLeft(context.expiresAt, now)}.
-          Zapytania i poprawki symboli są zapisywane.
-        </p>
       </header>
       <BoardSearchWorkspace
         key={sessionId}

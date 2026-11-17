@@ -220,11 +220,10 @@ export function BoardSearchShareGate({
     <main className="boardSearchShareApp">
       <header className="boardSearchShareHeader">
         <div>
-          <p className="eyebrow">Udostępniona wyszukiwarka plansz</p>
           <strong>{state.context.gameName}</strong>
-          {state.context.label ? <span> · {state.context.label}</span> : null}
         </div>
         <ShareExpiry
+          showCountdown={false}
           expiresAt={state.context.expiresAt}
           onExpired={() => setState({ kind: 'ended', reason: 'expired' })}
         />
@@ -241,9 +240,11 @@ export function BoardSearchShareGate({
 
 /** Its own component: the 30 s tick must not re-render the workspace. */
 function ShareExpiry({
+  showCountdown = true,
   expiresAt,
   onExpired,
 }: {
+  readonly showCountdown?: boolean;
   readonly expiresAt: string;
   readonly onExpired: () => void;
 }) {
@@ -261,7 +262,7 @@ function ShareExpiry({
       window.clearTimeout(first);
     };
   }, [expiresAt, onExpired]);
-  return (
+  return !showCountdown ? null : (
     <p role="status">
       Dostęp wygasa za {formatShareTimeLeft(expiresAt, nowMs)} · zapytania są
       zapisywane wraz z poprawkami symboli

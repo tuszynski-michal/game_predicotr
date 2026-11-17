@@ -13,6 +13,152 @@
   margin-bottom: 0;
 }
 
+/* TASK-1238: ordinary search only; the management editor keeps its layout. */
+.boardSearchWorkspaceSimplified {
+  gap: 10px;
+  min-width: 0;
+}
+
+.boardSearchWorkspaceSimplified [hidden] {
+  display: none !important;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchHeader h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchComposer {
+  gap: 10px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchPalette,
+.boardSearchWorkspaceSimplified .boardSearchPattern {
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchEntryOrder {
+  gap: 6px 14px;
+  padding: 4px 8px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchEntryOrder label {
+  min-height: 36px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchSubmitActions {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 6px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchSubmitActions button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchSubmitActions .primaryButton {
+  width: 100%;
+  margin-left: 0;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchResultLimit {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchResultLimit label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchResultLimit input {
+  width: 76px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchResults,
+.boardSearchWorkspaceSimplified .boardSearchApproximateWin {
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchResultSummary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchApproximateWinControls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.boardSearchWorkspaceSimplified .boardSearchApproximateWinControls label,
+.boardSearchWorkspaceSimplified .boardSearchApproximateWinControls input,
+.boardSearchWorkspaceSimplified .boardSearchApproximateWinControls select {
+  min-width: 0;
+  width: 100%;
+}
+
+.boardSearchWorkspaceSimplified
+  .boardSearchApproximateWinControls
+  > .feedbackBanner {
+  grid-column: 1 / -1;
+}
+
+.boardSearchResultSummary > span + span::before {
+  margin-right: 6px;
+  color: var(--muted);
+  content: '·';
+}
+
+@media (max-width: 520px) {
+  .boardSearchWorkspaceSimplified .boardSearchHeader h1 {
+    font-size: 18px;
+  }
+
+  .boardSearchWorkspaceSimplified .boardSearchPalette,
+  .boardSearchWorkspaceSimplified .boardSearchPattern {
+    padding: 10px;
+  }
+
+  .boardSearchWorkspaceSimplified .boardSearchPaletteGrid {
+    grid-template-columns: repeat(auto-fit, minmax(44px, 48px));
+    gap: 6px;
+  }
+
+  .boardSearchWorkspaceSimplified .boardSearchSymbolButton {
+    min-height: 44px;
+  }
+
+  .boardSearchWorkspaceSimplified .boardSearchGrid {
+    grid-template-columns: repeat(5, minmax(44px, 48px));
+    gap: 6px;
+    width: fit-content;
+  }
+
+  .boardSearchWorkspaceSimplified .boardSearchResults,
+  .boardSearchWorkspaceSimplified .boardSearchApproximateWin {
+    padding: 10px;
+  }
+
+  .boardSearchWorkspaceSimplified .boardSearchResultSummary {
+    font-size: 12px;
+  }
+}
+
 .boardSearchResultLimit {
   display: flex;
   flex-wrap: wrap;

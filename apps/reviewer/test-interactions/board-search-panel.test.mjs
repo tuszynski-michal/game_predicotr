@@ -106,6 +106,11 @@ test('link opens without a code, scrubs the secret, changes the real search pale
   );
   assert.ok(document.body.textContent.includes('Alfa'));
   const select = document.querySelector('select[aria-label="Gra"]');
+  assert.ok(select);
+  const header = document.querySelector('.boardSearchShareHeader');
+  assert.equal(header.querySelector('strong'), null);
+  assert.equal(header.querySelector('[role="status"]'), null);
+  assert.doesNotMatch(header.textContent, /Dostęp wygasa|Zapytania i poprawki/);
   await act(async () => {
     select.value = children[1];
     select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));

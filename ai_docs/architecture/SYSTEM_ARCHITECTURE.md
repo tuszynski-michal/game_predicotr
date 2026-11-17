@@ -6,6 +6,22 @@ last_updated: 2026-10-05
 
 # Architektura systemu
 
+## Zwarty widok wyszukiwarki — TASK-1238
+
+Zwykła wyszukiwarka włącza opcjonalny `simplified` w wynikach i wygranej;
+domyślne zachowanie współdzielonych elementów oraz panelu zarządzania
+pozostaje zachowane. Podczas zapytania i po błędzie poprzedni snapshot jest
+ukryty, ale pozostaje wewnętrznie dostępny do odświeżania i zachowania
+wybranego dopasowania. Przejście między trafieniami zachowuje ranking;
+nie pobiera sąsiednich zdjęć sekwencji.
+
+Zapis przeglądarki v2 ma opcjonalne `nextSymbolStartsPattern`: jawne szukanie
+ustawia je, pierwsze wpisanie symbolu je zużywa, a reset trwale czyści.
+Odróżnia to rozpoczęty nowy wzór od identycznego poprzedniego zapytania.
+Starsze zapisy bez pola pozostają czytelne; początkowy stan wynika ze
+zgodności wzoru i snapshotu zapytania. Odtworzenie wybiera pierwsze wolne
+pole zgodnie z zapisaną kolejnością. API i modele domenowe nie zmieniają się.
+
 ## Podgląd planszy z wykresu — TASK-1232
 
 `ApproximateWinBalanceChart` w `board-search-ui` przyjmuje opcjonalny klient

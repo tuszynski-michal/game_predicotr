@@ -568,6 +568,36 @@ a zmieniony stan tworzy nową wersję.
 
 ### Wyszukiwanie plansz z niepełnym wzorem
 
+**TASK-1238 / decyzja operatora 2026-11-17:** zwykła wyszukiwarka Admina
+i linków ma zwarty układ. Nagłówek to mniejszy „Wyszukaj plansze”; u góry
+panelu linku pozostaje wybór gry, bez opisu panelu i odliczania dostępu.
+Wygaśnięcie nadal blokuje dostęp. Link jednej gry pokazuje zwięzłą nazwę gry.
+Nie ma widocznego tytułu/podtytułu „Twój wzór”; kolejność wpisywania to same
+radio buttony „Kolumnami” / „Wierszami”. Na telefonie symbole palety mają
+mniejsze kafelki, z celem dotykowym co najmniej 44 px. Przycisk `?` jest
+ukryty; dane nieznanych symboli i skróty klawiatury pozostają obsługiwane.
+
+Po jawnym wyszukaniu pierwszy wpisany symbol rozpoczyna nowy wzór, a kolejne
+go uzupełniają. Cofnij w nowym wzorze nie odtwarza poprzedniego. Stan tego
+przejścia i pierwszy wolny punkt wpisywania są odtwarzane po odświeżeniu,
+także gdy rozpoczęty nowy wzór jest identyczny z ostatnim wyszukanym.
+Automatyczne odświeżenie limitu lub korekty nie rozpoczyna nowego wzoru.
+„Resetuj” czyści edytor, wyniki, kontekst i zapis przeglądarki; osobnego
+przycisku „Nowe szukanie” nie ma. Cofnij, Resetuj i Szukaj stoją w jednym
+rzędzie, z największym przyciskiem Szukaj wypełniającym resztę szerokości.
+Pole liczby wyników stoi bezpośrednio pod przyciskiem szukania.
+
+Podczas zapytania stary podgląd i sekcja wygranej są ukryte. Po błędzie
+pokazywany jest komunikat bez starej planszy, po sukcesie nowy wynik albo
+stan pusty. Wynik mieści numer układu, procent dopasowania i pozycję typu
+„1 z 40” w jednym wierszu. Nie ma powtarzającego je podtytułu ani pól
+„Dokładne”, „Alternatywy”, „Sprzeczne”, „Brak danych”. W zwykłym widoku
+sekcja wygranej nie pokazuje dodatkowego tytułu ani podpowiedzi mnożnika;
+po wyborze stawki pod kontrolkami stoi wykres z istniejącym podglądem planszy,
+a dalej podsumowania, ostrzeżenia i tabela. Komunikaty błędów i braku danych
+oraz dostępne nazwy kontrolek są zachowane. Panel zarządzania zachowuje
+dotychczasowy domyślny układ i workflow.
+
 **TASK-1114 / decyzja operatora 2026-10-30:** Admin, link jednej gry i panel
 udostępniania wyszukują wyłącznie jedną planszę. Dodawanie kolejnych wzorów
 i wspólny ranking wielu układów zostały usunięte. Domyślnie 40 wyników.
@@ -592,12 +622,10 @@ Zapis korekty nadal używa aktualnego kontekstu, a trwające wyszukiwanie
 blokuje edycję. Celowe odświeżenie po zapisie i zmiana planszy lub reguł
 nadal pobierają nowy odczyt.
 
-Podgląd zaczyna się na znalezionej planszy. „Poprzedni układ” i „Następny
-układ” przeglądają do 15 numerów w każdą stronę; dwa kliknięcia przechodzą
-o dwie plansze. Dolna granica wynosi 1, bez zawijania i pomijania luk.
-Brak lub nieaktualny odczyt zachowuje zdjęcie i pozwala ponowić ten numer.
-Podgląd nie zmienia rankingu ani kotwicy wygranych. „Pokaż planszę” oraz
-korekta dotyczą aktualnego zdjęcia. Panel zarządzania zachowuje swój workflow.
+Podgląd pokazuje znalezioną planszę. Przyciski sąsiednich zdjęć „Poprzedni
+układ” i „Następny układ” zostały usunięte (TASK-1238). „Poprzednia”
+i „Następna” przechodzą po rankingu dopasowań; podgląd, „Pokaż planszę”,
+korekta i kotwica wygranej dotyczą wybranego trafienia.
 
 Nowy zapis przeglądarki zawiera jeden wzór. Dawny zapis jednowzorowy jest
 odtwarzany; wielowzorowy daje komunikat o usuniętej funkcji, bez zapytania
@@ -695,7 +723,7 @@ czysto” w tabeli i w etykiecie są zaokrąglane do pełnych złotych (kredyty 
 mają części dziesiętnych); wkład zachowuje grosze.
 
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
-wyników” nad panelem, domyślnie 40 (TASK-1100, zmiana operatora 2026-10-27
+wyników” pod przyciskiem szukania, domyślnie 40 (TASK-1100, zmiana operatora 2026-10-27
 z wcześniejszych 15 z D-476), w zakresie 1–100 (istniejący
 limit techniczny endpointu). Zakres wyszukiwania („Wszystkie plansze” /
 „Tylko zatwierdzone”) jest pokazywany w sekcji wyników, pod nagłówkiem

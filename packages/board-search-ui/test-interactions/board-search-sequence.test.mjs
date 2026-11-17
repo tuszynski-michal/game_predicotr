@@ -270,46 +270,15 @@ const saved = (
   selectedStartSequenceNumber: selected,
 });
 
-const photo = () =>
-  document.querySelector('[aria-label="Przegląd zdjęć dopasowania"]');
-const photoNumber = () =>
-  Number(
-    photo()
-      .querySelector('[role="status"]')
-      .textContent.match(/Zdjęcie #(\d+)/)[1],
-  );
-
-test('single pattern permits fifteen extra photos; failed or stale reads retain position and retry the same number', async () => {
+test('ordinary search has no adjacent photos and corrections still target the ranked board', async () => {
   const { api, calls } = fixture();
-  const original = api.getBoardSearchBoardDetail;
-  let mode = 'missing';
-  const attempts = [];
-  api.getBoardSearchBoardDetail = async (id, number) => {
-    attempts.push(number);
-    if (mode === 'missing')
-      return { error: { code: 'NOT_FOUND', message: 'Brak planszy' } };
-    const response = await original(id, number);
-    if (mode === 'stale') response.data.documentStale = true;
-    return response;
-  };
   const root = await mount(api);
   await click(symbol('A'));
   await search();
-  assert.equal(photoNumber(), 6);
-  await click(button('Następny układ'));
-  assert.equal(photoNumber(), 6);
-  assert.match(photo().textContent, /Brak planszy/);
-  mode = 'stale';
-  await click(button('Następny układ'));
-  assert.equal(photoNumber(), 6);
-  assert.match(photo().textContent, /nieaktualny/);
-  mode = 'ok';
-  for (let number = 7; number <= 21; number++) {
-    await click(button('Następny układ'));
-    await waitFor(() => photoNumber() === number);
-  }
-  assert.deepEqual(attempts.slice(0, 3), [7, 7, 7]);
-  assert.equal(button('Następny układ').disabled, true);
+  assert.equal(button('Poprzedni układ'), undefined);
+  assert.equal(button('Następny układ'), undefined);
+  assert.ok(document.querySelector('.boardSearchResults img[src="/view/6"]'));
+  assert.equal(calls.detail.length, 0, 'no adjacent-board requests');
   assert.equal(calls.single.length, 1);
   await click(button('Pokaż planszę'));
   await waitFor(() => button('Popraw symbole'));
@@ -320,30 +289,39 @@ test('single pattern permits fifteen extra photos; failed or stale reads retain 
     document.querySelector('.boardSearchBoardCellPalette button[title="B"]'),
   );
   await waitFor(() => calls.correction.length === 1);
-  assert.equal(calls.correction[0][1], 21);
-  assert.equal(calls.correction[0][3].startSequenceNumber, 21);
+  assert.equal(calls.correction[0][1], 6);
+  assert.equal(calls.correction[0][3].startSequenceNumber, 6);
   assert.equal(calls.correction[0][3].searchContextId, 'single-context');
   await unmount(root);
 });
 
-test('late photo read cannot overwrite a different ranked match', async () => {
-  const { api } = fixture();
-  const original = api.getBoardSearchBoardDetail;
+test('reset cancels a pending search and its cleared state survives remount', async () => {
+  const { api, calls } = fixture();
   let finish;
-  api.getBoardSearchBoardDetail = () =>
+  let root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  api.searchGameBoards = () =>
     new Promise((resolve) => {
       finish = resolve;
     });
-  const root = await mount(api);
-  await click(symbol('A'));
-  await search();
-  await click(button('Następny układ'));
-  assert.equal(button('Następny układ').disabled, true);
-  await click(button('Następna →'));
-  assert.equal(photoNumber(), 2);
-  await act(async () => finish(await original('g', 7)));
-  assert.equal(photoNumber(), 2);
-  assert.ok(photo().querySelector('img[src="/view/2"]'));
+  await click(symbol('B'));
+  await click(button('Szukaj plansz'));
+  assert.equal(document.querySelector('.boardSearchResults'), null);
+  await click(button('Resetuj'));
+  await act(async () => finish({ data: single([board(9)]) }));
+  assert.equal(document.querySelector('.boardSearchResults'), null);
+  assert.equal(button('Szukaj plansz').disabled, true);
+  const record = JSON.parse(
+    window.localStorage.getItem('board-search-single:v2:admin:g'),
+  );
+  assert.ok(record.cells.every((value) => value === null));
+  assert.equal(record.lastSubmitted, null);
+  await unmount(root);
+  root = await mount(api);
+  assert.equal(document.querySelector('.boardSearchResults'), null);
+  assert.equal(button('Szukaj plansz').disabled, true);
+  assert.equal(calls.single.length, 1);
   await unmount(root);
 });
 
@@ -375,7 +353,7 @@ test('calculator blocks search until every in-flight request settles, search sus
       finishSearch = resolve;
     });
   await click(button('Szukaj plansz'));
-  await click(button('← Poprzednia'));
+  assert.equal(document.querySelector('.boardSearchResults'), null);
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 450));
   });
@@ -470,7 +448,7 @@ test('clean limit refresh preserves the submitted pattern and waits for the calc
   assert.equal(calls.single[1].limit, 7);
   assert.doesNotMatch(document.body.textContent, /Wzór zmieniony/);
   assert.match(
-    document.querySelector('.boardSearchResultMetrics').textContent,
+    document.querySelector('.boardSearchResultSummary').textContent,
     /#6/,
   );
   await unmount(root);
@@ -511,7 +489,7 @@ test('TASK-1093 P2-1 editing a clean draft cancels a limit refresh queued during
   await search();
   assert.equal(calls.single.length, 2);
   assert.deepEqual(calls.single[1], {
-    cells: [...pattern('A').cells, { cellIndex: 5, symbolCode: 'B' }],
+    cells: pattern('B').cells,
     limit: 7,
     scope: 'all_searchable',
   });
@@ -560,39 +538,35 @@ test('TASK-1093 P2-1 correction refresh survives a dirty draft while calculation
   await act(async () => finish());
   await unmount(root);
 });
-test('one editor, two steps each way, ranking and win anchor preserved', async () => {
+test('ranked next and previous matches remain available and move the win anchor', async () => {
   const { api, calls } = fixture();
   const root = await mount(api);
   assert.equal(button('Dodaj układ'), undefined);
   assert.equal(document.querySelector('.boardSearchSequenceBadges'), null);
   await click(symbol('A'));
   await search();
-  const metrics = document.querySelector(
-    '.boardSearchResultMetrics',
-  ).textContent;
-  for (const [label, number] of [
-    ['Poprzedni układ', 5],
-    ['Poprzedni układ', 4],
-    ['Następny układ', 5],
-    ['Następny układ', 6],
-    ['Następny układ', 7],
-    ['Następny układ', 8],
-  ]) {
-    await click(button(label));
-    await waitFor(() => photoNumber() === number);
-  }
+  assert.match(
+    document.querySelector('.boardSearchResultSummary').textContent,
+    /Układ #6.*1 z 2/,
+  );
+  await click(button('Następna →'));
+  assert.match(
+    document.querySelector('.boardSearchResultSummary').textContent,
+    /Układ #2.*2 z 2/,
+  );
+  assert.ok(document.querySelector('.boardSearchResults img[src="/view/2"]'));
+  assert.equal(button('Następna →').disabled, true);
+  await waitFor(() =>
+    calls.range.some((request) => request.startSequenceNumber === 2),
+  );
+  await click(button('← Poprzednia'));
+  assert.match(
+    document.querySelector('.boardSearchResultSummary').textContent,
+    /Układ #6.*1 z 2/,
+  );
+  assert.equal(button('← Poprzednia').disabled, true);
   assert.equal(calls.single.length, 1);
   assert.equal(calls.multi.length, 0);
-  assert.equal(
-    document.querySelector('.boardSearchResultMetrics').textContent,
-    metrics,
-  );
-  assert.ok(calls.range.every((x) => x.startSequenceNumber === 6));
-  for (let number = 7; number >= 1; number--) {
-    await click(button('Poprzedni układ'));
-    await waitFor(() => photoNumber() === number);
-  }
-  assert.equal(button('Poprzedni układ').disabled, true);
   await unmount(root);
 });
 test('old multi storage and direct replay never execute, including StrictMode', async () => {
@@ -634,5 +608,203 @@ test('one legacy pattern restores and new single record survives remount', async
   root = await mount(api);
   await waitFor(() => calls.single.length === 2);
   assert.equal(calls.multi.length, 0);
+  await waitFor(() => document.querySelector('.boardSearchResults'));
+  await click(symbol('B'));
+  const next = JSON.parse(
+    window.localStorage.getItem('board-search-single:v2:admin:g'),
+  );
+  assert.deepEqual(
+    next.cells.filter(Boolean),
+    ['B'],
+    'a restored searched pattern also starts fresh',
+  );
+  await unmount(root);
+});
+
+test('the first symbol after Search starts one fresh pattern and Undo never restores the old one', async () => {
+  const { api, calls } = fixture();
+  const root = await mount(api, { strict: true });
+  await click(symbol('A'));
+  await click(symbol('B'));
+  await search();
+  assert.equal(calls.single[0].cells.length, 2);
+  await click(symbol('B'));
+  await click(symbol('A'));
+  const record = () =>
+    JSON.parse(window.localStorage.getItem('board-search-single:v2:admin:g'));
+  assert.deepEqual(record().cells.filter(Boolean), ['B', 'A']);
+  assert.equal(record().cells[0], 'B');
+  assert.equal(record().cells[5], 'A');
+  await click(button('Cofnij'));
+  assert.deepEqual(record().cells.filter(Boolean), ['B']);
+  await click(button('Cofnij'));
+  assert.deepEqual(record().cells.filter(Boolean), []);
+  assert.equal(button('Cofnij').disabled, true);
+  await click(button('Resetuj'));
+  assert.equal(document.querySelector('.boardSearchResults'), null);
+  await unmount(root);
+});
+
+test('a started new pattern survives remount and continues without clearing again', async () => {
+  const { api, calls } = fixture();
+  let root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  await click(symbol('B'));
+  await click(symbol('A'));
+  await unmount(root);
+  root = await mount(api, { strict: true });
+  await waitFor(() => calls.single.length === 2);
+  await click(symbol('B'));
+  const record = JSON.parse(
+    window.localStorage.getItem('board-search-single:v2:admin:g'),
+  );
+  assert.equal(record.cells[0], 'B');
+  assert.equal(record.cells[5], 'A');
+  assert.equal(record.cells[10], 'B');
+  assert.deepEqual(
+    calls.single[1].cells,
+    pattern('A').cells,
+    'restored response belongs to the old submitted snapshot',
+  );
+  await unmount(root);
+});
+
+test('typing while a saved clean search restores already starts a new pattern', async () => {
+  window.localStorage.setItem(key, JSON.stringify(saved([pattern('A')])));
+  let finish;
+  const { api } = fixture({
+    searchGameBoards: () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  });
+  const root = await mount(api, { strict: true });
+  await waitFor(() => finish !== undefined);
+  await click(symbol('B'));
+  const record = JSON.parse(
+    window.localStorage.getItem('board-search-single:v2:admin:g'),
+  );
+  assert.deepEqual(record.cells.filter(Boolean), ['B']);
+  await act(async () => finish({ data: single() }));
+  assert.deepEqual(
+    JSON.parse(
+      window.localStorage.getItem('board-search-single:v2:admin:g'),
+    ).cells.filter(Boolean),
+    ['B'],
+  );
+  await unmount(root);
+});
+
+test('an identical newly started pattern remains a draft after remount', async () => {
+  const { api, calls } = fixture();
+  let root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  await click(symbol('A'));
+  await unmount(root);
+  root = await mount(api, { strict: true });
+  await waitFor(() => calls.single.length === 2);
+  await click(symbol('B'));
+  const record = JSON.parse(
+    window.localStorage.getItem('board-search-single:v2:admin:g'),
+  );
+  assert.equal(record.nextSymbolStartsPattern, false);
+  assert.equal(record.cells[0], 'A');
+  assert.equal(record.cells[5], 'B');
+  await unmount(root);
+});
+
+test('new search hides the old board and calculation through loading and error, then shows an empty result', async () => {
+  const { api } = fixture();
+  const root = await mount(api);
+  await click(symbol('A'));
+  await search();
+  assert.ok(document.querySelector('.boardSearchResults'));
+  let finish;
+  api.searchGameBoards = () =>
+    new Promise((resolve) => {
+      finish = resolve;
+    });
+  await click(symbol('B'));
+  await click(button('Szukaj plansz'));
+  assert.equal(document.querySelector('.boardSearchResults'), null);
+  assert.ok(
+    document.querySelector('.boardSearchApproximateWin').closest('[hidden]'),
+  );
+  await act(async () =>
+    finish({ error: { code: 'FAILED', message: 'Błąd szukania' } }),
+  );
+  await waitFor(() => document.querySelector('[role="alert"]'));
+  assert.equal(document.querySelector('.boardSearchResults'), null);
+  assert.ok(
+    document.querySelector('.boardSearchApproximateWin').closest('[hidden]'),
+  );
+  api.searchGameBoards = async () => ({ data: single([]) });
+  await search();
+  assert.match(
+    document.querySelector('.boardSearchResults').textContent,
+    /Żadna plansza/,
+  );
+  assert.equal(document.querySelector('.boardSearchResults img'), null);
+  await unmount(root);
+});
+
+test('ordinary search is compact while the management editor retains its default controls', async () => {
+  const { api } = fixture();
+  let root = await mount(api);
+  const actions = document.querySelector('.boardSearchSubmitActions');
+  assert.deepEqual(
+    [...actions.querySelectorAll('button')].map((item) =>
+      item.textContent.trim(),
+    ),
+    ['Cofnij', 'Resetuj', 'Szukaj plansz'],
+  );
+  assert.equal(actions.nextElementSibling.className, 'boardSearchResultLimit');
+  assert.equal(
+    document.querySelector('.boardSearchPattern > header').hidden,
+    true,
+  );
+  assert.equal(
+    document.querySelector('.boardSearchEntryOrder legend').hidden,
+    true,
+  );
+  assert.equal(
+    document.querySelector('.boardSearchUnknownButton').hidden,
+    true,
+  );
+  assert.equal(button('Nowe szukanie'), undefined);
+  await click(symbol('A'));
+  await search();
+  assert.equal(document.querySelector('.boardSearchEvidence'), null);
+  assert.equal(
+    document.querySelectorAll('.boardSearchResultSummary').length,
+    1,
+  );
+  await waitFor(() =>
+    document.querySelector('.boardSearchApproximateWinChart'),
+  );
+  const body = document.querySelector('.boardSearchApproximateWinBody');
+  assert.ok(
+    body
+      .querySelector('.boardSearchApproximateWinControls')
+      .nextElementSibling.classList.contains('boardSearchApproximateWinChart'),
+  );
+  assert.equal(document.getElementById('approximateWinHeading').hidden, true);
+  await unmount(root);
+  root = await mount(api, { fixedStakeGrosze: 500 });
+  assert.equal(document.querySelector('.boardSearchWorkspaceSimplified'), null);
+  assert.equal(
+    document.querySelector('.boardSearchPattern > header').hidden,
+    false,
+  );
+  assert.equal(
+    document.querySelector('.boardSearchUnknownButton').hidden,
+    false,
+  );
+  assert.equal(
+    document.querySelector('.boardSearchEntryOrder legend').hidden,
+    false,
+  );
   await unmount(root);
 });

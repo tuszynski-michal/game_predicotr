@@ -81,6 +81,8 @@ type ApproximateWinClient = Pick<
   BoardLinesClient;
 
 interface BoardSearchApproximateWinProps {
+  /** Hide explanatory headings and put the chart first in the ordinary search. */
+  readonly simplified?: boolean;
   /** Optional request identity; changing it refreshes data without clearing stake/pins. */
   readonly calculationKey?: string;
   readonly onBusyChange?: (busy: boolean) => void;
@@ -128,6 +130,7 @@ type StakeChoice = {
 const CALCULATION_DELAY_MS = 400;
 
 export function BoardSearchApproximateWin({
+  simplified = false,
   calculationKey,
   onBusyChange,
   suspended = false,
@@ -365,10 +368,11 @@ export function BoardSearchApproximateWin({
 
   return (
     <section
-      aria-labelledby="approximateWinHeading"
+      aria-label={simplified ? 'Zakres wygranej' : undefined}
+      aria-labelledby={simplified ? undefined : 'approximateWinHeading'}
       className="boardSearchApproximateWin"
     >
-      <h2 id="approximateWinHeading">
+      <h2 id="approximateWinHeading" hidden={simplified}>
         {visibleResult
           ? `Plansza startowa #${visibleResult.startSequenceNumber} · ${visibleResult.evaluatedSpinCount.toLocaleString('pl-PL')} spinów`
           : 'Przybliżona wygrana'}
@@ -396,6 +400,7 @@ export function BoardSearchApproximateWin({
             />
           </label>
           <ApproximateWinDisplayControls
+            simplified={simplified}
             display={display}
             gameId={visibleResult?.gameId ?? gameId}
             onStakeChange={(stakeGrosze) =>
@@ -453,6 +458,7 @@ export function BoardSearchApproximateWin({
 
         {visibleResult && stakeChosen ? (
           <ApproximateWinResultView
+            simplified={simplified}
             compact={compact}
             api={api}
             display={display}
@@ -518,6 +524,7 @@ export function unitNoun(unit: ApproximateWinAmountUnit): string {
 }
 
 function ApproximateWinResultView({
+  simplified = false,
   compact = false,
   tableOnly = false,
   api,
@@ -534,6 +541,7 @@ function ApproximateWinResultView({
   onPinsChange,
   fixedStakeGrosze,
 }: {
+  readonly simplified?: boolean;
   readonly compact?: boolean;
   readonly tableOnly?: boolean;
   readonly api: BoardLinesClient;
@@ -610,9 +618,21 @@ function ApproximateWinResultView({
   );
   const [chartOpen, setChartOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
+  const chart = !tableOnly ? (
+    <ApproximateWinBalanceChart
+      boardPreviewClient={api}
+      compact={simplified}
+      display={display}
+      pinnedSpinPositions={pinnedSpinPositions}
+      onPinsChange={onPinsChange}
+      key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
+      result={result}
+    />
+  ) : null;
 
   return (
     <>
+      {simplified ? chart : null}
       {!tableOnly ? (
         <>
           <SuperGameStateBanner state={result.superGameState} />
@@ -696,29 +716,11 @@ function ApproximateWinResultView({
               ? ' Przy niepełnych danych nie można wykluczyć niewykrytej wygranej.'
               : ''}
           </p>
-          {!tableOnly ? (
-            <ApproximateWinBalanceChart
-              boardPreviewClient={api}
-              display={display}
-              pinnedSpinPositions={pinnedSpinPositions}
-              onPinsChange={onPinsChange}
-              key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
-              result={result}
-            />
-          ) : null}
+          {simplified ? null : chart}
         </>
       ) : (
         <>
-          {!tableOnly ? (
-            <ApproximateWinBalanceChart
-              boardPreviewClient={api}
-              display={display}
-              pinnedSpinPositions={pinnedSpinPositions}
-              onPinsChange={onPinsChange}
-              key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
-              result={result}
-            />
-          ) : null}
+          {simplified ? null : chart}
           <div className="importRowsTableWrap">
             <table className="importRowsTable">
               <thead>
@@ -885,6 +887,7 @@ export function ApproximateWinProvisionalSummary({
 }
 
 function ApproximateWinDisplayControls({
+  simplified = false,
   display,
   gameId,
   onStakeChange,
@@ -892,6 +895,7 @@ function ApproximateWinDisplayControls({
   stakeChosen,
   fixedStakeGrosze,
 }: {
+  readonly simplified?: boolean;
   readonly display: ApproximateWinDisplay;
   readonly gameId: string;
   readonly onStakeChange: (stakeGrosze: number | null) => void;
@@ -916,7 +920,9 @@ function ApproximateWinDisplayControls({
         ) : (
           <select
             aria-describedby={
-              stakeDisabled ? undefined : 'approximateWinStakeHint'
+              stakeDisabled || simplified
+                ? undefined
+                : 'approximateWinStakeHint'
             }
             aria-label="Stawka"
             disabled={stakeDisabled}
@@ -946,7 +952,11 @@ function ApproximateWinDisplayControls({
           przeliczyć. Złote są liczone jako kredyty / 10.
         </p>
       ) : null}
-      {stakeChosen && stake !== null && spinCost !== null && spinCost > 0 ? (
+      {!simplified &&
+      stakeChosen &&
+      stake !== null &&
+      spinCost !== null &&
+      spinCost > 0 ? (
         <small id="approximateWinStakeHint">
           Stawka {formatZloty(stake)} · mnożnik{' '}
           {approximateWinStakeMultiplier(display, spinCost, gameId)} · 1 zł = 10

@@ -5,6 +5,8 @@ import {
   boardSearchSequenceEditorsFromPatterns,
   readBoardSearchSequenceLocalState,
   boardSearchSequenceStorageKey,
+  readBoardSearchLocalState,
+  writeBoardSearchLocalState,
 } from '../src/board-search-local-state.ts';
 
 const pattern = (code) => ({ cells: [{ cellIndex: 0, symbolCode: code }] });
@@ -64,6 +66,7 @@ test('invalid versions, cells, selected identity and submitted requests never hy
     { activeIndex: 1 },
     { entryOrder: 'diagonal' },
     { selectedStartSequenceNumber: 0 },
+    { nextSymbolStartsPattern: 'false' },
     {
       lastSubmitted: {
         patterns: [{ cells: [{ cellIndex: 15, symbolCode: 'A' }] }],
@@ -79,6 +82,33 @@ test('invalid versions, cells, selected identity and submitted requests never hy
       ),
     );
   assert.throws(() => readBoardSearchSequenceLocalState('{', 'admin:g'));
+});
+
+test('v2 storage distinguishes a searched pattern from an identical newly started draft', () => {
+  for (const nextSymbolStartsPattern of [true, false]) {
+    const record = {
+      version: 1,
+      scope: 'admin:g',
+      patterns: boardSearchSequenceEditorsFromPatterns([pattern('A')]).map(
+        (editor) => editor.cells,
+      ),
+      activeIndex: 0,
+      entryOrder: 'columns',
+      lastSubmitted: {
+        patterns: [pattern('A')],
+        scope: 'all_searchable',
+        limit: 40,
+      },
+      selectedStartSequenceNumber: 6,
+      nextSymbolStartsPattern,
+    };
+    const restored = readBoardSearchLocalState(
+      writeBoardSearchLocalState(record),
+      'admin:g',
+    );
+    assert.equal(restored.nextSymbolStartsPattern, nextSymbolStartsPattern);
+    assert.deepEqual(restored.patterns, record.patterns);
+  }
 });
 
 test('single input validates evidence and refuses multiple editors', () => {

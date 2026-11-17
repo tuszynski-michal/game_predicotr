@@ -52,6 +52,8 @@ type BoardSearchResultsClient = BoardLinesClient &
 type BoardSearchResult = BoardSearchResponse['results'][number];
 
 interface BoardSearchResultsProps {
+  /** Compact presentation for the ordinary search; other consumers keep their layout. */
+  readonly simplified?: boolean;
   readonly photoNavigation?: boolean;
   readonly photoRevision?: number;
   readonly compact?: boolean;
@@ -76,6 +78,7 @@ interface BoardSearchResultsProps {
 }
 
 export function BoardSearchResults({
+  simplified = false,
   photoNavigation = false,
   photoRevision = 0,
   compact = false,
@@ -150,24 +153,39 @@ export function BoardSearchResults({
       tabIndex={0}
     >
       <SuperGameStateBanner state={superGameState} />
-      <header>
-        <div>
-          <p className="eyebrow">Wyniki wyszukiwania</p>
-          <h2>
-            {state.activeIndex + 1} z {state.results.length}
+      {simplified ? (
+        <header>
+          <h2
+            aria-label={`Układ #${current.sequenceNumber}, dopasowanie ${current.score.score.toFixed(1)}%, ${state.activeIndex + 1} z ${state.results.length}`}
+            className="boardSearchResultSummary"
+          >
+            <span>Układ #{current.sequenceNumber}</span>
+            <span>{current.score.score.toFixed(1)}%</span>
+            <span>
+              {state.activeIndex + 1} z {state.results.length}
+            </span>
           </h2>
-        </div>
-        <dl className="boardSearchResultMetrics">
+        </header>
+      ) : (
+        <header>
           <div>
-            <dt>Dopasowanie</dt>
-            <dd>{current.score.score.toFixed(1)}%</dd>
+            <p className="eyebrow">Wyniki wyszukiwania</p>
+            <h2>
+              {state.activeIndex + 1} z {state.results.length}
+            </h2>
           </div>
-          <div>
-            <dt>Plansza</dt>
-            <dd>{`#${current.sequenceNumber}`}</dd>
-          </div>
-        </dl>
-      </header>
+          <dl className="boardSearchResultMetrics">
+            <div>
+              <dt>Dopasowanie</dt>
+              <dd>{current.score.score.toFixed(1)}%</dd>
+            </div>
+            <div>
+              <dt>Plansza</dt>
+              <dd>{`#${current.sequenceNumber}`}</dd>
+            </div>
+          </dl>
+        </header>
+      )}
 
       {evidenceScore?.unknownMatchesAll && evidenceScore.unknownCount > 0 ? (
         <p className="boardSearchUnknownWarning" role="status">
@@ -267,24 +285,26 @@ export function BoardSearchResults({
         />
       )}
 
-      <dl className="boardSearchEvidence">
-        <div>
-          <dt>Dokładne</dt>
-          <dd>{evidenceScore?.exactMatchCount}</dd>
-        </div>
-        <div>
-          <dt>Alternatywy</dt>
-          <dd>{evidenceScore?.alternativeMatchCount}</dd>
-        </div>
-        <div>
-          <dt>Sprzeczne</dt>
-          <dd>{evidenceScore?.mismatchCount}</dd>
-        </div>
-        <div>
-          <dt>Brak danych</dt>
-          <dd>{evidenceScore?.unknownCount}</dd>
-        </div>
-      </dl>
+      {simplified ? null : (
+        <dl className="boardSearchEvidence">
+          <div>
+            <dt>Dokładne</dt>
+            <dd>{evidenceScore?.exactMatchCount}</dd>
+          </div>
+          <div>
+            <dt>Alternatywy</dt>
+            <dd>{evidenceScore?.alternativeMatchCount}</dd>
+          </div>
+          <div>
+            <dt>Sprzeczne</dt>
+            <dd>{evidenceScore?.mismatchCount}</dd>
+          </div>
+          <div>
+            <dt>Brak danych</dt>
+            <dd>{evidenceScore?.unknownCount}</dd>
+          </div>
+        </dl>
+      )}
 
       {compact || photoNavigation ? null : (
         <div className="boardSearchResultNavigation">
@@ -297,7 +317,7 @@ export function BoardSearchResults({
           >
             Pokaż planszę
           </button>
-          <span>
+          <span hidden={simplified}>
             Otwiera planszę z liniami wypłat; w oknie możesz poprawić pola.
           </span>
         </div>

@@ -281,6 +281,9 @@ function BoardSearchWorkspaceContent({
   const limit = sequenceEnabled ? sequence.limit : legacyLimit;
   const setLimit = sequenceEnabled ? sequence.setLimit : setLegacyLimit;
   const searchKey = sequenceEnabled ? sequence.searchKey : legacySearchKey;
+  const searchOutputHidden =
+    sequenceEnabled &&
+    (searchState.kind === 'loading' || searchState.kind === 'error');
   const visibleResponse = sequenceEnabled
     ? sequence.response
     : searchState.kind === 'ready'
@@ -476,8 +479,14 @@ function BoardSearchWorkspaceContent({
 
   function placeSymbol(symbolCode: string) {
     invalidateDraft();
+    const beginPattern = sequenceEnabled && sequence.nextSymbolStartsPattern;
+    if (sequenceEnabled) sequence.setNextSymbolStartsPattern(false);
     setEditor((current) =>
-      placeBoardSearchSymbol(current, symbolCode, entryOrder),
+      placeBoardSearchSymbol(
+        beginPattern ? createBoardSearchEditorState() : current,
+        symbolCode,
+        entryOrder,
+      ),
     );
     if (!sequenceEnabled) {
       setSearchState({ kind: 'idle' });
@@ -487,7 +496,14 @@ function BoardSearchWorkspaceContent({
 
   function placeUnknown() {
     invalidateDraft();
-    setEditor((current) => placeBoardSearchUnknown(current, entryOrder));
+    const beginPattern = sequenceEnabled && sequence.nextSymbolStartsPattern;
+    if (sequenceEnabled) sequence.setNextSymbolStartsPattern(false);
+    setEditor((current) =>
+      placeBoardSearchUnknown(
+        beginPattern ? createBoardSearchEditorState() : current,
+        entryOrder,
+      ),
+    );
     if (!sequenceEnabled) {
       setSearchState({ kind: 'idle' });
       setResultsState(null);
@@ -512,6 +528,12 @@ function BoardSearchWorkspaceContent({
 
   function reset() {
     invalidateDraft();
+    if (sequenceEnabled) {
+      sequence.clear();
+      setApproximateReplay(null);
+      setReplayNotices([]);
+      return;
+    }
     setEditor((current) => resetBoardSearchEditor(current));
     if (!sequenceEnabled) {
       setSearchState({ kind: 'idle' });
@@ -521,6 +543,22 @@ function BoardSearchWorkspaceContent({
       setPins([]);
       setSpinCount(APPROXIMATE_WIN_RANGE_DEFAULT);
     }
+  }
+
+  function submitSearch() {
+    if (
+      sequenceEnabled &&
+      (sequence.inputError !== null ||
+        sequence.calculationBusy ||
+        !sequence.hydrated ||
+        searchState.kind === 'loading')
+    ) {
+      return;
+    }
+    if (sequenceEnabled) {
+      sequence.setNextSymbolStartsPattern(true);
+    }
+    runSearch();
   }
 
   function runSearch(
@@ -684,7 +722,7 @@ function BoardSearchWorkspaceContent({
         return;
       }
       event.preventDefault();
-      runSearch();
+      submitSearch();
       return;
     }
     if (command.kind === 'undo') {
@@ -798,22 +836,49 @@ function BoardSearchWorkspaceContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replay?.id, symbolsState, sequenceEnabled, sequence.calculationBusy]);
 
+  const resultLimitControl = (
+    <div className="boardSearchResultLimit">
+      <label>
+        <span>Liczba wyników</span>
+        <input
+          aria-label="Liczba wyników wyszukiwania"
+          disabled={searchState.kind === 'loading'}
+          inputMode="numeric"
+          max={100}
+          min={1}
+          onBlur={commitLimit}
+          onChange={(event) => setLimitInput(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              commitLimit();
+            }
+          }}
+          type="number"
+          value={limitInput}
+        />
+      </label>
+    </div>
+  );
+
   return (
     <section
       aria-label="Wyszukaj plansze"
-      className={`boardSearchWorkspace${compact ? ' boardSearchWorkspaceCompact' : ''}`}
+      className={`boardSearchWorkspace${compact ? ' boardSearchWorkspaceCompact' : ''}${sequenceEnabled ? ' boardSearchWorkspaceSimplified' : ''}`}
     >
       <header className="pageHeader boardSearchHeader">
         <div>
           {compact ? (
             <h3>Wyszukaj plansze</h3>
+          ) : sequenceEnabled ? (
+            <h1>Wyszukaj plansze</h1>
           ) : (
             <>
               <p className="eyebrow">Plansze · częściowy układ 3 × 5</p>
               <h1>Wyszukaj plansze</h1>
             </>
           )}
-          <p className="lead" hidden={compact}>
+          <p className="lead" hidden={compact || sequenceEnabled}>
             Wstaw tylko symbole, które znasz. Wyszukiwanie ocenia pozycje
             niezależnie, dlatego nie wymaga pełnej planszy.
           </p>
@@ -850,28 +915,7 @@ function BoardSearchWorkspaceContent({
       )}
       {saveNotice === null ? null : <p role="status">{saveNotice}</p>}
 
-      <div className="boardSearchResultLimit">
-        <label>
-          <span>Liczba wyników</span>
-          <input
-            aria-label="Liczba wyników wyszukiwania"
-            disabled={searchState.kind === 'loading'}
-            inputMode="numeric"
-            max={100}
-            min={1}
-            onBlur={commitLimit}
-            onChange={(event) => setLimitInput(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                commitLimit();
-              }
-            }}
-            type="number"
-            value={limitInput}
-          />
-        </label>
-      </div>
+      {sequenceEnabled ? null : resultLimitControl}
       {limitError ? (
         <p className="feedbackBanner feedbackBannerError" role="alert">
           {limitError}
@@ -946,6 +990,7 @@ function BoardSearchWorkspaceContent({
                   );
                 })}
                 <button
+                  hidden={sequenceEnabled}
                   aria-keyshortcuts={activeSymbols.length >= 10 ? '?' : '0 ?'}
                   className="boardSearchSymbolButton boardSearchUnknownButton"
                   onClick={placeUnknown}
@@ -965,7 +1010,7 @@ function BoardSearchWorkspaceContent({
           </aside>
 
           <div className="boardSearchPattern">
-            <header>
+            <header hidden={sequenceEnabled}>
               <h2>Twój wzór</h2>
               <p>
                 {patternCellCount === 0
@@ -973,8 +1018,11 @@ function BoardSearchWorkspaceContent({
                   : `${selectedCells.length} z 15 znanych pozycji${unknownCellCount > 0 ? ` · ${unknownCellCount} bez dowodu (?)` : ''}.`}
               </p>
             </header>
-            <fieldset className="boardSearchEntryOrder">
-              <legend>Kolejność wpisywania</legend>
+            <fieldset
+              aria-label="Kolejność wpisywania"
+              className="boardSearchEntryOrder"
+            >
+              <legend hidden={sequenceEnabled}>Kolejność wpisywania</legend>
               <label>
                 <input
                   checked={entryOrder === 'columns'}
@@ -993,7 +1041,7 @@ function BoardSearchWorkspaceContent({
                 />
                 Wierszami
               </label>
-              <small>
+              <small hidden={sequenceEnabled}>
                 {entryOrder === 'columns'
                   ? 'Od góry do dołu, następnie kolejna kolumna.'
                   : 'Od lewej do prawej, następnie kolejny wiersz.'}
@@ -1046,7 +1094,7 @@ function BoardSearchWorkspaceContent({
                 ),
               )}
             </div>
-            <footer className="boardSearchActions">
+            <footer className="boardSearchActions boardSearchSubmitActions">
               <button
                 className="secondaryButton"
                 disabled={editor.history.length === 0}
@@ -1057,7 +1105,10 @@ function BoardSearchWorkspaceContent({
               </button>
               <button
                 className="secondaryButton"
-                disabled={patternCellCount === 0}
+                disabled={
+                  patternCellCount === 0 &&
+                  (!sequenceEnabled || sequence.lastSubmitted === null)
+                }
                 onClick={reset}
                 type="button"
               >
@@ -1074,7 +1125,7 @@ function BoardSearchWorkspaceContent({
                     : selectedCells.length === 0 ||
                       searchState.kind === 'loading'
                 }
-                onClick={() => runSearch()}
+                onClick={submitSearch}
                 type="button"
               >
                 {sequenceEnabled && sequence.calculationBusy
@@ -1083,22 +1134,8 @@ function BoardSearchWorkspaceContent({
                     ? 'Wyszukiwanie…'
                     : 'Szukaj plansz'}
               </button>
-              {sequenceEnabled ? (
-                <>
-                  <button
-                    className="secondaryButton"
-                    type="button"
-                    onClick={() => {
-                      sequence.clear();
-                      setApproximateReplay(null);
-                      setReplayNotices([]);
-                    }}
-                  >
-                    Nowe szukanie
-                  </button>
-                </>
-              ) : null}
             </footer>
+            {sequenceEnabled ? resultLimitControl : null}
             {sequenceEnabled &&
             sequence.inputError !== null &&
             patternCellCount > 0 ? (
@@ -1120,13 +1157,14 @@ function BoardSearchWorkspaceContent({
           {sequence.notice}
         </p>
       ) : null}
-      {sequenceEnabled && sequence.stale ? (
+      {sequenceEnabled && sequence.stale && !searchOutputHidden ? (
         <p className="feedbackBanner" role="status">
-          {searchState.kind === 'loading'
-            ? 'Trwa wyszukiwanie. Poniżej poprzednie wyniki.'
-            : searchState.kind === 'error'
-              ? 'Poniżej wyniki poprzedniego udanego wyszukiwania.'
-              : 'Wzór zmieniony — wyszukaj ponownie.'}
+          Wzór zmieniony — wyszukaj ponownie.
+        </p>
+      ) : null}
+      {sequenceEnabled && searchState.kind === 'loading' ? (
+        <p className="boardSearchFeedback" role="status">
+          Wyszukiwanie plansz…
         </p>
       ) : null}
 
@@ -1144,10 +1182,12 @@ function BoardSearchWorkspaceContent({
           {searchState.message}
         </p>
       ) : null}
-      {visibleResponse !== null && resultsState !== null ? (
+      {visibleResponse !== null &&
+      resultsState !== null &&
+      !searchOutputHidden ? (
         <>
           <BoardSearchResults
-            photoNavigation={sequenceEnabled}
+            simplified={sequenceEnabled}
             photoRevision={sequence.resultRevision}
             compact={compact}
             client={resultClient}
@@ -1193,8 +1233,9 @@ function BoardSearchWorkspaceContent({
         </>
       ) : null}
       {sequenceEnabled ? (
-        <div hidden={resultsState === null}>
+        <div hidden={resultsState === null || searchOutputHidden}>
           <BoardSearchApproximateWin
+            simplified
             client={resultClient}
             calculationKey={`${sequence.searchKey}:${sequence.resultRevision}`}
             gameId={gameId}

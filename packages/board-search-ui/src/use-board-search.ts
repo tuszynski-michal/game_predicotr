@@ -6,6 +6,8 @@ import type { BoardSearchDataSource } from './board-search-data-source';
 import { apiErrorMessage } from './api-error';
 import {
   createBoardSearchEditorState,
+  selectBoardSearchEntryStart,
+  patternBoardSearchCells,
   type BoardSearchEditorState,
   type BoardSearchEntryOrder,
 } from './board-search-editor-state';
@@ -81,6 +83,7 @@ export function useBoardSearch({
   const [notice, setNotice] = useState<string | null>(null);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [nextSymbolStartsPattern, setNextSymbolStartsPattern] = useState(false);
   const hydratedRef = useRef(false);
   const pendingRestore = useRef<{
     query: BoardSearchSubmittedSequence;
@@ -271,7 +274,18 @@ export function useBoardSearch({
               current === null
                 ? readBoardSearchSequenceLocalState(raw, scope)
                 : readBoardSearchLocalState(raw, scope);
-            setEditor(boardSearchSequenceEditor(saved.patterns[0]));
+            const restoredEditor = selectBoardSearchEntryStart(
+              boardSearchSequenceEditor(saved.patterns[0]),
+              saved.entryOrder,
+            );
+            setEditor(restoredEditor);
+            setNextSymbolStartsPattern(
+              saved.nextSymbolStartsPattern ??
+                (saved.lastSubmitted !== null &&
+                  boardSearchSequenceKey([
+                    { cells: [...patternBoardSearchCells(restoredEditor)] },
+                  ]) === boardSearchSequenceKey(saved.lastSubmitted.patterns)),
+            );
             setEntryOrder(saved.entryOrder);
             setLastSubmitted(saved.lastSubmitted);
             setSelectedStart(saved.selectedStartSequenceNumber);
@@ -330,6 +344,7 @@ export function useBoardSearch({
       activeIndex: 0,
       entryOrder,
       lastSubmitted,
+      nextSymbolStartsPattern,
       selectedStartSequenceNumber:
         visibleSubmitted !== null &&
         lastSubmitted !== null &&
@@ -359,6 +374,7 @@ export function useBoardSearch({
     lastSubmitted,
     visibleSubmitted,
     selectedStart,
+    nextSymbolStartsPattern,
   ]);
 
   function replaceDraft(patterns: BoardSearchPattern[], nextLimit: number) {
@@ -373,6 +389,7 @@ export function useBoardSearch({
       return;
     }
     setEditor(next[0]);
+    setNextSymbolStartsPattern(false);
     setLimit(nextLimit);
     // A replay supersedes an in-flight search, retaining the server slot guard.
     requestId.current++;
@@ -388,6 +405,7 @@ export function useBoardSearch({
     pendingRestore.current = null;
     const empty = createBoardSearchEditorState();
     setEditor(empty);
+    setNextSymbolStartsPattern(false);
     setLastSubmitted(null);
     setVisibleSubmitted(null);
     setResponse(null);
@@ -407,6 +425,7 @@ export function useBoardSearch({
           activeIndex: 0,
           entryOrder,
           lastSubmitted: null,
+          nextSymbolStartsPattern: false,
           selectedStartSequenceNumber: null,
         }),
       );
@@ -453,6 +472,8 @@ export function useBoardSearch({
   return {
     editor,
     setEditor,
+    nextSymbolStartsPattern,
+    setNextSymbolStartsPattern,
     entryOrder,
     setEntryOrder,
     limit,

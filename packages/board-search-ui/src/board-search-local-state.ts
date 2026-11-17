@@ -27,6 +27,8 @@ export type BoardSearchSequenceLocalState = {
   readonly entryOrder: BoardSearchEntryOrder;
   readonly lastSubmitted: BoardSearchSubmittedSequence | null;
   readonly selectedStartSequenceNumber: number | null;
+  /** Optional for records written before TASK-1238. */
+  readonly nextSymbolStartsPattern?: boolean;
 };
 
 export const boardSearchSequenceStorageKey = (scope: string) =>
@@ -193,6 +195,11 @@ export function readBoardSearchSequenceLocalState(
   const selected = value.selectedStartSequenceNumber;
   if (selected !== null && (!Number.isSafeInteger(selected) || selected < 1))
     return fail();
+  if (
+    value.nextSymbolStartsPattern !== undefined &&
+    typeof value.nextSymbolStartsPattern !== 'boolean'
+  )
+    return fail();
   return {
     version: 1,
     scope,
@@ -213,6 +220,9 @@ export function readBoardSearchSequenceLocalState(
             limit: submitted.limit,
           },
     selectedStartSequenceNumber: selected,
+    ...(value.nextSymbolStartsPattern === undefined
+      ? {}
+      : { nextSymbolStartsPattern: value.nextSymbolStartsPattern }),
   };
 }
 

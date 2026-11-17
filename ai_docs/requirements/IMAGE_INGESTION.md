@@ -6,6 +6,21 @@ last_updated: 2026-11-15
 
 # Import i rozpoznawanie zdjęć
 
+## Nowy preflight po zmianie modelu — TASK-1246
+
+Jawne uruchomienie przeglądarkowego preflightu dla nowego stagingu bez zapisanych
+ręcznych przypisań detekcji używa aktualnego przypisania modelu gry. Dawny
+ukończony preflight nie może po cichu wybrać poprzedniego modelu ani dostarczyć
+geometrii do ponownego użycia dla nowej wersji. Ponowienie przy tym samym modelu
+odzyskuje ten sam job; zmiana modelu daje odrębny, niezmienny job.
+
+Zapisane ręczne przypisania detekcji tego stagingu zachowują zgodną zamrożoną
+propozycję, ponieważ identyfikatory detekcji nie są przenośne między modelami.
+Ręczne quady oraz decyzje innych stagingów pozostają zapisane. Start istniejącego
+importu i jego wznowienie nadal używają modelu przypiętego w ich preflighcie.
+Preflight zarządzany istniejącego importu (`managedSourceJobId`) zachowuje
+dotychczasowy wybór modelu również przy korektach samych quadów lub wykluczeń.
+
 ## Następna iteracja uczenia z bieżących korekt — D-601
 
 Nowe ręczne korekty geometrii są kwalifikowane do kolejnego treningu bez

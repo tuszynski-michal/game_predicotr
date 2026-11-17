@@ -1993,6 +1993,7 @@ class JobService:
         managed_source_job_id: UUID | None = None,
         replacement_parent_upload_id: UUID | None = None,
         replacement_parent_manifest_sha256: str | None = None,
+        use_current_model: bool = False,
     ) -> Job:
         """Create an idempotent verified-page geometry preflight.
 
@@ -2045,6 +2046,7 @@ class JobService:
             source_manifest_sha256=source_manifest_sha256,
             candidates=candidates,
             overrides=overrides,
+            use_current_model=use_current_model,
         )
         if neural_snapshot is not None and (
             geometry_engine_variant is not None or page_registration_variant != "standard_v0_10"
@@ -2240,6 +2242,7 @@ class JobService:
         source_manifest_sha256: str,
         candidates: Sequence[Job],
         overrides: Mapping[str, object],
+        use_current_model: bool = False,
     ) -> dict[str, object] | None:
         resolver = self._grid_profile_snapshot_resolver
         pilot = getattr(resolver, "uses_neural_grid_pilot", None)
@@ -2256,6 +2259,11 @@ class JobService:
             and isinstance(binding := value.get("neuralProposalBinding"), Mapping)
             and binding.get("sourceSelectionId") == str(selection_id)
         }
+        # An explicit browser preparation follows the active assignment. Saved
+        # detection bindings still need their exact frozen proposal; other
+        # callers and existing import/resume requests retain their old pins.
+        if use_current_model and not current_bindings:
+            candidates = ()
         for candidate in candidates:
             payload = candidate.input_payload
             if (

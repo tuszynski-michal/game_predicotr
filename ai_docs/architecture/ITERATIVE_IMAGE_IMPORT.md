@@ -7,6 +7,21 @@ release: "0.7"
 
 # Architektura iteracyjnego importu
 
+## Bieżący model w nowym preflighcie — TASK-1246
+
+`start_browser_page_geometry_preflight` przekazuje do `JobService` wewnętrzny,
+opcjonalny `use_current_model=True` wyłącznie bez `managedSourceJobId`.
+Ścieżka zarządzana istniejącego importu przekazuje `False`. Gdy brak ręcznych `neuralProposalBinding`
+dla tego `sourceSelectionId`, wybór pomija historyczne kandydatury i rozwiązuje
+bieżące przypisanie. Późniejszy dobór bazowego manifestu nadal wymaga identycznego
+snapshotu modelu, więc nie przejmuje starych wyników. Równość zapisanych wejść
+zapewnia odtworzenie joba po utracie odpowiedzi i restarcie usługi.
+
+Domyślny parametr serwisu pozostaje `False`; konsument bez opt-in oraz staging
+z ręcznym wiązaniem zachowują dotychczasowy wybór zamrożonej propozycji. Brak jej
+zgodnego manifestu blokuje operację. Import/resume nie wywołują tego odświeżenia.
+Nie zmienia się kontrakt HTTP, OpenAPI, polityka kwalifikacji ani schemat bazy.
+
 ## Gotowość nowej iteracji a historia publikacji — D-601
 
 `verified_publication_scope` weryfikuje immutable manifest, report checksum,

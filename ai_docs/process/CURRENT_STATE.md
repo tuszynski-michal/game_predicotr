@@ -62,7 +62,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **TASK-1245/P2:** stare fixture’y FAIL i ogólny błąd złego specu; ryzyka w Outcome.
+- **TASK-1245/P2:** Outcome.
 
 - **Bramka v4 / TASK-1188:** baza na 0185; `bf327cfa` zastosowany poleceniami rejestru, bo panel uczenia `63767b36` przypina starą ocenę REVISE.
 
@@ -95,6 +95,10 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-1246 — Preflight (in_progress)
+
+- `tasks/1246-staging-refresh.md`: poprawka.
 
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 

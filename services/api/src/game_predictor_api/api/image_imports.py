@@ -1750,6 +1750,7 @@ def create_image_imports_router(
                 geometry_engine_variant=effective_variant,
                 replacement_parent_upload_id=replacement_parent_upload_id,
                 replacement_parent_manifest_sha256=replacement_parent_manifest_sha256,
+                use_current_model=payload.managed_source_job_id is None,
             )
             created = True
         except JobConflictError as error:

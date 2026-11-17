@@ -125,7 +125,7 @@ No synthetic large benchmark is authorized or planned.
 
 ## Outcome
 
-Commit: v1.7.667 (hash dopisuje kolejny commit).
+Commit: v1.7.667 / `c2b73c987551e2e1957f80faf63359832e286d2e`.
 
 Implementation and scoped quality checks complete; final Claude review PASS.
 

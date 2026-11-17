@@ -8,7 +8,7 @@ last_updated: 2026-10-16
 
 ### TASK-1237 — Odzyskanie treningu i limit 4 h (done)
 
-- `tasks/completed/1237-grid-run-budget-extension.md`; **v1.7.656**.
+- `tasks/completed/1237-grid-run-budget-extension.md`; **v1.7.656 / `8137a4349048a4754e89484cc8a2eed3f4d41d07`**.
 - Operator zatwierdził limit tego samego przebiegu 2 -> 4 h, bez zerowania zużycia. Narzędzie preview/apply sprawdza SHA, pełne wiązanie checkpointu, dzierżawę i CAS; ponowienie jest idempotentne.
 - 14 testów jednostkowych i test PostgreSQL PASS, lint/typy/mapy/docs PASS. Claude PASS, 0 P0/P1; obie uwagi P2 poprawione i testy powtórzone.
 - Ten sam rodzic `42f30e0e` i trening `c489f65f` wznowione od kroku 575; nowy proces osiągnął 580/1200 o 00:32:08 UTC. Zachowano wykorzystane 7200 s i wejścia. Trening/ocena jakości nadal trwają w TASK-1230; aktywacja nie została wykonana.

@@ -82,7 +82,7 @@ real transactional update and stale concurrent state on a disposable database.
 
 ## Outcome
 
-Commit: v1.7.656 (hash dopisuje kolejny commit).
+Commit: v1.7.656 / `8137a4349048a4754e89484cc8a2eed3f4d41d07`.
 
 Implementation prepared in a separate worktree from main 498ccebf. No other
 task/branch work is included. Implementation commit v1.7.655:

@@ -19,6 +19,7 @@ import {
 
 const stake = (grosze, unit = 'credits') => ({ stakeGrosze: grosze, unit });
 const MUMIE_GAME_ID = 'fea55cc1-ebf4-4cee-b3ab-a520017ed1be';
+const MUMIE_A2_GAME_ID = '246a1f54-eee8-49d5-b11a-0fde70e5eecd';
 const text = (credits, display, spinCost = 100) =>
   formatApproximateWinAmount(
     scaleApproximateWinAmount(credits, display, spinCost),
@@ -87,6 +88,46 @@ test('Mumie payouts use a 10-credit base at every offered stake', () => {
   assert.equal(
     scaleApproximateWinAmount(10, stake(600), 100, MUMIE_GAME_ID),
     60,
+  );
+});
+
+test('Mumie A2 uses the A1 stakes, scaling and saved-stake compatibility', () => {
+  assert.deepEqual(
+    approximateWinStakeOptions(10, MUMIE_A2_GAME_ID),
+    approximateWinStakeOptions(10, MUMIE_GAME_ID),
+  );
+  for (const grosze of [100, 200, 500, 1000, 2000, 120, 400, 600]) {
+    const display = stake(grosze, 'pln');
+    assert.equal(
+      effectiveApproximateWinStakeGrosze(display, 10, MUMIE_A2_GAME_ID),
+      grosze,
+    );
+    assert.equal(
+      approximateWinStakeMultiplier(display, 10, MUMIE_A2_GAME_ID),
+      approximateWinStakeMultiplier(display, 10, MUMIE_GAME_ID),
+    );
+    for (const spinCost of [10, 100]) {
+      for (const credits of [0, 10, 50, 2000, -4020]) {
+        assert.equal(
+          scaleApproximateWinAmount(
+            credits,
+            display,
+            spinCost,
+            MUMIE_A2_GAME_ID,
+          ),
+          scaleApproximateWinAmount(credits, display, spinCost, MUMIE_GAME_ID),
+        );
+      }
+    }
+  }
+  assert.equal(
+    effectiveApproximateWinStakeGrosze(stake(333), 10, MUMIE_A2_GAME_ID),
+    100,
+  );
+  // The retired empty A2 is not silently configured as a playable game.
+  assert.deepEqual(
+    approximateWinStakeOptions(100, '8563b353-9c5c-4282-bed5-825412d8bdd1'),
+    approximateWinStakeOptions(100, 'another-game'),
   );
 });
 

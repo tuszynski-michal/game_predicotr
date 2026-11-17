@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.board_search_board_detail import (
     BoardSearchBoardDetailService,
@@ -192,8 +193,18 @@ def _get(repository: MemoryBoardDetailRepository, sequence_number: int = 42):  #
     )
 
 
-def test_mumie_board_detail_reports_the_ten_credit_base(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    monkeypatch.setitem(globals(), "_GAME_ID", UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be"))
+@pytest.mark.parametrize(
+    "game_id",
+    [
+        UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be"),
+        UUID("246a1f54-eee8-49d5-b11a-0fde70e5eecd"),
+    ],
+    ids=["mumie-a1", "mumie-a2"],
+)
+def test_mumie_board_detail_reports_the_ten_credit_base(
+    monkeypatch: pytest.MonkeyPatch, game_id: UUID
+) -> None:
+    monkeypatch.setitem(globals(), "_GAME_ID", game_id)
     configuration = replace(_configuration(), spin_cost=100)
     response = _get(
         MemoryBoardDetailRepository(

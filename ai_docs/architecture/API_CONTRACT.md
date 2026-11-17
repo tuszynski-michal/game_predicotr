@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-11-13
+last_updated: 2026-11-17
 ---
 
 # Kontrakty API i danych mobilnych
@@ -878,8 +878,9 @@ rodzaju supergry (`wild_super_spins`: 0) i jest liczona oceną planszy serii
 (`ALGORITHMS.md` §B, rozwinięcie super symbolu); każda inna pozycja, także
 plansza wyzwalająca, ma `mode = "base"` i koszt `rules.spinCost`.
 
-Tymczasowy wyjątek D-565 (TASK-1063): kalkulator i szczegóły planszy gry
-Mumie `fea55cc1-ebf4-4cee-b3ab-a520017ed1be` raportują efektywne
+Tymczasowy wyjątek D-565 (TASK-1063, TASK-1244): kalkulator i szczegóły planszy
+gier Mumie A1 `fea55cc1-ebf4-4cee-b3ab-a520017ed1be` i używanej
+A2 `246a1f54-eee8-49d5-b11a-0fde70e5eecd` raportują efektywne
 `rules.spinCost = 10`, także przy historycznie zapisanym koszcie reguł 100.
 Wypłaty są niezmienionymi kredytami przy bazie 1 zł. Wyjątek stosuje wspólny
 resolver konfiguracji w Adminie, udostępnieniu i nowych migawkach panelu;

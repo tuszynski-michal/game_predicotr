@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-11-03
+last_updated: 2026-11-17
 ---
 
 # Wymagania modułu administracyjnego
@@ -939,8 +939,9 @@ przeglądarce jako preferencja widoku. Próg suwaka jest zachowywany przy
 zmianie stawki i jednostki. Koszt spinu równy zero wyłącza wybór stawki z
 komunikatem; jednostka „złote” pozostaje dostępna w kursie `kredyty / 10`.
 
-**Tymczasowy profil Mumii (D-565, TASK-1063).** Dla gry
-`fea55cc1-ebf4-4cee-b3ab-a520017ed1be` istniejąca tabela wypłat dotyczy
+**Tymczasowy profil Mumii (D-565, TASK-1063, TASK-1244).** Dla gier
+A1 `fea55cc1-ebf4-4cee-b3ab-a520017ed1be` i używanej
+A2 `246a1f54-eee8-49d5-b11a-0fde70e5eecd` istniejące tabele wypłat dotyczą
 10 kredytów, czyli stawki bazowej 1 zł. Kalkulator i szczegóły planszy
 stosują efektywny koszt 10 kredytów dla zwykłego spinu i 0 dla supergry;
 kwoty wypłat z tabeli nie zmieniają się. Lista wyszukiwarki to dokładnie
@@ -950,7 +951,8 @@ Pozostałe gry zachowują powyższą listę i bazę z reguł. Historyczne wyniki
 zachowują zapisaną bazę i wcześniej wybraną stawkę.
 
 Po korekcie konfiguracji TASK-1065 najnowsza opublikowana wersja reguł Mumii
-ma także zapisany koszt 10 kredytów (v3). Poprzednie wersje pozostają
+A1 ma także zapisany koszt 10 kredytów (v3); reguły A2 v1 mają ten sam koszt,
+linie, progi i wartości wypłat oraz role symboli. Poprzednie wersje pozostają
 niezmienione; kwoty wypłat kopiowane są bez przeskalowania. Edytor reguł
 powinien więc pokazywać koszt 10 po wybraniu najnowszej wersji.
 

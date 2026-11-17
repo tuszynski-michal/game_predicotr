@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-11-15
+last_updated: 2026-11-17
 ---
 
 # Decision Log — wpisy 2026
@@ -1924,6 +1924,13 @@ Interfejs ma jedno wejście rozpoznające źródło, projekt i manifest, bez che
   Istniejący draft jest zgodny z v2 poza kosztem; linie, symbole i wypłaty
   pozostają identyczne. Historyczne v1/v2 nie są modyfikowane. Tymczasowa
   lista stawek w kodzie pozostaje do osobnego zadania konfiguracji stawek.
+- **Rozszerzenie (TASK-1244, 2026-11-17):** operator polecił wyrównać reguły,
+  wypłaty i stawki używanej Mumie A2 z A1. Ten sam profil 1/2/5/10/20 zł
+  i efektywna baza 10 kredytów obejmują także
+  `246a1f54-eee8-49d5-b11a-0fde70e5eecd` (`mumie-aktu2`), w Adminie,
+  udostępnieniach i nowych migawkach panelu. Reguły A1 v3 i A2 v1 są już
+  semantycznie zgodne; nie nadpisujemy opublikowanych reguł, zapisanych
+  wyników ani kodów mobilnych symboli. Archiwalna pusta A2 nie jest objęta.
 - **Boundaries:** pozostałe gry zachowują dotychczasowe stawki i przeliczenia.
   Nowa migawka używa tej samej efektywnej bazy co kalkulator; historyczne
   wyniki i ich stawki pozostają odtwarzalne. Stałe sloty panelu zarządzania,

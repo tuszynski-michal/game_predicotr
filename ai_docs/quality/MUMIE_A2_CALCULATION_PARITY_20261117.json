@@ -1,0 +1,456 @@
+{
+  "task": "TASK-1244",
+  "collectedAtUtc": "2026-11-17T15:13:08.803490+00:00",
+  "method": "Read-only GET of game, latest published rules, symbols, paylines, thresholds and payouts.",
+  "scope": "Persisted calculation configuration; stake presentation verified separately by Node tests.",
+  "equivalent": true,
+  "checks": {
+    "rows": true,
+    "columns": true,
+    "spinCostCredits": true,
+    "superGameKind": true,
+    "symbols": true,
+    "paylines": true,
+    "symbolThresholds": true,
+    "payouts": true
+  },
+  "a1": {
+    "gameId": "fea55cc1-ebf4-4cee-b3ab-a520017ed1be",
+    "gameCode": "mumie",
+    "gameName": "Mumie a1",
+    "rulesVersionId": "4482fb16-a910-4dfa-b594-d2dbd1cf9aed",
+    "rulesVersion": 3,
+    "rulesStatus": "published",
+    "configurationSha256": "8f7df37a1ad146703a3481690ab3ae1724c1b863d44c168b5078bd200b774716",
+    "symbolCount": 10,
+    "paylineCount": 5,
+    "payoutRuleCount": 34,
+    "symbolMobileCodes": {
+      "10": 1,
+      "J": 2,
+      "Q": 3,
+      "K": 4,
+      "A": 5,
+      "RA": 7,
+      "SARKOFAG": 6,
+      "FARAON": 8,
+      "SFINKS": 9,
+      "MUMIA": 10
+    }
+  },
+  "a2": {
+    "gameId": "246a1f54-eee8-49d5-b11a-0fde70e5eecd",
+    "gameCode": "mumie-aktu2",
+    "gameName": "Mumie a2",
+    "rulesVersionId": "c7854ca8-3b8b-44a1-acc7-37d11128ce76",
+    "rulesVersion": 1,
+    "rulesStatus": "published",
+    "configurationSha256": "8f7df37a1ad146703a3481690ab3ae1724c1b863d44c168b5078bd200b774716",
+    "symbolCount": 10,
+    "paylineCount": 5,
+    "payoutRuleCount": 34,
+    "symbolMobileCodes": {
+      "10": 1,
+      "J": 2,
+      "Q": 3,
+      "K": 4,
+      "A": 5,
+      "RA": 6,
+      "SARKOFAG": 7,
+      "FARAON": 8,
+      "SFINKS": 9,
+      "MUMIA": 10
+    }
+  },
+  "commonConfiguration": {
+    "rows": 3,
+    "columns": 5,
+    "spinCostCredits": 10,
+    "superGameKind": "wild_super_spins",
+    "symbols": [
+      {
+        "code": "10",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "status": "active"
+      },
+      {
+        "code": "A",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "status": "active"
+      },
+      {
+        "code": "FARAON",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "status": "active"
+      },
+      {
+        "code": "J",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "status": "active"
+      },
+      {
+        "code": "K",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "status": "active"
+      },
+      {
+        "code": "MUMIA",
+        "isWildcard": true,
+        "superGameTriggerCount": 3,
+        "status": "active"
+      },
+      {
+        "code": "Q",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "status": "active"
+      },
+      {
+        "code": "RA",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "status": "active"
+      },
+      {
+        "code": "SARKOFAG",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "status": "active"
+      },
+      {
+        "code": "SFINKS",
+        "isWildcard": false,
+        "superGameTriggerCount": null,
+        "status": "active"
+      }
+    ],
+    "paylines": [
+      {
+        "code": "A",
+        "rowPath": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "displayOrder": 0,
+        "isActive": true
+      },
+      {
+        "code": "B",
+        "rowPath": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "displayOrder": 1,
+        "isActive": true
+      },
+      {
+        "code": "C",
+        "rowPath": [
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "displayOrder": 2,
+        "isActive": true
+      },
+      {
+        "code": "D",
+        "rowPath": [
+          0,
+          1,
+          2,
+          1,
+          0
+        ],
+        "displayOrder": 3,
+        "isActive": true
+      },
+      {
+        "code": "E",
+        "rowPath": [
+          2,
+          1,
+          0,
+          1,
+          2
+        ],
+        "displayOrder": 4,
+        "isActive": true
+      }
+    ],
+    "symbolThresholds": [
+      {
+        "symbolCode": "10",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "symbolCode": "A",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "symbolCode": "FARAON",
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      {
+        "symbolCode": "J",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "symbolCode": "K",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "symbolCode": "MUMIA",
+        "minimumMatchLength": null,
+        "isActive": true
+      },
+      {
+        "symbolCode": "Q",
+        "minimumMatchLength": 3,
+        "isActive": true
+      },
+      {
+        "symbolCode": "RA",
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SARKOFAG",
+        "minimumMatchLength": 2,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SFINKS",
+        "minimumMatchLength": 2,
+        "isActive": true
+      }
+    ],
+    "payouts": [
+      {
+        "symbolCode": "10",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "symbolCode": "10",
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true
+      },
+      {
+        "symbolCode": "10",
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true
+      },
+      {
+        "symbolCode": "A",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "symbolCode": "A",
+        "matchLength": 4,
+        "payoutCredits": 50,
+        "isActive": true
+      },
+      {
+        "symbolCode": "A",
+        "matchLength": 5,
+        "payoutCredits": 240,
+        "isActive": true
+      },
+      {
+        "symbolCode": "FARAON",
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "symbolCode": "FARAON",
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true
+      },
+      {
+        "symbolCode": "FARAON",
+        "matchLength": 4,
+        "payoutCredits": 300,
+        "isActive": true
+      },
+      {
+        "symbolCode": "FARAON",
+        "matchLength": 5,
+        "payoutCredits": 3000,
+        "isActive": true
+      },
+      {
+        "symbolCode": "J",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "symbolCode": "J",
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true
+      },
+      {
+        "symbolCode": "J",
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true
+      },
+      {
+        "symbolCode": "K",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "symbolCode": "K",
+        "matchLength": 4,
+        "payoutCredits": 50,
+        "isActive": true
+      },
+      {
+        "symbolCode": "K",
+        "matchLength": 5,
+        "payoutCredits": 240,
+        "isActive": true
+      },
+      {
+        "symbolCode": "MUMIA",
+        "matchLength": 3,
+        "payoutCredits": 20,
+        "isActive": true
+      },
+      {
+        "symbolCode": "MUMIA",
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true
+      },
+      {
+        "symbolCode": "MUMIA",
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true
+      },
+      {
+        "symbolCode": "Q",
+        "matchLength": 3,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "symbolCode": "Q",
+        "matchLength": 4,
+        "payoutCredits": 40,
+        "isActive": true
+      },
+      {
+        "symbolCode": "Q",
+        "matchLength": 5,
+        "payoutCredits": 160,
+        "isActive": true
+      },
+      {
+        "symbolCode": "RA",
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "symbolCode": "RA",
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true
+      },
+      {
+        "symbolCode": "RA",
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true
+      },
+      {
+        "symbolCode": "RA",
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SARKOFAG",
+        "matchLength": 2,
+        "payoutCredits": 10,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SARKOFAG",
+        "matchLength": 3,
+        "payoutCredits": 60,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SARKOFAG",
+        "matchLength": 4,
+        "payoutCredits": 200,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SARKOFAG",
+        "matchLength": 5,
+        "payoutCredits": 2000,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SFINKS",
+        "matchLength": 2,
+        "payoutCredits": 20,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SFINKS",
+        "matchLength": 3,
+        "payoutCredits": 200,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SFINKS",
+        "matchLength": 4,
+        "payoutCredits": 2000,
+        "isActive": true
+      },
+      {
+        "symbolCode": "SFINKS",
+        "matchLength": 5,
+        "payoutCredits": 10000,
+        "isActive": true
+      }
+    ]
+  },
+  "differences": {},
+  "mobileCodeNote": "Codes are resolved per game. RA/SARKOFAG numeric differences are preserved to protect stored boards.",
+  "dataWrites": false
+}

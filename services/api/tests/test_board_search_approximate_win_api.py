@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.board_search_approximate_win import (
     APPROXIMATE_WIN_SPIN_COUNT_MAX,
@@ -196,8 +197,15 @@ def test_approximate_win_endpoint_returns_summary_completeness_and_rows() -> Non
     assert repository.range_calls == [(2, 4), (1, 1)]
 
 
-def test_mumie_uses_ten_credit_base_without_mutating_saved_rules() -> None:
-    game_id = UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be")
+@pytest.mark.parametrize(
+    "game_id",
+    [
+        UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be"),
+        UUID("246a1f54-eee8-49d5-b11a-0fde70e5eecd"),
+    ],
+    ids=["mumie-a1", "mumie-a2"],
+)
+def test_mumie_uses_ten_credit_base_without_mutating_saved_rules(game_id: UUID) -> None:
     configuration = replace(_configuration(), rules_game_id=game_id, spin_cost=100)
     repository = MemoryBoardSearchApproximateWinRepository(
         game_id,

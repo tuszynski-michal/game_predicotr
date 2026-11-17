@@ -51,9 +51,14 @@ from game_predictor_api.domain.super_game_markers import SuperGameMarkers
 _APPROXIMATE_WIN_BOARD_ROWS = 3
 _APPROXIMATE_WIN_BOARD_COLUMNS = 5
 
-# Temporary operator-approved stake profile (D-565, TASK-1063). Replace with
-# versioned rule configuration when the stake editor is introduced.
-_MUMIE_GAME_ID = UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be")
+# Temporary operator-approved stake profile (D-565), shared by A1 and A2 (TASK-1244).
+# Replace with versioned rule configuration when the stake editor is introduced.
+_MUMIE_GAME_IDS = frozenset(
+    {
+        UUID("fea55cc1-ebf4-4cee-b3ab-a520017ed1be"),
+        UUID("246a1f54-eee8-49d5-b11a-0fde70e5eecd"),
+    }
+)
 _MUMIE_BASE_SPIN_COST = 10
 
 APPROXIMATE_WIN_SPIN_COUNT_MAX = 100_000
@@ -293,7 +298,7 @@ def resolve_rules_configuration(
                 "APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND",
                 "The selected rules version is not a draft or published version of this game.",
             )
-    if game_id == _MUMIE_GAME_ID:
+    if game_id in _MUMIE_GAME_IDS:
         return replace(configuration, spin_cost=_MUMIE_BASE_SPIN_COST)
     return configuration
 

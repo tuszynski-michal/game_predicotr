@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1244 — Zgodność kalkulacji Mumie A2 z A1 (done)
+
+- Plik: `tasks/completed/1244-mumie-a2-calculation-parity.md`.
+- Commit: **v1.7.667** (hash dopisuje kolejny commit).
+- A2 korzysta z profilu A1: 1/2/5/10/20 zł, baza 10 kredytów; zgodność 10 symboli, 5 linii i 34 wypłat potwierdzona odczytem API.
+- Weryfikacja: 116 testów UI, 66 API, lint/typy/format i oba buildy PASS; raport w quality/MUMIE_A2_CALCULATION_PARITY_20261117.json. Bez zapisu danych, merge, push i restartu usług.
+
 ### TASK-1242 — Przyspieszenie danych (done)
 
 - Plik: `tasks/completed/1242-grid-preparation-throughput.md`.

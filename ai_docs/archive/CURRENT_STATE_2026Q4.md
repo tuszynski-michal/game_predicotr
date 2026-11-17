@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1242 — Przyspieszenie danych (done)
 
 - Plik: `tasks/completed/1242-grid-preparation-throughput.md`.
-- Commit: **v1.7.665**.
+- Commit: **v1.7.665 / `cd83092bf0f9354ee4f1fe996f1d4a32d9b94c53`**.
 - Wewnętrzne grupy istniejących stron, przyrostowe liczniki i blokada rewizji NO KEY UPDATE; bez zmiany etykiet, stron i budżetu GPU.
 - 85 testów PASS, PostgreSQL: rollback, utrata odpowiedzi, kontynuacja w nowym procesie i równoległe zdarzenie korekty; lint/typy w zakresie, mapy i docs PASS.
 - Claude runda2 PASS (0 P0/P1), P2-4 odnotowane. Gotowy kod czeka na akceptację scalenia i restart API/general; przebieg 6ac108a6 pozostaje aktywny.

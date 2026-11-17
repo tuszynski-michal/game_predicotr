@@ -104,7 +104,7 @@ Audit CLI timeout 1800 s/idle60 s; do not automatically retry transport failures
 
 ## Outcome
 
-Commit: v1.7.665 (hash dopisuje kolejny commit).
+Commit: v1.7.665 / `cd83092bf0f9354ee4f1fe996f1d4a32d9b94c53`.
 
 ### Changed
 

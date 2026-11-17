@@ -115,7 +115,7 @@ po weryfikacji pionu, z uprzedzeniem, jeżeli wymaga dłuższego limitu.
 
 ## Outcome
 
-Commit: v1.7.667 (hash dopisuje kolejny commit).
+Commit: v1.7.667 / `2c8e910ce3e173be025dbbbb2ecf5ce826365e34`.
 
 ### Changed
 

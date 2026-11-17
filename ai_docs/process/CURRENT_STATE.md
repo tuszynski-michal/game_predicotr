@@ -94,16 +94,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1237 — Limit jednego treningu (in_progress)
-
-- `tasks/1237-grid-run-budget-extension.md`: zgoda na 4 h; odzyskanie checkpointu 575, bez resetu zużycia.
-
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1237** — Odzyskanie treningu i limit 4 h — v1.7.656 — tasks/completed/1237-grid-run-budget-extension.md
 - **TASK-1235** — Timeout rejestracji kohorty — v1.7.653 / `3c1e143d` — tasks/completed/1235-grid-cohort-closure-timeout.md
 - **TASK-1234** — Large grid cohort metadata — v1.7.649 / `a79b12ab` — tasks/completed/1234-grid-cohort-large-metadata.md
 - **TASK-1232** — Wygrane na wykresie i miniatura — v1.7.647 / `3eee4c31` — tasks/completed/1232-board-search-winning-chart-preview.md
@@ -113,4 +110,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1209** — Akceptacja V3 dla wiązań z brakami — v1.7.641 / `1c212b52` — tasks/completed/1209-partial-slot-acceptance.md
 - **TASK-1208** — Wiązanie plansz po pozycji strony 3 × 3 — v1.7.640 / `3abece58` — tasks/completed/1208-partial-slot-binding.md
 - **TASK-1207** — Pomiar tempa nauki — v1.7.638 / `49009e4e` — tasks/completed/1207-grid-training-lr-measurement.md
-- **TASK-1206** — Bramka v6: realna poprawa — v1.7.637 / `27012521` — tasks/completed/1206-grid-gate-improvement.md

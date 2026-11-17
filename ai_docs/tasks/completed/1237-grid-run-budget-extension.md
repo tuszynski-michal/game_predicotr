@@ -1,6 +1,6 @@
 ---
 title: Scoped grid training budget extension and checkpoint recovery
-status: in_progress
+status: done
 last_updated: 2026-11-17
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-11-17
 
 ## Status
 
-in_progress
+`done`
 
 ## Goal
 
@@ -53,11 +53,11 @@ activation, cancellation of another run, modification or deletion of artifacts.
 ## Acceptance criteria
 
 - [x] Preview is read-only and fails closed on active/foreign/drifted/corrupt state.
-- [ ] Apply changes only the approved budget ceiling, pointer and audit history;
+- [x] Apply changes only the approved budget ceiling, pointer and audit history;
   stale previews fail and a lost-response replay cannot grant a second extension.
-- [ ] Checkpoint binding/bytes are verified and consumption remains 7200 s/1200 steps.
-- [ ] Targeted unit/PostgreSQL/lint/types/docs/maps and Claude review pass.
-- [ ] The original parent/child resume with 14400 seconds and checkpoint step 575.
+- [x] Checkpoint binding/bytes are verified and consumption remains 7200 s/1200 steps.
+- [x] Targeted unit/PostgreSQL/lint/types/docs/maps and Claude review pass.
+- [x] The original parent/child resume with 14400 seconds and checkpoint step 575.
 
 ## Technical notes
 
@@ -82,9 +82,11 @@ real transactional update and stale concurrent state on a disposable database.
 
 ## Outcome
 
+Commit: v1.7.656 (hash dopisuje kolejny commit).
+
 Implementation prepared in a separate worktree from main 498ccebf. No other
-task/branch work is included. Production state/checkpoint were inspected read-only;
-no cancellation or limit change has occurred.
+task/branch work is included. Implementation commit v1.7.655:
+5e82a06a4e66ca3e500ceecb2924ebf6f9437054. No cancellation was necessary.
 
 ### Changed
 
@@ -125,8 +127,22 @@ no cancellation or limit change has occurred.
   includes the production manifest gameId field. Focused tests were rerun; no paid
   audit retry was needed. Original report/receipt remain unchanged as audit evidence.
 
+### Operational verification
+
+The approved preview was applied once. Fresh database read confirmed exact
+afterState, unchanged inputs/status and 7200 consumed seconds/1200 reserved steps/
+two attempts. Evidence: root .runtime/task1237-after-apply.json. Ordinary parent
+resume at 00:21:10 UTC returned the same learningId/runId/cohortId/commandKey.
+At 00:23:49 UTC attempt 3 entered training with sealed resume.step=575 and 7200
+remaining seconds. New consumption/reservations accrue normally. No new run,
+schema migration, service restart or activation was required for this data override.
+At 00:32:08 UTC the new process progressed to step 580/1200 from checkpoint 575,
+with no error; the complete restart/resume acceptance criterion is verified.
+Evidence: root .runtime/task1237-observations.jsonl and task1237-latest.json.
+
 ### Not completed
 
-- Commit, approved data apply and same-parent resume.
 - The actual candidate's training/evaluation remains the enclosing TASK-1230 scope;
   this helper does not claim candidate readiness or activation.
+- Integration of this helper branch to main is pending result acceptance; production
+  data override already succeeded using the reviewed, committed operator tool.

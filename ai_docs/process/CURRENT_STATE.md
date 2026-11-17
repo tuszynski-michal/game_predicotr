@@ -100,7 +100,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1240** — Częściowe korekty i porównanie modeli — v1.7.663 — tasks/completed/1240-partial-grid-corrections-and-model-comparison.md
+- **TASK-1240** — Częściowe korekty i porównanie modeli — v1.7.663 / `049c4855` — tasks/completed/1240-partial-grid-corrections-and-model-comparison.md
 - **TASK-1239** — Doprecyzowanie zwartej wyszukiwarki — v1.7.661 / `95e4f9c2` — tasks/completed/1239-board-search-refinements.md
 - **TASK-1238** — Uproszczenie wyszukiwarki plansz — v1.7.659 / `d14cb6c7` — tasks/completed/1238-board-search-compact-ui.md
 - **TASK-1237** — Odzyskanie treningu i limit 4 h — v1.7.656 / `8137a434` — tasks/completed/1237-grid-run-budget-extension.md

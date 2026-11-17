@@ -94,7 +94,7 @@ quality and documentation checks. CPU comparison uses only existing real photos.
 
 ## Outcome
 
-Commit: v1.7.663 (hash dopisuje kolejny commit).
+Commit: v1.7.663 / `049c485507bb0d89e347ddcf9d903da3191d3a59`.
 
 Implementation and measurements complete. Claude focused round 2 PASS, 0 P0/P1.
 
@@ -135,7 +135,7 @@ Implementation and measurements complete. Claude focused round 2 PASS, 0 P0/P1.
 
 ### Not completed
 
-- Final task close/commit and integration result acceptance.
+- Integration result acceptance and authorized deployment remain pending.
 - Acceptance/merge/push/deployment are not assumed from cost approval. The live
   starter remains unchanged until separately approved integration.
 - New GPU training, model activation and the separate Task-1230 feature integration

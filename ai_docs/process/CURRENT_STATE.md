@@ -62,7 +62,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Otwarte decyzje i pytania
 
-- **TASK-1244 / P2:** 2 stare fixture'y (`baseline_floor`, `beats_baseline`) nadal FAIL; błędny wewnętrzny spec nadzoru ma ogólny błąd. Ryzyka przyjęte w Outcome.
+- **TASK-1245/P2:** stare fixture’y FAIL i ogólny błąd złego specu; ryzyka w Outcome.
 
 - **Bramka v4 / TASK-1188:** baza na 0185; `bf327cfa` zastosowany poleceniami rejestru, bo panel uczenia `63767b36` przypina starą ocenę REVISE.
 
@@ -102,7 +102,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1244** — Nadzór postępu treningu — v1.7.667 / `c2b73c98` — tasks/completed/1244-grid-progress-supervision.md
+- **TASK-1245** — Nadzór postępu treningu — v1.7.667 / `c2b73c98` — tasks/completed/1245-grid-progress-supervision.md
 - **TASK-1242** — Przyspieszenie danych — v1.7.665 / `cd83092b` — tasks/completed/1242-grid-preparation-throughput.md
 - **TASK-1240** — Częściowe korekty i porównanie modeli — v1.7.663 / `049c4855` — tasks/completed/1240-partial-grid-corrections-and-model-comparison.md
 - **TASK-1239** — Doprecyzowanie zwartej wyszukiwarki — v1.7.661 / `95e4f9c2` — tasks/completed/1239-board-search-refinements.md

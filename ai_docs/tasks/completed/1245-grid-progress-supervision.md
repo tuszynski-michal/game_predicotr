@@ -4,7 +4,7 @@ status: done
 last_updated: 2026-11-17
 ---
 
-# TASK-1244 — Progress supervision of the existing correction training run
+# TASK-1245 — Progress supervision of the existing correction training run
 
 ## Status
 
@@ -26,7 +26,12 @@ The current child is alive: native CPU and reads increase, and stack samples
 prove transition from TRAIN indexing to VALIDATION indexing. GPU steps were still
 zero at 15:02 UTC. Existing code enforces 7200 seconds in supervisor, child control
 and independent child watchdog, including startup. No policy has been changed yet.
-TASK-1243 is reserved on another branch; this task uses 1244.
+Originally audited as TASK-1244. While this branch was being completed, main
+integrated unrelated calculation TASK-1244 at bd92d4a4. The logical task is
+therefore renumbered to TASK-1245. Raw audit reports/receipts retain their
+original task identity and byte hashes; their filenames make that provenance
+explicit. The audited production code is unchanged. Historical v1.7.667–668
+collisions with the calculation branch are recorded without rewriting history.
 
 ## Dependencies / entry conditions
 
@@ -167,7 +172,7 @@ Operational supervision continues until the parent/evaluation reaches a result.
 ### One correction round after independent review
 
 Round 1 was REVISE (0 P0, 2 P1); preserved report and receipt:
-`quality/TASK-1244_AUDIT_ROUND1_claude-opus-5-5.*`, report SHA
+`quality/TASK-1245_AUDIT_ROUND1_ORIGINAL_TASK-1244_claude-opus-5-5.*`, report SHA
 `6123730894b73b329a8f4a86bb34f17c3edf10c265d3d4c50323c004276e13c3`,
 payload SHA `1f5e751bb2a15538905d8e9c456bd189fc9bf7d1e25ccc7d4567d50a2da345cc`.
 
@@ -192,7 +197,7 @@ payload SHA `1f5e751bb2a15538905d8e9c456bd189fc9bf7d1e25ccc7d4567d50a2da345cc`.
   export milestones. Real tiny CPU training/export passes under both policies.
 - P2-6: 15 regenerated files with no semantic diff were byte-compared to HEAD
   after newline normalization and restored; only the intended generated type
-  and OpenAPI change remain. Evidence: `quality/TASK-1244_GENERATED_EOL.json`.
+  and OpenAPI change remain. Evidence: `quality/TASK-1245_GENERATED_EOL.json`.
 
 Focused correction group: 90 PASS, two pre-existing wiring-fixture failures
 (`baseline_floor` / `beats_baseline` missing from a SimpleNamespace). Both were
@@ -206,7 +211,7 @@ PASS again (60.64 s supervised, 58.49 s legacy).
 ### Final acceptance and residual risks
 
 Round 2 PASS, 0 open P0/P1; all original findings closed. Report/receipt:
-`quality/TASK-1244_AUDIT_claude-opus-5-5.*`, report SHA
+`quality/TASK-1245_AUDIT_ORIGINAL_TASK-1244_claude-opus-5-5.*`, report SHA
 `43c3e49cc12c323b8099c5fe99269fa02aa87dda035cd9229dd9a1645d52bff4`,
 payload SHA `ecdecdc375744f64f70871e9c488b59fa7898b018383aadb12e4a77235ce7cd8`.
 Observed CLI model claude-opus-5-5; high effort is requested-only evidence.
@@ -249,4 +254,4 @@ and a fresh comparison with the assigned model remain separate decisions.
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-1244 | gpt-6.1-sol | high | Scoped durable budget, watchdog and replay changes; escalate on input/checkpoint ambiguity. | claude-opus-5-5, high, read-only CLI; model observed, effort requested-only. |
+| TASK-1245 | gpt-6.1-sol | high | Scoped durable budget, watchdog and replay changes; escalate on input/checkpoint ambiguity. | claude-opus-5-5, high, read-only CLI; model observed, effort requested-only. |

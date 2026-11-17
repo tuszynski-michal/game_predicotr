@@ -6,7 +6,7 @@ last_updated: 2026-10-07
 
 # Architektura iteracyjnego ulepszania modelu symboli
 
-## Nadzór postępu jednego przebiegu — TASK-1244 / D-617
+## Nadzór postępu jednego przebiegu — TASK-1245 / D-617
 
 `extend_grid_training_run.py --progress-supervision` udostępnia oddzielny, jawny
 podgląd/SHA/CAS dla zatrzymanego, niedzierżawionego `grid-corrections-v1`.

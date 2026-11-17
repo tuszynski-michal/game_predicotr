@@ -20,7 +20,7 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 Status: accepted. Data: 2026-11-17. Operator: „Tak, zastąp limit nadzorem
 postępu”, a następnie „Tak, napraw i nadzoruj” po ostrzeżeniu o koszcie 1–2 h.
-TASK-1244. D-616 jest zarezerwowana przez lokalny pion przygotowania w tle.
+TASK-1245. D-616 jest zarezerwowana przez lokalny pion przygotowania w tle.
 
 Kontekst: limit 7200 s obejmuje również kosztowne indeksowanie danych przed
 pierwszym krokiem GPU. Sam heartbeat albo aktywność CPU nie dowodzą postępu.

@@ -392,7 +392,7 @@ W przeglądzie jakości zaznaczenia i ich tożsamości/rewizje pozostają pomię
 
 Jawne porzucenie pozostałych porcji wymaga potwierdzenia operatora i nie cofa zapisów. Niepotwierdzona porcja mogła już zostać zapisana; UI mówi o tej niepewności. Porzucenie jest zablokowane podczas requestu i dostępne również dla uszkodzonej kolejki bez zgadywania postępu.
 
-## Jawny nadzór postępu jednego treningu — TASK-1244 / D-617
+## Jawny nadzór postępu jednego treningu — TASK-1245 / D-617
 
 Operator może zatwierdzić dla jednego istniejącego treningu korekt punktów
 politykę bez limitu łącznego czasu. Zgoda nie zmienia domyślnych limitów nowych

@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-11-12
+last_updated: 2026-11-17
 ---
 
 # Current State
@@ -93,6 +93,10 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-1238 — Uproszczenie wyszukiwarki plansz (todo)
+
+- `tasks/1238-board-search-compact-ui.md`: zapisano 13 zmian panelu i mobilnego widoku linku; punkty 1–2 potwierdzone (nowy symbol rozpoczyna wzór, nowe szukanie ukrywa stary wynik). Implementacja na osobne polecenie.
 
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 

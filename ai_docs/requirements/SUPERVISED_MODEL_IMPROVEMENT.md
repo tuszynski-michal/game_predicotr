@@ -392,6 +392,15 @@ W przeglądzie jakości zaznaczenia i ich tożsamości/rewizje pozostają pomię
 
 Jawne porzucenie pozostałych porcji wymaga potwierdzenia operatora i nie cofa zapisów. Niepotwierdzona porcja mogła już zostać zapisana; UI mówi o tej niepewności. Porzucenie jest zablokowane podczas requestu i dostępne również dla uszkodzonej kolejki bez zgadywania postępu.
 
+## Wykorzystanie częściowych korekt siatki — TASK-1240
+
+Domyślne polecenie operatorskie uczenia korekt wybiera punkty siatki, aby
+wykorzystać poprawne częściowe etykiety. Uczenie detektora całego zdjęcia wymaga
+jawnego wyboru i kompletnych adnotacji; brakujące etykiety nie są negatywami.
+Odtworzenie zapisanego polecenia zachowuje jego tryb i klucz. Konflikt ustawień
+nie tworzy nowego przebiegu ani nie zmienia starego. Porównanie historycznych
+modeli używa identycznych zdjęć/etykiet i jawnej reguły wyboru, bez aktywacji.
+
 ## Chronologia ocen dla wymiany — TASK-1127 / D-579
 
 Kwalifikacja pola używa ostatniej rozstrzygającej oceny człowieka `readable`/`unreadable` dla bieżącej tożsamości pikseli. Wiek skanu nie wyznacza kolejności ocen. `pending`, `skipped` i nieoceniony nowy skan nie usuwają wcześniejszego rozstrzygnięcia. Readable wyklucza tylko powód danego pola mimo zachowanej historycznej flagi jakości; inne nieczytelne pola nadal mogą kwalifikować całe zdjęcie.

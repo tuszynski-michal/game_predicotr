@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1240 — Częściowe korekty i porównanie modeli (done)
+
+- `tasks/completed/1240-partial-grid-corrections-and-model-comparison.md`; **v1.7.663**.
+- Starter domyślnie wybiera grid-only, zachowuje klucz i tryb zapisanych poleceń; powiązanie gry/SHA chroni przed innym celem. Niepełne etykiety nie stają się negatywami detektora.
+- Dokładny dawny bilans TRAIN: 428 = 49 kopii + 367 częściowych + 2 oczekujące + 10 pełnych. Rzeczywiste preview READ ONLY: 503 zdjęcia/647 plansz TRAIN, 493 częściowe, bez blokad.
+- Porównano 9 modeli na wspólnych kontrolach. Starszy wybrany na A: 9992a316; oba z nowym 0b37cba4 mają 45/45 i 21/21 poprawnych plansz. Brak łącznego zysku liczby plansz w granicy pól; szczegóły/limity w raporcie jakości.
+- 24 testy PASS, lint/typy/mapy/docs PASS, Claude runda 2 PASS (0 P0/P1). Raport rundy 1 zachowany pod dawną tożsamością 1239 po kolizji równoległej pracy. P2 operatorskie zapisane. Bez nowego GPU, aktywacji i restartu usług.
+
 ### TASK-1239 — Doprecyzowanie zwartej wyszukiwarki (done)
 
 - Plik: tasks/completed/1239-board-search-refinements.md.

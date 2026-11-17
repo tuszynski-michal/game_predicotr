@@ -582,6 +582,16 @@ Readability przechowuje wybrane rekordy w mapie cellId, także pomiędzy stronam
 
 Jawne porzucenie pozostałych porcji wymaga potwierdzenia operatora i nie cofa zapisów. Niepotwierdzona porcja mogła już zostać zapisana; UI mówi o tej niepewności. Porzucenie jest zablokowane podczas requestu i dostępne również dla uszkodzonej kolejki bez zgadywania postępu.
 
+## Uruchamianie korekt częściowych — TASK-1240
+
+Operator `Start-GridCorrectionLearning.ps1` wybiera domyślnie istniejący
+`grid-only`, aby zużywać częściowe ludzkie etykiety punktów. `screen+grid` jest
+jawnym wyborem pełnego nadzoru detektora. Nie zmieniamy masek ani zamrożonych
+kohort. Plik polecenia i klucz pozostają stałe; konflikt zapisanego trybu kończy
+się przed POST, a oddzielny przyszły przebieg wymaga osobnego `-CommandFile`.
+Skrypt wymaga kontraktu trwałego przygotowania TASK-1230 i kontroluje jego pola
+przez OpenAPI. Brak funkcji zatrzymuje operację przed wysłaniem treningu.
+
 ## Ledger i snapshot wymiany — TASK-1127
 
 A2 label dopisuje `symbol_readability_decisions` w tej samej transakcji co etykieta i command receipt. Kolejny ordinal jest wyznaczany pod istniejącą EXCLUSIVE sequence ownership lock. Retry nie dopisuje ledgeru. Kwalifikacja B1 wybiera najwyższy ordinal rozstrzygający dla current crop identity; fallback legacy wymaga zgodności wszystkich aktualnych dowodów. Snapshot przypina rewizję kwalifikującej oceny i aktualny crop. Nowy podgląd jest konieczny przed przyszłym retirement.

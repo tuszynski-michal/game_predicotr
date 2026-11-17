@@ -1466,6 +1466,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - check_vision_lab_hybrid_resume.py: step
 - close_task.py: class CloseError, class FileChange, class Plan, split_lines, detect_eol, bare, headings, block_end, find_section, normalise_block, encode, decode, parse_task_id, check_version, active_task_file, active_names, archives_newest_first, newest_archive, read_state, set_task_status_done, move_destination, plan_close, plan_record_hash, git, verify_commit, is_tracked, move_task, move_back, load_script, run_checks, sandbox_checks, apply_plan, print_plan, build_parser, run, main
 - compact_image_pipeline_state.py: main
+- compare_grid_historical_models.py: canonical, write_new, ranking, choose_historical, class LastFrameEngine, read_detail, frozen_funnel, write_funnel_evidence, run, main
 - compare_production_symbol_crops.py: main
 - complete_m4_acceptance_apk.py: main
 - convert_legacy_boards_to_virtual.py: main
@@ -1515,6 +1516,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - hooks/guard_paths.py: normalize, decide, read_payload, main
 - import_grid_audit_proposals.py: class GridAuditImportError, class WorklistBoard, class CurrentBoard, file_sha256, read_worklist, suspects_by_item, audit_revisions, join_worklist, network_nodes, build_items, summary, document_bytes, write_artifact, read_current_boards, run, main
 - import_recording_lab_provider.py: main
+- inspect_grid_correction_selection.py: main
 - install_grid_engine_models.py: class InstallResult, preset_bytes, manifest_bytes, install_version, resolve_artifact_root, main
 - install_mumie_feedback_controls.py: install_controls, main
 - install_recording_provider.py: main
@@ -1592,6 +1594,8 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - tests/test_claude_audit_runner.py: git, disposable_worktree, audit, configure, command, invoke, receipt, report_path, test_thirty_minute_deadline_completes_fast_fake_cli, test_completed_replay_after_lost_publication, test_fail_closed, test_auth_rate_diagnostic_and_explicit_new_attempt, test_timeout_stops_owned_tree, test_stream_activity_not_wall_clock_idle, test_active_duplicate_and_interrupted_owner, test_desktop_import_validates_scope_and_provenance, test_tampered_completed_report_not_replayed, report_from_repository_template, test_finding_lists_cannot_hide_findings, test_round_two_can_record_closed_finding_from_template, test_audit_oauth_topic_is_not_auth_failure, test_invalid_cli_input_is_not_timeout, test_powershell_rejects_missing_import_parameters, test_real_template_bom_import_preflight_preserves_attempt
 - tests/test_grid_comparison_diagnostics.py: archived, test_archived_input_has_exact_separate_rgb_and_tensor_identity, test_missing_mismatched_or_ambiguous_archive_is_explicitly_unavailable
 - tests/test_grid_correction_comparison.py: class ComparisonTest
+- tests/test_grid_historical_comparison.py: metric, test_historical_selection_uses_only_declared_validation_results, test_self_measurement_cache_is_exact_and_invalidates_changed_pixels, test_funnel_separates_roles_aliases_and_actual_consumed_counts, test_funnel_receipt_binds_source_and_manifest_bytes
+- tests/test_partial_grid_learning_starter.py: quoted, invoke, test_fresh_starter_defaults_to_partial_compatible_grid_mode, test_old_detector_command_requires_explicit_replay_and_is_never_rewritten, test_invalid_saved_key_never_reaches_network, test_old_api_contract_blocks_training_post, test_separate_future_command_file_preserves_old_detector_run, test_custom_command_cannot_be_replayed_for_another_game, test_unbound_existing_custom_file_fails_before_network
 - token_pilot_collect.py: class Usage, read_transcript, locate_session, session_usage, usage_row, cmd_usage, cmd_collect, to_int, row_usage, fmt, render_table, cmd_render, build_parser, main
 - train_m6_symbol_classifier.py: main
 - train_symbol_model.py: main

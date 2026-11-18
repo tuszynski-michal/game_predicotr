@@ -1342,6 +1342,45 @@ test('ordinary good geometry uses the same editor, GET-only all view and photo f
   await act(async () => root.unmount());
 });
 
+test('single-photo link scopes the first request and ends after the last save', async () => {
+  const { api, calls } = fakeApi({ queue: [reportedBoard()] });
+  const root = await render(api, {
+    importJobId: 'j',
+    fixedSourceImageId: 'src',
+    reviewAll: true,
+  });
+  try {
+    assert.equal(calls.list[0].sourceImageId, 'src');
+    assert.equal(calls.list[0].importJobId, 'j');
+    assert.doesNotMatch(document.body.textContent, /Wszystkie zdjęcia/);
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.equal(calls.save.length, 1);
+    assert.match(document.body.textContent, /Wróć do listy/);
+    assert.equal(calls.list.length, 1);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('single-photo editor refuses a board from another source', async () => {
+  const { api, calls } = fakeApi({
+    queue: [reportedBoard({ sourceImageId: 'other' })],
+  });
+  const root = await render(api, {
+    importJobId: 'j',
+    fixedSourceImageId: 'src',
+    reviewAll: true,
+  });
+  try {
+    assert.match(document.body.textContent, /spoza wybranego zdjęcia/);
+    assert.doesNotMatch(document.body.textContent, /Zapisz geometrię i dalej/);
+    assert.equal(calls.save.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('all-view save advances although the approved board remains in the collection', async () => {
   const first = reportedBoard();
   const second = reportedBoard({

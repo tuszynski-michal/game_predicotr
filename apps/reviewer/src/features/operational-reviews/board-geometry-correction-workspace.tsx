@@ -89,6 +89,7 @@ export function BoardGeometryCorrectionWorkspace({
   apiBaseUrl,
   gameId,
   importJobId,
+  fixedSourceImageId,
   keyboardEnabled = true,
   reviewAll = false,
   symbolReinferenceApi,
@@ -98,6 +99,7 @@ export function BoardGeometryCorrectionWorkspace({
   readonly gameId: string;
   /** Optional: without it the queue spans the whole game (TASK-0962). */
   readonly importJobId?: string | undefined;
+  readonly fixedSourceImageId?: string;
   /** False while a sibling tab is shown; keeps the editor mounted. */
   readonly keyboardEnabled?: boolean;
   /** Explicit human check of ordinary boards, using the same guarded editor. */
@@ -106,7 +108,8 @@ export function BoardGeometryCorrectionWorkspace({
   readonly symbolReinferenceApi?: CorrectedGridSymbolReinferenceClient;
 }) {
   const [proposalEditing, setProposalEditing] = useState(false);
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
+  const [selectedSource, setSourceFilter] = useState<string | null>(null);
+  const sourceFilter = fixedSourceImageId ?? selectedSource;
   const [page, setPage] = useState<ImageGridReviewPageResponse | null>(null);
   const [history, setHistory] = useState<readonly PageAnchor[]>([]);
   const [currentPageCursor, setCurrentPageCursor] = useState<
@@ -257,6 +260,19 @@ export function BoardGeometryCorrectionWorkspace({
         );
         return false;
       }
+      if (
+        fixedSourceImageId &&
+        result.data.items.some(
+          (row) =>
+            row.sourceImageId !== fixedSourceImageId ||
+            row.gameId !== gameId ||
+            row.importJobId !== importJobId,
+        )
+      ) {
+        setPageState('error');
+        setPageError('Otrzymano planszę spoza wybranego zdjęcia.');
+        return false;
+      }
       if (options.history !== undefined) setHistory(options.history);
       else if (options.resetHistory) setHistory([]);
       setCurrentPageCursor(cursor);
@@ -267,7 +283,15 @@ export function BoardGeometryCorrectionWorkspace({
       setPageState('ready');
       return true;
     },
-    [api, gameId, importJobId, reviewAll, sourceFilter, scopeKey],
+    [
+      api,
+      gameId,
+      importJobId,
+      reviewAll,
+      sourceFilter,
+      scopeKey,
+      fixedSourceImageId,
+    ],
   );
 
   useEffect(() => {
@@ -479,7 +503,13 @@ export function BoardGeometryCorrectionWorkspace({
       <header className="deferredGeometryHeader">
         <div>
           <span className="eyebrow">Jedna plansza naraz</span>
-          <h2>{reviewAll ? 'Geometria zdjęć' : 'Korekta cięcia siatki'}</h2>
+          <h2>
+            {fixedSourceImageId
+              ? 'Geometria wybranego zdjęcia'
+              : reviewAll
+                ? 'Geometria zdjęć'
+                : 'Korekta cięcia siatki'}
+          </h2>
           <p>
             {reviewAll ? (
               'Sprawdź geometrię wszystkich plansz wybranych pełnych zdjęć, także dobrych propozycji. Zapisz sprawdzoną siatkę, nawet bez zmiany punktów. To ludzka weryfikacja geometrii; symbole zatwierdza się osobno.'
@@ -533,7 +563,9 @@ export function BoardGeometryCorrectionWorkspace({
           </h3>
           <p>
             {reviewAll && reachedReviewEnd
-              ? 'Zapisano ostatnią planszę w tym zakresie. Możesz wrócić do początku.'
+              ? fixedSourceImageId
+                ? 'Zapisano ostatnią planszę tego zdjęcia. Wróć do listy i otwórz kolejne zdjęcie.'
+                : 'Zapisano ostatnią planszę w tym zakresie. Możesz wrócić do początku.'
               : reviewAll
                 ? 'Wybierz istniejący import z opisanymi źródłami.'
                 : 'W tym zakresie nie ma plansz odrzuconych przez algorytm ani zgłoszonych jako „Zła siatka”.'}
@@ -556,7 +588,7 @@ export function BoardGeometryCorrectionWorkspace({
               ← Poprzednia
             </button>
           ) : null}
-          {reviewAll && sourceFilter ? (
+          {reviewAll && sourceFilter && !fixedSourceImageId ? (
             <button
               className="secondaryButton"
               type="button"
@@ -618,17 +650,19 @@ export function BoardGeometryCorrectionWorkspace({
           />
           {reviewAll ? (
             <div className="deferredGeometryNavigation">
-              <button
-                className="secondaryButton"
-                type="button"
-                onClick={() =>
-                  setSourceFilter(sourceFilter ? null : item.sourceImageId)
-                }
-              >
-                {sourceFilter
-                  ? 'Wszystkie zdjęcia'
-                  : 'Sprawdź wszystkie plansze tego zdjęcia'}
-              </button>
+              {!fixedSourceImageId && (
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  onClick={() =>
+                    setSourceFilter(sourceFilter ? null : item.sourceImageId)
+                  }
+                >
+                  {sourceFilter
+                    ? 'Wszystkie zdjęcia'
+                    : 'Sprawdź wszystkie plansze tego zdjęcia'}
+                </button>
+              )}
               <span>
                 Pozycja na zdjęciu: {item.positionIndex + 1} z 9. Zapis i
                 przyciski nawigacji przechodzą przez istniejący zakres.
@@ -680,7 +714,7 @@ export function BoardGeometryCorrectionWorkspace({
           </footer>
         </>
       )}
-      {historyImportJobId === undefined ? null : (
+      {fixedSourceImageId || historyImportJobId === undefined ? null : (
         <GeometryCorrectionHistory
           api={api}
           gameId={gameId}

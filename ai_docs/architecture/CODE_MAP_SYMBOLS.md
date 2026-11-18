@@ -1226,6 +1226,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - app/board-search-panel-api/[...path]/route.ts: GET, POST, PUT
 - app/board-search-panel/page.tsx: BoardSearchPanelPage
 - app/board-search/page.tsx: BoardSearchSharePage
+- app/geometria-zdjecia/page.tsx: PhotoGeometryPage
 - app/layout.tsx: metadata, RootLayout
 - app/management-api/[...path]/route.ts: GET, POST, PUT
 - app/management/page.tsx: ManagementPage

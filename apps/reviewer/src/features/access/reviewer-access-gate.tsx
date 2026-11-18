@@ -8,6 +8,7 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { GridAuditCorrectionWorkspace } from '@/features/operational-reviews/grid-audit-correction-workspace';
 import { GridShadowCorrectionWorkspace } from '@/features/operational-reviews/grid-shadow-correction-workspace';
 import { OperationalReviewWorkspace } from '@/features/operational-reviews/operational-review-workspace';
+import { BoardGeometryCorrectionWorkspace } from '@/features/operational-reviews/board-geometry-correction-workspace';
 
 import { LocalReviewerWorkspace } from './local-reviewer-workspace';
 
@@ -32,6 +33,7 @@ export function ReviewerAccessGate({
     readonly gameId: string;
     /** Absent: the local Reviewer works on the whole game (TASK-0962). */
     readonly importJobId?: string | undefined;
+    readonly sourceImageId?: string;
   } | null;
   readonly sessionId: string;
 }) {
@@ -68,6 +70,21 @@ export function ReviewerAccessGate({
   }
 
   if (localScope !== null) {
+    if (localScope.sourceImageId && localScope.importJobId) {
+      return (
+        <main className="reviewerShell">
+          <BoardGeometryCorrectionWorkspace
+            key={JSON.stringify(localScope)}
+            api={api}
+            apiBaseUrl={apiBaseUrl}
+            gameId={localScope.gameId}
+            importJobId={localScope.importJobId}
+            fixedSourceImageId={localScope.sourceImageId}
+            reviewAll
+          />
+        </main>
+      );
+    }
     return (
       <main className="reviewerShell">
         {gridValidationEnabled || localScope.importJobId === undefined ? (

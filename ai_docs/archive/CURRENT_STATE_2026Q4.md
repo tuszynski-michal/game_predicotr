@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1258 — Korekta jednego zdjęcia (done)
+
+- Plik: `tasks/completed/1258-reviewer-single-photo.md`.
+- Commit: **v1.7.690** (hash dopisuje kolejny commit).
+- Lokalny link ogranicza pierwsze pobranie, nawigację i zapis do zdjęcia. Interakcje 42/42, kontrakty 9/9, typy, lint i 30 × 9 pozycji z rzeczywistego API PASS.
+
 ### TASK-1257 — Niezależny pierwszy trening geometrii gry (done)
 
 - Plik: `tasks/completed/1257-independent-game-grid-training.md`.

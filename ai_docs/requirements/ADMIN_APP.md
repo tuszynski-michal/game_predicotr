@@ -1265,6 +1265,11 @@ Ponowne przetwarzanie zachowuje bieżące ręczne siatki i decyzje symboli.
 Przygotowanie bez aktywnego zadania dostaje jedną próbę trwałego wznowienia
 po wejściu do panelu i przycisk `Wznów przygotowanie`; błąd pozostaje widoczny.
 
+Lokalny Reviewer na porcie 3001 otwiera też pojedyncze zdjęcie przez
+`/geometria-zdjecia?gameId=…&importJobId=…&sourceImageId=…`. Pierwsze
+wczytanie, zapis, ponowienie i nawigacja dotyczą wyłącznie plansz tego zdjęcia.
+Po ostatnim zapisie operator wraca do listy zdjęć po następny link.
+
 **TASK-0840 (Poprawki z audytu siatek):** osobna kolejka lokalnego Reviewera
 pod `http://127.0.0.1:3001/?mode=local&gameId=<gameId>&queue=grid-audit`
 (tylko host pętli zwrotnej na porcie 3001, bez kodu i bez tunelu, zakres:

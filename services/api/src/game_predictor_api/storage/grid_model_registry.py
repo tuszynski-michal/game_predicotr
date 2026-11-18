@@ -394,6 +394,17 @@ class SqlAlchemyGridModelRegistryRepository:
             raise GridModelRegistryError("GRID_MODEL_GAME_NOT_FOUND", "Game was not found.", 404)
         return bool(result)
 
+    def shared_scope_has_private_game(self, game_ids: Sequence[UUID]) -> bool:
+        """Check public flags for a pinned scope without reading any game store."""
+        return (
+            self.session.scalar(
+                select(_GAMES.c.id)
+                .where(_GAMES.c.id.in_(game_ids), _GAMES.c.grid_model_private.is_(True))
+                .limit(1)
+            )
+            is not None
+        )
+
     def mark_game_grid_model_private(self, game_id: UUID) -> None:
         self.session.connection().execute(
             update(_GAMES).where(_GAMES.c.id == game_id).values(grid_model_private=True)
@@ -605,21 +616,46 @@ class SqlAlchemyGridModelRegistryRepository:
             )
         )
 
-    def previous_assignment(self, game_id: UUID, version_id: UUID) -> bool:
+    def previous_assignment(
+        self, game_id: UUID, version_id: UUID, *, transfer_only: bool = False
+    ) -> bool:
         head, _ = self.assignment(game_id)
-        return (
-            head is not None
-            and self.session.scalar(
-                select(GameGridModelAssignmentEventModel.id)
-                .where(
-                    GameGridModelAssignmentEventModel.game_id == game_id,
-                    GameGridModelAssignmentEventModel.version_id == version_id,
-                    GameGridModelAssignmentEventModel.revision < head.revision,
-                )
-                .limit(1)
-            )
-            is not None
+        if head is None:
+            return False
+        event = GameGridModelAssignmentEventModel
+        history = select(event).where(
+            event.game_id == game_id,
+            event.version_id == version_id,
+            event.revision < head.revision,
         )
+        if not transfer_only:
+            return self.session.scalar(history.with_only_columns(event.id).limit(1)) is not None
+        for entry in self.session.scalars(
+            history.where(event.kind.in_(("bootstrap", "private_enable")))
+        ):
+            if entry.command_json is None or entry.receipt_json is None:
+                continue
+            try:
+                command = json.loads(entry.command_json)
+                receipt = json.loads(entry.receipt_json)
+                transfer = receipt.get("transfer")
+            except (ValueError, AttributeError):
+                continue
+            if (
+                isinstance(command, dict)
+                and isinstance(transfer, dict)
+                and canonical_json(command) == entry.command_json
+                and descriptor_sha256(command) == entry.command_sha256
+                and receipt.get("commandSha256") == entry.command_sha256
+                and receipt.get("evidenceSha256") == entry.evidence_sha256
+                and command.get("kind") == entry.kind == receipt.get("kind")
+                and command.get("gameId") == str(game_id) == receipt.get("gameId")
+                and command.get("versionId") == str(version_id) == receipt.get("versionId")
+                and transfer.get("sourceVersionId") == str(version_id)
+                and descriptor_sha256(transfer) == entry.evidence_sha256
+            ):
+                return True
+        return False
 
     def apply_control(
         self, command: dict[str, Any], receipt: dict[str, Any], evidence: dict[str, Any]

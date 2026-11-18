@@ -57,6 +57,7 @@ const HISTORY_LABELS: Readonly<Record<string, string>> = {
   rollback: 'przywrócenie',
   historical_assignment: 'przypisanie historyczne',
   bootstrap: 'przypisanie przy utworzeniu gry',
+  private_enable: 'włączenie modelu prywatnego',
 };
 
 /** TASK-1000: publication, activation, default and rollback; nothing switches by itself. */
@@ -289,9 +290,15 @@ function Versions({
   }
 
   const candidates = versions.filter(
-    (item) => item.manifest.admission === 'not_evaluated' && !item.published,
+    (item) =>
+      !item.ownerGameId &&
+      item.manifest.admission === 'not_evaluated' &&
+      !item.published,
   );
-  const usable = versions.filter((item) => item.published);
+  const usable = versions.filter(
+    (item) =>
+      item.published && (!item.ownerGameId || item.ownerGameId === gameId),
+  );
   const currentId = assignment?.version?.manifest.versionId ?? null;
   const earlier = [
     ...new Set(
@@ -302,11 +309,16 @@ function Versions({
             'rollback',
             'historical_assignment',
             'bootstrap',
+            'private_enable',
           ].includes(event.kind),
         )
         .map((event) => event.versionId),
     ),
-  ].filter((id) => id && id !== currentId);
+  ].filter(
+    (id) =>
+      id !== currentId &&
+      usable.some((item) => item.manifest.versionId === id && item.eligible),
+  );
   const blocker = publishBlocker(evaluation);
   const locked = busy || pending !== null;
   return (
@@ -319,6 +331,11 @@ function Versions({
         Publikacja, aktywacja w grze i wersja domyślna to osobne, jawne decyzje.
         Wynik oceny nie przełącza żadnej gry.
       </p>
+      {assignment?.gridModelPrivate ? (
+        <p>
+          Użyj panelu uczenia, aby zastosować prywatnego kandydata w tej grze.
+        </p>
+      ) : null}
       {error ? <p role="alert">{error}</p> : null}
       {notice ? <p role="status">{notice}</p> : null}
       {pending ? (
@@ -422,34 +439,39 @@ function Versions({
           return (
             <li key={id}>
               {versionLabel(item.manifest)}
+              {item.ownerGameId ? ' · wersja prywatna tej gry' : ''}
               {item.available ? '' : ` · ${reasonLabel(item.reasonCode)}`}
               {reason ? ` · ${reason}` : ''}
-              <div className="buttonRow">
-                <button
-                  className="primaryButton"
-                  type="button"
-                  disabled={locked || !item.eligible || id === currentId}
-                  onClick={() =>
-                    command('activate', id, assignment?.revision ?? 0)
-                  }
-                >
-                  Aktywuj w tej grze
-                </button>
-                <button
-                  className="primaryButton"
-                  type="button"
-                  disabled={
-                    locked ||
-                    !item.eligible ||
-                    id === defaultModel?.version?.manifest.versionId
-                  }
-                  onClick={() =>
-                    command('set_default', id, defaultModel?.revision ?? 0)
-                  }
-                >
-                  Ustaw jako domyślną
-                </button>
-              </div>
+              {!item.ownerGameId ? (
+                <div className="buttonRow">
+                  {!assignment?.gridModelPrivate ? (
+                    <button
+                      className="primaryButton"
+                      type="button"
+                      disabled={locked || !item.eligible || id === currentId}
+                      onClick={() =>
+                        command('activate', id, assignment?.revision ?? 0)
+                      }
+                    >
+                      Aktywuj w tej grze
+                    </button>
+                  ) : null}
+                  <button
+                    className="primaryButton"
+                    type="button"
+                    disabled={
+                      locked ||
+                      !item.eligible ||
+                      id === defaultModel?.version?.manifest.versionId
+                    }
+                    onClick={() =>
+                      command('set_default', id, defaultModel?.revision ?? 0)
+                    }
+                  >
+                    Ustaw jako domyślną
+                  </button>
+                </div>
+              ) : null}
             </li>
           );
         })}

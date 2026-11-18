@@ -163,6 +163,16 @@ export const REASON_LABELS: Readonly<Record<string, string>> = {
   GRID_APPLY_LEARNING_INCOMPLETE: 'Najpierw ukończ uczenie i ocenę kandydata.',
   GRID_APPLY_EVIDENCE_REQUIRED: 'Brak aktualnej zaliczonej oceny kandydata.',
   GRID_APPLY_SCOPE_INVALID: 'Zakres zastosowania jest nieprawidłowy.',
+  GRID_APPLY_SHARED_PRIVATE_GAME:
+    'Wspólna ocena obejmuje grę, która ma już prywatny model. Przygotuj nowy przebieg ze zgodnym zakresem.',
+  GRID_APPLY_SCOPE_CONFIRMATION_REQUIRED:
+    'Otwórz podgląd i potwierdź zakres zastosowania.',
+  GRID_APPLY_PRIVATE_SCOPE_CONFLICT:
+    'Prywatny przebieg obejmuje wyłącznie grę, która jest właścicielem modelu.',
+  GRID_APPLY_PRIVATE_ASSIGNMENT_CHANGED:
+    'Od czasu uczenia zmieniło się przypisanie tej gry. Przygotuj uczenie na obecnej wersji.',
+  GRID_APPLY_PRIVATE_EVIDENCE_REQUIRED:
+    'Ocena kandydata musi potwierdzać bazę i zakres uczenia tej gry.',
   GRID_APPLY_SCOPE_NOT_EVALUATED:
     'Wybrana gra nie ma zaliczonej oceny tego kandydata.',
   GRID_APPLY_IDEMPOTENCY_CONFLICT:
@@ -181,6 +191,12 @@ export const REASON_LABELS: Readonly<Record<string, string>> = {
   GRID_MODEL_ELIGIBLE: 'Wersja może być użyta',
   GRID_MODEL_ARTIFACT_AVAILABLE: 'Pliki modelu są dostępne',
   GRID_MODEL_NOT_PUBLISHED: 'Wersja nie jest opublikowana',
+  GRID_MODEL_PRIVATE_SCOPE_CONFLICT:
+    'Prywatną wersję może otrzymać wyłącznie gra, która jest jej właścicielem.',
+  GRID_MODEL_PRIVATE_APPLY_REQUIRED:
+    'Prywatnego kandydata zastosuj w panelu uczenia tej gry.',
+  GRID_MODEL_INITIAL_TRANSFER_REQUIRED:
+    'Wybierz dopuszczoną bazę pierwszego przypisania gry.',
   GRID_MODEL_EVALUATION_REQUIRED:
     'Brak zaliczonej oceny albo aktualnego dowodu dla każdej gry',
   GRID_MODEL_EVALUATION_STALE:

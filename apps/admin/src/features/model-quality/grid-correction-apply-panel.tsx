@@ -120,6 +120,8 @@ function Apply({
   const scope = useMemo(() => [...additional].sort(), [additional]);
   const readKey = JSON.stringify([scope, previewRefreshKey]);
   const preview = previewKey === readKey ? previewData : null;
+  const privateApply =
+    (preview?.scope ?? learning.learningScope) === 'private_game';
 
   async function readPreview(selected: readonly string[]) {
     const token = ++request.current;
@@ -306,8 +308,10 @@ function Apply({
     <section aria-label="Zastosowanie wersji">
       <h4>Zastosuj wersję</h4>
       <p>
-        Domyślnie: wspólny model dla nowych gier i bieżąca gra. Starsze importy
-        zachowają swoje wersje i ręczne korekty.
+        {privateApply
+          ? `Wersja zostanie przypisana do gry ${learning.gameName ?? gameName(games, gameId)}.`
+          : 'Zastosowanie obejmuje wspólny model dla nowych gier i bieżącą grę.'}{' '}
+        Starsze importy zachowają swoje wersje i ręczne korekty.
       </p>
       {evidenceBlocked ? (
         <p>
@@ -374,8 +378,9 @@ function Apply({
           <p>
             Kandydat:{' '}
             {preview.versionLabel ?? versionName(versions, preview.versionId)}.
-            Obecny wspólny model:{' '}
-            {versionName(versions, preview.defaultVersionId)}.
+            {privateApply
+              ? null
+              : ` Obecny wspólny model: ${versionName(versions, preview.defaultVersionId)}.`}
           </p>
           <ul aria-label="Gry otrzymujące wersję">
             {preview.targets.map((target) => (
@@ -388,7 +393,7 @@ function Apply({
               </li>
             ))}
           </ul>
-          {!alreadyDefault ? (
+          {!privateApply && !alreadyDefault ? (
             <details>
               <summary>Zastosuj także w innych ocenionych grach</summary>
               <p>
@@ -469,7 +474,10 @@ function Apply({
                     body: {
                       idempotencyKey: key,
                       previewSha256: preview.previewSha256,
-                      additionalGameIds: scope,
+                      additionalGameIds: privateApply ? [] : scope,
+                      ...(privateApply
+                        ? { scope: 'private_game' as const }
+                        : {}),
                       confirmLimitedEvidence: true,
                     },
                   });

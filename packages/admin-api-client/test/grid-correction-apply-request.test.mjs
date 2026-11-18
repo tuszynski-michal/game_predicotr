@@ -53,4 +53,7 @@ test('apply wrappers preserve explicit scope, confirmation and durable operation
   );
   assert.deepEqual(JSON.parse(calls[1].body), body);
   assert.equal(calls[4].body, '');
+  const privateBody = { ...body, additionalGameIds: [], scope: 'private_game' };
+  await api.startGridCorrectionApply(game, learning, privateBody);
+  assert.deepEqual(JSON.parse(calls[5].body), privateBody);
 });

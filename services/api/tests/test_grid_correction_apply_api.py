@@ -129,6 +129,24 @@ def test_confirmation_field_is_required():
         GridCorrectionApplyStartCommand.model_validate(body)
 
 
+def test_explicit_private_scope_reaches_start_and_legacy_command_keeps_shape(tmp_path):
+    service = Service()
+    service.preview_result.update(scope="private_game", defaultRevision=0, defaultVersionId=None)
+    app = app_for(service, tmp_path)
+    app.include_router(create_grid_correction_apply_router(lambda: service))
+    with TestClient(app, client=("127.0.0.1", 12345)) as client:
+        preview = client.get(PATH + "/preview").json()
+        assert preview["scope"] == "private_game" and preview["defaultVersionId"] is None
+        body = {**command(), "scope": "private_game"}
+        assert client.post(PATH, json=body, headers=HEADERS).status_code == 200
+        assert service.calls[-1] == ("start", (GAME, LEARNING, body, "local-owner"))
+        assert (
+            client.post(PATH, json={**command(), "scope": "shared"}, headers=HEADERS).status_code
+            == 200
+        )
+        assert service.calls[-1] == ("start", (GAME, LEARNING, command(), "local-owner"))
+
+
 def test_operation_ids_match_generated_client_contract(tmp_path):
     service = Service()
     app = app_for(service, tmp_path)

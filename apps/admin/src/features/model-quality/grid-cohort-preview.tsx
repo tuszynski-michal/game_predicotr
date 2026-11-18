@@ -432,6 +432,7 @@ export function GridCohortPreview({
   const bases = versions.filter(
     (item) =>
       item.available &&
+      !item.ownerGameId &&
       item.manifest.versionId !== assignedId &&
       (item.published || item.manifest.admission !== 'not_evaluated'),
   );

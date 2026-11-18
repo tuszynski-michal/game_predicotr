@@ -151,7 +151,9 @@ export function NewGameGeometrySettings({
     }
   }
 
-  const eligible = versions.filter((version) => version.eligible);
+  const eligible = versions.filter(
+    (version) => version.eligible && !version.ownerGameId,
+  );
   const selected = draft.gridModel;
   const mode = selected?.mode ?? 'default';
   const chosen = versions.find(

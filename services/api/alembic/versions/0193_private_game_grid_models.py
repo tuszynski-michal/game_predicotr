@@ -31,6 +31,8 @@ RETURNS SETOF uuid LANGUAGE sql IMMUTABLE SET search_path = pg_catalog AS $$
     UNION SELECT (value #>> '{}')::uuid
         FROM jsonb_path_query(payload, '$.pins.scope.trainingGameIds[*]') AS pin(value)
     UNION SELECT (value #>> '{}')::uuid
+        FROM jsonb_path_query(payload, '$.pins.cohorts[*].gameId') AS pin(value)
+    UNION SELECT (value #>> '{}')::uuid
         FROM jsonb_path_query(payload, '$.command.additionalGameIds[*]') AS pin(value)
 $$
 """

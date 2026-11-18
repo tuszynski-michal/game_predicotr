@@ -112,6 +112,7 @@ class Catalogue:
         self.locks = 0
         self.fail_game = None
         self.published = None
+        self.private_games = set()
 
     def lock(self):
         self.locks += 1
@@ -122,6 +123,21 @@ class Catalogue:
     def assignment(self, game):
         return self.assignments.get(game), 0
 
+    def game_grid_model_private(self, game):
+        return game in self.private_games
+
+    def shared_scope_has_private_game(self, game_ids):
+        return not self.private_games.isdisjoint(game_ids)
+
+    def private_family(self, game):
+        return SimpleNamespace(id=self.assignments[game].training_family_id)
+
+    def version(self, version):
+        return SimpleNamespace(id=version, manifest_sha256="a" * 64)
+
+    def version_owner_game_id(self, version):
+        return None
+
     def control_receipt(self, key, game):
         receipt = self.receipts.get((key, game))
         return None if receipt is None else SimpleNamespace(receipt_json=json.dumps(receipt))
@@ -131,7 +147,7 @@ class Catalogue:
         return self.published
 
     def execute(self, **command):
-        key, game = command["key"], command["game_id"]
+        key, game = command["key"], command.get("game_id")
         if (key, game) in self.receipts:
             return deepcopy(self.receipts[key, game])
         kind = command["kind"]
@@ -703,3 +719,111 @@ def test_assigned_report_requires_pinned_revision_checksum_pass_and_currentness(
     registry.control._require_current = current
     with pytest.raises(GridCohortError):
         service._require_comparison(None, registry, EVALUATION, target, pins)
+
+
+def private_service(monkeypatch, tmp_path):
+    catalogue = Catalogue()
+    catalogue.private_games.update((GAME, OTHER))
+    family = str(UUID(int=30))
+    catalogue.assignments[GAME].training_family_id = UUID(family)
+    baseline = {
+        "gameId": str(GAME),
+        "assignmentRevision": 2,
+        "targetFamilyId": family,
+        "baseVersionId": str(BASE),
+        "baseManifestSha256": "a" * 64,
+    }
+    learning = replace(
+        create_job(
+            JobType.GRID_CORRECTION_LEARNING,
+            game_id=GAME,
+            input_payload={
+                "schema_version": 1,
+                "preview": {**baseline, "learningScope": "private_game", "exclusions": []},
+                "pins": {"privateLearning": baseline},
+            },
+        ),
+        checkpoint_payload={"candidateVersionId": str(VERSION), "evaluationId": str(EVALUATION)},
+    )
+    service, _ = service_for(monkeypatch, tmp_path, catalogue)
+    shared_evidence = service._evidence
+
+    def evidence(*args):
+        _, version, report, row = shared_evidence(*args)
+        return learning, {**version, "ownerGameId": str(GAME)}, report, row
+
+    monkeypatch.setattr(service, "_evidence", evidence)
+    monkeypatch.setattr(module.GridCorrectionLearningService, "_job", lambda *args: learning)
+    return service, catalogue
+
+
+def test_private_preview_ignores_default_and_rejects_an_additional_game(monkeypatch, tmp_path):
+    service, catalogue = private_service(monkeypatch, tmp_path)
+    preview = service.preview(GAME, LEARNING, [])
+    assert preview["canApply"] and preview["scope"] == "private_game"
+    assert preview["defaultVersionId"] is None and preview["defaultRevision"] == 0
+    assert [item["gameId"] for item in preview["targets"]] == [str(GAME)]
+    assert not preview["targets"][0]["requiresComparison"]
+    catalogue.head = SimpleNamespace(version_id=OTHER, revision=19)
+    assert service.preview(GAME, LEARNING, []) == preview
+    assert service.preview(GAME, LEARNING, [OTHER])["blockers"] == [
+        "GRID_APPLY_PRIVATE_SCOPE_CONFLICT",
+    ]
+
+
+def test_private_confirmation_worker_and_recovery_after_assignment_moved(monkeypatch, tmp_path):
+    service, catalogue = private_service(monkeypatch, tmp_path)
+    preview, pins = service._preview(ReadSession(), GAME, LEARNING, [])
+    command = {
+        "idempotencyKey": str(UUID(int=50)),
+        "previewSha256": preview["previewSha256"],
+        "confirmLimitedEvidence": True,
+    }
+    with pytest.raises(GridCohortError) as missing_intent:
+        service.start(GAME, LEARNING, command, "fixture")
+    assert missing_intent.value.code == "GRID_APPLY_SCOPE_CONFIRMATION_REQUIRED"
+    job = parent(preview)
+    job = replace(job, input_payload={**job.input_payload, "pins": pins})
+    state, finished = service.advance(job)
+    assert finished
+    assert [item["kind"] for item in state["steps"]] == ["publish", "activate"]
+    assert catalogue.mutations == [("publish", None), ("activate", GAME)]
+    assert catalogue.head.version_id == BASE and catalogue.head.revision == 5
+    assert catalogue.assignments[OTHER].version_id == BASE
+
+    # Control transaction committed, then the process and its uncommitted checkpoint died.
+    catalogue.assignments[GAME] = SimpleNamespace(version_id=BASE, revision=4)
+    fresh, _ = service_for(monkeypatch, tmp_path, catalogue)
+    recovered, completed = fresh.advance(job)
+    assert completed and recovered == state
+    assert catalogue.mutations == [("publish", None), ("activate", GAME)]
+
+
+def test_private_apply_never_publishes_when_revision_changed(monkeypatch, tmp_path):
+    service, catalogue = private_service(monkeypatch, tmp_path)
+    preview, pins = service._preview(ReadSession(), GAME, LEARNING, [])
+    job = parent(preview)
+    job = replace(job, input_payload={**job.input_payload, "pins": pins})
+    catalogue.assignments[GAME].revision += 1
+    with pytest.raises(GridCohortError) as refused:
+        service.advance(job)
+    assert refused.value.code == "GRID_APPLY_PRIVATE_ASSIGNMENT_CHANGED"
+    assert not catalogue.mutations
+
+
+@pytest.mark.parametrize("source", ["target", "training", "cohort"])
+def test_legacy_shared_apply_blocks_a_game_that_became_private(monkeypatch, tmp_path, source):
+    catalogue = Catalogue()
+    service, _ = service_for(monkeypatch, tmp_path, catalogue)
+    job = parent(preview_value(additional=source == "target"))
+    pins = pins_value()
+    if source == "training":
+        pins["scope"]["trainingGameIds"] = [str(GAME), str(OTHER)]
+    if source == "cohort":
+        pins["cohorts"].append({**pins["cohorts"][0], "gameId": str(OTHER)})
+    job = replace(job, input_payload={**job.input_payload, "pins": pins})
+    catalogue.private_games.add(OTHER)
+    with pytest.raises(GridCohortError) as refused:
+        service.advance(job)
+    assert refused.value.code == "GRID_APPLY_SHARED_PRIVATE_GAME"
+    assert not catalogue.mutations

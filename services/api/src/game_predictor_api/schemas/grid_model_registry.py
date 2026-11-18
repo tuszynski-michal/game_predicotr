@@ -101,6 +101,7 @@ class GridModelVersionResponse(ApiModel):
     manifest_sha256: str
     available: bool
     reason_code: str
+    owner_game_id: UUID | None = None
     published: bool = False
     eligible: bool = False
     eligibility_reason_code: str = "GRID_MODEL_NOT_PUBLISHED"
@@ -111,6 +112,7 @@ class GameGridModelAssignmentResponse(ApiModel):
     revision: int | None
     version: GridModelVersionResponse | None
     event_count: int
+    grid_model_private: bool = False
     training_family_id: UUID | None = None
     training_family_label: str | None = None
     initial_transfer_allowed: bool = False

@@ -178,6 +178,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const [currentnessNotice, setCurrentnessNotice] = useState('');
   const [applyRefreshKey, setApplyRefreshKey] = useState(0);
   const [rollbackTarget, setRollbackTarget] = useState('');
+  const [rollbackRevision, setRollbackRevision] = useState<number | null>(null);
   const [rollbackConfirmed, setRollbackConfirmed] = useState(false);
   const [exclusions, setExclusions] = useState<
     Record<string, { reason: string; confirmed: boolean }>
@@ -726,39 +727,40 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   }
 
   async function rollback() {
-    if (!rollbackTarget || !rollbackConfirmed) return;
-    setBusy(true);
-    setError('');
-    try {
-      const assignment = await api.getGameGridModelAssignment(gameId);
-      if (
-        !assignment.data ||
-        assignment.data.gameId !== gameId ||
-        assignment.data.revision === null
-      )
-        throw new Error('Nie udało się odczytać rewizji przypisania.');
-      const key = crypto.randomUUID();
-      await send({
-        kind: 'rollback',
-        target: rollbackTarget,
-        key,
-        body: {
-          idempotencyKey: key,
-          expectedRevision: assignment.data.revision,
-          versionId: rollbackTarget,
-        },
-      });
-    } catch (failure) {
-      setError(String(failure));
-    } finally {
-      setBusy(false);
-    }
+    if (!rollbackSelectable || !rollbackConfirmed || rollbackRevision === null)
+      return;
+    const key = crypto.randomUUID();
+    await send({
+      kind: 'rollback',
+      target: rollbackTarget,
+      key,
+      body: {
+        idempotencyKey: key,
+        expectedRevision: rollbackRevision,
+        versionId: rollbackTarget,
+      },
+    });
   }
 
   const disabled = busy || pending !== null || corrupt;
   const evaluationComplete =
     evaluation?.status === 'completed' && Boolean(evaluation.report);
-  const rollbackVersions = [...new Set(history.map((item) => item.versionId))];
+  const currentAssignment = history[0];
+  const rollbackVersions = [
+    ...new Set(history.slice(1).map((event) => event.versionId)),
+  ].filter(
+    (id) =>
+      id !== currentAssignment?.versionId &&
+      versions.some(
+        (version) =>
+          version.manifest.versionId === id &&
+          version.eligible &&
+          (!version.ownerGameId || version.ownerGameId === gameId),
+      ),
+  );
+  const rollbackSelectable =
+    rollbackRevision === currentAssignment?.revision &&
+    rollbackVersions.includes(rollbackTarget);
   const exclusionsMatch =
     JSON.stringify(
       Object.entries(exclusions)
@@ -1664,8 +1666,11 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         <ul>
           {history.map((event, index) => (
             <li key={event.eventId ?? index}>
-              {shortDate(event.createdAt)} · {event.kind} ·{' '}
-              {versionName(versions, event.versionId)}
+              {shortDate(event.createdAt)} ·{' '}
+              {event.kind === 'private_enable'
+                ? 'włączenie modelu prywatnego'
+                : event.kind}{' '}
+              · {versionName(versions, event.versionId)}
             </li>
           ))}
         </ul>
@@ -1674,9 +1679,10 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           Wcześniejsza wersja
           <select
             disabled={disabled}
-            value={rollbackTarget}
+            value={rollbackSelectable ? rollbackTarget : ''}
             onChange={(event) => {
               setRollbackTarget(event.target.value);
+              setRollbackRevision(currentAssignment?.revision ?? null);
               setRollbackConfirmed(false);
             }}
           >
@@ -1691,8 +1697,8 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         <label>
           <input
             type="checkbox"
-            disabled={disabled || !rollbackTarget}
-            checked={rollbackConfirmed}
+            disabled={disabled || !rollbackSelectable}
+            checked={rollbackSelectable && rollbackConfirmed}
             onChange={(event) => setRollbackConfirmed(event.target.checked)}
           />
           Potwierdzam przywrócenie wersji dla nowych importów tej gry
@@ -1700,7 +1706,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         <button
           className="secondaryButton"
           type="button"
-          disabled={disabled || !rollbackTarget || !rollbackConfirmed}
+          disabled={disabled || !rollbackSelectable || !rollbackConfirmed}
           onClick={() => void rollback()}
         >
           Przywróć wersję gry

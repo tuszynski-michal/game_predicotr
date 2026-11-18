@@ -10575,6 +10575,11 @@
             "title": "Gameid",
             "type": "string"
           },
+          "gridModelPrivate": {
+            "default": false,
+            "title": "Gridmodelprivate",
+            "type": "boolean"
+          },
           "initialTransferAllowed": {
             "default": false,
             "title": "Initialtransferallowed",
@@ -14088,6 +14093,15 @@
             "title": "Requiredgameids",
             "type": "array"
           },
+          "scope": {
+            "default": "shared",
+            "enum": [
+              "shared",
+              "private_game"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
           "targets": {
             "items": {
               "$ref": "#/components/schemas/GridCorrectionApplyTarget"
@@ -14164,6 +14178,15 @@
           "previewSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Previewsha256",
+            "type": "string"
+          },
+          "scope": {
+            "default": "shared",
+            "enum": [
+              "shared",
+              "private_game"
+            ],
+            "title": "Scope",
             "type": "string"
           }
         },
@@ -14305,6 +14328,15 @@
           "learningId": {
             "format": "uuid",
             "title": "Learningid",
+            "type": "string"
+          },
+          "scope": {
+            "default": "shared",
+            "enum": [
+              "shared",
+              "private_game"
+            ],
+            "title": "Scope",
             "type": "string"
           },
           "stage": {
@@ -20204,6 +20236,18 @@
           "manifestSha256": {
             "title": "Manifestsha256",
             "type": "string"
+          },
+          "ownerGameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ownergameid"
           },
           "published": {
             "default": false,

@@ -9,6 +9,8 @@ from game_predictor_api.domain.jobs import JobStatus
 
 from .grid_correction_learning import CorrectionLearningClosedModel, Sha256
 
+GridCorrectionApplyScope = Literal["shared", "private_game"]
+
 
 class GridCorrectionApplyTarget(CorrectionLearningClosedModel):
     gameId: UUID
@@ -21,6 +23,7 @@ class GridCorrectionApplyTarget(CorrectionLearningClosedModel):
 class GridCorrectionApplyPreview(CorrectionLearningClosedModel):
     gameId: UUID
     learningId: UUID
+    scope: GridCorrectionApplyScope = "shared"
     versionId: UUID | None
     versionLabel: str | None
     defaultRevision: int = Field(ge=0)
@@ -40,6 +43,7 @@ class GridCorrectionApplyPreview(CorrectionLearningClosedModel):
 class GridCorrectionApplyStartCommand(CorrectionLearningClosedModel):
     idempotencyKey: UUID
     previewSha256: Sha256
+    scope: GridCorrectionApplyScope = "shared"
     additionalGameIds: list[UUID] = Field(default_factory=list, max_length=7)
     confirmLimitedEvidence: StrictBool
 
@@ -62,6 +66,7 @@ class GridCorrectionApplyView(CorrectionLearningClosedModel):
     applyId: UUID
     gameId: UUID
     learningId: UUID
+    scope: GridCorrectionApplyScope = "shared"
     versionId: UUID
     status: JobStatus
     stage: str | None

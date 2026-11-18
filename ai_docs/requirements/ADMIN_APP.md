@@ -110,6 +110,13 @@ Wynik względem wspólnej bazy nie zastępuje dodatkowej kontroli względem fakt
 przypisanej wersji każdej przełączanej gry. Wyłączona lub nieoceniona gra nie jest
 przełączana. Liczniki i blokady pochodzą z backendu.
 
+W prywatnej grze podgląd zastosowania pokazuje nazwę tej gry, kandydata oraz
+jej przypisaną wersję. Operator potwierdza zakres w tym samym panelu. Historia
+pokazuje osobno publikację i przypisanie, zapisane razem. Prywatna wersja
+jest dostępna do przywrócenia tylko w historii właściciela. Przywrócenie
+używa rewizji historii widocznej przy wyborze wersji. Gdy przypisanie się
+zmieniło, operator wybiera i potwierdza wersję ponownie.
+
 Utrata odpowiedzi zachowuje dokładne polecenie do jawnego ponowienia, także po
 reloadzie. Backend utrwala stan każdego kroku zastosowania; częściowy sukces
 pozostaje widoczny, a wznowienie kontynuuje ten sam przebieg. Zmiana defaultu lub

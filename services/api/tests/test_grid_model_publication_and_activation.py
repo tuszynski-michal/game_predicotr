@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.grid_model_registry import GridModelRegistryService
+from game_predictor_api.application.new_game_geometry import NewGameGeometryService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.grid_model_publication import (
     EVALUATION_POLICY,
@@ -346,6 +347,58 @@ def test_evaluated_game_scope_historical_game_and_rollback_target_are_guarded(co
         assign_session_game(session, c.game)
         with pytest.raises(GridModelRegistryError, match="GRID_MODEL_GAME_SCOPE_CONFLICT"):
             execute(service, "activate", c.baseline["versionId"], game=c.other)
+
+
+@pytest.mark.parametrize("record_transfer", [False, True])
+def test_private_rollback_waives_per_game_evidence_only_for_a_confirmed_transfer(
+    controls, record_transfer
+):
+    c = controls
+    candidate_id = UUID(c.candidate["versionId"])
+    with Session(c.engine) as session, session.begin():
+        service = registry(session, c.root)
+        report = seed_report(session, c.candidate, [c.other])
+        execute(service, "publish", c.baseline["versionId"])
+        execute(service, "publish", c.candidate["versionId"], evaluation=report)
+        session.execute(
+            text("UPDATE public.games SET name='Testowa gra' WHERE id=:id"), {"id": c.game.hex}
+        )
+        assignment = session.get(GameGridModelAssignmentModel, c.game)
+        assignment.revision = 2
+        if record_transfer:
+            assignment.version_id = candidate_id
+        # Reproduce an older ordinary assignment lacking a per-game publication proof.
+        session.add(
+            GameGridModelAssignmentEventModel(
+                id=uuid4(),
+                idempotency_key=uuid4(),
+                game_id=c.game,
+                version_id=candidate_id,
+                revision=2,
+                kind="activate",
+            )
+        )
+        session.flush()
+        NewGameGeometryService(None, service.repository, service).enable_private_model(
+            game_id=c.game, key=uuid4(), expected_revision=2, actor=ADMIN_ACTOR
+        )
+        if record_transfer:
+            execute(service, "rollback", c.baseline["versionId"], game=c.game, expected=3)
+            assert service.repository.previous_assignment(c.game, candidate_id, transfer_only=True)
+            assert (
+                execute(service, "rollback", c.candidate["versionId"], game=c.game, expected=4)[
+                    "versionId"
+                ]
+                == c.candidate["versionId"]
+            )
+        else:
+            assert service.repository.previous_assignment(c.game, candidate_id)
+            assert not service.repository.previous_assignment(
+                c.game, candidate_id, transfer_only=True
+            )
+            with pytest.raises(GridModelRegistryError, match="GRID_MODEL_EVALUATION_REQUIRED"):
+                execute(service, "rollback", c.candidate["versionId"], game=c.game, expected=3)
+            assert service.repository.assignment(c.game)[0].revision == 3
 
 
 def test_injected_event_failure_rolls_back_assignment_and_publication(controls):

@@ -61,8 +61,12 @@ def create_grid_correction_apply_router(dependency: Callable[..., object]) -> AP
         command: GridCorrectionApplyStartCommand,
         service: Annotated[_ApplyService, parameter],
     ) -> GridCorrectionApplyView:
+        # Keep the persisted command identical for retries from older clients.
+        body = command.model_dump(
+            mode="json", exclude={"scope"} if command.scope == "shared" else None
+        )
         return GridCorrectionApplyView.model_validate(
-            service.start(game_id, learning_id, command.model_dump(mode="json"), actor(request))
+            service.start(game_id, learning_id, body, actor(request))
         )
 
     @router.get("", operation_id="listGridCorrectionApply", response_model=GridCorrectionApplyList)

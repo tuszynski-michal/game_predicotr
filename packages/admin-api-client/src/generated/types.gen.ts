@@ -5805,6 +5805,10 @@ export type GameGridModelAssignmentResponse = {
    */
   gameId: string;
   /**
+   * Gridmodelprivate
+   */
+  gridModelPrivate?: boolean;
+  /**
    * Initialtransferallowed
    */
   initialTransferAllowed?: boolean;
@@ -7746,6 +7750,10 @@ export type GridCorrectionApplyPreview = {
    */
   requiredGameIds: Array<string>;
   /**
+   * Scope
+   */
+  scope?: 'shared' | 'private_game';
+  /**
    * Targets
    */
   targets: Array<GridCorrectionApplyTarget>;
@@ -7779,6 +7787,10 @@ export type GridCorrectionApplyStartCommand = {
    * Previewsha256
    */
   previewSha256: string;
+  /**
+   * Scope
+   */
+  scope?: 'shared' | 'private_game';
 };
 
 /**
@@ -7855,6 +7867,10 @@ export type GridCorrectionApplyView = {
    * Learningid
    */
   learningId: string;
+  /**
+   * Scope
+   */
+  scope?: 'shared' | 'private_game';
   /**
    * Stage
    */
@@ -11009,6 +11025,10 @@ export type GridModelVersionResponse = {
    * Manifestsha256
    */
   manifestSha256: string;
+  /**
+   * Ownergameid
+   */
+  ownerGameId?: string | null;
   /**
    * Published
    */

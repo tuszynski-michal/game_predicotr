@@ -354,6 +354,41 @@ Read contract `GridModelPublicationService.eligible(versionId)` służy późnie
 TASK-1004 do bootstrapu zgodnej nowej gry z opublikowanego default/jawnej wersji.
 Nie wymaga UUID przyszłej gry ani nie deklaruje jej pomierzonej jakości.
 
+### Prywatne zastosowanie i cofnięcie — TASK-1255
+
+Preview i historia `grid-correction-learning/{learningId}/apply` dodają pole
+`scope` z wartościami `shared` i `private_game`. Starsze komendy i piny
+współdzielone zachowują zapis oraz odtwarzanie potwierdzeń. Start prywatny
+wymaga jawnego `scope=private_game`, dokładnego SHA podglądu i pustej listy
+`additionalGameIds`. Podgląd ma jeden cel, `defaultRevision=0` i
+`defaultVersionId=null`. Baza i rewizja pochodzą z przypisania przypiętego
+przez zakończone uczenie. Zmiana tej rewizji blokuje zastosowanie.
+Wspólny przebieg uwzględnia wszystkie gry zapisane w zakresie treningu,
+kohortach oceny i celach. Jeśli któraś z nich stała się prywatna, podgląd
+zgłasza `GRID_APPLY_SHARED_PRIVATE_GAME`, a start i wznowienie zwracają
+ten kod w HTTP 409. Worker sprawdza pełny zakres przed zapisem.
+Blokada włączenia prywatności i wyzwalacz przyjęcia joba korzystają z pełnego
+zakresu także wtedy, gdy gra występuje wyłącznie w kohorcie oceny.
+
+Worker sprawdza właściciela rodziny, przypisanie, niezmienny manifest, dowód
+oceny wyłącznie tej gry i aktualność kohorty pod wspólną blokadą rejestru.
+Prywatny przebieg odczytuje też raport z kalibracją v5 i raport produkcyjny v6
+przez istniejące walidatory rejestru. Dla raportu v6 rejestr sprawdza także
+aktualność dowodów zawartości pól.
+Publikację i przypisanie zapisuje w jednej transakcji, z oddzielnymi
+potwierdzeniami. Po utracie odpowiedzi zwraca pierwotne potwierdzenia także po
+późniejszej zmianie przypisania. Publiczne polecenia rejestru nie publikują ani
+nie aktywują prywatnych kandydatów poza przebiegiem zastosowania. Prywatna
+wersja nie może zostać wersją domyślną, bazą innej gry ani jej przypisaniem.
+
+Katalog wersji podaje `ownerGameId`, a odczyt przypisania `gridModelPrivate`.
+Cofnięcie wymaga oczekiwanej rewizji, wcześniejszego zdarzenia w historii
+tej gry, dopuszczonej wersji i poprawnych plików. Potwierdzony bootstrap
+lub wpis włączenia prywatności pozwala wrócić do wskazanej tam wspólnej bazy
+mimo źródłowego zakresu jej raportu. Pozostałe wersje wymagają oceny tej gry.
+Rodzina treningowa pozostaje prywatna, a nowe importy otrzymują cofnięte
+przypisanie.
+
 ## Dynamiczny snapshot geometrii V3 — TASK-1012
 
 Istniejące pola `neuralGridProposal` jobów oraz `engineSnapshot` propozycji

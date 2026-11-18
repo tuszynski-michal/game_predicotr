@@ -2908,3 +2908,116 @@ for (const withB of [false, true])
     );
     await ui.close();
   });
+
+test('private apply confirms only this game and sends the private scope', async () => {
+  const privateRun = { ...run, learningScope: 'private_game', gameName: 'Mumie' };
+  const preview = {
+    ...applyPreview,
+    scope: 'private_game',
+    defaultVersionId: null,
+    defaultRevision: 0,
+    requiredGameIds: [GAME],
+    targets: [{ ...applyPreview.targets[0], requiresComparison: false }],
+  };
+  const { api, calls } = fixture({
+    listGridCorrectionLearning: () => ({ data: { items: [privateRun] } }),
+    getGridCorrectionLearning: () => ({ data: privateRun }),
+    previewGridCorrectionApply: () => ({ data: preview }),
+    startGridCorrectionApply: () => ({
+      data: {
+        applyId: 'private-apply',
+        gameId: GAME,
+        learningId: RUN,
+        versionId: 'candidate',
+        scope: 'private_game',
+        status: 'completed',
+        createdAt: '2026-11-18T12:00:00Z',
+        steps: [
+          { kind: 'publish', gameId: null, status: 'completed' },
+          { kind: 'activate', gameId: GAME, status: 'completed' },
+        ],
+      },
+    }),
+  });
+  const ui = await mount(api);
+  try {
+    await settle();
+    const apply = document.querySelector('[aria-label="Zastosowanie wersji"]');
+    assert.match(apply.textContent, /Wersja zostanie przypisana do gry Mumie/);
+    assert.doesNotMatch(apply.textContent, /Obecny wspólny model|w innych ocenionych grach/);
+    assert.equal(findButton('Zastosuj wersję').disabled, true);
+    await check('Potwierdzam ograniczony dowód oparty na zdjęciach');
+    await click('Zastosuj wersję');
+    const call = calls.find(([name]) => name === 'startGridCorrectionApply');
+    assert.deepEqual(call.slice(1, 3), [GAME, RUN]);
+    assert.equal(call[3].scope, 'private_game');
+    assert.deepEqual(call[3].additionalGameIds, []);
+    assert.match(apply.textContent, /Publikacja.*Przypisanie gry/);
+    assert.doesNotMatch(apply.textContent, /Wersja domyślna/);
+  } finally {
+    await ui.close();
+  }
+});
+
+test('private rollback confirms the revision the operator saw in history', async () => {
+  let currentRevision = 3;
+  const { api, calls } = fixture({
+    getGameGridModelHistory: () => ({
+      data: [
+        { kind: 'activate', versionId: 'candidate', revision: currentRevision },
+        { kind: 'private_enable', versionId: 'base', revision: 2 },
+      ],
+    }),
+    listGridModelVersions: () => ({
+      data: [
+        { eligible: true, manifest: { versionId: 'base', familyLabel: 'Wspólna', version: 'v1' } },
+        { eligible: true, manifest: { versionId: 'candidate', familyLabel: 'Mumie', version: 'v2' } },
+      ],
+    }),
+    rollbackGameGridModel: () => {
+      currentRevision = 4;
+      return { error: { error: { code: 'GRID_MODEL_REVISION_CONFLICT' } }, response: { status: 409 } };
+    },
+  });
+  const ui = await mount(api);
+  try {
+    await settle();
+    const choice = [...document.querySelectorAll('select')].find((select) =>
+      [...select.options].some((option) => option.textContent === 'Wybierz wersję z historii'),
+    );
+    assert.deepEqual([...choice.options].map((option) => option.value), ['', 'base']);
+    await act(async () => {
+      choice.value = 'base';
+      choice.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await check('Potwierdzam przywrócenie wersji dla nowych importów tej gry');
+    await click('Przywróć wersję gry');
+    const request = calls.find(([name]) => name === 'rollbackGameGridModel');
+    assert.equal(request[1], GAME);
+    assert.equal(request[2].versionId, 'base');
+    assert.equal(request[2].expectedRevision, 3);
+    assert.equal(findButton('Przywróć wersję gry').disabled, true);
+  } finally {
+    await ui.close();
+  }
+});
+
+for (const version of ['v1', 'v2', 'v3', 'v4'])
+  test(`legacy ${version} quality report remains readable without automatic qualification`, async () => {
+    const view = evaluation('current');
+    view.report.schemaVersion = 'grid-model-evaluation-read-' + version;
+    if (version === 'v1' || version === 'v2') delete view.report.scope;
+    const { api, calls } = fixture({
+      listGridCorrectionLearning: async () => ({
+        data: { items: [evaluatedRun] },
+      }),
+      getGridCorrectionLearning: async () => ({ data: evaluatedRun }),
+      getGridCorrectionLearningEvaluation: async () => ({ data: view }),
+    });
+    const ui = await mount(api);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
+    assert.match(document.body.textContent, /PASS/);
+    assert.doesNotMatch(document.body.textContent, /Automat.*kwalifikuje się/);
+    assertOnlyReads(calls);
+    await ui.close();
+  });

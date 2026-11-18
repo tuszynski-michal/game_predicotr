@@ -1,20 +1,22 @@
-"""Durable explicit apply: immutable preview pins and independently committed receipts.
+"""Durable explicit apply with immutable preview pins and deterministic receipts.
 
-Control commands retain their deterministic keys across crashes. The registry remains
-the authority for publication, assignment CAS and current evidence; no rollback is
-attempted when a later step fails.
+Shared apply commits each control step as it runs. Private apply publishes and assigns
+in a single transaction. The registry enforces publication, assignment CAS and current
+evidence, and both workflows recover the same receipts across crashes.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid5
 
 from sqlalchemy import Engine, Uuid, column, select, table, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_api.domain.grid_correction_evaluation import PHOTO_ONLY_LIMITATIONS
@@ -30,6 +32,7 @@ from game_predictor_api.storage.grid_model_registry import (
     GridModelArtifactInspector,
     SqlAlchemyGridModelRegistryRepository,
 )
+from game_predictor_api.storage.grid_private_learning import assignment_pin
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository, job_from_record
 from game_predictor_api.storage.models import JobModel
 
@@ -46,6 +49,27 @@ def apply_key(identifier: UUID, kind: str, game: str | None = None) -> UUID:
 
 def _error(code: str, message: str, status: int = 409) -> GridCohortError:
     return GridCohortError(code, message, status)
+
+
+def _shared_private_game() -> GridCohortError:
+    return _error(
+        "GRID_APPLY_SHARED_PRIVATE_GAME",
+        "The shared apply scope includes a game that now uses a private model.",
+    )
+
+
+@contextmanager
+def _map_shared_private_game() -> Iterator[None]:
+    try:
+        yield
+    except DBAPIError as error:
+        diagnostic = getattr(error.orig, "diag", None)
+        if (
+            getattr(error.orig, "sqlstate", None) == "P0001"
+            and getattr(diagnostic, "message_primary", None) == "GRID_SHARED_PRIVATE_GAME"
+        ):
+            raise _shared_private_game() from error
+        raise
 
 
 class GridCorrectionApplyService:
@@ -87,16 +111,96 @@ class GridCorrectionApplyService:
         if row is None or invalidated:
             raise _error("GRID_MODEL_EVALUATION_STALE", "The original evidence is unavailable.")
         report = self.evaluations._report(session, row, job=evaluation)
-        if report.get("schemaVersion") not in (
+        initial: Any = parent.input_payload["preview"]
+        private = initial.get("learningScope") == "private_game"
+        allowed_schemas: tuple[str, ...] = (
             "grid-model-evaluation-read-v3",
             "grid-model-evaluation-read-v4",
-        ):
+        )
+        if private:
+            allowed_schemas += ("grid-model-evaluation-read-v5", "grid-model-evaluation-read-v6")
+        if report.get("schemaVersion") not in allowed_schemas:
             raise _error(
                 "GRID_APPLY_EVIDENCE_REQUIRED", "Photo-only correction evidence is required."
             )
-        # This validates producer, checksum, recomputed gate and every current cohort.
+        # This validates the producer, gate, current cohorts and any production-cell proof.
         registry.control._evidence(view, UUID(state["reportId"]), None, publishing=True)
+        if private:
+            pin = self._private_learning_pin(parent)
+            manifest = view["manifest"]
+            if (
+                evaluation.game_id != game
+                or evaluation.input_payload.get("private_learning") != pin
+                or view.get("ownerGameId") != str(game)
+                or manifest["familyId"] != pin["targetFamilyId"]
+                or manifest["baseVersionId"] != pin["baseVersionId"]
+                or report["baseManifestSha256"] != pin["baseManifestSha256"]
+                or report["requiredGameIds"] != [str(game)]
+                or report["scope"]["currentGameId"] != str(game)
+            ):
+                raise _error(
+                    "GRID_APPLY_PRIVATE_EVIDENCE_REQUIRED",
+                    "The candidate and evaluation must match the owning game's learning pins.",
+                )
         return parent, view, report, row
+
+    @staticmethod
+    def _private_learning_pin(parent: Job) -> dict[str, Any]:
+        payload: Any = parent.input_payload
+        preview = payload["preview"]
+        pin = payload.get("pins", {}).get("privateLearning")
+        if (
+            type(pin) is not dict
+            or pin.get("gameId") != str(parent.game_id)
+            or type(pin.get("assignmentRevision")) is not int
+            or pin["assignmentRevision"] < 1
+            or not all(
+                pin.get(key) is not None and pin[key] == preview.get(key)
+                for key in (
+                    "assignmentRevision",
+                    "targetFamilyId",
+                    "baseVersionId",
+                    "baseManifestSha256",
+                )
+            )
+        ):
+            raise _error(
+                "GRID_APPLY_PRIVATE_EVIDENCE_REQUIRED", "Private learning pins are missing."
+            )
+        return pin
+
+    @staticmethod
+    def _require_private_assignment(
+        registry: GridModelRegistryService, game: UUID, pin: Mapping[str, Any]
+    ) -> None:
+        try:
+            observed = assignment_pin(registry.repository, game)
+        except GridCohortError as error:
+            raise _error(
+                "GRID_APPLY_PRIVATE_ASSIGNMENT_CHANGED",
+                "The game's private base is unavailable; obtain fresh evidence.",
+            ) from error
+        if observed is None:
+            raise _error(
+                "GRID_APPLY_PRIVATE_SCOPE_CONFLICT", "Private apply requires the owning game."
+            )
+        if observed != pin:
+            raise _error(
+                "GRID_APPLY_PRIVATE_ASSIGNMENT_CHANGED",
+                "The game's assignment changed since learning; obtain fresh evidence.",
+            )
+
+    @staticmethod
+    def _require_shared_scope(
+        registry: GridModelRegistryService, targets: Sequence[str], pins: Mapping[str, Any]
+    ) -> None:
+        games = {
+            *targets,
+            *pins["scope"].get("trainingGameIds", ()),
+            *(cohort["gameId"] for cohort in pins["cohorts"]),
+        }
+        if registry.repository.shared_scope_has_private_game([UUID(game) for game in games]):
+            raise _shared_private_game()
 
     def _preview(
         self, session: Session, game: UUID, learning: UUID, additional: Sequence[UUID]
@@ -107,7 +211,8 @@ class GridCorrectionApplyService:
         state: Any = parent.checkpoint_payload or {}
         initial: Any = parent.input_payload["preview"]
         registry = self._registry(session)
-        head = registry.repository.default()
+        private = initial.get("learningScope") == "private_game"
+        head = None if private else registry.repository.default()
         blockers: list[str] = []
         pins: dict[str, Any] = {}
         result: dict[str, Any] = {
@@ -127,25 +232,44 @@ class GridCorrectionApplyService:
             "blockers": blockers,
             "canApply": False,
         }
+        pin: dict[str, Any] | None = None
+        if private:
+            result["scope"] = "private_game"
         try:
+            selected = [str(game), *result["additionalGameIds"]]
+            if private:
+                if additional:
+                    raise _error(
+                        "GRID_APPLY_PRIVATE_SCOPE_CONFLICT",
+                        "Private apply can only select the owning game.",
+                    )
+                pin = self._private_learning_pin(parent)
+                self._require_private_assignment(registry, game, pin)
             _, version, report, row = self._evidence(session, registry, game, learning)
             manifest = version["manifest"]
             result["versionLabel"] = manifest.get(
                 "versionLabel", manifest.get("version", manifest["versionId"])
             )
             result["requiredGameIds"] = report["requiredGameIds"]
+            if not private and version.get("ownerGameId") is not None:
+                raise _error(
+                    "GRID_APPLY_PRIVATE_SCOPE_CONFLICT",
+                    "The shared workflow cannot apply a private model version.",
+                )
+            if pin is None:
+                # Every additional eligible target is already in the evaluated cohorts.
+                self._require_shared_scope(registry, [str(game)], report)
             if head is not None and str(head.version_id) == manifest["versionId"]:
                 raise _error(
                     "GRID_APPLY_ALREADY_DEFAULT",
                     "The candidate is already the default; inspect or resume its apply history.",
                 )
-            if head is None or str(head.version_id) != initial["baseVersionId"]:
+            if not private and (head is None or str(head.version_id) != initial["baseVersionId"]):
                 raise _error(
                     "GRID_APPLY_DEFAULT_CHANGED",
                     "The learning base is no longer the global default; obtain fresh evidence.",
                 )
             scope = {entry["gameId"]: entry for entry in report["cohorts"]}
-            selected = [str(game), *result["additionalGameIds"]]
             if set(selected) - set(scope) or set(selected) & set(result["excludedGameIds"]):
                 raise _error(
                     "GRID_APPLY_SCOPE_NOT_EVALUATED",
@@ -153,7 +277,12 @@ class GridCorrectionApplyService:
                 )
             targets = []
             for target in selected:
-                assignment, _ = registry.repository.assignment(UUID(target))
+                if pin is not None:
+                    revision, assigned_version = pin["assignmentRevision"], pin["baseVersionId"]
+                else:
+                    assignment, _ = registry.repository.assignment(UUID(target))
+                    revision = 0 if assignment is None else assignment.revision
+                    assigned_version = None if assignment is None else str(assignment.version_id)
                 games = table(
                     "games",
                     column("id", Uuid),
@@ -172,12 +301,10 @@ class GridCorrectionApplyService:
                     {
                         "gameId": target,
                         "gameLabel": str(catalogue_game.code),
-                        "assignmentRevision": 0 if assignment is None else assignment.revision,
-                        "assignedVersionId": None
-                        if assignment is None
-                        else str(assignment.version_id),
-                        "requiresComparison": assignment is not None
-                        and str(assignment.version_id) != initial["baseVersionId"],
+                        "assignmentRevision": revision,
+                        "assignedVersionId": assigned_version,
+                        "requiresComparison": assigned_version is not None
+                        and assigned_version != initial["baseVersionId"],
                     }
                 )
             result["targets"] = targets
@@ -190,8 +317,10 @@ class GridCorrectionApplyService:
                 scope=report["scope"],
                 cohorts=report["cohorts"],
             )
+            if pin is not None:
+                pins["privateLearning"] = pin
             self._publication_receipt(registry, pins, None)
-            if self._active(session, game, learning) is not None:
+            if self._active(session, game, None if private else learning) is not None:
                 raise _error("GRID_APPLY_BUSY", "An apply operation is already active.")
         except (GridCohortError, GridModelRegistryError) as error:
             blockers.append(error.code)
@@ -232,18 +361,16 @@ class GridCorrectionApplyService:
         return None if row is None else job_from_record(row)
 
     @staticmethod
-    def _active(session: Session, game: UUID, learning: UUID) -> UUID | None:
-        return session.scalar(
-            select(JobModel.id)
-            .where(
-                JobModel.job_type == JobType.GRID_CORRECTION_LEARNING,
-                JobModel.game_id == game,
-                JobModel.input_payload["learning_kind"].as_string() == APPLY_KIND,
-                JobModel.input_payload["learning_id"].as_string() == str(learning),
-                JobModel.status.in_((JobStatus.CREATED, JobStatus.PROCESSING)),
-            )
-            .limit(1)
+    def _active(session: Session, game: UUID, learning: UUID | None) -> UUID | None:
+        query = select(JobModel.id).where(
+            JobModel.job_type == JobType.GRID_CORRECTION_LEARNING,
+            JobModel.game_id == game,
+            JobModel.input_payload["learning_kind"].as_string() == APPLY_KIND,
+            JobModel.status.in_((JobStatus.CREATED, JobStatus.PROCESSING)),
         )
+        if learning is not None:
+            query = query.where(JobModel.input_payload["learning_id"].as_string() == str(learning))
+        return session.scalar(query.limit(1))
 
     @staticmethod
     def _publication_receipt(
@@ -293,10 +420,9 @@ class GridCorrectionApplyService:
                 steps.append(
                     {"kind": "comparison", "gameId": target["gameId"], "status": "pending"}
                 )
-        steps.extend(
-            {"kind": kind, "gameId": None, "status": "pending"}
-            for kind in ("publish", "set_default")
-        )
+        steps.append({"kind": "publish", "gameId": None, "status": "pending"})
+        if preview.get("scope") != "private_game":
+            steps.append({"kind": "set_default", "gameId": None, "status": "pending"})
         steps.extend(
             {"kind": "activate", "gameId": target["gameId"], "status": "pending"}
             for target in preview["targets"]
@@ -313,7 +439,7 @@ class GridCorrectionApplyService:
                 422,
             )
         key, original = UUID(str(command["idempotencyKey"])), dict(command)
-        with Session(self.engine) as session, session.begin():
+        with _map_shared_private_game(), Session(self.engine) as session, session.begin():
             session.execute(text("SET LOCAL lock_timeout='5s'"))
             session.execute(
                 text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
@@ -341,6 +467,12 @@ class GridCorrectionApplyService:
             )
             if not preview["canApply"]:
                 raise _error(preview["blockers"][0], "The apply preview has blockers.")
+            if preview.get("scope", "shared") != command.get("scope", "shared"):
+                raise _error(
+                    "GRID_APPLY_SCOPE_CONFIRMATION_REQUIRED",
+                    "Confirm the scope of the apply preview.",
+                    422,
+                )
             if preview["previewSha256"] != command["previewSha256"]:
                 raise _error(
                     "GRID_APPLY_PREVIEW_CHANGED", "Read and confirm a fresh apply preview."
@@ -385,7 +517,7 @@ class GridCorrectionApplyService:
             return self._view(session, self._job(session, game, learning, identifier))
 
     def resume(self, game: UUID, learning: UUID, identifier: UUID, actor: str) -> dict[str, Any]:
-        with Session(self.engine) as session, session.begin():
+        with _map_shared_private_game(), Session(self.engine) as session, session.begin():
             GridCorrectionLearningService._lock_step(session, identifier)
             job = self._job(session, game, learning, identifier, lock=True)
             if job.status in {JobStatus.CREATED, JobStatus.PROCESSING, JobStatus.COMPLETED}:
@@ -396,12 +528,31 @@ class GridCorrectionApplyService:
                 )
             registry = self._registry(session)
             registry.repository.lock()
-            active = self._active(session, game, learning)
+            payload: Any = job.input_payload
+            preview = payload["preview"]
+            private = preview.get("scope") == "private_game"
+            active = self._active(session, game, None if private else learning)
             if active is not None and active != job.id:
                 raise _error("GRID_APPLY_BUSY", "Another apply operation is already active.")
+            if private:
+                if (
+                    registry.repository.control_receipt(
+                        apply_key(job.id, "activate", str(game)), game
+                    )
+                    is None
+                ):
+                    self._require_private_assignment(
+                        registry, game, payload["pins"]["privateLearning"]
+                    )
+                    self._require_pinned_evidence(session, registry, job)
+                return self._view(
+                    session, SqlAlchemyJobRepository(session).save_job(requeue_job(job))
+                )
+            self._require_shared_scope(
+                registry, [target["gameId"] for target in preview["targets"]], payload["pins"]
+            )
             self._require_default(registry, job)
             # Keep child identity and comparison receipts after failure/restart.
-            preview: Any = job.input_payload["preview"]
             for target in preview["targets"]:
                 if not target["requiresComparison"]:
                     continue
@@ -479,6 +630,7 @@ class GridCorrectionApplyService:
             "applyId": str(job.id),
             "gameId": str(job.game_id),
             "learningId": payload["learning_id"],
+            "scope": payload["preview"].get("scope", "shared"),
             "versionId": payload["preview"]["versionId"],
             "status": job.status.value,
             "stage": job.stage,
@@ -571,9 +723,93 @@ class GridCorrectionApplyService:
             "reportSha256": row.report_sha256,
         }
 
+    def _require_pinned_evidence(
+        self, session: Session, registry: GridModelRegistryService, job: Job
+    ) -> None:
+        payload: Any = job.input_payload
+        preview, pins = payload["preview"], payload["pins"]
+        parent, version, report, row = self._evidence(
+            session, registry, UUID(str(job.game_id)), UUID(payload["learning_id"])
+        )
+        private = preview.get("scope") == "private_game"
+        if (
+            version["manifest"]["versionId"] != preview["versionId"]
+            or pins["versionId"] != preview["versionId"]
+            or version["manifestSha256"] != pins["manifestSha256"]
+            or row.report_sha256 != pins["reportSha256"]
+            or str(row.id) != pins["reportId"]
+            or report["scope"] != pins["scope"]
+            or report["cohorts"] != pins["cohorts"]
+            or (version.get("ownerGameId") is not None) != private
+            or private
+            and self._private_learning_pin(parent) != pins.get("privateLearning")
+        ):
+            raise _error("GRID_APPLY_EVIDENCE_CHANGED", "The pinned publication evidence changed.")
+
+    def _advance_private(self, job: Job) -> tuple[dict[str, Any], bool]:
+        payload: Any = job.input_payload
+        preview, pins = payload["preview"], payload["pins"]
+        game = UUID(str(job.game_id))
+        pin = pins["privateLearning"]
+        targets = preview["targets"]
+        if (
+            len(targets) != 1
+            or targets[0]["gameId"] != str(game)
+            or targets[0]["requiresComparison"]
+        ):
+            raise _error(
+                "GRID_APPLY_PRIVATE_SCOPE_CONFLICT",
+                "Private apply can only target the owning game.",
+            )
+        version = UUID(preview["versionId"])
+        publish_key = apply_key(job.id, "publish")
+        activate_key = apply_key(job.id, "activate", str(game))
+        state = dict(job.checkpoint_payload or {})
+        with Session(self.engine) as session, session.begin():
+            registry = self._registry(session)
+            registry.repository.lock()
+            # Recover the commit even when a later rollback moved the assignment.
+            if registry.repository.control_receipt(activate_key, game) is not None:
+                steps = self._view(session, job)["steps"]
+                if not all(step["status"] == "completed" for step in steps):
+                    raise _error(
+                        "GRID_APPLY_EVIDENCE_CHANGED", "The committed private apply proof differs."
+                    )
+                return {**state, "steps": steps}, True
+
+            self._require_private_assignment(registry, game, pin)
+            self._require_pinned_evidence(session, registry, job)
+            publication = self._publication_receipt(registry, pins, publish_key)
+            if publication is None:
+                publication = registry.control.execute(
+                    kind="publish",
+                    key=publish_key,
+                    expected_revision=0,
+                    version_id=version,
+                    actor=payload["actor"],
+                    evaluation_id=UUID(pins["reportId"]),
+                    private_apply_game_id=game,
+                )
+            activation = registry.control.execute(
+                kind="activate",
+                key=activate_key,
+                expected_revision=pin["assignmentRevision"],
+                version_id=version,
+                actor=payload["actor"],
+                game_id=game,
+                private_apply_game_id=game,
+            )
+            steps = self._steps(preview)
+            steps[0].update(status="completed", receipt=publication)
+            steps[1].update(status="completed", receipt=activation)
+        return {**state, "steps": steps}, True
+
     def advance(self, job: Job) -> tuple[dict[str, Any], bool]:
         payload: Any = job.input_payload
         preview, pins = payload["preview"], payload["pins"]
+        if preview.get("scope") == "private_game":
+            return self._advance_private(job)
+        selected = [target["gameId"] for target in preview["targets"]]
         state: dict[str, Any] = dict(job.checkpoint_payload or {})
         state.setdefault("steps", self._steps(preview))
         state["steps"] = [dict(step) for step in state["steps"]]
@@ -587,13 +823,15 @@ class GridCorrectionApplyService:
         # the catalogue lock while awaiting its child. All mutations below recheck CAS.
         if kind == "comparison":
             assert target is not None
-            with Session(self.engine) as session, session.begin():
+            with _map_shared_private_game(), Session(self.engine) as session, session.begin():
                 registry = self._registry(session)
                 registry.repository.lock()
+                self._require_shared_scope(registry, selected, pins)
                 self._require_default(registry, job)
                 self._require_assignment(registry, target)
                 self._publication_receipt(registry, pins, None)
-            evaluation = self._comparison(job, target, pins)
+            with _map_shared_private_game():
+                evaluation = self._comparison(job, target, pins)
             state["waitingForJobId"] = evaluation["evaluationId"]
             step["status"] = "waiting"
             if evaluation["status"] != "completed":
@@ -603,9 +841,10 @@ class GridCorrectionApplyService:
                         "Resume the original comparison after failure.",
                     )
                 return state, False
-            with Session(self.engine) as session, session.begin():
+            with _map_shared_private_game(), Session(self.engine) as session, session.begin():
                 registry = self._registry(session)
                 registry.repository.lock()
+                self._require_shared_scope(registry, selected, pins)
                 self._require_default(registry, job)
                 self._require_assignment(registry, target)
                 step["receipt"] = self._require_comparison(
@@ -614,25 +853,14 @@ class GridCorrectionApplyService:
             step["status"] = "completed"
             state.pop("waitingForJobId", None)
             return state, False
-        with Session(self.engine) as session, session.begin():
+        with _map_shared_private_game(), Session(self.engine) as session, session.begin():
             registry = self._registry(session)
             registry.repository.lock()
+            self._require_shared_scope(registry, selected, pins)
             self._require_default(registry, job)
             # Revalidate the original immutable publication report, never replace it
             # with the independently produced actual-assigned report.
-            _, version, report, row = self._evidence(
-                session, registry, UUID(str(job.game_id)), UUID(payload["learning_id"])
-            )
-            if (
-                version["manifestSha256"] != pins["manifestSha256"]
-                or row.report_sha256 != pins["reportSha256"]
-                or str(row.id) != pins["reportId"]
-                or report["scope"] != pins["scope"]
-                or report["cohorts"] != pins["cohorts"]
-            ):
-                raise _error(
-                    "GRID_APPLY_EVIDENCE_CHANGED", "The pinned publication evidence changed."
-                )
+            self._require_pinned_evidence(session, registry, job)
             key = apply_key(job.id, kind, target_game)
             prior = registry.repository.control_receipt(
                 key, None if target_game is None else UUID(target_game)

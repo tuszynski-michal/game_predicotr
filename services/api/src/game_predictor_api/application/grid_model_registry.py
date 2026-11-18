@@ -77,18 +77,20 @@ class GridModelRegistryService:
                 "GRID_MODEL_REGISTRY_CORRUPT", "Stored immutable descriptor differs."
             )
         available, reason = self.inspector.inspect(payload)
+        owner = self.repository.version_owner_game_id(record.id)
         view = {
             "manifest": payload,
             "manifestSha256": record.manifest_sha256,
             "available": available,
             "reasonCode": reason,
+            "ownerGameId": None if owner is None else str(owner),
             "published": self.repository.publication(record.id) is not None,
             "eligible": False,
             "eligibilityReasonCode": "GRID_MODEL_NOT_PUBLISHED",
         }
         if include_eligibility and view["published"]:
             try:
-                self.control._eligible_inspected(view)
+                self.control._eligible_inspected(view, game_id=owner)
             except GridModelRegistryError as error:
                 view["eligibilityReasonCode"] = error.code
             else:
@@ -149,6 +151,7 @@ class GridModelRegistryService:
             view = self.view(record)
         return {
             "gameId": game_id,
+            "gridModelPrivate": self.repository.game_grid_model_private(game_id),
             "revision": None if assignment is None else assignment.revision,
             "version": view,
             "recognitionStatus": self.status_reader(game_id, view)

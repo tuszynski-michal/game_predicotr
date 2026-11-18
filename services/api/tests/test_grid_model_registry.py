@@ -69,17 +69,17 @@ TABLES = (
 )
 
 
-def candidate(root: Path) -> dict:
+def candidate(root: Path, *, directory: str = "third_geometry", version: str = "v2") -> dict:
     payload = copy.deepcopy(historical_catalogue()[0])
     payload.update(
         familyId=str(uuid4()),
         familyCode="third_geometry",
         familyLabel="Third geometry",
         versionId=str(uuid4()),
-        version="v2",
+        version=version,
         baseVersionId=historical_catalogue()[0]["versionId"],
         admission="not_evaluated",
-        managedDirectory="models/grid-engine/third_geometry/v2",
+        managedDirectory=f"models/grid-engine/{directory}/{version}",
     )
     files = []
     directory = root / payload["managedDirectory"]
@@ -109,7 +109,7 @@ def candidate(root: Path) -> dict:
     payload["inferenceManifest"]["checkpointSha256"] = training_files[0]["sha256"]
     payload["inferenceManifest"]["weightsSha256"] = training_files[1]["sha256"]
     payload["files"] = files
-    payload["inferenceManifest"].update(version="v2", files=files)
+    payload["inferenceManifest"].update(version=version, files=files)
     (directory / "manifest.json").write_text(
         json.dumps(payload["inferenceManifest"]), encoding="utf-8"
     )

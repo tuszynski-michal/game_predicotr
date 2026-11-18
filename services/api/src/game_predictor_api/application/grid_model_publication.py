@@ -27,10 +27,13 @@ class GridModelControlRepository(Protocol):
     def default(self) -> Any: ...
     def game(self, game_id: UUID) -> Any: ...
     def game_grid_model_private(self, game_id: UUID) -> bool: ...
+    def shared_scope_has_private_game(self, game_ids: Sequence[UUID]) -> bool: ...
     def version_owner_game_id(self, version_id: UUID) -> UUID | None: ...
     def assignment(self, game_id: UUID) -> tuple[Any, int]: ...
     def control_receipt(self, key: UUID, game_id: UUID | None) -> Any: ...
-    def previous_assignment(self, game_id: UUID, version_id: UUID) -> bool: ...
+    def previous_assignment(
+        self, game_id: UUID, version_id: UUID, *, transfer_only: bool = False
+    ) -> bool: ...
     def apply_control(
         self, command: dict[str, Any], receipt: dict[str, Any], evidence: dict[str, Any]
     ) -> None: ...
@@ -131,6 +134,12 @@ class GridModelPublicationService:
             allow_variant_calibration=allow_variants,
         )
         parsed_report = json.loads(report.report_json)
+        owner = view.get("ownerGameId")
+        if owner is not None and (not evidence.scoped or evidence.games != {UUID(owner)}):
+            raise GridModelRegistryError(
+                "GRID_MODEL_PRIVATE_SCOPE_CONFLICT",
+                "A private version requires an evaluation scoped to its owning game.",
+            )
         if parsed_report.get("schemaVersion") == "grid-model-evaluation-read-v6":
             self.repository.require_production_content_freshness(
                 parsed_report, getattr(self.registry.inspector, "root", None)
@@ -204,6 +213,12 @@ class GridModelPublicationService:
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Registry view already inspected artifact bytes; avoid hashing them twice."""
         version_id = UUID(view["manifest"]["versionId"])
+        owner = view.get("ownerGameId")
+        if owner is not None and (setting_default or owner != str(game_id)):
+            raise GridModelRegistryError(
+                "GRID_MODEL_PRIVATE_SCOPE_CONFLICT",
+                "A private model version is only eligible for its owning game.",
+            )
         if not view["available"]:
             raise GridModelRegistryError("GRID_MODEL_ARTIFACT_UNAVAILABLE", view["reasonCode"])
         publication = self.repository.publication(version_id)
@@ -234,6 +249,13 @@ class GridModelPublicationService:
         if record is None:
             raise GridModelRegistryError("GRID_MODEL_REGISTRY_CORRUPT", "Default version missing.")
         view = self.registry.view(record)
+        if view.get("ownerGameId") is not None:
+            return {
+                "revision": default.revision,
+                "version": view,
+                "eligible": False,
+                "reasonCode": "GRID_MODEL_PRIVATE_SCOPE_CONFLICT",
+            }
         if not view["eligible"]:
             return {
                 "revision": default.revision,
@@ -262,7 +284,9 @@ class GridModelPublicationService:
         actor: str,
         game_id: UUID | None = None,
         evaluation_id: UUID | None = None,
+        private_apply_game_id: UUID | None = None,
     ) -> dict[str, Any]:
+        """Run a control command. Only the verified apply worker supplies private scope."""
         if (
             kind not in {"publish", "set_default", "activate", "rollback"}
             or (kind in {"activate", "rollback"}) != (game_id is not None)
@@ -293,6 +317,7 @@ class GridModelPublicationService:
             if not isinstance(recovered, dict):
                 raise GridModelRegistryError("GRID_MODEL_REGISTRY_CORRUPT", "Receipt differs.")
             return recovered
+        head = None
         if kind == "publish":
             current = 0 if self.repository.publication(version_id) is None else 1
         elif kind == "set_default":
@@ -305,12 +330,52 @@ class GridModelPublicationService:
             raise GridModelRegistryError(
                 "GRID_MODEL_REVISION_CONFLICT", "Expected revision differs from the current head."
             )
+        view = self._version(version_id)
+        owner = view.get("ownerGameId")
+        private_game = game_id is not None and self.repository.game_grid_model_private(game_id)
+        outside_owner = owner is not None and (
+            kind == "set_default"
+            or game_id is not None
+            and (not private_game or owner != str(game_id))
+        )
+        wrong_apply_context = private_apply_game_id is not None and (
+            owner != str(private_apply_game_id) or kind not in {"publish", "activate"}
+        )
+        if outside_owner or wrong_apply_context:
+            raise GridModelRegistryError(
+                "GRID_MODEL_PRIVATE_SCOPE_CONFLICT",
+                "A private model cannot be used outside its owning game.",
+            )
+        if private_game and kind == "activate" and head is None:
+            raise GridModelRegistryError(
+                "GRID_MODEL_INITIAL_TRANSFER_REQUIRED",
+                "Select an eligible shared base for the game's first assignment.",
+            )
+        direct_private_command = (
+            owner is not None
+            and kind in {"publish", "activate"}
+            and owner != str(private_apply_game_id)
+        )
+        if direct_private_command or (private_game and kind == "activate" and owner is None):
+            raise GridModelRegistryError(
+                "GRID_MODEL_PRIVATE_APPLY_REQUIRED",
+                "Publish and activate private candidates through the game's learning apply.",
+            )
         if kind == "publish":
-            view = self._version(version_id)
             evidence = self._evidence(view, evaluation_id, None, publishing=True)
         else:
+            # An inherited shared base may have been qualified on its source games.
+            inherited_base = (
+                private_game
+                and kind == "rollback"
+                and owner is None
+                and game_id is not None
+                and self.repository.previous_assignment(game_id, version_id, transfer_only=True)
+            )
             view, evidence = self._eligible_inspected(
-                self._version(version_id), game_id=game_id, setting_default=kind == "set_default"
+                view,
+                game_id=None if inherited_base else game_id,
+                setting_default=kind == "set_default",
             )
         if game is not None:
             assert game_id is not None

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1258 — Korekta jednego zdjęcia (done)
 
 - Plik: `tasks/completed/1258-reviewer-single-photo.md`.
-- Commit: **v1.7.690** (hash dopisuje kolejny commit).
+- Commit: **v1.7.690 / `a631dceae90700524b9e72932ed016249067b3ce`** (hash dopisuje kolejny commit).
 - Lokalny link ogranicza pierwsze pobranie, nawigację i zapis do zdjęcia. Interakcje 42/42, kontrakty 9/9, typy, lint i 30 × 9 pozycji z rzeczywistego API PASS.
 
 ### TASK-1257 — Niezależny pierwszy trening geometrii gry (done)

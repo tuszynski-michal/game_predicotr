@@ -25,6 +25,6 @@ Strona Reviewera, bramka dostępu, edytor geometrii i linki lokalnej listy opera
 
 ## Outcome
 
-Commit: v1.7.690 (hash dopisuje kolejny commit).
+Commit: v1.7.690 / `a631dceae90700524b9e72932ed016249067b3ce`.
 
 Osobny lokalny adres wiąże edytor z grą, importem i zdjęciem od pierwszego pobrania do ostatniego zapisu. Widok pomija historię i akcje obejmujące cały import. Interakcje 42/42, kontrakty 9/9, typy i lint zaliczone. Odczyt lokalnego API potwierdził po dziewięć właściwych plansz dla wszystkich 30 zdjęć.

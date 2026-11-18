@@ -8,7 +8,10 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { GridAuditCorrectionWorkspace } from '@/features/operational-reviews/grid-audit-correction-workspace';
 import { GridShadowCorrectionWorkspace } from '@/features/operational-reviews/grid-shadow-correction-workspace';
 import { OperationalReviewWorkspace } from '@/features/operational-reviews/operational-review-workspace';
-import { BoardGeometryCorrectionWorkspace } from '@/features/operational-reviews/board-geometry-correction-workspace';
+import {
+  BoardGeometryCorrectionWorkspace,
+  type PhotoSeriesNavigation,
+} from '@/features/operational-reviews/board-geometry-correction-workspace';
 
 import { LocalReviewerWorkspace } from './local-reviewer-workspace';
 
@@ -18,6 +21,7 @@ export function ReviewerAccessGate({
   gridShadowScope = null,
   gridValidationEnabled = false,
   localScope = null,
+  photoSeries,
   sessionId,
 }: {
   readonly apiBaseUrl: string;
@@ -36,6 +40,7 @@ export function ReviewerAccessGate({
     readonly sourceImageId?: string;
   } | null;
   readonly sessionId: string;
+  readonly photoSeries?: PhotoSeriesNavigation;
 }) {
   const api = useMemo(
     () => createConfiguredAdminApiClient(apiBaseUrl),
@@ -80,6 +85,7 @@ export function ReviewerAccessGate({
             gameId={localScope.gameId}
             importJobId={localScope.importJobId}
             fixedSourceImageId={localScope.sourceImageId}
+            photoSeries={photoSeries}
             reviewAll
           />
         </main>

@@ -1363,6 +1363,67 @@ test('single-photo link scopes the first request and ends after the last save', 
   }
 });
 
+test('series Enter confirms nine distinct positions and finishes the final photo', async () => {
+  window.sessionStorage.clear();
+  const state = {
+    queue: Array.from({ length: 9 }, (_, i) =>
+      reportedBoard({
+        slotId: 's' + i,
+        reviewItemId: 'r' + i,
+        recognizedBoardId: 'b' + i,
+        sequenceNumber: 100 + i,
+        positionIndex: i,
+      }),
+    ),
+  };
+  const { api, calls } = fakeApi(state);
+  api.createImageGridReviewGeometryRevision = async (id) => {
+    calls.save.push(id);
+    return { data: { created: true } };
+  };
+  const root = await render(api, {
+    importJobId: 'j',
+    fixedSourceImageId: 'src',
+    reviewAll: true,
+    photoSeries: { position: 30, total: 30, nextHref: null },
+  });
+  const enter = (options = {}) =>
+    window.dispatchEvent(
+      new dom.window.KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+        ...options,
+      }),
+    );
+  try {
+    await act(async () => enter({ repeat: true }));
+    assert.equal(calls.save.length, 0);
+    await act(async () => button('Pomiń na razie →').click());
+    await settle();
+    for (let i = 1; i < 9; i++) {
+      await loadImageAndPreview();
+      assert.equal(button('Zapisz geometrię i dalej (Enter)').disabled, false);
+      await act(async () => enter());
+      await settle();
+      assert.equal(calls.save.length, i);
+    }
+    assert.match(document.body.textContent, /Zapisano 8 z 9/);
+    assert.doesNotMatch(document.body.textContent, /Koniec serii/);
+    await act(async () => button('Od początku').click());
+    await settle();
+    await loadImageAndPreview();
+    await act(async () => enter());
+    await settle();
+    assert.equal(new Set(calls.save).size, 9);
+    assert.match(document.body.textContent, /Koniec serii/);
+    assert.doesNotMatch(document.body.textContent, /Wróć do listy/);
+  } finally {
+    await act(async () => root.unmount());
+    window.sessionStorage.clear();
+  }
+});
+
 test('single-photo editor refuses a board from another source', async () => {
   const { api, calls } = fakeApi({
     queue: [reportedBoard({ sourceImageId: 'other' })],

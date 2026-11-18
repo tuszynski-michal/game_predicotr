@@ -1227,6 +1227,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - app/board-search-panel/page.tsx: BoardSearchPanelPage
 - app/board-search/page.tsx: BoardSearchSharePage
 - app/geometria-zdjecia/page.tsx: PhotoGeometryPage
+- app/geometria-zdjecia/seria/[name]/[index]/page.tsx: PhotoSeriesPage
 - app/layout.tsx: metadata, RootLayout
 - app/management-api/[...path]/route.ts: GET, POST, PUT
 - app/management/page.tsx: ManagementPage
@@ -1259,7 +1260,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - features/manual-selection/remote-tab-coordinator.ts: RemoteSelectionTabState, RemoteSelectionBroadcastChannel, RemoteSelectionTabCoordinator
 - features/operational-reviews/board-geometry-correction-state.ts: gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels
 - features/operational-reviews/board-geometry-correction-target.ts: BoardGeometryCorrectionView, BoardGeometryCorrectionFact, BoardGeometryCorrectionFailure, BoardGeometryCorrectionTarget, deferredBoardGeometryTarget, ReportedBoardGeometryClient, reportedBoardGeometryTarget, gridAuditBoardGeometryTarget, correctionGeometryQualification, OperationalBoardGeometryClient, OperationalBoardGeometryTarget, operationalBoardGeometryTarget, copyCorners
-- features/operational-reviews/board-geometry-correction-workspace.tsx: BoardGeometryCorrectionClient, BoardGeometryCorrectionWorkspace
+- features/operational-reviews/board-geometry-correction-workspace.tsx: BoardGeometryCorrectionClient, PhotoSeriesNavigation, BoardGeometryCorrectionWorkspace
 - features/operational-reviews/board-lattice-draft-storage.ts: BoardLatticeDraftScope, BoardLatticeDraft, boardLatticeDraftKey, writeBoardLatticeDraft, clearBoardLatticeDraft, readBoardLatticeDraft
 - features/operational-reviews/board-lattice-state.ts: BoardLatticeNodes, boardLatticePayload, parseBoardLattice, regularBoardLattice, transformedBoardLattice, boardLatticeCorners, boardLatticeViewportExtent, boardLatticeTransportCorners, boardLatticeCells, boardLatticeUnavailable, boardLatticeWithoutPixels, boardLatticeQualification, boardLatticePointInSource, translatedBoardLattice
 - features/operational-reviews/board-rejection-actions.ts: BoardRejectionClient, BoardRejectionScope, rejectDeferredSlot, rejectReviewItem

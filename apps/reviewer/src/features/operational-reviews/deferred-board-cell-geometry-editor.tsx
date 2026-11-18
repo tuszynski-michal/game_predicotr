@@ -132,6 +132,7 @@ export function BoardGeometryCorrectionEditor({
   autoSelectFirstCell = false,
   canvasLabel = 'Plansza z edytowalną siatką 5 na 3',
   keyboardEnabled = true,
+  enterToSave = false,
   onConflict,
   onSaved,
   previewWhileSourceLoads = false,
@@ -146,6 +147,7 @@ export function BoardGeometryCorrectionEditor({
   readonly canvasLabel?: string;
   /** False while the editor is mounted but hidden: symbol keys stay inert. */
   readonly keyboardEnabled?: boolean;
+  readonly enterToSave?: boolean;
   readonly onConflict: (message: string) => Promise<void>;
   readonly onSaved: (reviewItemId: string | null) => Promise<void>;
   readonly previewWhileSourceLoads?: boolean;
@@ -940,6 +942,35 @@ export function BoardGeometryCorrectionEditor({
     symbols,
     unknownSymbolShortcut,
   ]);
+
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!enterToSave || !keyboardEnabled) return;
+    function handleEnter(event: KeyboardEvent) {
+      if (
+        event.key !== 'Enter' ||
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        isTextEntryTarget(event.target) ||
+        document.querySelector('dialog[open], [aria-modal="true"]')
+      )
+        return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest('a,select,textarea')
+      )
+        return;
+      if (!saveButtonRef.current || saveButtonRef.current.disabled) return;
+      event.preventDefault();
+      if (!event.repeat) saveButtonRef.current.click();
+    }
+    window.addEventListener('keydown', handleEnter);
+    return () => window.removeEventListener('keydown', handleEnter);
+  }, [enterToSave, keyboardEnabled]);
 
   async function saveGeometry() {
     if (
@@ -1753,9 +1784,15 @@ export function BoardGeometryCorrectionEditor({
             Boolean(draftError)
           }
           onClick={() => void saveGeometry()}
+          ref={saveButtonRef}
+          aria-keyshortcuts={enterToSave ? 'Enter' : undefined}
           type="button"
         >
-          {saving ? 'Zapisywanie…' : saveLabel}
+          {saving
+            ? 'Zapisywanie…'
+            : enterToSave
+              ? `${saveLabel} (Enter)`
+              : saveLabel}
         </button>
       </div>
     </div>

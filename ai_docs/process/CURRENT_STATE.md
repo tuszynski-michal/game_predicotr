@@ -115,6 +115,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1259** — Seria zdjęć w Reviewerze — v1.7.691 — tasks/completed/1259-reviewer-photo-series.md
 - **TASK-1258** — Korekta jednego zdjęcia — v1.7.690 / `a631dcea` — tasks/completed/1258-reviewer-single-photo.md
 - **TASK-1257** — Niezależny pierwszy trening geometrii gry — v1.7.686 / `7c71402d` — tasks/completed/1257-independent-game-grid-training.md
 - **TASK-1256** — Ślepy pilot cięcia siatek Mumii A2 — v1.7.684 / `fda9ecc0` — tasks/completed/1256-mumie-private-grid-pilot.md
@@ -124,4 +125,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1249** — Galeria podejrzanych siatek Mumii A2 — v1.7.675 / `43e14c4f` — tasks/completed/1249-mumie-suspicious-grid-gallery.md
 - **TASK-1251** — Ocena proporcji siatek Mumii A2 — v1.7.674 / `54568609` — tasks/completed/1251-mumie-grid-proportions.md
 - **TASK-1246** — Nowy model i oba stagingi — v1.7.672 / `847967c9` — tasks/completed/1246-staging-refresh.md
-- **TASK-1245** — Nadzór postępu treningu — v1.7.667 / `c2b73c98` — tasks/completed/1245-grid-progress-supervision.md

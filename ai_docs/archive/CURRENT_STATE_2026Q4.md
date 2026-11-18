@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1259 — Seria zdjęć w Reviewerze (done)
+
+- Plik: `tasks/completed/1259-reviewer-photo-series.md`.
+- Commit: **v1.7.691** (hash dopisuje kolejny commit).
+- Enter i kliknięcie zapisują planszę; po 9 różnych potwierdzeniach następuje przejście do kolejnego zdjęcia. Interakcje 43/43 i kontrakty 9/9 PASS.
+
 ### TASK-1258 — Korekta jednego zdjęcia (done)
 
 - Plik: `tasks/completed/1258-reviewer-single-photo.md`.

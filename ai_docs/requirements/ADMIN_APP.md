@@ -1270,6 +1270,13 @@ Lokalny Reviewer na porcie 3001 otwiera też pojedyncze zdjęcie przez
 wczytanie, zapis, ponowienie i nawigacja dotyczą wyłącznie plansz tego zdjęcia.
 Po ostatnim zapisie operator wraca do listy zdjęć po następny link.
 
+Lokalna seria `/geometria-zdjecia/seria/<nazwa>/<pozycja>` otwiera kolejne
+zdjęcia w kolejności z pliku `artifacts/reviewer-photo-series/<nazwa>.json`
+(`gameId` i tablica `photos` z parami `importJobId`, `sourceImageId`).
+Kliknięcie zapisu albo Enter potwierdza jedną planszę. Po dziewięciu różnych
+potwierdzonych zapisach zdjęcia Reviewer przechodzi do następnego lub kończy
+serię. Pominięcie planszy ani błąd zapisu nie zaliczają pozycji.
+
 **TASK-0840 (Poprawki z audytu siatek):** osobna kolejka lokalnego Reviewera
 pod `http://127.0.0.1:3001/?mode=local&gameId=<gameId>&queue=grid-audit`
 (tylko host pętli zwrotnej na porcie 3001, bez kodu i bez tunelu, zakres:

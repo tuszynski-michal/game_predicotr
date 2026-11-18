@@ -84,12 +84,19 @@ export type BoardGeometryCorrectionClient = CorrectionGridProposalsClient &
  * on; there is no board or photo approval here. Symbols are approved only
  * for the cells the operator assigns on the preview (D-488).
  */
+export type PhotoSeriesNavigation = {
+  position: number;
+  total: number;
+  nextHref: string | null;
+};
+
 export function BoardGeometryCorrectionWorkspace({
   api,
   apiBaseUrl,
   gameId,
   importJobId,
   fixedSourceImageId,
+  photoSeries,
   keyboardEnabled = true,
   reviewAll = false,
   symbolReinferenceApi,
@@ -100,6 +107,7 @@ export function BoardGeometryCorrectionWorkspace({
   /** Optional: without it the queue spans the whole game (TASK-0962). */
   readonly importJobId?: string | undefined;
   readonly fixedSourceImageId?: string;
+  readonly photoSeries?: PhotoSeriesNavigation | undefined;
   /** False while a sibling tab is shown; keeps the editor mounted. */
   readonly keyboardEnabled?: boolean;
   /** Explicit human check of ordinary boards, using the same guarded editor. */
@@ -108,6 +116,8 @@ export function BoardGeometryCorrectionWorkspace({
   readonly symbolReinferenceApi?: CorrectedGridSymbolReinferenceClient;
 }) {
   const [proposalEditing, setProposalEditing] = useState(false);
+  const acceptedPositions = useRef(new Set<number>());
+  const [acceptedCount, setAcceptedCount] = useState(0);
   const [selectedSource, setSourceFilter] = useState<string | null>(null);
   const sourceFilter = fixedSourceImageId ?? selectedSource;
   const [page, setPage] = useState<ImageGridReviewPageResponse | null>(null);
@@ -369,6 +379,46 @@ export function BoardGeometryCorrectionWorkspace({
       setHistoryRefresh((value) => value + 1);
       if (reviewAll && page !== null) {
         const saved = page.items[0];
+        if (
+          photoSeries &&
+          fixedSourceImageId &&
+          saved &&
+          reviewItemId !== null
+        ) {
+          const storageKey = `geometry-series-accepted:${window.location.pathname}:${gameId}:${importJobId}:${fixedSourceImageId}`;
+          const positions = acceptedPositions.current;
+          positions.add(saved.positionIndex);
+          try {
+            const previous: unknown = JSON.parse(
+              window.sessionStorage.getItem(storageKey) ?? '[]',
+            );
+            if (Array.isArray(previous)) {
+              for (const index of previous) {
+                if (Number.isInteger(index) && index >= 0 && index < 9)
+                  positions.add(index);
+              }
+            }
+            window.sessionStorage.setItem(
+              storageKey,
+              JSON.stringify([...positions]),
+            );
+          } catch {
+            /* The current tab still tracks confirmed saves in memory. */
+          }
+          setAcceptedCount(positions.size);
+          if (positions.size === 9) {
+            setPage({
+              ...page,
+              items: [],
+              nextCursor: null,
+              previousCursor: null,
+            });
+            setReachedReviewEnd(true);
+            if (photoSeries.nextHref)
+              window.location.assign(photoSeries.nextHref);
+            return;
+          }
+        }
         const nextHistory = [
           ...history,
           { page, afterCursor: currentPageCursor },
@@ -401,6 +451,10 @@ export function BoardGeometryCorrectionWorkspace({
       loadPage,
       page,
       reviewAll,
+      photoSeries,
+      gameId,
+      importJobId,
+      fixedSourceImageId,
       scopeKey,
       target?.key,
       history,
@@ -502,7 +556,11 @@ export function BoardGeometryCorrectionWorkspace({
     >
       <header className="deferredGeometryHeader">
         <div>
-          <span className="eyebrow">Jedna plansza naraz</span>
+          <span className="eyebrow">
+            {photoSeries
+              ? `Zdjęcie ${photoSeries.position} z ${photoSeries.total}`
+              : 'Jedna plansza naraz'}
+          </span>
           <h2>
             {fixedSourceImageId
               ? 'Geometria wybranego zdjęcia'
@@ -556,21 +614,34 @@ export function BoardGeometryCorrectionWorkspace({
         <div className="deferredGeometryComplete">
           <h3>
             {reviewAll && reachedReviewEnd
-              ? 'Koniec zakresu'
+              ? photoSeries && acceptedCount === 9 && !photoSeries.nextHref
+                ? 'Koniec serii'
+                : 'Koniec zakresu'
               : reviewAll
                 ? 'Brak plansz w tym zakresie'
                 : 'Brak plansz do korekty'}
           </h3>
           <p>
             {reviewAll && reachedReviewEnd
-              ? fixedSourceImageId
-                ? 'Zapisano ostatnią planszę tego zdjęcia. Wróć do listy i otwórz kolejne zdjęcie.'
-                : 'Zapisano ostatnią planszę w tym zakresie. Możesz wrócić do początku.'
+              ? photoSeries
+                ? acceptedCount === 9
+                  ? 'Zapisano wszystkie 9 plansz tego zdjęcia.'
+                  : `Zapisano ${acceptedCount} z 9 plansz. Wróć do pominiętych plansz tego zdjęcia.`
+                : fixedSourceImageId
+                  ? 'Zapisano ostatnią planszę tego zdjęcia. Wróć do listy i otwórz kolejne zdjęcie.'
+                  : 'Zapisano ostatnią planszę w tym zakresie. Możesz wrócić do początku.'
               : reviewAll
                 ? 'Wybierz istniejący import z opisanymi źródłami.'
                 : 'W tym zakresie nie ma plansz odrzuconych przez algorytm ani zgłoszonych jako „Zła siatka”.'}
           </p>
-          {reviewAll && reachedReviewEnd ? (
+          {reachedReviewEnd && acceptedCount === 9 && photoSeries?.nextHref && (
+            <a className="primaryButton" href={photoSeries.nextHref}>
+              Następne zdjęcie
+            </a>
+          )}
+          {reviewAll &&
+          reachedReviewEnd &&
+          !(photoSeries && acceptedCount === 9) ? (
             <button
               className="secondaryButton"
               type="button"
@@ -640,6 +711,7 @@ export function BoardGeometryCorrectionWorkspace({
             }}
           />
           <BoardGeometryCorrectionEditor
+            enterToSave={Boolean(photoSeries)}
             viewportControls
             key={target.key}
             keyboardEnabled={keyboardEnabled && !proposalEditing}

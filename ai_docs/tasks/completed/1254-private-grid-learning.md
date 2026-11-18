@@ -45,7 +45,7 @@ Nowy i historyczny klient, przygotowanie i ponowienie, zmiana defaultu i przypis
 
 ## Outcome
 
-Commit: v1.7.680 (hash dopisuje kolejny commit).
+Commit: v1.7.680 / `78d2c5134593d8e8c337c862d04302c9d027d83f`.
 
 ### Changed
 

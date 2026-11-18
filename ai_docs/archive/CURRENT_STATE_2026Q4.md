@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1254 — Uczenie z przypisanej wersji prywatnej gry (done)
 
 - Plik: tasks/completed/1254-private-grid-learning.md.
-- Commit: **v1.7.680** (hash dopisuje kolejny commit).
+- Commit: **v1.7.680 / `78d2c5134593d8e8c337c862d04302c9d027d83f`** (hash dopisuje kolejny commit).
 - Przygotowanie w tle, trwały pin gry/bazy/rodziny, własna kohorta, trening i ocena z kontrolą SQL w 0193, Admin i klient.
 - Izolowany PostgreSQL 18 i testy pionu zaliczone. Mypy ograniczony do zmienionych modułów bez pełnego grafu; szczegóły w Outcome.
 

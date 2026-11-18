@@ -27,14 +27,18 @@ export default async function PhotoSeriesPage({
 
   // npm runs this workspace with apps/reviewer as its working directory.
   const root = path.resolve(
-    process.cwd(),
+    /* turbopackIgnore: true */ process.cwd(),
     '../..',
     process.env.GAME_PREDICTOR_ARTIFACT_ROOT || 'artifacts',
   );
-  const filename = path.join(root, 'reviewer-photo-series', name + '.json');
+  const filename = path.join(
+    /* turbopackIgnore: true */ root,
+    'reviewer-photo-series',
+    name + '.json',
+  );
   let contents: string;
   try {
-    contents = await readFile(filename, 'utf8');
+    contents = await readFile(/* turbopackIgnore: true */ filename, 'utf8');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') notFound();
     throw error;

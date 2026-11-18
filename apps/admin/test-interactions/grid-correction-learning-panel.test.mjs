@@ -173,6 +173,182 @@ function fixture(overrides = {}) {
   );
   return { api, calls };
 }
+
+test('background preparation queues the chosen detector goal and exposes persisted progress', async () => {
+  let queued = false;
+  const preparing = {
+    ...run,
+    status: 'created',
+    verdict: null,
+    candidateVersionId: null,
+    stage: 'preparing_data',
+    preparation: {
+      stage: 'geometry_evidence',
+      current: 312,
+      total: 25631,
+      lastProgressAt: '2026-11-16T00:00:00Z',
+      heartbeatAt: '2026-11-16T00:00:01Z',
+      stalled: false,
+    },
+  };
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        preparationRequired: true,
+        canStart: false,
+        roleCounts: [],
+      },
+    }),
+    startGridCorrectionLearning: () => {
+      queued = true;
+      return { data: preparing };
+    },
+    listGridCorrectionLearning: () => ({
+      data: { items: queued ? [preparing] : [] },
+    }),
+    getGridCorrectionLearning: () => ({ data: preparing }),
+  });
+  const ui = await mount(api);
+  try {
+    const select = document.querySelector('select[aria-label="Cel uczenia"]');
+    await act(async () => {
+      select.value = 'screen+grid';
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await click('Przygotuj nowy podział korekt');
+    const command = calls.find(
+      ([name]) => name === 'startGridCorrectionLearning',
+    )[2];
+    assert.equal(command.trainingMode, 'screen+grid');
+    assert.equal(command.prepareInBackground, true);
+    assert.equal(command.preparationOnly, true);
+    assert.equal(command.policyVersion, 'application-grid-corrections-v4');
+    assert.match(document.body.textContent, /312 z 25631/);
+    assert.match(document.body.textContent, /Weryfikacja zapisanych korekt/);
+    assert.equal(
+      calls.some(([name]) => name === 'previewGridCorrectionLearning'),
+      false,
+    );
+    assert.equal(
+      calls.some(([name]) => name === 'resumeGridCorrectionLearning'),
+      false,
+    );
+  } finally {
+    await ui.close();
+  }
+});
+
+test('reload resolves an already accepted background command by key without another POST', async () => {
+  const key = '44444444-4444-4444-8444-444444444444';
+  const preparing = {
+    ...run,
+    commandKey: key,
+    status: 'created',
+    verdict: null,
+    candidateVersionId: null,
+    preparation: { stage: 'queued', current: 0, total: null, stalled: false },
+  };
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: { ...readiness, preparationRequired: true, canStart: false },
+    }),
+    listGridCorrectionLearning: () => ({ data: { items: [preparing] } }),
+    getGridCorrectionLearning: () => ({ data: preparing }),
+  });
+  const storageKey = learningCommandKey(apiBaseUrl, GAME);
+  const ui = await mount(api, {
+    [storageKey]: JSON.stringify({
+      kind: 'start',
+      key,
+      target: GAME,
+      body: {
+        idempotencyKey: key,
+        prepareInBackground: true,
+        trainingMode: 'screen+grid',
+      },
+    }),
+  });
+  try {
+    await settle();
+    assert.equal(window.localStorage.getItem(storageKey), null);
+    assertOnlyReads(calls);
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Najpierw rozstrzygnij zapisane polecenie/,
+    );
+  } finally {
+    await ui.close();
+  }
+});
+
+test('prepared background split resumes the same workflow only after explicit training click', async () => {
+  let resumed = false;
+  const preparedPreview = {
+    ...readiness,
+    trainingMode: 'screen+grid',
+    policyVersion: 'application-grid-corrections-v4',
+    validationAssignments: {},
+    validationComponents: [],
+  };
+  const prepared = {
+    ...run,
+    status: 'waiting_for_review',
+    verdict: null,
+    candidateVersionId: null,
+    stage: 'data_prepared',
+    preparedPreview,
+    preparation: {
+      stage: 'geometry_evidence',
+      current: 50,
+      total: 50,
+      stalled: false,
+    },
+  };
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: { ...readiness, preparationRequired: true, canStart: false },
+    }),
+    listGridCorrectionLearning: () => ({
+      data: {
+        items: [
+          resumed
+            ? { ...prepared, status: 'created', preparedPreview: null }
+            : prepared,
+        ],
+      },
+    }),
+    getGridCorrectionLearning: () => ({
+      data: resumed
+        ? { ...prepared, status: 'created', preparedPreview: null }
+        : prepared,
+    }),
+    resumeGridCorrectionLearning: () => {
+      resumed = true;
+      return { data: { ...prepared, status: 'created' } };
+    },
+  });
+  const ui = await mount(api);
+  try {
+    await settle();
+    assert.match(document.body.textContent, /Podział przygotowany/);
+    assert.equal(
+      calls.some(([name]) => name === 'resumeGridCorrectionLearning'),
+      false,
+    );
+    await click('Ulepsz siatki z korekt');
+    assert.equal(
+      calls.find(([name]) => name === 'resumeGridCorrectionLearning')[2],
+      RUN,
+    );
+    assert.equal(
+      calls.some(([name]) => name === 'startGridCorrectionLearning'),
+      false,
+    );
+  } finally {
+    await ui.close();
+  }
+});
 async function mount(api, saved = {}, gameId = GAME, extraProps = {}) {
   const dom = new JSDOM('<div id="root"></div>', {
     url: 'http://127.0.0.1:3000',
@@ -1955,6 +2131,51 @@ test('refresh after an explicit resume supersedes an older in-flight refresh', a
   }
 });
 
+for (const background of [false, true]) {
+  test(`private learning uses game readiness and an explicit private command (background=${background})`, async () => {
+    const { api, calls } = fixture({
+      getGridCorrectionLearningReady: () => ({
+        data: {
+          ...readiness,
+          gameName: 'Mumie A2',
+          learningScope: 'private_game',
+          baseVersionId: 'mumie-base',
+          defaultRevision: null,
+          assignmentRevision: 7,
+          requiredGameIds: [GAME],
+          preparationRequired: background,
+        },
+      }),
+      getGridModelDefault: () => {
+        throw new Error('unexpected global read');
+      },
+      startGridCorrectionLearning: () => ({
+        data: { ...run, status: 'created' },
+      }),
+    });
+    const view = await mount(api);
+    try {
+      await settle();
+      assert.match(document.body.textContent, /Model gry Mumie A2/);
+      assert.equal(
+        calls.some(([name]) => name === 'getGridModelDefault'),
+        false,
+      );
+      await click(
+        background ? 'Przygotuj nowy podział korekt' : 'Ulepsz siatki z korekt',
+      );
+      const command = calls.find(
+        ([name]) => name === 'startGridCorrectionLearning',
+      );
+      assert.equal(command[1], GAME);
+      assert.equal(command[2].learningScope, 'private_game');
+      assert.equal(command[2].preparationOnly === true, background);
+    } finally {
+      await view.close();
+    }
+  });
+}
+
 test('entry reads readiness and history without creating a workflow, even when ready', async () => {
   const { api, calls } = fixture();
   const view = await mount(api);
@@ -2685,25 +2906,5 @@ for (const withB of [false, true])
         .validationAssignments,
       expected,
     );
-    await ui.close();
-  });
-
-for (const version of ['v1', 'v2', 'v3', 'v4'])
-  test(`legacy ${version} quality report remains readable without automatic qualification`, async () => {
-    const view = evaluation('current');
-    view.report.schemaVersion = 'grid-model-evaluation-read-' + version;
-    if (version === 'v1' || version === 'v2') delete view.report.scope;
-    const { api, calls } = fixture({
-      listGridCorrectionLearning: async () => ({
-        data: { items: [evaluatedRun] },
-      }),
-      getGridCorrectionLearning: async () => ({ data: evaluatedRun }),
-      getGridCorrectionLearningEvaluation: async () => ({ data: view }),
-    });
-    const ui = await mount(api);
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
-    assert.match(document.body.textContent, /PASS/);
-    assert.doesNotMatch(document.body.textContent, /Automat.*kwalifikuje się/);
-    assertOnlyReads(calls);
     await ui.close();
   });

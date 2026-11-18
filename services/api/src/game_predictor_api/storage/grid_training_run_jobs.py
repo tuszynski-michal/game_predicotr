@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select, text
@@ -12,6 +14,13 @@ from game_predictor_api.storage.models import JobModel
 
 
 class SqlAlchemyGridTrainingRunJobs(SqlAlchemyJobRepository):
+    def require_learning_scope(self, game: UUID, pin: Mapping[str, Any] | None) -> None:
+        from .grid_model_registry import SqlAlchemyGridModelRegistryRepository
+        from .grid_private_learning import require_learning_pin
+
+        registry = SqlAlchemyGridModelRegistryRepository(self._session)
+        require_learning_pin(registry, game, pin)
+
     def lock_idempotency(self, key: UUID) -> None:
         """Serialize every create with one key until the request transaction ends."""
         self._session.execute(

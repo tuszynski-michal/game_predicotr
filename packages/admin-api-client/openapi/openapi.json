@@ -15655,6 +15655,11 @@
             "title": "Actor",
             "type": "string"
           },
+          "backgroundPreparation": {
+            "default": false,
+            "title": "Backgroundpreparation",
+            "type": "boolean"
+          },
           "command": {
             "additionalProperties": true,
             "title": "Command",
@@ -15671,9 +15676,16 @@
             "type": "string"
           },
           "pins": {
-            "additionalProperties": true,
-            "title": "Pins",
-            "type": "object"
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pins"
           },
           "preview": {
             "additionalProperties": true,
@@ -15692,7 +15704,6 @@
           "idempotencyKey",
           "command",
           "preview",
-          "pins",
           "actor"
         ],
         "title": "GridCorrectionLearningJobPayload",
@@ -15718,6 +15729,18 @@
       "GridCorrectionLearningPreview": {
         "additionalProperties": false,
         "properties": {
+          "assignmentRevision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignmentrevision"
+          },
           "baseManifestSha256": {
             "anyOf": [
               {
@@ -15839,6 +15862,17 @@
             "title": "Gameid",
             "type": "string"
           },
+          "gameName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gamename"
+          },
           "historicalCohorts": {
             "items": {
               "$ref": "#/components/schemas/GridModelEvaluationCohortPin"
@@ -15863,6 +15897,15 @@
                 "type": "null"
               }
             ]
+          },
+          "learningScope": {
+            "default": "shared",
+            "enum": [
+              "private_game",
+              "shared"
+            ],
+            "title": "Learningscope",
+            "type": "string"
           },
           "limitations": {
             "items": {
@@ -15895,6 +15938,11 @@
               }
             ],
             "title": "Policyversion"
+          },
+          "preparationRequired": {
+            "default": false,
+            "title": "Preparationrequired",
+            "type": "boolean"
           },
           "presetFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
@@ -15968,6 +16016,18 @@
             },
             "title": "Rolecounts",
             "type": "array"
+          },
+          "targetFamilyId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetfamilyid"
           },
           "testSample": {
             "anyOf": [
@@ -16121,6 +16181,21 @@
             "maxItems": 100,
             "title": "Importjobids",
             "type": "array"
+          },
+          "learningScope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "private_game",
+                  "shared"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learningscope"
           },
           "policyVersion": {
             "anyOf": [
@@ -16313,6 +16388,21 @@
             "title": "Importjobids",
             "type": "array"
           },
+          "learningScope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "private_game",
+                  "shared"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learningscope"
+          },
           "policyVersion": {
             "anyOf": [
               {
@@ -16325,10 +16415,27 @@
             ],
             "title": "Policyversion"
           },
+          "preparationOnly": {
+            "default": false,
+            "title": "Preparationonly",
+            "type": "boolean"
+          },
+          "prepareInBackground": {
+            "default": false,
+            "title": "Prepareinbackground",
+            "type": "boolean"
+          },
           "previewSha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Previewsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previewsha256"
           },
           "rescueVariant": {
             "anyOf": [
@@ -16373,8 +16480,7 @@
           }
         },
         "required": [
-          "idempotencyKey",
-          "previewSha256"
+          "idempotencyKey"
         ],
         "title": "GridCorrectionLearningStartCommand",
         "type": "object"
@@ -16382,6 +16488,18 @@
       "GridCorrectionLearningView": {
         "additionalProperties": false,
         "properties": {
+          "assignmentRevision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignmentrevision"
+          },
           "baseVersionId": {
             "format": "uuid",
             "title": "Baseversionid",
@@ -16425,6 +16543,18 @@
             ],
             "title": "Cohortid"
           },
+          "commandKey": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commandkey"
+          },
           "contentExperiment": {
             "anyOf": [
               {
@@ -16454,9 +16584,16 @@
             "type": "string"
           },
           "defaultRevision": {
-            "minimum": 0.0,
-            "title": "Defaultrevision",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultrevision"
           },
           "errorCode": {
             "anyOf": [
@@ -16493,10 +16630,50 @@
             "title": "Gameid",
             "type": "string"
           },
+          "gameName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gamename"
+          },
           "learningId": {
             "format": "uuid",
             "title": "Learningid",
             "type": "string"
+          },
+          "learningScope": {
+            "default": "shared",
+            "enum": [
+              "private_game",
+              "shared"
+            ],
+            "title": "Learningscope",
+            "type": "string"
+          },
+          "preparation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridLearningPreparationProgress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preparedPreview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionLearningPreview"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "previewSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -16536,6 +16713,18 @@
           },
           "status": {
             "$ref": "#/components/schemas/JobStatus"
+          },
+          "targetFamilyId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetfamilyid"
           },
           "trainingRunId": {
             "anyOf": [
@@ -17753,6 +17942,65 @@
         "title": "GridLearningMaterialExclusion",
         "type": "object"
       },
+      "GridLearningPreparationProgress": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "minimum": 0.0,
+            "title": "Current",
+            "type": "integer"
+          },
+          "heartbeatAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeatat"
+          },
+          "lastProgressAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastprogressat"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "stalled": {
+            "default": false,
+            "title": "Stalled",
+            "type": "boolean"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "stage",
+          "current"
+        ],
+        "title": "GridLearningPreparationProgress",
+        "type": "object"
+      },
       "GridLearningRoleMaterial": {
         "additionalProperties": false,
         "properties": {
@@ -18682,6 +18930,16 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Manifestsha256",
             "type": "string"
+          },
+          "privateLearning": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrivateGridLearningPin"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "schemaVersion": {
             "const": 1,
@@ -22862,6 +23120,16 @@
             "minLength": 1,
             "title": "Presetid",
             "type": "string"
+          },
+          "privateLearning": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrivateGridLearningPin"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "rescueRecipe": {
             "anyOf": [
@@ -37015,6 +37283,45 @@
           "boardCellProcessing"
         ],
         "title": "PinnedManagedImageReprocessJobPayload",
+        "type": "object"
+      },
+      "PrivateGridLearningPin": {
+        "additionalProperties": false,
+        "properties": {
+          "assignmentRevision": {
+            "minimum": 1.0,
+            "title": "Assignmentrevision",
+            "type": "integer"
+          },
+          "baseManifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Basemanifestsha256",
+            "type": "string"
+          },
+          "baseVersionId": {
+            "format": "uuid",
+            "title": "Baseversionid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "targetFamilyId": {
+            "format": "uuid",
+            "title": "Targetfamilyid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "assignmentRevision",
+          "targetFamilyId",
+          "baseVersionId",
+          "baseManifestSha256"
+        ],
+        "title": "PrivateGridLearningPin",
         "type": "object"
       },
       "ProposalAcceptCommand": {
@@ -57894,6 +58201,16 @@
             "schema": {
               "default": false,
               "title": "Recommendtrainingmode",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lightweight",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Lightweight",
               "type": "boolean"
             }
           }

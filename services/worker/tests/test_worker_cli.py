@@ -40,6 +40,9 @@ class FakeWorker:
         poll_interval_seconds: float,
     ) -> None:
         self.run_forever_calls.append(poll_interval_seconds)
+        assert not should_stop()
+        FakeLaneHeartbeat.instances[-1].fenced = True
+        assert should_stop()
 
 
 class FakeLaneHeartbeat:
@@ -49,6 +52,7 @@ class FakeLaneHeartbeat:
         self.options = kwargs
         self.entered = False
         self.exited = False
+        self.fenced = False
         self.__class__.instances.append(self)
 
     def __enter__(self) -> FakeLaneHeartbeat:
@@ -91,6 +95,7 @@ def _replace_dependencies(
             v7_selection_ocr_model_root=Path(".runtime/ocr").resolve(),
             v7_pilot_acceptance_scope=None,
             grid_shadow_enabled=False,
+            recording_provider_index_sha256=None,
         ),
     )
     monkeypatch.setattr(cli, "create_database_engine", lambda _settings: engine)
@@ -135,9 +140,7 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert callable(FakeWorker.instances[0].options["auxiliary_work"])
     validation_handler = FakeWorker.instances[0].handlers[JobType.VALIDATE]
     assert validation_handler._page_geometry_handler._registration_workers == 7  # noqa: SLF001
-    assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 7
-    assert FakeLaneHeartbeat.instances[0].entered
-    assert FakeLaneHeartbeat.instances[0].exited
+    assert FakeLaneHeartbeat.instances == []
     assert engine.disposed is True
     # TASK-0795: only VACUUM and ANALYZE steps get the schema-owner engine.
     compaction = FakeWorker.instances[0].handlers[JobType.STORAGE_PIPELINE_COMPACTION]
@@ -213,7 +216,7 @@ def test_cli_runs_image_selection_in_its_dedicated_lane(
         worker.handlers[JobType.SEMI_AUTOMATIC_IMAGE_SELECTION],
         SemiAutomaticImageSelectionJobHandler,
     )
-    assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 5
+    assert FakeLaneHeartbeat.instances == []
     assert engine.disposed is True
 
 
@@ -240,7 +243,7 @@ def test_cli_respects_explicit_image_selection_thread_budget(
     selection_handler = FakeWorker.instances[0].handlers[JobType.IMAGE_SELECTION]
     assert selection_handler._scan_workers == 3  # noqa: SLF001
     assert selection_handler._verification_workers == 1  # noqa: SLF001
-    assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 4
+    assert FakeLaneHeartbeat.instances == []
     assert engine.disposed is True
 
 
@@ -264,4 +267,8 @@ def test_cli_supports_continuous_polling(
     )
 
     assert FakeWorker.instances[0].run_forever_calls == [0.25]
+    assert len(FakeLaneHeartbeat.instances) == 1
+    assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 7
+    assert FakeLaneHeartbeat.instances[0].entered
+    assert FakeLaneHeartbeat.instances[0].exited
     assert engine.disposed is True

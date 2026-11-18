@@ -637,3 +637,9 @@ A2 label dopisuje `symbol_readability_decisions` w tej samej transakcji co etyki
 B1 rejestruje zależności kohort symboli/geometrii, aktywnych zadań, aktywacji modeli, wydań i oczekujących geometrii. Bez zmian historycznych modeli i zbiorów. Zakres B2a obejmuje także zintegrowane moduły grid correction training: population/prepare/validate, photo-only register_cohort_use, freeze/currentness oraz workflow/recovery. Strażnik retencji musi objąć `browser_staging_retention_repository.discard_unused` i `source_crop.delete_original_if_still_eligible`, zanim nastąpią skutki plikowe.
 
 Poprawka P1 audytu TASK-1127: każdy wpis ledgeru przed nadpisaniem A2 zachowuje w immutable snapshot poprzednią rozstrzygającą ocenę legacy (run/cell/identity/revision/state). Ten dowód nie otrzymuje nowego ordinalu ludzkiej decyzji. Gdy brak nowej jawnej decisive oceny dla pikseli, kwalifikacja liczy zgodność wszystkich zachowanych i nadal bieżących dowodów legacy; pending/skipped nie usuwają konfliktu. Nowa jawna readable/unreadable rozstrzyga; zmieniona tożsamość wyklucza stare dowody.
+
+## Prywatne uczenie korekt — TASK-1254
+
+Polecenie utrwala grę, rewizję przypisania, rodzinę docelową, bazę i SHA jej manifestu w `pins.privateLearning`. Trening i ocena przenoszą te wartości w `private_learning`. Pierwsza kohorta ma rodzinę docelową i osobny manifest wspólnej bazy. Weryfikacja rodowodu korzysta z istniejącej historii rodziny. Zamrożony manifest zawiera podział ze źródłami i rewizjami etykiet, tryb, dowód gotowości detektora oraz kontrakt `full-cell-v2`.
+
+Migracja 0193 sprawdza zapis poleceń, kandydata i raportu również w SQL. Identyfikator raportu odpowiada UUIDv5 jego zadania oceny. Odczyt historii sprawdza pierwotne dowody. Przyjęcie polecenia i zmiana przypisania używają blokady rejestru. Wznowienie przygotowania sprawdza SHA artefaktu. Starsze polecenie bez potwierdzenia prywatnego zakresu dostaje `GRID_LEARNING_PRIVATE_SCOPE_REQUIRED`.

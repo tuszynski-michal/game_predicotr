@@ -2,6 +2,69 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAdminApiClient } from '../src/index.ts';
 
+test('lightweight readiness is opt-in and legacy requests keep an empty query', async () => {
+  const calls = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      calls.push({
+        method: request.method,
+        query: Object.fromEntries(new URL(request.url).searchParams),
+      });
+      return Response.json({ preparationRequired: true, canStart: false });
+    },
+  });
+  const game = '11111111-1111-4111-8111-111111111111';
+  const ready = await client.getGridCorrectionLearningReady(game, {
+    lightweight: true,
+    recommendTrainingMode: true,
+  });
+  await client.getGridCorrectionLearningReady(game);
+  assert.equal(ready.data.preparationRequired, true);
+  assert.equal(ready.data.canStart, false);
+  assert.deepEqual(calls, [
+    {
+      method: 'GET',
+      query: { lightweight: 'true', recommendTrainingMode: 'true' },
+    },
+    { method: 'GET', query: {} },
+  ]);
+});
+
+test('background preparation retry preserves the exact command without a preview hash', async () => {
+  const calls = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      calls.push({
+        method: request.method,
+        body: JSON.parse(await request.text()),
+      });
+      return Response.json({ learningId: game, commandKey: game });
+    },
+  });
+  const game = '11111111-1111-4111-8111-111111111111';
+  const command = {
+    idempotencyKey: game,
+    learningScope: 'private_game',
+    prepareInBackground: true,
+    preparationOnly: true,
+    trainingMode: 'screen+grid',
+    importJobIds: [],
+    exclusions: [],
+  };
+  await client.startGridCorrectionLearning(game, command);
+  await client.startGridCorrectionLearning(
+    game,
+    JSON.parse(JSON.stringify(command)),
+  );
+  assert.deepEqual(calls, [
+    { method: 'POST', body: command },
+    { method: 'POST', body: command },
+  ]);
+  assert.equal(Object.hasOwn(calls[0].body, 'previewSha256'), false);
+});
+
 test('blocked readiness preserves material counts and exclusions through the public wrapper', async () => {
   const calls = [];
   const material = {

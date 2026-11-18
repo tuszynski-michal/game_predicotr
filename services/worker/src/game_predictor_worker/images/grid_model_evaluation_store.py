@@ -38,6 +38,9 @@ class SqlGridModelEvaluationStore:
         self.artifact_root = artifact_root
         self._cohorts = SqlGridTrainingStore(session_factory, engine, artifact_root)
 
+    def require_private_pin(self, game: UUID, pin: Mapping[str, Any]) -> None:
+        self._cohorts.private_family_descriptor(game, pin)
+
     def catalogue(
         self, version_id: UUID, base_version_id: UUID
     ) -> tuple[dict[str, Any], dict[str, Any], str]:

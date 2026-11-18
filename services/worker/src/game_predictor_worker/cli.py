@@ -637,7 +637,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
         store,
         handlers,
         worker_id=options.worker_id,
-        worker_version=f"{WORKER_VERSION}-{options.lane}",
+        worker_version=f"{WORKER_VERSION}-{options.lane}-grid-preparation-v1",
         execution_slot=execution_slot,
         lease_duration=timedelta(seconds=options.lease_seconds),
         auxiliary_work=(
@@ -650,26 +650,28 @@ def main(arguments: Sequence[str] | None = None) -> int:
             else None
         ),
     )
-    lane_heartbeat = WorkerLaneHeartbeat(
-        SqlAlchemyWorkerLaneRepository(session_factory),
-        lane=runtime_lane,
-        worker_id=options.worker_id,
-        worker_version=f"{WORKER_VERSION}-{options.lane}",
-        process_id=os.getpid(),
-        thread_budget=thread_budget,
-        instance_token=options.lane_instance_token,
-    )
     try:
-        with lane_heartbeat:
-            if options.poll:
+        if options.poll:
+            # A one-shot claim must not replace the persistent lane owner.
+            # Doing so fences its polling process and leaves the lane stopped
+            # as soon as the short-lived invocation exits.
+            with WorkerLaneHeartbeat(
+                SqlAlchemyWorkerLaneRepository(session_factory),
+                lane=runtime_lane,
+                worker_id=options.worker_id,
+                worker_version=f"{WORKER_VERSION}-{options.lane}-grid-preparation-v1",
+                process_id=os.getpid(),
+                thread_budget=thread_budget,
+                instance_token=options.lane_instance_token,
+            ) as lane_heartbeat:
                 worker.run_forever(
-                    should_stop=lambda: False,
+                    should_stop=lambda: lane_heartbeat.fenced,
                     poll_interval_seconds=options.poll_interval,
                 )
                 return 0
-            result = worker.run_once()
-            print(result.value)
-            return 0
+        result = worker.run_once()
+        print(result.value)
+        return 0
     except KeyboardInterrupt:
         return 130
     finally:

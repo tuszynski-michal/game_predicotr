@@ -8606,6 +8606,10 @@ export type GridCorrectionLearningJobPayload = {
    */
   actor: string;
   /**
+   * Backgroundpreparation
+   */
+  backgroundPreparation?: boolean;
+  /**
    * Command
    */
   command: {
@@ -8622,9 +8626,9 @@ export type GridCorrectionLearningJobPayload = {
   /**
    * Pins
    */
-  pins: {
+  pins?: {
     [key: string]: unknown;
-  };
+  } | null;
   /**
    * Preview
    */
@@ -8651,6 +8655,10 @@ export type GridCorrectionLearningList = {
  * GridCorrectionLearningPreview
  */
 export type GridCorrectionLearningPreview = {
+  /**
+   * Assignmentrevision
+   */
+  assignmentRevision?: number | null;
   /**
    * Basemanifestsha256
    */
@@ -8696,6 +8704,10 @@ export type GridCorrectionLearningPreview = {
    */
   gameId: string;
   /**
+   * Gamename
+   */
+  gameName?: string | null;
+  /**
    * Historicalcohorts
    */
   historicalCohorts: Array<GridModelEvaluationCohortPin>;
@@ -8704,6 +8716,10 @@ export type GridCorrectionLearningPreview = {
    */
   importJobIds: Array<string>;
   learningMaterial?: GridLearningMaterial | null;
+  /**
+   * Learningscope
+   */
+  learningScope?: 'private_game' | 'shared';
   /**
    * Limitations
    */
@@ -8720,6 +8736,10 @@ export type GridCorrectionLearningPreview = {
    * Policyversion
    */
   policyVersion?: 'application-grid-corrections-v4' | null;
+  /**
+   * Preparationrequired
+   */
+  preparationRequired?: boolean;
   /**
    * Presetfingerprint
    */
@@ -8754,6 +8774,10 @@ export type GridCorrectionLearningPreview = {
    * Rolecounts
    */
   roleCounts: Array<GridCorrectionLearningRoleCount>;
+  /**
+   * Targetfamilyid
+   */
+  targetFamilyId?: string | null;
   testSample?: GridLearningTestSample | null;
   /**
    * Trainingmode
@@ -8798,6 +8822,10 @@ export type GridCorrectionLearningPreviewCommand = {
    * Importjobids
    */
   importJobIds?: Array<string>;
+  /**
+   * Learningscope
+   */
+  learningScope?: 'private_game' | 'shared' | null;
   /**
    * Policyversion
    */
@@ -8880,13 +8908,25 @@ export type GridCorrectionLearningStartCommand = {
    */
   importJobIds?: Array<string>;
   /**
+   * Learningscope
+   */
+  learningScope?: 'private_game' | 'shared' | null;
+  /**
    * Policyversion
    */
   policyVersion?: 'application-grid-corrections-v4' | null;
   /**
+   * Preparationonly
+   */
+  preparationOnly?: boolean;
+  /**
+   * Prepareinbackground
+   */
+  prepareInBackground?: boolean;
+  /**
    * Previewsha256
    */
-  previewSha256: string;
+  previewSha256?: string | null;
   rescueVariant?: GridRescueVariantV1 | null;
   /**
    * Trainingmode
@@ -8905,6 +8945,10 @@ export type GridCorrectionLearningStartCommand = {
  */
 export type GridCorrectionLearningView = {
   /**
+   * Assignmentrevision
+   */
+  assignmentRevision?: number | null;
+  /**
    * Baseversionid
    */
   baseVersionId: string;
@@ -8922,6 +8966,10 @@ export type GridCorrectionLearningView = {
    */
   cohortId: string | null;
   /**
+   * Commandkey
+   */
+  commandKey?: string | null;
+  /**
    * Contentexperiment
    */
   contentExperiment?: 'full-symbol-content-experiment-v1' | null;
@@ -8936,7 +8984,7 @@ export type GridCorrectionLearningView = {
   /**
    * Defaultrevision
    */
-  defaultRevision: number;
+  defaultRevision: number | null;
   /**
    * Errorcode
    */
@@ -8954,9 +9002,19 @@ export type GridCorrectionLearningView = {
    */
   gameId: string;
   /**
+   * Gamename
+   */
+  gameName?: string | null;
+  /**
    * Learningid
    */
   learningId: string;
+  /**
+   * Learningscope
+   */
+  learningScope?: 'private_game' | 'shared';
+  preparation?: GridLearningPreparationProgress | null;
+  preparedPreview?: GridCorrectionLearningPreview | null;
   /**
    * Previewsha256
    */
@@ -8974,6 +9032,10 @@ export type GridCorrectionLearningView = {
    */
   stage: string | null;
   status: JobStatus;
+  /**
+   * Targetfamilyid
+   */
+  targetFamilyId?: string | null;
   /**
    * Trainingrunid
    */
@@ -9706,6 +9768,36 @@ export type GridLearningMaterialExclusion = {
 };
 
 /**
+ * GridLearningPreparationProgress
+ */
+export type GridLearningPreparationProgress = {
+  /**
+   * Current
+   */
+  current: number;
+  /**
+   * Heartbeatat
+   */
+  heartbeatAt?: string | null;
+  /**
+   * Lastprogressat
+   */
+  lastProgressAt?: string | null;
+  /**
+   * Stage
+   */
+  stage: string;
+  /**
+   * Stalled
+   */
+  stalled?: boolean;
+  /**
+   * Total
+   */
+  total?: number | null;
+};
+
+/**
  * GridLearningRoleMaterial
  */
 export type GridLearningRoleMaterial = {
@@ -10240,6 +10332,7 @@ export type GridModelEvaluationJobPayload = {
    * Manifestsha256
    */
   manifestSha256: string;
+  privateLearning?: PrivateGridLearningPin | null;
   /**
    * Schemaversion
    */
@@ -12643,6 +12736,7 @@ export type GridTrainingJobPayload = {
    * Presetid
    */
   presetId: string;
+  privateLearning?: PrivateGridLearningPin | null;
   /**
    * Rescuerecipe
    */
@@ -20478,6 +20572,32 @@ export type PinnedManagedImageReprocessJobPayload = {
    */
   sourceSelectionId: string;
   symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
+ * PrivateGridLearningPin
+ */
+export type PrivateGridLearningPin = {
+  /**
+   * Assignmentrevision
+   */
+  assignmentRevision: number;
+  /**
+   * Basemanifestsha256
+   */
+  baseManifestSha256: string;
+  /**
+   * Baseversionid
+   */
+  baseVersionId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Targetfamilyid
+   */
+  targetFamilyId: string;
 };
 
 /**
@@ -32011,6 +32131,10 @@ export type GetGridCorrectionLearningReadyData = {
      * Recommendtrainingmode
      */
     recommendTrainingMode?: boolean;
+    /**
+     * Lightweight
+     */
+    lightweight?: boolean;
   };
   url: '/api/v1/admin/games/{game_id}/grid-correction-learning/ready';
 };

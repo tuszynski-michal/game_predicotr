@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid5
@@ -53,13 +55,14 @@ from game_predictor_api.storage.grid_model_registry import (
     GridModelArtifactInspector,
     SqlAlchemyGridModelRegistryRepository,
 )
+from game_predictor_api.storage.grid_preparation_progress import preparation_deadline
+from game_predictor_api.storage.grid_private_learning import assignment_pin, require_learning_pin
 from game_predictor_api.storage.grid_training_cohort_repository import (
-    CohortDeadline,
     SqlAlchemyGridTrainingCohortRepository,
 )
 from game_predictor_api.storage.grid_training_run_jobs import SqlAlchemyGridTrainingRunJobs
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository, job_from_record
-from game_predictor_api.storage.models import JobModel
+from game_predictor_api.storage.models import GameModel, JobModel
 
 from .grid_correction_history import verified_publication_scope
 from .grid_model_evaluation import GridModelEvaluationService, report_id_for
@@ -126,7 +129,13 @@ class GridCorrectionLearningService:
             self.provider_index_sha256,
         )
 
-    def ready(self, game: UUID, *, recommend_training_mode: bool = False) -> dict[str, Any]:
+    def ready(
+        self, game: UUID, *, recommend_training_mode: bool = False, lightweight: bool = False
+    ) -> dict[str, Any]:
+        if lightweight:
+            from .grid_learning_preparation import readiness as preparation_readiness
+
+            return preparation_readiness(self, game)
         points = self.preview(game, {"importJobIds": [], "exclusions": []})
         if not recommend_training_mode:
             return points
@@ -200,7 +209,7 @@ class GridCorrectionLearningService:
                     self.provider_index_sha256,
                 )
             return imports, prepare_split(
-                repository, game, imports, CohortDeadline(LEARNING_SPLIT_SECONDS), **options
+                repository, game, imports, preparation_deadline(LEARNING_SPLIT_SECONDS), **options
             )
 
     def _preview(
@@ -301,15 +310,47 @@ class GridCorrectionLearningService:
                 )
             with Session(self.engine) as session:
                 repository = SqlAlchemyGridModelRegistryRepository(session)
-                default = repository.default()
-                if default is None:
+                private = repository.game_grid_model_private(game)
+                if private:
+                    view.update(
+                        learningScope="private_game",
+                        gameName=session.scalar(select(GameModel.name).where(GameModel.id == game)),
+                    )
+                if command.get("learningScope") not in (
+                    None,
+                    "private_game" if private else "shared",
+                ):
+                    raise GridCohortError(
+                        "GRID_LEARNING_SCOPE_CHANGED",
+                        "Choose the learning scope shown for this game.",
+                    )
+                private_pin = assignment_pin(repository, game) if private else None
+                default = None if private else repository.default()
+                if private_pin is None and default is None:
                     raise GridCohortError(
                         "GRID_LEARNING_DEFAULT_REQUIRED", "Choose a global default first."
                     )
                 registry = GridModelRegistryService(
                     repository, GridModelArtifactInspector(self.artifact_root)
                 )
-                record = repository.version(default.version_id)
+                if private_pin is not None:
+                    base_id = UUID(private_pin["baseVersionId"])
+                    default_revision = None
+                    view.update(
+                        assignmentRevision=private_pin["assignmentRevision"],
+                        targetFamilyId=private_pin["targetFamilyId"],
+                        baseVersionId=private_pin["baseVersionId"],
+                    )
+                    pins["privateLearning"] = private_pin
+                    if command.get("historicalCohorts") or command.get("exclusions"):
+                        raise GridCohortError(
+                            "GRID_LEARNING_PRIVATE_COHORTS_INVALID",
+                            "Private learning takes only this game's cohort.",
+                        )
+                else:
+                    assert default is not None
+                    base_id, default_revision = default.version_id, default.revision
+                record = repository.version(base_id)
                 if record is None:
                     raise GridCohortError(
                         "GRID_LEARNING_BASE_MISSING", "The default model is missing."
@@ -320,7 +361,34 @@ class GridCorrectionLearningService:
                         "GRID_LEARNING_BASE_UNAVAILABLE", "The default artifacts are unavailable."
                     )
                 manifest = base["manifest"]
-                history = verified_publication_scope(repository, default.version_id)
+                history = verified_publication_scope(repository, base_id)
+                if private:
+                    # A fork imports weights and ancestry exclusions but no foreign photos.
+                    history = {
+                        **history,
+                        "gameIds": [g for g in history["gameIds"] if g == str(game)],
+                        "cohorts": [],
+                    }
+                else:
+                    excluded_games = {str(item["gameId"]) for item in view["exclusions"]}
+                    other_games = [
+                        UUID(prior) for prior in history["gameIds"] if prior not in excluded_games
+                    ]
+                    if other_games and session.scalar(
+                        select(GameModel.id)
+                        .where(
+                            GameModel.id.in_(other_games), GameModel.grid_model_private.is_(True)
+                        )
+                        .limit(1)
+                    ):
+                        view.update(
+                            priorGameIds=history["gameIds"],
+                            priorScopeDocumented=history["documented"],
+                        )
+                        raise GridCohortError(
+                            "GRID_LEARNING_PRIVATE_HISTORY_EXCLUDED",
+                            "Explicitly exclude private games from the shared workflow.",
+                        )
                 # The artifact inspector verifies every listed training artifact's bytes.
                 training = manifest.get("trainingArtifacts") or []
                 if not {"weights.pt", "checkpoint.pt", "bundle.json", "preset.json"} <= {
@@ -333,15 +401,19 @@ class GridCorrectionLearningService:
                 pins.update(
                     base=manifest,
                     baseSha256=base["manifestSha256"],
-                    defaultRevision=default.revision,
+                    defaultRevision=default_revision,
                 )
                 view.update(
-                    baseVersionId=str(default.version_id),
+                    baseVersionId=str(base_id),
                     baseManifestSha256=base["manifestSha256"],
-                    defaultRevision=default.revision,
+                    defaultRevision=default_revision,
                     priorScopeDocumented=history["documented"],
                     priorGameIds=history["gameIds"],
                 )
+            lineage_root = {
+                "versionId": manifest["versionId"],
+                "familyId": view.get("targetFamilyId") or manifest["familyId"],
+            }
             excluded = {str(item["gameId"]) for item in view["exclusions"]}
             historic = [
                 pin
@@ -367,7 +439,7 @@ class GridCorrectionLearningService:
                     policy,
                     mode,
                     view["validationComponents"],
-                    **({"base": manifest} if experiment is not None else {}),
+                    **({"base": lineage_root} if experiment is not None else {}),
                 )
                 view["importJobIds"] = imports
             if set(required) - {str(game), *(pin["gameId"] for pin in historic)}:
@@ -595,7 +667,7 @@ class GridCorrectionLearningService:
                 inputs = read_experiment_inputs(
                     self.session_factory,
                     self.artifact_root,
-                    manifest,
+                    lineage_root,
                     pins["baseSha256"],
                     selection_parts,
                     self.provider_index_sha256,
@@ -670,6 +742,15 @@ class GridCorrectionLearningService:
         return job
 
     def start(self, game: UUID, command: Mapping[str, Any], actor: str) -> dict[str, Any]:
+        from .grid_learning_preparation import (
+            acquire_learning_game_lock,
+            require_no_active_learning,
+        )
+
+        if command.get("prepareInBackground"):
+            from .grid_learning_preparation import enqueue
+
+            return enqueue(self, game, dict(command), actor)
         key = UUID(str(command["idempotencyKey"]))
         original = dict(command)
         # Additive defaults do not change an immutable pre-T3 command's identity.
@@ -689,10 +770,7 @@ class GridCorrectionLearningService:
             if original.get(field, default_value) == default_value:
                 original.pop(field, None)
         with game_storage_scope(game), self.session_factory() as session, session.begin():
-            session.execute(
-                text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
-                {"key": f"grid-learning:{game}:{key}"},
-            )
+            acquire_learning_game_lock(session, game)
             existing = self._by_key(session, game, key)
             if existing is not None:
                 if existing.input_payload["command"] != original:
@@ -700,7 +778,16 @@ class GridCorrectionLearningService:
                         "GRID_LEARNING_IDEMPOTENCY_CONFLICT", "The key belongs to another command."
                     )
                 return self.view(existing)
+            require_no_active_learning(session, game)
             view, pins = self._preview(game, command)
+            if (
+                view.get("learningScope") == "private_game"
+                and command.get("learningScope") != "private_game"
+            ):
+                raise GridCohortError(
+                    "GRID_LEARNING_PRIVATE_SCOPE_REQUIRED",
+                    "Confirm private learning for this game.",
+                )
             if not view["canStart"]:
                 raise GridCohortError(view["blockers"][0], "The learning preview has blockers.")
             if view["previewSha256"] != command["previewSha256"]:
@@ -710,8 +797,9 @@ class GridCorrectionLearningService:
             # Serialize against set_default until the parent command is committed.
             catalogue = SqlAlchemyGridModelRegistryRepository(session)
             catalogue.lock()
-            default = catalogue.default()
-            if (
+            require_learning_pin(catalogue, game, pins.get("privateLearning"))
+            default = None if "privateLearning" in pins else catalogue.default()
+            if "privateLearning" not in pins and (
                 default is None
                 or default.revision != pins["defaultRevision"]
                 or str(default.version_id) != view["baseVersionId"]
@@ -754,7 +842,16 @@ class GridCorrectionLearningService:
 
     def get(self, game: UUID, identifier: UUID) -> dict[str, Any]:
         with Session(self.engine) as session:
-            view = self.view(self._job(session, game, identifier))
+            job = self._job(session, game, identifier)
+            view = self.view(job)
+            if job.status == JobStatus.WAITING_FOR_REVIEW and (job.checkpoint_payload or {}).get(
+                "preparedArtifact"
+            ):
+                from .grid_learning_preparation import load_prepared
+
+                prepared = load_prepared(self, job)
+                if prepared is not None:
+                    view["preparedPreview"] = prepared["preview"]
             self._attach_candidates(session, game, [view])
             return view
 
@@ -839,13 +936,30 @@ class GridCorrectionLearningService:
             return self.view(repository.save_job(request_job_cancellation(job)))
 
     def resume(self, game: UUID, identifier: UUID, actor: str) -> dict[str, Any]:
+        from .grid_learning_preparation import (
+            acquire_learning_game_lock,
+            require_no_active_learning,
+        )
+
         with game_storage_scope(game), self.session_factory() as session, session.begin():
+            acquire_learning_game_lock(session, game)
             self._lock_step(session, identifier)
             job = self._job(session, game, identifier, lock=True)
-            if job.status not in {JobStatus.FAILED, JobStatus.CANCELLED}:
+            prepared_review = (
+                job.status == JobStatus.WAITING_FOR_REVIEW
+                and job.input_payload.get("backgroundPreparation")
+                and (job.checkpoint_payload or {}).get("preparedArtifact") is not None
+            )
+            if job.status not in {JobStatus.FAILED, JobStatus.CANCELLED} and not prepared_review:
                 raise GridCohortError(
                     "GRID_LEARNING_NOT_RESUMABLE", "Only a failed or cancelled workflow resumes."
                 )
+            require_no_active_learning(session, game, excluding=identifier)
+            catalogue = SqlAlchemyGridModelRegistryRepository(session)
+            catalogue.lock()
+            require_learning_pin(
+                catalogue, game, job.input_payload.get("pins", {}).get("privateLearning")
+            )
             repository = SqlAlchemyJobRepository(session)
             from game_predictor_api.storage.sequence_ownership_lock import (
                 acquire_sequence_ownership_lock,
@@ -854,8 +968,9 @@ class GridCorrectionLearningService:
 
             acquire_sequence_ownership_lock(session, game_id=game)
             cohort = (job.checkpoint_payload or {}).get("cohortId")
+            if cohort is not None or job.input_payload.get("pins", {}).get("privateLearning"):
+                self._cohorts(session).repository.bind(game, write=True)
             if cohort is not None:
-                self._cohorts(session).repository.bind(game)
                 require_cohort_sources(session, game, UUID(str(cohort)))
             children = self._children(session, job)
             if any(
@@ -869,6 +984,14 @@ class GridCorrectionLearningService:
             for child in children:
                 if child.status in {JobStatus.FAILED, JobStatus.CANCELLED}:
                     repository.save_job(requeue_job(child))
+            if prepared_review:
+                job = replace(
+                    job,
+                    checkpoint_payload={
+                        **(job.checkpoint_payload or {}),
+                        "trainingAuthorized": True,
+                    },
+                )
             return self.view(repository.save_job(requeue_job(job)))
 
     def evaluation(self, game: UUID, identifier: UUID) -> dict[str, Any]:
@@ -882,8 +1005,45 @@ class GridCorrectionLearningService:
     @staticmethod
     def view(job: Job) -> dict[str, Any]:
         state: Any = job.checkpoint_payload or {}
-        preview: Any = job.input_payload["preview"]
+        preview: Any = state.get("preparedSummary") or job.input_payload["preview"]
         return {
+            **(
+                {"commandKey": job.input_payload["idempotency_key"]}
+                if job.input_payload.get("idempotency_key")
+                else {}
+            ),
+            **(
+                {
+                    "preparation": {
+                        **state.get(
+                            "preparation", {"stage": "queued", "current": 0, "total": None}
+                        ),
+                        "heartbeatAt": job.heartbeat_at.isoformat() if job.heartbeat_at else None,
+                        "stalled": (
+                            job.status == JobStatus.PROCESSING
+                            and job.stage
+                            in {
+                                "preparing_data",
+                                "source_inventory",
+                                "recording_context",
+                                "geometry_evidence",
+                                "cohort_capture",
+                                "cohort_materialization",
+                                "freeze_inputs",
+                                "freeze_members",
+                            }
+                            and bool(state.get("preparation", {}).get("lastProgressAt"))
+                            and (
+                                datetime.now(UTC)
+                                - datetime.fromisoformat(state["preparation"]["lastProgressAt"])
+                            ).total_seconds()
+                            > 300
+                        ),
+                    }
+                }
+                if job.input_payload.get("backgroundPreparation")
+                else {}
+            ),
             **(
                 {
                     "contentExperiment": preview["contentExperiment"],
@@ -892,6 +1052,11 @@ class GridCorrectionLearningService:
                 if preview.get("contentExperiment") is not None
                 else {}
             ),
+            **{
+                key: preview[key]
+                for key in ("learningScope", "targetFamilyId", "assignmentRevision", "gameName")
+                if key in preview
+            },
             "learningId": str(job.id),
             "gameId": str(job.game_id),
             "status": job.status.value,
@@ -924,6 +1089,13 @@ class GridCorrectionLearningService:
         game, actor = job.game_id, str(job.input_payload["actor"])
         payload: Any = job.input_payload
         state: dict[str, Any] = dict(job.checkpoint_payload or {})
+        if payload.get("backgroundPreparation"):
+            from .grid_learning_preparation import load_prepared
+
+            prepared = load_prepared(self, job)
+            if prepared is None:
+                raise GridCohortError("GRID_LEARNING_PREPARATION_REQUIRED", "Prepare data first.")
+            payload = {**payload, "preview": prepared["preview"], "pins": prepared["pins"]}
         pins, preview = payload["pins"], payload["preview"]
         if (
             pins.get("contentExperiment") is not None
@@ -935,6 +1107,10 @@ class GridCorrectionLearningService:
         cohort_id = uuid5(game, "grid-cohort:" + str(child_key(job.id, "cohort")))
         state["cohortId"] = str(cohort_id)
         with game_storage_scope(game), self.session_factory() as session, session.begin():
+            if "privateLearning" in pins:
+                catalogue = SqlAlchemyGridModelRegistryRepository(session)
+                catalogue.lock()
+                require_learning_pin(catalogue, game, pins["privateLearning"])
             service = self._cohorts(session)
             service.repository.bind(game)
             from game_predictor_api.storage.grid_training_cohort_models import (
@@ -942,6 +1118,20 @@ class GridCorrectionLearningService:
             )
 
             row = session.get(GridTrainingCohortModel, (game, cohort_id))
+            if (
+                row is not None
+                and "privateLearning" in pins
+                and (
+                    row.document.get("privateLearning") != pins["privateLearning"]
+                    or row.document["photoSplit"]["sha256"] != pins["splitSha256"]
+                    or row.document.get("cropPolicyVersion") != "full-cell-v2"
+                    or row.document.get("detectorReadiness") != preview["detectorReadiness"]
+                )
+            ):
+                raise GridCohortError(
+                    "GRID_LEARNING_PRIVATE_COHORTS_INVALID",
+                    "The prepared evidence differs from its private learning operation.",
+                )
             if (
                 row is not None
                 and pins.get("policyVersion") == "application-grid-corrections-v4"
@@ -961,7 +1151,7 @@ class GridCorrectionLearningService:
                 command = {
                     "idempotencyKey": str(child_key(job.id, "cohort")),
                     "mode": preview.get("trainingMode", "grid-only"),
-                    "familyId": pins["base"]["familyId"],
+                    "familyId": preview.get("targetFamilyId") or pins["base"]["familyId"],
                     "baseVersionId": preview["baseVersionId"],
                     "selector": {"importJobIds": preview["importJobIds"]},
                     "recordings": [],
@@ -969,6 +1159,12 @@ class GridCorrectionLearningService:
                         preview.get("trainingMode", "grid-only")
                     ),
                 }
+                if "privateLearning" in pins:
+                    command.update(
+                        privateLearning=pins["privateLearning"],
+                        cropPolicyVersion="full-cell-v2",
+                        detectorReadiness=preview["detectorReadiness"],
+                    )
                 if pins.get("policyVersion") == "application-grid-corrections-v4":
                     command.update(
                         policyVersion=pins["policyVersion"],
@@ -1078,6 +1274,11 @@ class GridCorrectionLearningService:
                     ],
                 },
                 **({"correction_recipe": pins["rescueRecipe"]} if "rescueRecipe" in pins else {}),
+                **(
+                    {"private_learning": pins["privateLearning"]}
+                    if "privateLearning" in pins
+                    else {}
+                ),
                 **experiment_arguments,
             )
         state["trainingRunId"] = run["runId"]

@@ -66,6 +66,9 @@ class Session:
     def get(self, *args):
         return self.row[0]
 
+    def scalar(self, *args):
+        return None
+
     def execute(self, *args):
         return None
 
@@ -82,6 +85,7 @@ def test_screen_preview_explicit_required_game_cohort_is_frozen_on_replay(
     old_pin = {"gameId": str(other), "cohortId": str(old), "manifestSha256": "b" * 64}
     chosen = {**old_pin, "cohortId": str(replacement), "manifestSha256": "c" * 64}
     catalogue = SimpleNamespace(
+        game_grid_model_private=lambda game: False,
         default=lambda: SimpleNamespace(version_id=base, revision=3),
         version=lambda value: object(),
         lock=lambda: None,
@@ -383,7 +387,9 @@ def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_populatio
 ):
     game, base, family, import_id = [uuid4() for _ in range(4)]
     catalogue = SimpleNamespace(
-        default=lambda: SimpleNamespace(version_id=base, revision=3), version=lambda value: object()
+        game_grid_model_private=lambda game: False,
+        default=lambda: SimpleNamespace(version_id=base, revision=3),
+        version=lambda value: object(),
     )
     manifest = {
         "versionId": str(base),
@@ -451,6 +457,39 @@ def test_metadata_preview_uses_game_cohort_reader_and_changes_pin_with_populatio
     monkeypatch.setattr(learning, "prepare_split", read)
     service = learning.GridCorrectionLearningService(None, lambda: Session([None]), tmp_path)
     command = {"importJobIds": [str(import_id)], "exclusions": []}
+    # A foreign base can carry historical cohorts. A private game keeps the
+    # original split and detector diagnostics, but reads only its own imports.
+    with monkeypatch.context() as private:
+        target_family = uuid4()
+        private.setattr(catalogue, "game_grid_model_private", lambda _: True)
+        private.setattr(catalogue, "default", lambda: pytest.fail("Private learning read default"))
+        private.setattr(
+            catalogue,
+            "assignment",
+            lambda _: (
+                SimpleNamespace(version_id=base, training_family_id=target_family, revision=7),
+                1,
+            ),
+            raising=False,
+        )
+        private.setattr(
+            catalogue, "private_family", lambda _: SimpleNamespace(id=target_family), raising=False
+        )
+        private.setattr(catalogue, "version_owner_game_id", lambda _: None, raising=False)
+        private.setattr(
+            catalogue, "version", lambda _: SimpleNamespace(id=base, manifest_sha256="a" * 64)
+        )
+        foreign = str(uuid4())
+        private.setattr(
+            learning,
+            "verified_publication_scope",
+            lambda *_: {"documented": True, "gameIds": [foreign], "cohorts": [{"gameId": foreign}]},
+        )
+        private_view, pins = service._preview(game, {**command, "learningScope": "private_game"})
+        assert private_view["canStart"] and private_view["requiredGameIds"] == [str(game)]
+        assert private_view["defaultRevision"] is None and private_view["historicalCohorts"] == []
+        assert pins["privateLearning"]["targetFamilyId"] == str(target_family)
+        assert pins["splitSha256"] == split["sha256"]
     first = service.preview(game, command)
     assert first["canStart"], first["blockers"]
     assert first["bufferPhotos"] == 1 and first["pendingWorkerChecks"]
@@ -581,7 +620,8 @@ def test_parent_composes_all_steps_and_adopts_children_after_lost_response(monke
         calls.append("prepare")
         row[0] = SimpleNamespace(document={"photoSplit": {"sha256": "s" * 64}})
 
-    def command(_game, _cohort, kind, body, _actor):
+    def command(_game, _cohort, kind, body, _actor, *, materialization_pages=1):
+        assert materialization_pages == (20 if kind == "materialize-page" else 1)
         calls.append(kind)
         assert body["expectedRevision"] == header["revision"]
         header["revision"] += 1

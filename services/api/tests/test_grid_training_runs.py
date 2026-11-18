@@ -58,6 +58,9 @@ class Jobs:
         self.rows: dict[UUID, Any] = {}
         self.locked: list[UUID] = []
 
+    def require_learning_scope(self, game: UUID, pin: Any) -> None:
+        pass
+
     def get_job(self, job_id: UUID) -> Any:
         return self.rows.get(job_id)
 

@@ -61,10 +61,10 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 ### Katalogi
 
 - `services/api/src/game_predictor_api/api/` (59 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
-- `services/api/src/game_predictor_api/application/` (111 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
+- `services/api/src/game_predictor_api/application/` (112 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
 - `services/api/src/game_predictor_api/domain/` (128 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (64 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (239 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/storage/` (242 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (557 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (177 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (562 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (180 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -154,7 +154,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `jobs/` (3 plików): JobsClient, LoadJobsResult, loadJobs, WorkerLanesResult, loadWorkerLanes, JobMutationResult, cancelJob, DeleteImageSelectionJobResult (+42)
   - `management/` (11 plików): ManagementSharePanel, ManagementWorkspace
   - `manual-image-selection/` (16 plików): FilenameVerificationRejectedSource, FilenameVerificationPendingDecision, FilenameRangeVerificationLocalState, FilenameRangeVerificationStore, directoryPermissionIsGranted, ManualSelectionCursorSemantics, MANUAL_SELECTION_CURSOR_SEMANTICS, ResumeManualSelectionCursorInput (+84)
-  - `model-quality/` (43 plików): GridCohortClient, sendGridCohortCommand, GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand (+185)
+  - `model-quality/` (43 plików): GridCohortClient, sendGridCohortCommand, GridCohortCommand, GridCohortStorage, cohortUuid, gridCohortCommandKey, gridCohortSelectionKey, readGridCohortCommand (+186)
   - `readability/` (3 plików): READABILITY_MAX_SELECTION, READABILITY_LABEL_BATCH_SIZE, ReadabilityLabelQueue, loadReadabilityLabelQueue, createReadabilityLabelQueue, readabilityQueueProgress, drainReadabilityLabelQueue, discardReadabilityLabelQueue (+9)
   - `releases/` (3 plików): ReleasesClient, LoadReleaseWorkspaceResult, loadReleaseWorkspace, CreateReleaseResult, createRelease, StartReleaseBuildResult, startReleaseBuild, CreateAndStartReleaseResult (+23)
   - `reviewer-access/` (4 plików): ReviewerAccessLauncher, reviewableGames, isImageImport, hasImageImport, readyBoardImportStaging, LocalReviewerStartClient, LocalReviewerStartResult, startLocalReviewerProcess (+6)

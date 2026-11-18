@@ -402,6 +402,46 @@ def test_run_trains_installs_and_registers_one_not_evaluated_candidate(tmp_path:
     assert len(child.launches) == 1 and len(store.registered) == 1
 
 
+def test_private_candidate_uses_owner_family_and_original_base(tmp_path, monkeypatch):
+    store, child = Store(tmp_path), FakeChild()
+    current = job()
+    family = {"familyId": str(uuid4()), "familyCode": "private_game", "familyLabel": "Private game"}
+    pin = {
+        "gameId": str(current.game_id),
+        "assignmentRevision": 2,
+        "targetFamilyId": family["familyId"],
+        "baseVersionId": BASE["versionId"],
+        "baseManifestSha256": "b" * 64,
+    }
+    current = replace(
+        current,
+        input_payload={
+            **current.input_payload,
+            "private_learning": pin,
+            "family_id": family["familyId"],
+        },
+    )
+    header = {
+        **store.cohort(current.game_id, UUID(current.input_payload["cohort_id"])),
+        "familyId": family["familyId"],
+    }
+    monkeypatch.setattr(store, "cohort", lambda *args: header)
+
+    def owner_descriptor(game, expected):
+        assert game == current.game_id and expected == pin
+        return family
+
+    monkeypatch.setattr(store, "private_family_descriptor", owner_descriptor, raising=False)
+    handler(tmp_path, store, child)(Context(current), current)
+    assert len(store.registered) == 1
+    candidate = store.registered[0][1]
+    assert all(candidate[key] == value for key, value in family.items())
+    assert (
+        candidate["baseVersionId"] == BASE["versionId"]
+        and candidate["familyId"] != BASE["familyId"]
+    )
+
+
 def test_crash_after_export_registers_the_same_version_once_without_retraining(
     tmp_path: Path,
 ) -> None:

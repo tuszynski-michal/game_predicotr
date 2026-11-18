@@ -425,3 +425,9 @@ modeli używa identycznych zdjęć/etykiet i jawnej reguły wyboru, bez aktywacj
 Kwalifikacja pola używa ostatniej rozstrzygającej oceny człowieka `readable`/`unreadable` dla bieżącej tożsamości pikseli. Wiek skanu nie wyznacza kolejności ocen. `pending`, `skipped` i nieoceniony nowy skan nie usuwają wcześniejszego rozstrzygnięcia. Readable wyklucza tylko powód danego pola mimo zachowanej historycznej flagi jakości; inne nieczytelne pola nadal mogą kwalifikować całe zdjęcie.
 
 Starsze jawne oceny bez ledgeru są dopuszczalne, gdy wszystkie aktualne rozstrzygające oceny są zgodne; zachowuje się pełne identyfikatory i rewizje dowodów. Sprzeczność bez udokumentowanej chronologii wymaga świeżej oceny człowieka. Brak jawnej oceny pozwala użyć wcześniejszej manualnej flagi unreadable. Ocena nie przechodzi na inne piksele.
+
+## Prywatne uczenie siatek — TASK-1254
+
+Admin pokazuje nazwę prywatnej gry, przypisaną bazę oraz liczności i braki danych. Trening wymaga jawnego zakresu `private_game`. Bierze wyłącznie korekty i zatwierdzenia tej gry. Nowe uczenie wspólne wymaga jawnego wykluczenia prywatnej gry objętej wcześniejszym modelem.
+
+Przygotowanie w tle z opcją `preparationOnly` zatrzymuje się po zapisaniu podglądu. Wznowienie sprawdza przypisanie gry przed dopuszczeniem treningu. Zmiana globalnego modelu domyślnego nie zmienia prywatnej bazy.

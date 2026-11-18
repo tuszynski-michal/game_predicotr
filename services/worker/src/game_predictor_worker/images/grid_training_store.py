@@ -98,6 +98,19 @@ class SqlGridTrainingStore:
             GridModelArtifactInspector(self.artifact_root),
         )
 
+    def private_family_descriptor(self, game: UUID, pin: Mapping[str, Any]) -> Mapping[str, Any]:
+        from game_predictor_api.storage.grid_private_learning import require_learning_pin
+
+        with Session(self.engine) as session:
+            registry = SqlAlchemyGridModelRegistryRepository(session)
+            try:
+                require_learning_pin(registry, game, pin)
+            except (GridCohortError, GridModelRegistryError) as error:
+                raise JobHandlerError(error.code, error.message) from error
+            family = registry.private_family(game)
+            assert family is not None
+            return {"familyId": str(family.id), **json.loads(family.descriptor_json)}
+
     def base_version(self, version_id: UUID) -> Mapping[str, Any]:
         with Session(self.engine) as session:
             record = SqlAlchemyGridModelRegistryRepository(session).version(version_id)

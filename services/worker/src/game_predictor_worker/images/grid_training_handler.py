@@ -82,6 +82,10 @@ class GridTrainingStore(Protocol):
     def eligibility(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]: ...
 
     def base_version(self, version_id: UUID) -> Mapping[str, Any]: ...
+    def private_family_descriptor(
+        self, game: UUID, pin: Mapping[str, Any]
+    ) -> Mapping[str, Any]: ...
+
     def historical_cohort(self, base_version_id: UUID, header: Mapping[str, Any]) -> None: ...
 
     def recordings(self, game_id: UUID, cohort_id: UUID) -> dict[str, str]: ...
@@ -217,6 +221,18 @@ class GridTrainingJobHandler:
             or job.game_id is None
         ):
             raise JobHandlerError("GRID_TRAINING_PAYLOAD_INVALID", "Pinned run payload differs.")
+        private_pin = payload.get("private_learning")
+        if private_pin is not None:
+            if (
+                private_pin["gameId"] != str(job.game_id)
+                or payload.get("shared_cohorts")
+                or private_pin["targetFamilyId"] != payload["family_id"]
+                or private_pin["baseVersionId"] != payload["base_version_id"]
+            ):
+                raise JobHandlerError(
+                    "GRID_LEARNING_PRIVATE_ASSIGNMENT_CHANGED", "Private training pins differ."
+                )
+            self.store.private_family_descriptor(job.game_id, private_pin)
         preset = PRESETS.get(str(payload["preset_id"]))
         if preset is None or preset.fingerprint != payload["preset_fingerprint"]:
             raise JobHandlerError("GRID_RUN_PRESET_NOT_APPROVED", "Preset is unknown or changed.")
@@ -476,6 +492,10 @@ class GridTrainingJobHandler:
             cohort["status"] != "frozen"
             or cohort["manifestSha256"] != payload["cohort_manifest_sha256"]
             or cohort["mode"] != payload["mode"]
+            or (
+                payload.get("private_learning")
+                and str(cohort["familyId"]) != str(payload["family_id"])
+            )
             or str(cohort["baseVersionId"]) != str(payload["base_version_id"])
         ):
             raise JobHandlerError(
@@ -1114,11 +1134,15 @@ class GridTrainingJobHandler:
             "reportResults": reports,
             "files": inference_files,
         }
+        family = base
+        if private_pin := _payload(job).get("private_learning"):
+            assert job.game_id is not None
+            family = self.store.private_family_descriptor(job.game_id, private_pin)
         payload = {
             "schemaVersion": "grid-model-catalogue-v1",
-            "familyId": base["familyId"],
-            "familyCode": base["familyCode"],
-            "familyLabel": base["familyLabel"],
+            "familyId": family["familyId"],
+            "familyCode": family["familyCode"],
+            "familyLabel": family["familyLabel"],
             "versionId": str(version_id),
             "version": version,
             "modelKind": "neural_grid",

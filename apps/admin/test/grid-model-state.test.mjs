@@ -34,7 +34,9 @@ test('codes are readable, evaluation reasons are explained and unknown codes sta
     'Pogorszenie na VALIDATION: plansze bez cięcia symboli (pola w 10%)',
   );
   assert.equal(
-    reasonLabel('VALIDATION_NOT_IMPROVED:boards_correct_or_boards_within_cells'),
+    reasonLabel(
+      'VALIDATION_NOT_IMPROVED:boards_correct_or_boards_within_cells',
+    ),
     'Brak poprawy gry treningowej: plansze poprawne i bez cięcia symboli (VALIDATION+REGRESSION) — brak przyrostu albo ubytek',
   );
   assert.equal(
@@ -99,6 +101,28 @@ test('every grid-learning blocker raised by the API has a Polish label (TASK-120
     reasonLabel('GRID_CORRECTION_POPULATION_LIMIT'),
     /limit uczenia \(20 000\)/,
   );
+});
+
+test('background preparation blockers have an actionable Polish label', () => {
+  const root = new URL(
+    '../../../services/api/src/game_predictor_api/',
+    import.meta.url,
+  );
+  const files = [
+    'application/grid_learning_preparation.py',
+    'storage/grid_preparation_progress.py',
+    'storage/grid_private_learning.py',
+  ];
+  const codes = new Set(['GRID_LEARNING_PREPARATION_REQUIRED']);
+  for (const file of files)
+    for (const match of readFileSync(new URL(file, root), 'utf8').matchAll(
+      /"(GRID_[A-Z_]+)"/g,
+    ))
+      codes.add(match[1]);
+  for (const code of codes) {
+    assert.doesNotMatch(reasonLabel(code), /Nieopisany powód/);
+    assert.notEqual(reasonLabel(code), code);
+  }
 });
 
 const manifest = (id, family, version) => ({

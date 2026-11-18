@@ -55,6 +55,11 @@ def test_parent_replay_cas_release_child_and_resume_original_budget(tmp_path, mo
         from fastapi.testclient import TestClient
         from test_grid_correction_learning_api import HEADERS, app_for
 
+        # Exercise stale-default admission before an active parent can mask it.
+        default.revision = 5
+        with pytest.raises(GridCohortError, match="default changed"):
+            service.start(game, {**command, "idempotencyKey": str(uuid4())}, "fixture:1121")
+        default.revision = 4
         with TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345)) as client:
             response = client.post(
                 f"/api/v1/admin/games/{game}/grid-correction-learning",
@@ -70,9 +75,11 @@ def test_parent_replay_cas_release_child_and_resume_original_budget(tmp_path, mo
         assert restarted.get(game, identifier) == started
         with pytest.raises(GridCohortError, match="another command"):
             restarted.start(game, {**command, "previewSha256": "b" * 64}, "fixture:1121")
-        default.revision = 5
-        with pytest.raises(GridCohortError, match="default changed"):
+        with pytest.raises(GridCohortError) as active:
             restarted.start(game, {**command, "idempotencyKey": str(uuid4())}, "fixture:1121")
+        assert active.value.code == "GRID_LEARNING_ALREADY_ACTIVE"
+        assert active.value.status == 409
+        default.revision = 5
         worker = SqlAlchemyWorkerJobStore(factory)
 
         def claim():

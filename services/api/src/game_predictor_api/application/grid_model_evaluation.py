@@ -38,6 +38,7 @@ from game_predictor_api.storage.grid_model_registry import (
     GridModelArtifactInspector,
     SqlAlchemyGridModelRegistryRepository,
 )
+from game_predictor_api.storage.grid_private_learning import require_learning_pin
 from game_predictor_api.storage.grid_training_cohort_repository import (
     SqlAlchemyGridTrainingCohortRepository,
 )
@@ -264,6 +265,23 @@ class GridModelEvaluationService:
                 "grid-corrections-v1",
                 "screen-grid-corrections-v1",
             )
+            private_learning = None if run is None else run.input_payload.get("private_learning")
+            if private_learning is not None:
+                owner = UUID(private_learning["gameId"])
+                require_learning_pin(
+                    SqlAlchemyGridModelRegistryRepository(session), owner, private_learning
+                )
+                if (
+                    requested != [(owner, UUID(manifest["cohortId"]))]
+                    or command.get("exclusions")
+                    or manifest["familyId"] != private_learning["targetFamilyId"]
+                    or manifest["baseVersionId"] != private_learning["baseVersionId"]
+                    or base_sha256 != private_learning["baseManifestSha256"]
+                ):
+                    raise _error(
+                        "GRID_LEARNING_PRIVATE_COHORTS_INVALID",
+                        "Evaluate only the private game's pinned training cohort.",
+                    )
             history = None
             if correction:
                 from .grid_correction_history import verified_publication_scope
@@ -271,6 +289,13 @@ class GridModelEvaluationService:
                 history = verified_publication_scope(
                     SqlAlchemyGridModelRegistryRepository(session), UUID(manifest["baseVersionId"])
                 )
+                if private_learning is not None:
+                    history = {
+                        **history,
+                        "gameIds": [
+                            g for g in history["gameIds"] if g == private_learning["gameId"]
+                        ],
+                    }
         absent = sorted(trained - {(str(game), str(cohort)) for game, cohort in requested})
         if absent:
             error = _error(
@@ -335,6 +360,8 @@ class GridModelEvaluationService:
             "training_game_id": str(training[0]),
             "cohorts": cohorts,
         }
+        if private_learning is not None:
+            payload["private_learning"] = private_learning
         if correction:
             from game_predictor_api.domain.grid_correction_evaluation import (
                 require_checkpoint_selection,
@@ -385,6 +412,10 @@ class GridModelEvaluationService:
                 return self._replay(
                     existing, version_id, requested, command.get("exclusions") or []
                 )
+            if private_learning is not None:
+                registry = SqlAlchemyGridModelRegistryRepository(session)
+                registry.lock()
+                require_learning_pin(registry, game, private_learning)
             job = create_job(JobType.GRID_MODEL_EVALUATION, game_id=game, input_payload=payload)
             same = jobs.get_job_by_input_key(job.input_key)
             return self.view(same if same is not None else jobs.add_job(job))
@@ -567,10 +598,35 @@ class GridModelEvaluationService:
         if base is None or row.producer != PRODUCER:
             raise _error("GRID_MODEL_REGISTRY_CORRUPT", "Evaluated base or producer differs.")
         try:
+            document = json.loads(row.report_json)
+            owner = registry.version_owner_game_id(row.version_id)
             if (
-                json.loads(row.report_json).get("schemaVersion")
-                == "grid-model-assigned-comparison-v1"
+                owner is not None
+                and document.get("schemaVersion") != "grid-model-assigned-comparison-v1"
             ):
+                if job is None:
+                    job = next(
+                        (
+                            candidate
+                            for candidate in self._jobs(session, row.version_id)
+                            if report_id_for(candidate.id) == row.id
+                        ),
+                        None,
+                    )
+                private_pin = None if job is None else job.input_payload.get("private_learning")
+                if (
+                    not isinstance(private_pin, dict)
+                    or private_pin["gameId"] != str(owner)
+                    or private_pin["targetFamilyId"] != document.get("familyId")
+                    or private_pin["baseVersionId"] != document.get("baseVersionId")
+                    or private_pin["baseManifestSha256"] != document.get("baseManifestSha256")
+                    or document.get("trainingGameId") != str(owner)
+                    or [cohort["gameId"] for cohort in report_cohorts(document)] != [str(owner)]
+                ):
+                    raise GridEvaluationReportError(
+                        "Private evaluation has inconsistent ownership or ancestry evidence."
+                    )
+            if document.get("schemaVersion") == "grid-model-assigned-comparison-v1":
                 from game_predictor_api.domain.grid_assigned_comparison import (
                     require_report as assigned_report,
                 )

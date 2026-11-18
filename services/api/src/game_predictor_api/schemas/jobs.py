@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal, Self, cast
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, StrictBool, model_validator
 
 from game_predictor_api.application.jobs import ImageSelectionJobDeletion
 from game_predictor_api.application.semi_automatic_image_selections import (
@@ -818,6 +818,15 @@ class GridSharedCohortPin(ApiModel):
     manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class PrivateGridLearningPin(ApiModel):
+    model_config = ConfigDict(extra="forbid")
+    game_id: UUID
+    assignment_revision: int = Field(ge=1)
+    target_family_id: UUID
+    base_version_id: UUID
+    base_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class GridTrainingJobPayload(ApiModel):
     """Pinned application grid-training run (TASK-0996); created only by its own route.
 
@@ -826,6 +835,9 @@ class GridTrainingJobPayload(ApiModel):
     """
 
     schema_version: Literal[1] = 1
+    private_learning: PrivateGridLearningPin | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
     training_kind: Literal["grid-training-run-v1", "grid-shared-training-run-v1"]
     idempotency_key: UUID
     cohort_id: UUID
@@ -879,6 +891,9 @@ class GridModelEvaluationJobPayload(ApiModel):
     """Pinned candidate-versus-base evaluation (TASK-0997); created only by its own route."""
 
     schema_version: Literal[1] = 1
+    private_learning: PrivateGridLearningPin | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
     evaluation_kind: Literal[
         "grid-model-evaluation-v1", "grid-correction-evaluation-v1", "grid-assigned-comparison-v1"
     ]
@@ -906,8 +921,15 @@ class GridCorrectionLearningJobPayload(ApiModel):
     idempotency_key: UUID
     command: dict[str, Any]
     preview: dict[str, Any]
-    pins: dict[str, Any]
+    pins: dict[str, Any] | None = Field(None, exclude_if=lambda value: value is None)
     actor: str
+    background_preparation: StrictBool = Field(False, exclude_if=lambda value: not value)
+
+    @model_validator(mode="after")
+    def require_legacy_pins(self) -> Self:
+        if not self.background_preparation and self.pins is None:
+            raise ValueError("Legacy correction learning requires prepared pins.")
+        return self
 
 
 class GridCorrectionApplyJobPayload(ApiModel):

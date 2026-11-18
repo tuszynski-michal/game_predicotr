@@ -2,6 +2,7 @@
 
 import sqlalchemy as sa
 from alembic import op
+from game_predictor_api.storage.grid_private_learning_sql import INSTALL_SQL, REMOVE_SQL
 
 revision = "0193_private_game_grid_models"
 down_revision = "0192_grid_cohort_header_cache"
@@ -168,6 +169,9 @@ def upgrade() -> None:
         FOR EACH ROW WHEN (OLD.grid_model_private IS DISTINCT FROM NEW.grid_model_private)
         EXECUTE FUNCTION public.guard_private_grid_ownership()""")
 
+    for statement in INSTALL_SQL:
+        op.execute(statement)
+
 
 def downgrade() -> None:
     _lock()
@@ -178,6 +182,7 @@ def downgrade() -> None:
             RAISE EXCEPTION 'GRID_MODEL_PRIVATE_DOWNGRADE_HAS_HISTORY';
         END IF;
     END $$""")
+    op.execute(REMOVE_SQL)
     op.execute("DROP TRIGGER grid_private_game_state ON public.games")
     op.execute("DROP TRIGGER grid_private_family_owner ON public.grid_model_families")
     for table in ("game_grid_model_assignments", "grid_model_default"):

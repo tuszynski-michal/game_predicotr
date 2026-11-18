@@ -107,7 +107,9 @@ class GridTrainingCohortService:
             )
         return complete(self.repository, self.artifacts, game, command, actor)
 
-    def run_preview(self, game: UUID, cohort: UUID) -> dict[str, Any]:
+    def run_preview(
+        self, game: UUID, cohort: UUID, *, private_learning: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Read-only TASK-1005 preview: presets, cohort cost and API-side blockers.
 
         GPU, runtime, VRAM and budget are checked by the worker at admission; the preview
@@ -135,6 +137,7 @@ class GridTrainingCohortService:
         counts = counts_from_header(header)
         blockers: list[str] = []
         try:
+            self.repository.require_learning_scope(game, private_learning)
             self.repository.training_scope(game, cohort)
         except GridCohortError as error:
             blockers.append(error.code)

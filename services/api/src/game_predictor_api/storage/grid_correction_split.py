@@ -33,6 +33,7 @@ from game_predictor_api.domain.grid_learning_material import (
 )
 from game_predictor_api.domain.grid_learning_reference import source_reference
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError, digest
+from game_predictor_api.storage.grid_preparation_progress import report_preparation
 from game_predictor_api.storage.grid_training_cohort_evidence import GridCohortEvidenceReader
 
 CORRECTIONS_POLICY = CORRECTION_POLICY
@@ -203,6 +204,7 @@ def contexts(
     result = {}
     context_version = 3 if purpose_aware else 2 if incremental else 1
     for offset in range(0, len(ids), 200):
+        report_preparation("recording_context", offset, len(ids))
         values = repo.session.scalar(
             text(
                 f"SELECT public.recording_photo_context_v{context_version}"
@@ -229,6 +231,7 @@ def prepare_split(
     content_sampling: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     rows = population(repo, game, imports)
+    report_preparation("source_inventory", len(rows), len(rows))
     purpose_aware = policy == "application-grid-corrections-v4"
     screen = policy == SCREEN_CORRECTION_POLICY or (purpose_aware and mode == "screen+grid")
     incremental = purpose_aware or policy in (CORRECTION_POLICY, SCREEN_CORRECTION_POLICY)
@@ -245,6 +248,7 @@ def prepare_split(
     source_labels: dict[str, list[dict[str, Any]]] = {}
     references: dict[str, dict[str, Any]] = {}
     for index, row in enumerate(rows):
+        report_preparation("geometry_evidence", index, len(rows))
         deadline.check(repo.session)
         source, revs = row["source"], row["revisions"]
         key = source["id"]

@@ -182,7 +182,13 @@ def read_cohort_asset_reference(
             AND (p.path=:path OR p.document->'assets' @>
               jsonb_build_array(jsonb_build_object('path',CAST(:path AS text))))) AS page_ref
         FROM game_data_v2.grid_training_cohorts c
-        WHERE c.game_id=:game AND c.id=:cohort""",
+        WHERE c.game_id=:game AND c.id=:cohort
+        UNION ALL
+        SELECT NULL,j.created_at,j.updated_at,false,true
+        FROM public.jobs j
+        WHERE j.game_id=:game AND j.id=:cohort
+          AND j.job_type='grid_correction_learning'
+          AND j.checkpoint_payload->'preparedArtifact'->>'path'=:path""",
             {"game": game, "cohort": cohort, "path": relative},
         )
         .mappings()

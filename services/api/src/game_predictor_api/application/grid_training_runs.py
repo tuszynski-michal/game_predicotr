@@ -35,6 +35,8 @@ _QUEUE_BLOCKERS_IGNORED = {"GRID_RUN_LEASE_BUSY", "GRID_RUN_LEASE_UNKNOWN"}
 
 
 class GridTrainingJobRepository(Protocol):
+    def require_learning_scope(self, game: UUID, pin: Mapping[str, Any] | None) -> None: ...
+
     def get_job(self, job_id: UUID) -> Job | None: ...
 
     def get_job_for_update(self, job_id: UUID) -> Job | None: ...
@@ -83,6 +85,7 @@ class GridTrainingRunService:
         game: UUID,
         command: Mapping[str, Any],
         *,
+        private_learning: Mapping[str, Any] | None = None,
         correction_recipe: Mapping[str, Any] | None = None,
         content_experiment: Mapping[str, Any] | None = None,
         content_experiment_inputs: Mapping[str, Any] | None = None,
@@ -132,6 +135,7 @@ class GridTrainingRunService:
                 or existing.input_payload.get("cohort_id") != str(cohort)
                 or existing.input_payload.get("preset_id") != command["presetId"]
                 or existing.input_payload.get("preset_fingerprint") != command["presetFingerprint"]
+                or existing.input_payload.get("private_learning") != private_learning
                 or pinned != {(str(other), str(cohort_id)) for other, cohort_id in others}
                 or existing.input_payload.get("rescue_recipe") != correction_recipe
                 or existing.input_payload.get("content_experiment") != content_experiment
@@ -140,7 +144,18 @@ class GridTrainingRunService:
             ):
                 raise _error("GRID_RUN_IDEMPOTENCY_CONFLICT", "The key was used for another run.")
             return self.view(existing)
-        preview = self.cohorts.run_preview(game, cohort)
+        self.jobs.require_learning_scope(game, private_learning)
+        if private_learning is not None and others:
+            raise _error(
+                "GRID_LEARNING_PRIVATE_COHORTS_INVALID", "The game owns its training cohort."
+            )
+        preview = self.cohorts.run_preview(
+            game,
+            cohort,
+            **(
+                {"private_learning": dict(private_learning)} if private_learning is not None else {}
+            ),
+        )
         blockers = [code for code in preview["apiBlockers"] if code not in _QUEUE_BLOCKERS_IGNORED]
         if content_experiment is not None:
             blockers = [code for code in blockers if code != "GRID_RUN_COHORT_COST_EXCEEDS_BUDGET"]
@@ -194,6 +209,16 @@ class GridTrainingRunService:
             "seed": key.int % (2**31 - 1),
             "planned_steps": planned_steps,
         }
+        if private_learning is not None:
+            if (
+                str(header["familyId"]) != private_learning["targetFamilyId"]
+                or str(header["baseVersionId"]) != private_learning["baseVersionId"]
+            ):
+                raise _error(
+                    "GRID_LEARNING_PRIVATE_ASSIGNMENT_CHANGED",
+                    "The cohort differs from the pinned assignment.",
+                )
+            payload["private_learning"] = dict(private_learning)
         if correction_recipe is not None:
             payload["rescue_recipe"] = dict(correction_recipe)
         if shared is not None:
@@ -297,8 +322,14 @@ class GridTrainingRunService:
         job = self._job(game, run, lock=True)
         if job.status not in {JobStatus.FAILED, JobStatus.CANCELLED}:
             raise _error("GRID_RUN_NOT_RESUMABLE", "Only failed or cancelled runs can resume.")
+        self.jobs.require_learning_scope(
+            game, cast(dict[str, Any] | None, job.input_payload.get("private_learning"))
+        )
         cohort = UUID(str(job.input_payload["cohort_id"]))
-        preview = self.cohorts.run_preview(game, cohort)
+        private_pin = cast(dict[str, Any] | None, job.input_payload.get("private_learning"))
+        preview = self.cohorts.run_preview(
+            game, cohort, **({"private_learning": private_pin} if private_pin is not None else {})
+        )
         blockers = [code for code in preview["apiBlockers"] if code not in _QUEUE_BLOCKERS_IGNORED]
         if job.input_payload.get("content_experiment") is not None:
             blockers = [code for code in blockers if code != "GRID_RUN_COHORT_COST_EXCEEDS_BUDGET"]

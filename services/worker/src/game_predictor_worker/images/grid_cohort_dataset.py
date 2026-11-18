@@ -207,6 +207,24 @@ class GridCohortSnapshot:
             or base["familyId"] != descriptor["familyId"]
         ):
             _fail("BASE_MANIFEST_MISMATCH", "Catalogue base identity or checksum differs.")
+        if "privateLearning" in value:
+            pin = value["privateLearning"]
+            if (
+                not isinstance(pin, dict)
+                or pin.get("gameId") != value["gameId"]
+                or pin.get("targetFamilyId") != value["familyId"]
+                or pin.get("baseVersionId") != base["versionId"]
+                or pin.get("baseManifestSha256") != base["manifestSha256"]
+                or type(pin.get("assignmentRevision")) is not int
+                or pin["assignmentRevision"] < 1
+                or value.get("cropPolicyVersion") != "full-cell-v2"
+                or not isinstance(value.get("detectorReadiness"), dict)
+                or not _sha(value.get("photoSplit", {}).get("sha256"))
+            ):
+                _fail(
+                    "PRIVATE_LEARNING_PIN_INVALID",
+                    "Private snapshot differs from its frozen training evidence.",
+                )
         preprocessing = {
             key: descriptor[key]
             for key in ("preprocessingVersion", "decodingPolicyVersion", "inferenceManifest")

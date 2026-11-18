@@ -74,6 +74,8 @@ _PAYLOAD_KEYS = frozenset(
 
 
 class GridModelEvaluationStore(Protocol):
+    def require_private_pin(self, game: UUID, pin: Mapping[str, Any]) -> None: ...
+
     def catalogue(
         self, version_id: UUID, base_version_id: UUID
     ) -> tuple[dict[str, Any], dict[str, Any], str]: ...
@@ -112,6 +114,8 @@ def _payload(job: Job) -> dict[str, Any]:
     expected = _PAYLOAD_KEYS
     if payload.get("evaluation_kind") == CORRECTION_EVALUATION:
         expected = expected | {"scope", "checkpoint_selection"}
+        if "private_learning" in payload:
+            expected = expected | {"private_learning"}
     elif payload.get("evaluation_kind") == "grid-assigned-comparison-v1":
         expected = expected | {
             "baseline_version_id",
@@ -415,6 +419,19 @@ class GridModelEvaluationJobHandler:
 
     def _run(self, context: JobExecutionContext, job: Job) -> None:
         payload = _payload(job)
+        if private_pin := payload.get("private_learning"):
+            assert job.game_id is not None
+            if (
+                [pin["game_id"] for pin in payload["cohorts"]] != [str(job.game_id)]
+                or private_pin["gameId"] != str(job.game_id)
+                or private_pin["baseVersionId"] != payload["base_version_id"]
+                or private_pin["baseManifestSha256"] != payload["base_manifest_sha256"]
+                or private_pin["targetFamilyId"] != payload["family_id"]
+            ):
+                raise JobHandlerError(
+                    "GRID_LEARNING_PRIVATE_COHORTS_INVALID", "The private evaluation pins differ."
+                )
+            self.store.require_private_pin(job.game_id, private_pin)
         assigned = payload["evaluation_kind"] == "grid-assigned-comparison-v1"
         state = self._state(job)
         cohorts = payload["cohorts"]

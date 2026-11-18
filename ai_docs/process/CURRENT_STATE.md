@@ -49,7 +49,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/PRIVATE_GAME_GRID_MODELS_PLAN_20261118.md` | TASK-1253 done, weryfikacja na testowym PostgreSQL | TASK-1254–1255 i pilot; operacje na danych za osobną zgodą | `codex/private-grid-models` |
+| `delivery/PRIVATE_GAME_GRID_MODELS_PLAN_20261118.md` | TASK-1253–1254 done, testy na PostgreSQL | TASK-1255 i pilot; operacje na danych za osobną zgodą | `codex/private-grid-models` |
 | `delivery/PARTIAL_SLOT_BINDING_PLAN_20261115.md` | 1208–1209 done (v1.7.640–641), audyt Codex P0 zamknięty | scalenie i ponowny import 8 zdjęć za zgodą | `claude/partial-slot-binding` |
 | `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md` | accepted 2026-11-12; TASK-1195 done (v1.7.617, migracja 0186 nie wykonana na bazie operatora) | TASK-1196–1197 (osobne polecenie); scalenie i migracja za zgodą | `claude/grid-cohort-refs` |
 | `delivery/EFFECTIVE_GRID_LEARNING_PLAN_20261111.md` | accepted; T1–T4 lokalnie v1.7.602–605; audyty Codex T2–T4 niewykonane (operator) | brak tasków; odbiór i zgoda na scalenie, potem osobno migracja0184 i dane A | `codex/effective-grid-delivery` |
@@ -103,6 +103,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1254** — Uczenie z przypisanej wersji prywatnej gry — v1.7.680 — tasks/completed/1254-private-grid-learning.md
 - **TASK-1253** — Własność modelu i utworzenie gry — v1.7.678 / `711d3013` — tasks/completed/1253-private-grid-model-ownership.md
 - **TASK-1249** — Galeria podejrzanych siatek Mumii A2 — v1.7.675 / `43e14c4f` — tasks/completed/1249-mumie-suspicious-grid-gallery.md
 - **TASK-1251** — Ocena proporcji siatek Mumii A2 — v1.7.674 / `54568609` — tasks/completed/1251-mumie-grid-proportions.md
@@ -112,4 +113,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1242** — Przyspieszenie danych — v1.7.665 / `cd83092b` — tasks/completed/1242-grid-preparation-throughput.md
 - **TASK-1240** — Częściowe korekty i porównanie modeli — v1.7.663 / `049c4855` — tasks/completed/1240-partial-grid-corrections-and-model-comparison.md
 - **TASK-1239** — Doprecyzowanie zwartej wyszukiwarki — v1.7.661 / `95e4f9c2` — tasks/completed/1239-board-search-refinements.md
-- **TASK-1238** — Uproszczenie wyszukiwarki plansz — v1.7.659 / `d14cb6c7` — tasks/completed/1238-board-search-compact-ui.md

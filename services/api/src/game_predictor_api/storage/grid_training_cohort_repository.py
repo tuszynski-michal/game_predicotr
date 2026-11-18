@@ -342,6 +342,14 @@ class SqlAlchemyGridTrainingCohortRepository:
             ).scalar_one(),
         )
 
+    def require_learning_scope(self, game: UUID, private_learning: dict[str, Any] | None) -> None:
+        from .grid_model_registry import SqlAlchemyGridModelRegistryRepository
+        from .grid_private_learning import require_learning_pin
+
+        require_learning_pin(
+            SqlAlchemyGridModelRegistryRepository(self.session), game, private_learning
+        )
+
     def training_scope(self, game: UUID, cohort: UUID) -> dict[str, Any]:
         """Fence new training use independently from historical receipt replay."""
         try:

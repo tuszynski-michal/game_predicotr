@@ -9,6 +9,15 @@ import type {
 
 /** TASK-1000: readable reasons; an unknown code is never hidden, only labelled. */
 export const REASON_LABELS: Readonly<Record<string, string>> = {
+  GRID_LEARNING_PRIVATE_SCOPE_REQUIRED:
+    'Odśwież panel, aby uczyć model tej gry.',
+  GRID_LEARNING_PRIVATE_ASSIGNMENT_REQUIRED: 'Wybierz bazę modelu dla tej gry.',
+  GRID_LEARNING_PRIVATE_ASSIGNMENT_CHANGED:
+    'Wersja modelu gry zmieniła się. Przygotuj nowy podział.',
+  GRID_LEARNING_PRIVATE_COHORTS_INVALID: 'Wybierz wyłącznie korekty tej gry.',
+  GRID_LEARNING_PRIVATE_HISTORY_EXCLUDED:
+    'Wyłącz dane gry prywatnej ze wspólnego treningu.',
+  GRID_LEARNING_SCOPE_CHANGED: 'Zmieniono zakres uczenia gry. Odśwież panel.',
   GRID_LEARNING_HISTORY_COHORT_UNVERIFIED:
     'Wybrana historyczna kohorta nie ma dowodu w publikacji bazy. Wybierz potwierdzoną kohortę tej gry.',
   GRID_LEARNING_HISTORY_BASE_MISMATCH:
@@ -39,6 +48,14 @@ export const REASON_LABELS: Readonly<Record<string, string>> = {
     'Wymagana gra nie ma przypiętej kohorty do nowej oceny. Uzupełnij ją w szczegółach zakresu.',
   GRID_LEARNING_DEFAULT_REQUIRED:
     'Nie wybrano wspólnego modelu bazowego. Ustaw opublikowaną wersję domyślną.',
+  GRID_LEARNING_WORKER_UPDATE_REQUIRED:
+    'Uruchom ponownie worker general, aby włączyć przygotowanie danych w tle.',
+  GRID_PREPARATION_STALLED:
+    'Przygotowanie zatrzymano z powodu braku postępu przez 5 minut. Sprawdź workera i wznów ten sam przebieg.',
+  GRID_LEARNING_PREPARATION_REQUIRED:
+    'Dane tego przebiegu nie są jeszcze przygotowane. Sprawdź stan przygotowania.',
+  GRID_LEARNING_ALREADY_ACTIVE:
+    'Trwa już uczenie lub przygotowanie danych tej gry. Sprawdź jego przebieg.',
   GRID_LEARNING_BASE_UNAVAILABLE:
     'Pliki modelu bazowego są niedostępne. Przywróć je przed uczeniem.',
   GRID_LEARNING_TRAINING_ARTIFACTS_REQUIRED:

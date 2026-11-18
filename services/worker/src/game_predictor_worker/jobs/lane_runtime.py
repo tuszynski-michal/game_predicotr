@@ -73,11 +73,17 @@ class WorkerLaneHeartbeat:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._instance_token = instance_token or uuid4()
         self._stop_event = Event()
+        self._fenced_event = Event()
         self._thread: Thread | None = None
 
     @property
     def instance_token(self) -> UUID:
         return self._instance_token
+
+    @property
+    def fenced(self) -> bool:
+        """Stop polling when a replacement process owns this lane registration."""
+        return self._fenced_event.is_set()
 
     def start(self) -> None:
         if self._thread is not None:
@@ -129,6 +135,7 @@ class WorkerLaneHeartbeat:
                     heartbeat_at=self._clock(),
                 )
                 if not current:
+                    self._fenced_event.set()
                     LOGGER.warning(
                         "Worker lane heartbeat was fenced by a newer process: %s",
                         self._lane.value,

@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1254 — Uczenie z przypisanej wersji prywatnej gry (done)
+
+- Plik: tasks/completed/1254-private-grid-learning.md.
+- Commit: **v1.7.680** (hash dopisuje kolejny commit).
+- Przygotowanie w tle, trwały pin gry/bazy/rodziny, własna kohorta, trening i ocena z kontrolą SQL w 0193, Admin i klient.
+- Izolowany PostgreSQL 18 i testy pionu zaliczone. Mypy ograniczony do zmienionych modułów bez pełnego grafu; szczegóły w Outcome.
+
 ### TASK-1253 — Własność modelu i utworzenie gry (done)
 
 - Plik: `tasks/completed/1253-private-grid-model-ownership.md`.

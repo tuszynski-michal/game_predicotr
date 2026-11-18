@@ -64,7 +64,9 @@ def header(game, cohort, *, status="frozen", mode="grid-only", train=(30, 10, 0)
 def service(tmp_path: Path, head, qualification="eligible", reasons=()):
     value = GridTrainingCohortService.__new__(GridTrainingCohortService)
     value.artifact_root = tmp_path
-    value.repository = SimpleNamespace(training_scope=lambda _game, _cohort: {})
+    value.repository = SimpleNamespace(
+        require_learning_scope=lambda _game, _pin: None, training_scope=lambda _game, _cohort: {}
+    )
     calls = []
 
     def get(game, cohort):

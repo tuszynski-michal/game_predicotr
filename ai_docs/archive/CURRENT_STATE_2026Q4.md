@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1259 — Seria zdjęć w Reviewerze (done)
 
 - Plik: `tasks/completed/1259-reviewer-photo-series.md`.
-- Commit: **v1.7.691** (hash dopisuje kolejny commit).
+- Commit: **v1.7.691 / `644d2416d70a546c756e8b138f27884ee0235b42`** (hash dopisuje kolejny commit).
 - Enter i kliknięcie zapisują planszę; po 9 różnych potwierdzeniach następuje przejście do kolejnego zdjęcia. Interakcje 43/43 i kontrakty 9/9 PASS.
 
 ### TASK-1258 — Korekta jednego zdjęcia (done)

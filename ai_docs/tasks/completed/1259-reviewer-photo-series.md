@@ -24,6 +24,6 @@ Lokalna strona serii, bramka Reviewera, ekran końca zakresu i jego test interak
 
 ## Outcome
 
-Commit: v1.7.691 (hash dopisuje kolejny commit).
+Commit: v1.7.691 / `644d2416d70a546c756e8b138f27884ee0235b42`.
 
 Adres pozycji serii odczytuje zakres jednego zdjęcia. Potwierdzone pozycje są liczone po odpowiedzi zapisu, z zachowaniem postępu po odświeżeniu karty. Utrzymany Enter nie powtarza zapisu. Interakcje 43/43, kontrakty 9/9, lint, typy i mapa PASS.

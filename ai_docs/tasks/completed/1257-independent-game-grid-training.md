@@ -53,6 +53,8 @@ Commit: v1.7.686 / `7c71402d2c23b33d643a77a86db39bf9fe511b10`.
 
 ### Verification results
 
+- Przed wdrożeniem kontrola integracji ujawniła starą oczekiwaną rewizję 0192 w kontroli startowej API i workera. Wersja v1.7.688 wiąże start z rewizją 0194. Wszystkie 28 testów kontroli schematu przeszło, w tym sprawdzenie rzeczywistej pojedynczej głowy Alembic.
+
 - Test kontrolny całego procesu na CPU przeszedł w 73,62 s. Obie sieci trenowano z pustych wag, wybrano epokę, wyeksportowano i uruchomiono oba modele ONNX oraz sprawdzono zgodność z PyTorch na rzeczywistych rozmiarach wejścia. Osobny test potwierdził uwzględnienie zdjęć częściowych w koszcie epoki. Zestaw testów API 69/69. W szerszym zestawie workera pozostała zastana asercja starej listy wariantów treningu; test zależny od zegara przeszedł po powtórzeniu.
 
 - Na kontrolowanych obrazach sprawdzono rzeczywistą inicjalizację i aktualizację obu sieci PyTorch, maskowanie częściowych zdjęć i wznowienie. Testy produkcyjnego renderera obejmują wszystkie 15 pól oraz przykłady utraty treści na obwodzie i przy linii wewnętrznej.

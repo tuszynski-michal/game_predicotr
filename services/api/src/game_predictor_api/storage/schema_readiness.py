@@ -16,7 +16,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0192_grid_cohort_header_cache"
+EXPECTED_ALEMBIC_HEAD: Final = "0194_private_grid_initialization"
 
 
 class AlembicHeadMismatchError(RuntimeError):

@@ -12,6 +12,10 @@ from sqlalchemy.engine import Connection, Result, ScalarResult
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError, require_minima
+from game_predictor_api.storage.grid_preparation_progress import (
+    preparation_deadline,
+    report_preparation,
+)
 from game_predictor_api.storage.grid_training_cohort_currentness import check_member
 from game_predictor_api.storage.grid_training_cohort_repository import (
     CohortDeadline,
@@ -30,6 +34,7 @@ def _budgeted_rows(
 ) -> Generator[Any, None, None]:
     """Budget each server-cursor fetch without a SQL round trip for every row."""
     try:
+        read_count = 0
         while True:
             # FETCH bypasses before_cursor_execute. Set its remaining timeout
             # through the regular session cursor before requesting another batch.
@@ -38,6 +43,8 @@ def _budgeted_rows(
             deadline.check()
             if not batch:
                 return
+            read_count += len(batch)
+            report_preparation("freeze_inputs", read_count)
             yield from batch
             del batch
     finally:
@@ -117,7 +124,7 @@ def freeze(
     body: dict[str, Any],
     actor: str,
 ) -> dict[str, Any]:
-    deadline = CohortDeadline()
+    deadline = preparation_deadline()
     request_repo = service.repository
     request_repo.bind(game)
     if replay := request_repo.replay(game, "freeze", body, identifier):
@@ -200,6 +207,7 @@ def freeze(
 
                 validate_population(repo, game, row.document["photoSplit"], for_freeze=True)
             for member in repo.iter_members(game, identifier):
+                report_preparation("freeze_members", member.ordinal, row.document["sourceCount"])
                 deadline.check(session)
                 check_member(repo, member)
             result = repo.recording_command(

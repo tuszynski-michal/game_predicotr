@@ -96,6 +96,25 @@ export function learningActive(status: string): boolean {
   return status === 'created' || status === 'processing';
 }
 
+export function preparationStageLabel(stage: string): string {
+  return (
+    (
+      {
+        queued: 'Oczekiwanie na workera',
+        preparing_data: 'Przygotowanie danych',
+        source_inventory: 'Sprawdzanie listy zdjęć',
+        recording_context: 'Sprawdzanie historii i podziału nagrań',
+        geometry_evidence: 'Weryfikacja zapisanych korekt',
+        data_prepared: 'Podział przygotowany',
+      cohort_capture: 'Utrwalanie dowodów korekt',
+      cohort_materialization: 'Przygotowanie zdjęć do treningu',
+      freeze_inputs: 'Zabezpieczanie wejść kohorty',
+      freeze_members: 'Końcowa kontrola aktualności danych',
+      } as Record<string, string>
+    )[stage] ?? 'Przygotowanie danych'
+  );
+}
+
 export function learningStage(view: GridCorrectionLearningView): string {
   if (view.verdict) return 'Ocena ukończona';
   if (view.evaluationId) return 'Porównanie kandydata z bazą';
@@ -104,5 +123,7 @@ export function learningStage(view: GridCorrectionLearningView): string {
       ? 'Kontrolowany eksperyment pełnych symboli'
       : 'Trening modelu';
   if (view.cohortId) return 'Przygotowanie i sprawdzenie danych';
+  if (view.preparation)
+    return preparationStageLabel(view.stage ?? view.preparation.stage);
   return 'Sprawdzanie gotowości';
 }

@@ -15655,6 +15655,11 @@
             "title": "Actor",
             "type": "string"
           },
+          "backgroundPreparation": {
+            "default": false,
+            "title": "Backgroundpreparation",
+            "type": "boolean"
+          },
           "command": {
             "additionalProperties": true,
             "title": "Command",
@@ -15671,9 +15676,16 @@
             "type": "string"
           },
           "pins": {
-            "additionalProperties": true,
-            "title": "Pins",
-            "type": "object"
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pins"
           },
           "preview": {
             "additionalProperties": true,
@@ -15692,7 +15704,6 @@
           "idempotencyKey",
           "command",
           "preview",
-          "pins",
           "actor"
         ],
         "title": "GridCorrectionLearningJobPayload",
@@ -15895,6 +15906,11 @@
               }
             ],
             "title": "Policyversion"
+          },
+          "preparationRequired": {
+            "default": false,
+            "title": "Preparationrequired",
+            "type": "boolean"
           },
           "presetFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
@@ -16325,10 +16341,27 @@
             ],
             "title": "Policyversion"
           },
+          "preparationOnly": {
+            "default": false,
+            "title": "Preparationonly",
+            "type": "boolean"
+          },
+          "prepareInBackground": {
+            "default": false,
+            "title": "Prepareinbackground",
+            "type": "boolean"
+          },
           "previewSha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Previewsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previewsha256"
           },
           "rescueVariant": {
             "anyOf": [
@@ -16373,8 +16406,7 @@
           }
         },
         "required": [
-          "idempotencyKey",
-          "previewSha256"
+          "idempotencyKey"
         ],
         "title": "GridCorrectionLearningStartCommand",
         "type": "object"
@@ -16424,6 +16456,18 @@
               }
             ],
             "title": "Cohortid"
+          },
+          "commandKey": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commandkey"
           },
           "contentExperiment": {
             "anyOf": [
@@ -16497,6 +16541,26 @@
             "format": "uuid",
             "title": "Learningid",
             "type": "string"
+          },
+          "preparation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridLearningPreparationProgress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preparedPreview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCorrectionLearningPreview"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "previewSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -17751,6 +17815,65 @@
           "orderingMethods"
         ],
         "title": "GridLearningMaterialExclusion",
+        "type": "object"
+      },
+      "GridLearningPreparationProgress": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "minimum": 0.0,
+            "title": "Current",
+            "type": "integer"
+          },
+          "heartbeatAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeatat"
+          },
+          "lastProgressAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastprogressat"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "stalled": {
+            "default": false,
+            "title": "Stalled",
+            "type": "boolean"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "stage",
+          "current"
+        ],
+        "title": "GridLearningPreparationProgress",
         "type": "object"
       },
       "GridLearningRoleMaterial": {
@@ -57892,6 +58015,16 @@
             "schema": {
               "default": false,
               "title": "Recommendtrainingmode",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lightweight",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Lightweight",
               "type": "boolean"
             }
           }

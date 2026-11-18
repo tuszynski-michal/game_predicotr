@@ -1981,6 +1981,7 @@ export type {
   GridInferenceManifest,
   GridLearningMaterial,
   GridLearningMaterialExclusion,
+  GridLearningPreparationProgress,
   GridLearningRoleMaterial,
   GridLearningRoleShortfall,
   GridLearningRoleShortfalls,

@@ -2,11 +2,9 @@
 
 ## Cel dokumentu
 
-Nadrzędne zasady pracy dla Codex oraz innych agentów AI w tym repozytorium.
-`ai_docs/` jest źródłem prawdy dla zakresu produktu, architektury i etapu prac.
-Procedury jednego momentu pracy są w skillach (`.claude/skills/`, kopie Codex w
-`.agents/skills/` i `.codex/skills/`). Skill nie osłabia reguł tego pliku; przy
-sprzeczności obowiązuje ten plik.
+Zasady nadrzędne dla agentów AI. Źródło prawdy: `ai_docs/` (produkt,
+architektura, etap prac). Procedury: `.claude/skills/`, kopie Codex:
+`.agents/skills/` i `.codex/skills/`. Przy sprzeczności obowiązuje ten plik.
 
 ## Obowiązkowa kolejność czytania
 
@@ -228,17 +226,24 @@ w `main`. Chroń główny checkout, cudze zmiany i niescalone
 commity; blocker sprzątania zgłoś, bez wymuszania. P0/P1 lub niewykonana
 wymagana migracja blokują merge. Procedura: `merge-to-main`.
 
+## Claude Code
+
+Na polecenie użytkownika używaj terminala/CLI, bez żądania dostępu do ekranu.
+Odkrywanie CLI: `Resolve-AuditorCli` w `scripts/audit_task.ps1`; brak w PATH
+nie dowodzi niedostępności. Przekazuj cwd, task, pliki i zakres, sprawdzaj wynik.
+Blokada jednej sesji nie opisuje drugiej; każda zachowuje własne uprawnienia.
+Nie używaj delegowania do obchodzenia ograniczeń.
+
 ## Audyt krzyżowy
 
 Audyt jest wymagany tylko, gdy wskazuje go kolumna `Dodatkowy review` planu;
 operator może z niego zrezygnować dla planu lub taska (zapis w `Outcome`).
 Audytuje model z innej rodziny niż wykonawca (pracę Claude Codex, pracę Codex
 Claude), tylko do odczytu, przed commitem; wykonawca nie audytuje własnej pracy.
-Otwarte P0/P1 blokują commit; jedna runda audytu i jedna runda poprawek, bez
-pętli. Procedurę, audytora zastępczego, limity czasu i format raportu opisują
-skille `audit-task` (Claude Code) i `claude-audit` (Codex). Poświadczeń CLI
-agent nie wpisuje. Procedura transportu i importu Desktop:
-`ai_docs/process/CROSS_AUDIT.md`.
+P0/P1 blokują commit; jedna runda audytu i poprawek, bez pętli.
+Zastępstwo, limity i raport: `audit-task` (Claude), `claude-audit` (Codex).
+Transport i import Desktop: `ai_docs/process/CROSS_AUDIT.md`.
+Agent nie wpisuje poświadczeń CLI.
 
 ## Hierarchia źródeł prawdy
 

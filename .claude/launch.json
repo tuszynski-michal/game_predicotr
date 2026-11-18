@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "grid-selection-20261112",
+      "runtimeExecutable": "D:\\game_predicotr\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["D:\\game_predicotr\\artifacts\\grid-reinference-preview-20261112\\serve_selection.py", "8765"],
+      "port": 8765
+    }
+  ]
+}

@@ -1758,7 +1758,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getGridCorrectionLearningReady: (
       gameId: string,
-      options?: { recommendTrainingMode?: boolean },
+      options?: { recommendTrainingMode?: boolean; lightweight?: boolean },
     ) =>
       getGeneratedGridCorrectionLearningReady({
         client,

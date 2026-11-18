@@ -5933,3 +5933,24 @@ Dotychczasowe endpointy board-sources otrzymują opcjonalny wariant `mode=replac
 DELETE board-sources przyjmuje `SourcePurgeCommand` z tymi identyfikatorami oraz previewToken, idempotencyKey i confirmed=true. Atomowo tworzy rezerwacje/tombstones i usuwa source-only operational graph; po COMMIT finalizuje kwarantannę. Odpowiedź phase=gap_open ma pole purge. `SourcePurgeInfo` zawiera operationType, liczniki, deletedRecords, dokładną command, fileStatus (`pending`, `finalized`, `recovery_pending`, `recovery_required`) i deletedBytes; ostatnie jest dodatnie dopiero przy finalized. GET batch i JSON export obliczają aktualny fileStatus, nie zwracają fileProof ani quarantineKey. Exact replay sprawdza body/key przed nową walidacją i podejmuje brakujące file effects.
 
 Blockery `SOURCE_REPLACEMENT_PURGE_IMPORT_UNFINISHED`, MODEL_BUSY, GRID_BUSY, REVIEW_BUSY, DEPENDENCY_UNKNOWN, PLAN_DRIFT/PREVIEW_STALE odmawiają przed kwarantanną. `SOURCE_PURGED` dotyczy podglądu znanego source ID. Publiczne typy pochodzą z OpenAPI; wrappery `previewSourcePurge`/`executeSourcePurge` używają istniejących generated endpointów. Request-v1 eksportu luk i obecny import C1/C2 nie zmieniają shape.
+
+## Przygotowanie uczenia siatek w tle — TASK-1230 / D-616
+
+Istniejący start `POST /api/v1/admin/games/{game_id}/grid-correction-learning`
+przyjmuje opcjonalne `prepareInBackground=false` i `preparationOnly=false`.
+Tylko jawne `prepareInBackground=true` pozwala pominąć `previewSha256`:
+serwer kolejkuje walidację, nie uznaje nieprzygotowanych danych za gotowe.
+Żądanie zachowuje mode/policy/assignments/exclusions i pin wersji domyślnej.
+`preparationOnly=true` wymaga trybu background. Po przygotowaniu status to
+`waiting_for_review`; istniejący endpoint `/resume` jawnie dopuszcza trening
+tego samego przygotowanego przebiegu. Inna aktywna iteracja tej gry blokuje start
+oraz wznowienie. Replay klucza zwraca istniejący przebieg przed innymi kontrolami.
+
+GET `/ready?lightweight=true` odczytuje wyłącznie metadane nawigacji i zwraca
+`preparationRequired=true`, `canStart=false` oraz ewentualne blokery bazowe/workera.
+Nie uruchamia splitu ani treningu. Domyślne legacy ready/preview zachowują kontrakt.
+View może dodać `commandKey`, `preparation` (stage/current/total/lastProgressAt/
+heartbeatAt/stalled) oraz `preparedPreview` przy jawnym przygotowaniu do review.
+Dane faktycznej gotowości pochodzą wyłącznie z walidacji workera. Brak nowej
+wersji workera daje `GRID_LEARNING_WORKER_UPDATE_REQUIRED`, zastój przygotowania
+`GRID_PREPARATION_STALLED`. OpenAPI i generowany klient są właścicielami typów.

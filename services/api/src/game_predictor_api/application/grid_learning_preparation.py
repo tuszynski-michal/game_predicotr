@@ -1,0 +1,181 @@
+"""Durable, idempotent admission before expensive correction-data preparation."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any
+from uuid import UUID
+
+from sqlalchemy import select, text
+
+from game_predictor_api.domain.grid_model_registry import descriptor_sha256
+from game_predictor_api.domain.grid_training_cohorts import GridCohortError
+from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
+from game_predictor_api.domain.worker_lanes import WorkerLaneName
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.grid_model_registry import SqlAlchemyGridModelRegistryRepository
+from game_predictor_api.storage.grid_preparation_progress import PREPARATION_WORKER_CAPABILITY
+from game_predictor_api.storage.grid_training_cohort_artifacts import GridCohortArtifactStore
+from game_predictor_api.storage.grid_training_cohort_repository import (
+    SqlAlchemyGridTrainingCohortRepository,
+)
+from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+from game_predictor_api.storage.models import JobModel, WorkerLaneRuntimeModel
+
+if TYPE_CHECKING:
+    from .grid_correction_learning import GridCorrectionLearningService
+
+
+def require_preparation_worker(session: Any) -> None:
+    worker = session.get(WorkerLaneRuntimeModel, WorkerLaneName.GENERAL)
+    if worker is None or PREPARATION_WORKER_CAPABILITY not in worker.worker_version:
+        raise GridCohortError(
+            "GRID_LEARNING_WORKER_UPDATE_REQUIRED",
+            "Restart the general worker with background preparation support.",
+        )
+
+
+def enqueue(
+    service: GridCorrectionLearningService, game: UUID, command: dict[str, Any], actor: str
+) -> dict[str, Any]:
+    from .grid_correction_learning import LEARNING_KIND
+
+    key = UUID(command["idempotencyKey"])
+    with game_storage_scope(game), service.session_factory() as session, session.begin():
+        SqlAlchemyGridTrainingCohortRepository(session, service.artifact_root).bind(
+            game, write=True
+        )
+        session.execute(text("SET LOCAL lock_timeout='5s'"))
+        session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+            {"key": f"grid-learning-background:{game}"},
+        )
+        existing = service._by_key(session, game, key)
+        if existing is not None:
+            if existing.input_payload["command"] != command:
+                raise GridCohortError(
+                    "GRID_LEARNING_IDEMPOTENCY_CONFLICT", "The key belongs to another command."
+                )
+            return service.view(existing)
+        active = session.scalar(
+            select(JobModel.id)
+            .where(
+                JobModel.game_id == game,
+                JobModel.job_type == JobType.GRID_CORRECTION_LEARNING,
+                JobModel.input_payload["learning_kind"].as_string() == LEARNING_KIND,
+                JobModel.status.in_([JobStatus.CREATED, JobStatus.PROCESSING]),
+            )
+            .limit(1)
+        )
+        if active is not None:
+            raise GridCohortError(
+                "GRID_LEARNING_ALREADY_ACTIVE", "A learning job is already active."
+            )
+        require_preparation_worker(session)
+        default = SqlAlchemyGridModelRegistryRepository(session).default()
+        if default is None:
+            raise GridCohortError(
+                "GRID_LEARNING_DEFAULT_REQUIRED", "Choose a global default first."
+            )
+        preview = {
+            "baseVersionId": str(default.version_id),
+            "defaultRevision": default.revision,
+            "previewSha256": descriptor_sha256(command),
+            "requiredGameIds": [str(game)],
+            "exclusions": command.get("exclusions", []),
+        }
+        payload = {
+            "schema_version": 1,
+            "learning_kind": LEARNING_KIND,
+            "idempotency_key": str(key),
+            "command": command,
+            "preview": preview,
+            "actor": actor,
+            "backgroundPreparation": True,
+        }
+        job = create_job(JobType.GRID_CORRECTION_LEARNING, game_id=game, input_payload=payload)
+        job = replace(job, stage="preparing_data")
+        return service.view(SqlAlchemyJobRepository(session).add_job(job))
+
+
+def load_prepared(service: GridCorrectionLearningService, job: Job) -> dict[str, Any] | None:
+    artifact = (job.checkpoint_payload or {}).get("preparedArtifact")
+    if not isinstance(artifact, dict):
+        return None
+    return GridCohortArtifactStore(service.artifact_root).read_json(
+        artifact["path"], artifact["sha256"]
+    )
+
+
+def prepare(service: GridCorrectionLearningService, job: Job) -> dict[str, Any]:
+    assert job.game_id is not None
+    command: Any = job.input_payload["command"]
+    options = {
+        k: v
+        for k, v in command.items()
+        if k not in {"idempotencyKey", "previewSha256", "prepareInBackground", "preparationOnly"}
+    }
+    preview, pins = service._preview(job.game_id, options)
+    if not preview["canStart"]:
+        raise GridCohortError(preview["blockers"][0], "Correction data preparation is blocked.")
+    initial: Any = job.input_payload["preview"]
+    if (preview["baseVersionId"], preview["defaultRevision"]) != (
+        initial["baseVersionId"],
+        initial["defaultRevision"],
+    ):
+        raise GridCohortError(
+            "GRID_LEARNING_DEFAULT_CHANGED", "The default changed during preparation."
+        )
+    # Automatic v4 choices are part of the prepared command, not an implicit legacy fallback.
+    options.update(
+        importJobIds=preview["importJobIds"],
+        **(
+            {"validationAssignments": preview["validationAssignments"]}
+            if preview.get("policyVersion")
+            else {}
+        ),
+    )
+    return GridCohortArtifactStore(service.artifact_root).publish_json(
+        job.game_id, job.id, {"preview": preview, "pins": pins, "options": options}
+    )
+
+
+def readiness(service: GridCorrectionLearningService, game: UUID) -> dict[str, Any]:
+    """Navigation/admission metadata only; no implicit preparation on page load."""
+    from game_predictor_worker.training_core.grid_training_admission import PRESETS, WORKER_CHECKS
+
+    preset = PRESETS["grid-corrections-v1"]
+    with game_storage_scope(game), service.session_factory() as session:
+        SqlAlchemyGridTrainingCohortRepository(session, service.artifact_root).bind(game)
+        default = SqlAlchemyGridModelRegistryRepository(session).default()
+        blockers = [] if default else ["GRID_LEARNING_DEFAULT_REQUIRED"]
+        try:
+            require_preparation_worker(session)
+        except GridCohortError as error:
+            blockers.append(error.code)
+        view = {
+            "trainingMode": "grid-only",
+            "preparationRequired": True,
+            "gameId": str(game),
+            "baseVersionId": str(default.version_id) if default else None,
+            "baseManifestSha256": None,
+            "defaultRevision": default.revision if default else None,
+            "importJobIds": [],
+            "roleCounts": [],
+            "dataAvailability": None,
+            "bufferPhotos": 0,
+            "priorScopeDocumented": False,
+            "priorGameIds": [],
+            "historicalCohorts": [],
+            "exclusions": [],
+            "requiredGameIds": [str(game)],
+            "presetId": preset.preset_id,
+            "presetFingerprint": preset.fingerprint,
+            "cost": None,
+            "blockers": blockers,
+            "pendingWorkerChecks": list(WORKER_CHECKS),
+            "canStart": False,
+            "evidenceLevel": "photo-only",
+            "limitations": ["Correction data has not been prepared for this selection."],
+        }
+        return {**view, "previewSha256": descriptor_sha256(view)}

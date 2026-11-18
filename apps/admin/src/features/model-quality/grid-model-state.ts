@@ -39,6 +39,12 @@ export const REASON_LABELS: Readonly<Record<string, string>> = {
     'Wymagana gra nie ma przypiętej kohorty do nowej oceny. Uzupełnij ją w szczegółach zakresu.',
   GRID_LEARNING_DEFAULT_REQUIRED:
     'Nie wybrano wspólnego modelu bazowego. Ustaw opublikowaną wersję domyślną.',
+  GRID_LEARNING_WORKER_UPDATE_REQUIRED:
+    'Uruchom ponownie worker general, aby włączyć przygotowanie danych w tle.',
+  GRID_PREPARATION_STALLED:
+    'Przygotowanie zatrzymano z powodu braku postępu przez 5 minut. Sprawdź workera i wznów ten sam przebieg.',
+  GRID_LEARNING_ALREADY_ACTIVE:
+    'Trwa już uczenie lub przygotowanie danych tej gry. Sprawdź jego przebieg.',
   GRID_LEARNING_BASE_UNAVAILABLE:
     'Pliki modelu bazowego są niedostępne. Przywróć je przed uczeniem.',
   GRID_LEARNING_TRAINING_ARTIFACTS_REQUIRED:

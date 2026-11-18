@@ -637,3 +637,33 @@ A2 label dopisuje `symbol_readability_decisions` w tej samej transakcji co etyki
 B1 rejestruje zależności kohort symboli/geometrii, aktywnych zadań, aktywacji modeli, wydań i oczekujących geometrii. Bez zmian historycznych modeli i zbiorów. Zakres B2a obejmuje także zintegrowane moduły grid correction training: population/prepare/validate, photo-only register_cohort_use, freeze/currentness oraz workflow/recovery. Strażnik retencji musi objąć `browser_staging_retention_repository.discard_unused` i `source_crop.delete_original_if_still_eligible`, zanim nastąpią skutki plikowe.
 
 Poprawka P1 audytu TASK-1127: każdy wpis ledgeru przed nadpisaniem A2 zachowuje w immutable snapshot poprzednią rozstrzygającą ocenę legacy (run/cell/identity/revision/state). Ten dowód nie otrzymuje nowego ordinalu ludzkiej decyzji. Gdy brak nowej jawnej decisive oceny dla pikseli, kwalifikacja liczy zgodność wszystkich zachowanych i nadal bieżących dowodów legacy; pending/skipped nie usuwają konfliktu. Nowa jawna readable/unreadable rozstrzyga; zmieniona tożsamość wyklucza stare dowody.
+
+## Przygotowanie korekt w istniejącym jobie — TASK-1230 / D-616
+
+`GRID_CORRECTION_LEARNING` zachowuje dotychczasowy kontrakt; opt-in
+`prepareInBackground` zapisuje polecenie i pin domyślnej wersji przed odczytem
+całej populacji. Worker general przygotowuje preview/pins, publikuje niezmienny
+artefakt przez `GridCohortArtifactStore` i zapisuje descriptor w checkpoint.
+`preparationOnly` pauzuje do review; resume zapisuje autoryzację treningu w tej
+samej chronionej maszynie stanów. GET/list są tylko do odczytu. `commandKey`
+pozwala uzgodnić utraconą odpowiedź bez nowego POST i bez zmiany klucza.
+
+Kontekst `PreparationDeadline` jest izolowany per wykonanie (ContextVar):
+rzeczywista partia historii nagrań lub zdjęcie odnawia 300-sekundowy budżet
+zastoju. Zapisy checkpointów postępu są ograniczone do jednego na 5 sekund
+lub zmiany etapu. Istniejąca dzierżawa/heartbeat co <=15 sekund nadal zapewnia
+fencing i odzyskiwanie po śmierci workera. Przed gotowym artefaktem restart
+ponawia dowody; po nim korzysta z identycznego artefaktu i tożsamości dzieci.
+Historyczne synchroniczne odczyty zachowują swój limit 300 sekund. Nie ma nowej
+kolejki, tabeli ani zależności infrastrukturalnej.
+
+Nowy start wymaga zarejestrowanej możliwości `grid-preparation-v1` workera
+general. To blokuje przejęcie nowego payloadu przez stary handler w trakcie
+wdrożenia; przed odblokowaniem należy rzeczywiście zrestartować worker general.
+
+TASK-1230 deployment correction: the registry capability alone does not stop an
+already loaded obsolete process. Stop all old general workers before deployment.
+A fenced lane heartbeat now ends its worker polling loop after the current unit.
+The updated job store filters background preparation by the claiming version's
+capability, then checks it again under row lock. Already loaded old processes
+must be stopped before resuming a background parent; no immutable input rewrite.

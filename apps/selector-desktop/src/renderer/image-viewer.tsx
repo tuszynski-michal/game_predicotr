@@ -1,4 +1,6 @@
 import { PreviewCache } from './preview-cache.ts';
+import { RangeOverlay } from './range-overlay.tsx';
+import { DEFAULT_RANGE_OVERLAY } from '../range-overlay-preferences.ts';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { fitManualImageToViewport } from '@game-predictor/manual-image-selection-core';
 import type {
@@ -14,6 +16,7 @@ export function ImageViewer({
   changeView,
   ready,
   failed,
+  rangeText,
 }: {
   source: SourceIndex;
   image: SourceImage;
@@ -22,9 +25,11 @@ export function ImageViewer({
   changeView: (value: ViewPreferences) => void;
   ready: (id: string | null) => void;
   failed: (id: string) => void;
+  rangeText: string;
 }) {
   const cache = useRef(new PreviewCache());
   const host = useRef<HTMLDivElement>(null);
+  const shell = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const preferences = useRef(view);
   preferences.current = view;
@@ -45,12 +50,18 @@ export function ImageViewer({
   }, []);
   useEffect(() => {
     let active = true;
+    let frame: number | null = null;
     ready(null);
     setError(false);
     void cache.current
       .activate(source, image, step, true)
-      .then((current) => {
-        if (active) {
+      .then(async (current) => {
+        // Chromium may discard a detached decoded bitmap during a long session.
+        // An old resolved cache promise does not guarantee pixels for this frame.
+        await current.decode();
+        if (!active) return;
+        frame = requestAnimationFrame(() => {
+          if (!active) return;
           current.alt = image.relativePath;
           const element = container.current!;
           const dimensions = fitManualImageToViewport(
@@ -66,17 +77,24 @@ export function ImageViewer({
           current.style.height = `${dimensions.height}px`;
           current.style.maxWidth = 'none';
           current.style.maxHeight = 'none';
-          host.current?.replaceChildren(current);
+          shell.current!.style.width = `${dimensions.width}px`;
+          shell.current!.style.height = `${dimensions.height}px`;
+          if (host.current?.firstElementChild !== current)
+            host.current?.replaceChildren(current);
           element.scrollLeft = preferences.current.scrollX;
           element.scrollTop = preferences.current.scrollY;
           cache.current.present(image.id);
+          setViewport({
+            width: Math.max(1, element.clientWidth),
+            height: Math.max(1, element.clientHeight),
+          });
           setSize({
             width: current.naturalWidth,
             height: current.naturalHeight,
           });
           setDecodedFor(image.id);
           ready(image.id);
-        }
+        });
       })
       .catch(() => {
         if (active) {
@@ -87,6 +105,7 @@ export function ImageViewer({
       });
     return () => {
       active = false;
+      if (frame !== null) cancelAnimationFrame(frame);
     };
   }, [source, image.id, step]);
   useEffect(
@@ -101,6 +120,8 @@ export function ImageViewer({
   useLayoutEffect(() => {
     const current = host.current?.firstElementChild as HTMLImageElement | null;
     if (current && display) {
+      shell.current!.style.width = `${display.width}px`;
+      shell.current!.style.height = `${display.height}px`;
       current.style.width = `${display.width}px`;
       current.style.height = `${display.height}px`;
       current.style.maxWidth = 'none';
@@ -118,7 +139,12 @@ export function ImageViewer({
       data-preview-cache={cache.current.size}
       aria-label="Podgląd zdjęcia"
       onScroll={(event) => {
-        if (size.width && decodedFor === image.id)
+        if (
+          size.width &&
+          decodedFor === image.id &&
+          (event.currentTarget.scrollLeft !== preferences.current.scrollX ||
+            event.currentTarget.scrollTop !== preferences.current.scrollY)
+        )
           changeView({
             ...preferences.current,
             scrollX: event.currentTarget.scrollLeft,
@@ -141,7 +167,20 @@ export function ImageViewer({
             Ładowanie: {image.relativePath}
           </span>
         ) : null}
-        <div className="preview-image-host" ref={host} />
+        <div className="preview-image-shell" ref={shell}>
+          <div className="preview-image-host" ref={host} />
+          {(view.rangeOverlay ?? DEFAULT_RANGE_OVERLAY).enabled && display && (
+            <RangeOverlay
+              text={rangeText}
+              preferences={view.rangeOverlay ?? DEFAULT_RANGE_OVERLAY}
+              width={display.width}
+              height={display.height}
+              change={(rangeOverlay) =>
+                changeView({ ...preferences.current, rangeOverlay })
+              }
+            />
+          )}
+        </div>
       </div>
     </div>
   );

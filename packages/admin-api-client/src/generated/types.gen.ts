@@ -8606,6 +8606,10 @@ export type GridCorrectionLearningJobPayload = {
    */
   actor: string;
   /**
+   * Backgroundpreparation
+   */
+  backgroundPreparation?: boolean;
+  /**
    * Command
    */
   command: {
@@ -8622,9 +8626,9 @@ export type GridCorrectionLearningJobPayload = {
   /**
    * Pins
    */
-  pins: {
+  pins?: {
     [key: string]: unknown;
-  };
+  } | null;
   /**
    * Preview
    */
@@ -8720,6 +8724,10 @@ export type GridCorrectionLearningPreview = {
    * Policyversion
    */
   policyVersion?: 'application-grid-corrections-v4' | null;
+  /**
+   * Preparationrequired
+   */
+  preparationRequired?: boolean;
   /**
    * Presetfingerprint
    */
@@ -8884,9 +8892,17 @@ export type GridCorrectionLearningStartCommand = {
    */
   policyVersion?: 'application-grid-corrections-v4' | null;
   /**
+   * Preparationonly
+   */
+  preparationOnly?: boolean;
+  /**
+   * Prepareinbackground
+   */
+  prepareInBackground?: boolean;
+  /**
    * Previewsha256
    */
-  previewSha256: string;
+  previewSha256?: string | null;
   rescueVariant?: GridRescueVariantV1 | null;
   /**
    * Trainingmode
@@ -8921,6 +8937,10 @@ export type GridCorrectionLearningView = {
    * Cohortid
    */
   cohortId: string | null;
+  /**
+   * Commandkey
+   */
+  commandKey?: string | null;
   /**
    * Contentexperiment
    */
@@ -8957,6 +8977,8 @@ export type GridCorrectionLearningView = {
    * Learningid
    */
   learningId: string;
+  preparation?: GridLearningPreparationProgress | null;
+  preparedPreview?: GridCorrectionLearningPreview | null;
   /**
    * Previewsha256
    */
@@ -9703,6 +9725,36 @@ export type GridLearningMaterialExclusion = {
    * Sourceids
    */
   sourceIds: Array<string>;
+};
+
+/**
+ * GridLearningPreparationProgress
+ */
+export type GridLearningPreparationProgress = {
+  /**
+   * Current
+   */
+  current: number;
+  /**
+   * Heartbeatat
+   */
+  heartbeatAt?: string | null;
+  /**
+   * Lastprogressat
+   */
+  lastProgressAt?: string | null;
+  /**
+   * Stage
+   */
+  stage: string;
+  /**
+   * Stalled
+   */
+  stalled?: boolean;
+  /**
+   * Total
+   */
+  total?: number | null;
 };
 
 /**
@@ -32009,6 +32061,10 @@ export type GetGridCorrectionLearningReadyData = {
      * Recommendtrainingmode
      */
     recommendTrainingMode?: boolean;
+    /**
+     * Lightweight
+     */
+    lightweight?: boolean;
   };
   url: '/api/v1/admin/games/{game_id}/grid-correction-learning/ready';
 };

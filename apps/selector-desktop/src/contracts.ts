@@ -108,6 +108,13 @@ export interface ViewPreferences {
   zoom: number;
   scrollX: number;
   scrollY: number;
+  rangeOverlay?: RangeOverlayPreferences;
+}
+export interface RangeOverlayPreferences {
+  enabled: boolean;
+  x: number;
+  y: number;
+  fontSize: number;
 }
 export interface CreateProjectRequest {
   sourceToken?: string;

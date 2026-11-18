@@ -15,6 +15,7 @@ import { SecureFiles } from '../src/filesystem/secure-files.ts';
 import { disposeNativeChecks } from '../src/native/windows-check-worker.ts';
 import { resolveDesktopShortcut } from '../src/renderer/desktop-shortcuts.ts';
 import { DesktopLifecycle } from '../src/native/desktop-lifecycle.ts';
+import { DEFAULT_RANGE_OVERLAY } from '../src/range-overlay-preferences.ts';
 after(() => disposeNativeChecks());
 test('desktop decision repeats are consumed without a decision; fresh presses and arrows work', () => {
   for (const [input, action] of [
@@ -153,4 +154,48 @@ test('scroll burst coalesces one pending write and close flush preserves the fin
     await new ViewPreferencesStore(path.join(root, 'views')).load(id),
     final,
   );
+});
+
+test('overlay preferences validate, survive reload and hiding, and corrupt overlay preserves legacy view', async (t) => {
+  await mkdir('.tmp', { recursive: true });
+  const root = await mkdtemp(path.resolve('.tmp/overlay-cache-'));
+  t.after(() => removeOwnedTemp(root, path.resolve('.tmp')));
+  const id = randomUUID();
+  const directory = path.join(root, 'views');
+  const cache = new ViewPreferencesStore(directory);
+  const rangeOverlay = { enabled: true, x: 0.7, y: 0.4, fontSize: 65 };
+  const view = { ...DEFAULT_VIEW, zoom: 500, scrollX: 123, rangeOverlay };
+  assert.deepEqual(validateView(view), view);
+  for (const invalid of [
+    null,
+    [],
+    { ...rangeOverlay, x: -0.1 },
+    { ...rangeOverlay, y: 1.1 },
+    { ...rangeOverlay, fontSize: 11 },
+    { ...rangeOverlay, fontSize: Infinity },
+    { ...rangeOverlay, enabled: 'yes' },
+    { ...rangeOverlay, extra: 1 },
+  ])
+    assert.throws(() => validateView({ ...view, rangeOverlay: invalid }), {
+      code: 'INVALID_ARGUMENT',
+    });
+  await cache.save(id, {
+    ...view,
+    rangeOverlay: { ...rangeOverlay, enabled: false },
+  });
+  const hidden = await new ViewPreferencesStore(directory).load(id);
+  assert.deepEqual(hidden.rangeOverlay, { ...rangeOverlay, enabled: false });
+  await cache.save(id, {
+    ...hidden,
+    rangeOverlay: { ...hidden.rangeOverlay, enabled: true },
+  });
+  assert.deepEqual(await new ViewPreferencesStore(directory).load(id), view);
+  await writeFile(
+    path.join(directory, `${id}.json`),
+    JSON.stringify({ ...view, rangeOverlay: { x: 20 } }),
+  );
+  assert.deepEqual(await cache.load(id), {
+    ...view,
+    rangeOverlay: DEFAULT_RANGE_OVERLAY,
+  });
 });

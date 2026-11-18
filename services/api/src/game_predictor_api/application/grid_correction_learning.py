@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid5
@@ -53,8 +55,8 @@ from game_predictor_api.storage.grid_model_registry import (
     GridModelArtifactInspector,
     SqlAlchemyGridModelRegistryRepository,
 )
+from game_predictor_api.storage.grid_preparation_progress import preparation_deadline
 from game_predictor_api.storage.grid_training_cohort_repository import (
-    CohortDeadline,
     SqlAlchemyGridTrainingCohortRepository,
 )
 from game_predictor_api.storage.grid_training_run_jobs import SqlAlchemyGridTrainingRunJobs
@@ -126,7 +128,13 @@ class GridCorrectionLearningService:
             self.provider_index_sha256,
         )
 
-    def ready(self, game: UUID, *, recommend_training_mode: bool = False) -> dict[str, Any]:
+    def ready(
+        self, game: UUID, *, recommend_training_mode: bool = False, lightweight: bool = False
+    ) -> dict[str, Any]:
+        if lightweight:
+            from .grid_learning_preparation import readiness as preparation_readiness
+
+            return preparation_readiness(self, game)
         points = self.preview(game, {"importJobIds": [], "exclusions": []})
         if not recommend_training_mode:
             return points
@@ -200,7 +208,7 @@ class GridCorrectionLearningService:
                     self.provider_index_sha256,
                 )
             return imports, prepare_split(
-                repository, game, imports, CohortDeadline(LEARNING_SPLIT_SECONDS), **options
+                repository, game, imports, preparation_deadline(LEARNING_SPLIT_SECONDS), **options
             )
 
     def _preview(
@@ -670,6 +678,10 @@ class GridCorrectionLearningService:
         return job
 
     def start(self, game: UUID, command: Mapping[str, Any], actor: str) -> dict[str, Any]:
+        if command.get("prepareInBackground"):
+            from .grid_learning_preparation import enqueue
+
+            return enqueue(self, game, dict(command), actor)
         key = UUID(str(command["idempotencyKey"]))
         original = dict(command)
         # Additive defaults do not change an immutable pre-T3 command's identity.
@@ -754,7 +766,16 @@ class GridCorrectionLearningService:
 
     def get(self, game: UUID, identifier: UUID) -> dict[str, Any]:
         with Session(self.engine) as session:
-            view = self.view(self._job(session, game, identifier))
+            job = self._job(session, game, identifier)
+            view = self.view(job)
+            if job.status == JobStatus.WAITING_FOR_REVIEW and (job.checkpoint_payload or {}).get(
+                "preparedArtifact"
+            ):
+                from .grid_learning_preparation import load_prepared
+
+                prepared = load_prepared(self, job)
+                if prepared is not None:
+                    view["preparedPreview"] = prepared["preview"]
             self._attach_candidates(session, game, [view])
             return view
 
@@ -840,11 +861,39 @@ class GridCorrectionLearningService:
 
     def resume(self, game: UUID, identifier: UUID, actor: str) -> dict[str, Any]:
         with game_storage_scope(game), self.session_factory() as session, session.begin():
+            session.execute(text("SET LOCAL lock_timeout='5s'"))
+            session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+                {"key": f"grid-learning-background:{game}"},
+            )
             self._lock_step(session, identifier)
             job = self._job(session, game, identifier, lock=True)
-            if job.status not in {JobStatus.FAILED, JobStatus.CANCELLED}:
+            prepared_review = (
+                job.status == JobStatus.WAITING_FOR_REVIEW
+                and job.input_payload.get("backgroundPreparation")
+                and (job.checkpoint_payload or {}).get("preparedArtifact") is not None
+            )
+            if job.status not in {JobStatus.FAILED, JobStatus.CANCELLED} and not prepared_review:
                 raise GridCohortError(
                     "GRID_LEARNING_NOT_RESUMABLE", "Only a failed or cancelled workflow resumes."
+                )
+            if (
+                job.input_payload.get("backgroundPreparation")
+                and session.scalar(
+                    select(JobModel.id)
+                    .where(
+                        JobModel.game_id == game,
+                        JobModel.id != identifier,
+                        JobModel.job_type == JobType.GRID_CORRECTION_LEARNING,
+                        JobModel.input_payload["learning_kind"].as_string() == LEARNING_KIND,
+                        JobModel.status.in_([JobStatus.CREATED, JobStatus.PROCESSING]),
+                    )
+                    .limit(1)
+                )
+                is not None
+            ):
+                raise GridCohortError(
+                    "GRID_LEARNING_ALREADY_ACTIVE", "A learning job is already active."
                 )
             repository = SqlAlchemyJobRepository(session)
             from game_predictor_api.storage.sequence_ownership_lock import (
@@ -869,6 +918,14 @@ class GridCorrectionLearningService:
             for child in children:
                 if child.status in {JobStatus.FAILED, JobStatus.CANCELLED}:
                     repository.save_job(requeue_job(child))
+            if prepared_review:
+                job = replace(
+                    job,
+                    checkpoint_payload={
+                        **(job.checkpoint_payload or {}),
+                        "trainingAuthorized": True,
+                    },
+                )
             return self.view(repository.save_job(requeue_job(job)))
 
     def evaluation(self, game: UUID, identifier: UUID) -> dict[str, Any]:
@@ -882,8 +939,45 @@ class GridCorrectionLearningService:
     @staticmethod
     def view(job: Job) -> dict[str, Any]:
         state: Any = job.checkpoint_payload or {}
-        preview: Any = job.input_payload["preview"]
+        preview: Any = state.get("preparedSummary") or job.input_payload["preview"]
         return {
+            **(
+                {"commandKey": job.input_payload["idempotency_key"]}
+                if job.input_payload.get("idempotency_key")
+                else {}
+            ),
+            **(
+                {
+                    "preparation": {
+                        **state.get(
+                            "preparation", {"stage": "queued", "current": 0, "total": None}
+                        ),
+                        "heartbeatAt": job.heartbeat_at.isoformat() if job.heartbeat_at else None,
+                        "stalled": (
+                            job.status == JobStatus.PROCESSING
+                            and job.stage
+                            in {
+                                "preparing_data",
+                                "source_inventory",
+                                "recording_context",
+                                "geometry_evidence",
+                                "cohort_capture",
+                                "cohort_materialization",
+                                "freeze_inputs",
+                                "freeze_members",
+                            }
+                            and bool(state.get("preparation", {}).get("lastProgressAt"))
+                            and (
+                                datetime.now(UTC)
+                                - datetime.fromisoformat(state["preparation"]["lastProgressAt"])
+                            ).total_seconds()
+                            > 300
+                        ),
+                    }
+                }
+                if job.input_payload.get("backgroundPreparation")
+                else {}
+            ),
             **(
                 {
                     "contentExperiment": preview["contentExperiment"],
@@ -924,6 +1018,13 @@ class GridCorrectionLearningService:
         game, actor = job.game_id, str(job.input_payload["actor"])
         payload: Any = job.input_payload
         state: dict[str, Any] = dict(job.checkpoint_payload or {})
+        if payload.get("backgroundPreparation"):
+            from .grid_learning_preparation import load_prepared
+
+            prepared = load_prepared(self, job)
+            if prepared is None:
+                raise GridCohortError("GRID_LEARNING_PREPARATION_REQUIRED", "Prepare data first.")
+            payload = {**payload, "preview": prepared["preview"], "pins": prepared["pins"]}
         pins, preview = payload["pins"], payload["preview"]
         if (
             pins.get("contentExperiment") is not None

@@ -418,3 +418,20 @@ modeli używa identycznych zdjęć/etykiet i jawnej reguły wyboru, bez aktywacj
 Kwalifikacja pola używa ostatniej rozstrzygającej oceny człowieka `readable`/`unreadable` dla bieżącej tożsamości pikseli. Wiek skanu nie wyznacza kolejności ocen. `pending`, `skipped` i nieoceniony nowy skan nie usuwają wcześniejszego rozstrzygnięcia. Readable wyklucza tylko powód danego pola mimo zachowanej historycznej flagi jakości; inne nieczytelne pola nadal mogą kwalifikować całe zdjęcie.
 
 Starsze jawne oceny bez ledgeru są dopuszczalne, gdy wszystkie aktualne rozstrzygające oceny są zgodne; zachowuje się pełne identyfikatory i rewizje dowodów. Sprzeczność bez udokumentowanej chronologii wymaga świeżej oceny człowieka. Brak jawnej oceny pozwala użyć wcześniejszej manualnej flagi unreadable. Ocena nie przechodzi na inne piksele.
+
+## Przygotowanie uczenia siatek w tle — TASK-1230
+
+Nowe polecenie może natychmiast utworzyć trwały przebieg przygotowania korekt,
+bez oczekiwania HTTP na cały podział. Ekran odświeża historię i stan bez
+uruchamiania kosztownego przygotowania. Przebieg pokazuje etap, przetworzone
+zdjęcia, ostatni rzeczywisty postęp oraz heartbeat workera. Przygotowanie nie
+ma limitu łącznego czasu; 300 sekund bez postępu lub pojedyncze zapytanie
+przekraczające swój timeout zatrzymuje operację z czytelnym błędem. Heartbeat
+sam w sobie nie przedłuża budżetu postępu.
+
+Przygotowanie bez treningu zatrzymuje się do jawnego polecenia wznowienia.
+Zgubiona odpowiedź i przeładowanie strony odnajdują zapisany przebieg po kluczu
+polecenia. Nie można utworzyć drugiego aktywnego uczenia tej samej gry.
+Ukończony podział ma niezmienny artefakt; przerwane przygotowanie jest ponownie
+weryfikowane po restarcie. Budżety GPU, rozłączność danych, model bazowy i bramka
+jakości pozostają obowiązkowe. Gotowy kandydat nie jest automatyczną aktywacją.

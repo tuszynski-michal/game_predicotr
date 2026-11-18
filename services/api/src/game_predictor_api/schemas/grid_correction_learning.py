@@ -100,7 +100,17 @@ class GridCorrectionLearningPreviewCommand(CorrectionLearningClosedModel):
 
 class GridCorrectionLearningStartCommand(GridCorrectionLearningPreviewCommand):
     idempotencyKey: UUID
-    previewSha256: Sha256
+    previewSha256: Sha256 | None = None
+    prepareInBackground: StrictBool = Field(False, exclude_if=lambda value: not value)
+    preparationOnly: StrictBool = Field(False, exclude_if=lambda value: not value)
+
+    @model_validator(mode="after")
+    def require_preview_or_preparation(self) -> "GridCorrectionLearningStartCommand":
+        if not self.prepareInBackground and self.previewSha256 is None:
+            raise ValueError("A preview hash or explicit background preparation is required.")
+        if self.preparationOnly and not self.prepareInBackground:
+            raise ValueError("Preparation-only requires background preparation.")
+        return self
 
 
 class GridCorrectionLearningRoleCount(CorrectionLearningClosedModel):
@@ -280,6 +290,7 @@ class GridLearningTestSample(CorrectionLearningClosedModel):
 
 
 class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
+    preparationRequired: bool = Field(False, exclude_if=lambda value: not value)
     testSample: GridLearningTestSample | None = Field(None, exclude_if=lambda value: value is None)
     learningMaterial: GridLearningMaterial | None = Field(
         None, exclude_if=lambda value: value is None
@@ -353,7 +364,17 @@ class GridCorrectionLearningCandidateStatus(CorrectionLearningClosedModel):
     laterEvaluation: bool
 
 
+class GridLearningPreparationProgress(CorrectionLearningClosedModel):
+    stage: str
+    current: int = Field(ge=0)
+    total: int | None = Field(default=None, ge=0)
+    lastProgressAt: str | None = None
+    heartbeatAt: str | None = None
+    stalled: bool = False
+
+
 class GridCorrectionLearningView(CorrectionLearningClosedModel):
+    commandKey: UUID | None = Field(None, exclude_if=lambda value: value is None)
     contentExperiment: Literal["full-symbol-content-experiment-v1"] | None = Field(
         None, exclude_if=lambda value: value is None
     )
@@ -378,6 +399,12 @@ class GridCorrectionLearningView(CorrectionLearningClosedModel):
     createdAt: str
     updatedAt: str
     candidate: GridCorrectionLearningCandidateStatus | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
+    preparation: GridLearningPreparationProgress | None = Field(
+        None, exclude_if=lambda value: value is None
+    )
+    preparedPreview: GridCorrectionLearningPreview | None = Field(
         None, exclude_if=lambda value: value is None
     )
 

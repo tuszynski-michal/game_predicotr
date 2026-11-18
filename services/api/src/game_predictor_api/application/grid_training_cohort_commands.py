@@ -37,6 +37,10 @@ from game_predictor_api.storage.grid_correction_split import (
     validate_population,
 )
 from game_predictor_api.storage.grid_model_registry_models import GridModelVersionModel
+from game_predictor_api.storage.grid_preparation_progress import (
+    preparation_deadline,
+    report_preparation,
+)
 from game_predictor_api.storage.grid_training_cohort_evidence import GridCohortEvidenceReader
 from game_predictor_api.storage.grid_training_cohort_models import GridTrainingCohortModel as Cohort
 from game_predictor_api.storage.grid_training_cohort_models import (
@@ -55,7 +59,7 @@ def prepare(
 ) -> dict[str, Any]:
     repo = service.repository
     # A correction cohort recomputes the whole protected split (D-603): same budget as preview.
-    deadline = CohortDeadline(
+    deadline = preparation_deadline(
         LEARNING_SPLIT_SECONDS
         if body.get("policyVersion") in CORRECTION_POLICIES
         else COMMAND_SECONDS
@@ -305,6 +309,7 @@ def _capture(
     reader = GridCohortEvidenceReader(repo.session, service.artifacts.root)
     captures = []
     for member in members:
+        report_preparation("cohort_capture", member.ordinal, row.document["sourceCount"])
         deadline.check(repo.session)
         proof = mapping.get(str(member.source_id))
         if proof is None:
@@ -419,6 +424,7 @@ def _materialize(
         repo.iter_members(game, row.id) if row.status == "preview_ready" else page,
     )
     for member in page:
+        report_preparation("cohort_materialization", member.ordinal, row.document["sourceCount"])
         deadline.check(repo.session)
         frozen = member.frozen
         original = None
@@ -582,7 +588,7 @@ def execute(
         from game_predictor_api.application.grid_training_cohort_freeze import freeze
 
         return freeze(service, game, identifier, body, actor)
-    deadline, repo = CohortDeadline(), service.repository
+    deadline, repo = preparation_deadline(), service.repository
     repo.bind(game)
     repo.key_lock(game, kind, body["idempotencyKey"])
     if replay := repo.replay(game, kind, body, identifier):

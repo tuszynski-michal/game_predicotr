@@ -6,6 +6,28 @@ last_updated: 2026-10-29
 
 # Architektura lokalnej ręcznej selekcji
 
+## Napis zakresu i prezentacja bitmap Windows — TASK-1231
+
+Opcjonalny `ViewPreferences.rangeOverlay` przechowuje enabled, względne x/y
+0–1 oraz fontSize 12–160. Istniejący `saveView` i `ViewPreferencesStore`
+zapisują go atomowo per projectId. Stare preferencje bez pola pozostają
+zgodne; wadliwa nakładka przy odczycie otrzymuje default bez utraty poprawnego
+zoomu/scrolla, natomiast niepoprawne żądanie zapisu jest odrzucane.
+
+`RangeOverlay` jest osobnym komponentem renderera. Pointer capture utrzymuje
+przesuwanie/skalowanie po wyjściu myszy poza uchwyt; współrzędne są ograniczone
+do miejsca pozostałego po odjęciu wymiarów napisu od zdjęcia. `App` wylicza
+jeden rangeText dla nagłówka i nakładki. Reset dotyczy tylko geometrii nakładki.
+Źródła, formaty projektu i JPEG-ów oraz kontrakt HTTP pozostają bez zmian.
+
+`ImageViewer` ponownie wywołuje decode przed prezentacją, również dla gotowego
+cache hit, aby odtworzyć ewentualnie zwolnioną bitmapę Chromium. Następnie
+requestAnimationFrame atomowo podmienia istniejący element, rozmiar hosta i
+scroll; anulowanie celu anuluje również zaplanowaną klatkę. Nie ustawia ponownie
+src. CSS wyłącza overflow-anchor i rezerwuje miejsce na scrollbar. Zastępuje
+to wcześniejsze założenie, że historycznie rozwiązany decode wystarcza przy
+każdym powrocie do obrazu. Budżety cache i przypięcie celu F pozostają bez zmian.
+
 ## Lekka nawigacja Windows — TASK-1143
 
 Inventory ma współdzielony indeks ścieżka/ordinal według instancji tablicy.

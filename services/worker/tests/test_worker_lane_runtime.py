@@ -56,3 +56,43 @@ def test_lane_heartbeat_runs_while_no_job_is_claimed_and_stops_cleanly() -> None
     heartbeat.stop()
 
     assert store.stopped.is_set()
+
+
+def test_replaced_lane_fences_the_worker_polling_loop() -> None:
+    claimed = Event()
+
+    class ReplacedStore(RecordingStore):
+        def heartbeat(self, **values: object) -> bool:
+            assert claimed.wait(timeout=0.5)
+            super().heartbeat(**values)
+            return False
+
+    from game_predictor_worker.jobs.runtime import LocalJobWorker
+
+    store = ReplacedStore()
+    heartbeat = WorkerLaneHeartbeat(
+        store,
+        lane=WorkerLaneName.GENERAL,
+        worker_id="old-worker",
+        worker_version="worker-v10-general",
+        process_id=123,
+        thread_budget=2,
+        interval_seconds=0.01,
+    )
+    assert not heartbeat.fenced
+    with heartbeat:
+        # The old process may finish its current leased unit, then must stop
+        # polling instead of taking another step from the replacement process.
+        class OneUnitWorker(LocalJobWorker):
+            claims = 0
+
+            def run_once(self):
+                self.claims += 1
+                claimed.set()
+                assert heartbeat._fenced_event.wait(timeout=0.5)
+
+        worker = OneUnitWorker(None, {}, worker_id="test", worker_version="test")
+        worker.run_forever(should_stop=lambda: heartbeat.fenced, poll_interval_seconds=0.01)
+        assert worker.claims == 1
+        assert heartbeat.fenced
+    assert store.stopped.is_set()

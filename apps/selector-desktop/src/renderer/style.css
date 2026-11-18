@@ -41,6 +41,8 @@ button:disabled {
 .preview {
   height: calc(100vh - 260px);
   overflow: auto;
+  overflow-anchor: none;
+  scrollbar-gutter: stable both-edges;
   background: #090b0e;
   border-radius: 8px;
 }
@@ -341,10 +343,46 @@ main.fullscreen {
 }
 
 /* Loading/error labels overlay the retained image without moving its layout. */
-.preview-image-host,
+.preview-image-shell,
 .preview-stage > .image-loading,
 .preview-stage > [role='alert'] {
   grid-area: 1 / 1;
+}
+.preview-image-shell {
+  position: relative;
+}
+.range-overlay {
+  position: absolute;
+  z-index: 2;
+  width: max-content;
+  color: #fff;
+  background: transparent;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+  padding: 0 18px 18px 0;
+}
+.range-overlay-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-right: 3px solid #fff;
+  border-bottom: 3px solid #fff;
+  border-radius: 0;
+  background: transparent;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.fullscreen .viewer-toolbar > button.range-overlay-reset {
+  display: block;
 }
 .preview-stage > .image-loading,
 .preview-stage > [role='alert'] {

@@ -28,6 +28,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.grid_preparation_progress import PREPARATION_WORKER_CAPABILITY
 from game_predictor_api.storage.grid_reinference import synchronize_grid_job
 from game_predictor_api.storage.job_repository import (
     apply_job_to_record,
@@ -40,7 +41,7 @@ from game_predictor_api.storage.models import (
     JobModel,
 )
 from game_predictor_api.storage.source_crop_run_repository import synchronize_source_crop_job
-from sqlalchemy import String, case, cast, exists, or_, select
+from sqlalchemy import String, case, cast, exists, literal, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased, sessionmaker
 
@@ -71,6 +72,7 @@ class SqlAlchemyWorkerJobStore:
         _validate_lease_duration(lease_duration)
         if not allowed_job_types:
             return None
+        supports_preparation = PREPARATION_WORKER_CAPABILITY in worker_version
         with self._session_factory() as session, session.begin():
             self._recover_one_expired(
                 session, recovered_at=claimed_at, execution_slot=execution_slot
@@ -94,6 +96,13 @@ class SqlAlchemyWorkerJobStore:
                     .where(
                         JobModel.status == JobStatus.CREATED,
                         JobModel.job_type.in_(tuple(allowed_job_types)),
+                        or_(
+                            literal(supports_preparation),
+                            JobModel.job_type != JobType.GRID_CORRECTION_LEARNING,
+                            JobModel.input_payload["backgroundPreparation"]
+                            .as_boolean()
+                            .is_not(True),
+                        ),
                         or_(
                             JobModel.job_type != JobType.GRID_CORRECTION_LEARNING,
                             JobModel.cancel_requested_at.is_not(None),
@@ -131,6 +140,12 @@ class SqlAlchemyWorkerJobStore:
                                 "worker_job_candidate_skipped job_id=%s code=JOB_ROW_LOCKED",
                                 candidate_id,
                             )
+                            continue
+                        if (
+                            not supports_preparation
+                            and record.job_type is JobType.GRID_CORRECTION_LEARNING
+                            and record.input_payload.get("backgroundPreparation") is True
+                        ):
                             continue
                         if not _resume_authorized(session, record):
                             _quarantine_missing_start(session, record, checked_at=claimed_at)

@@ -173,6 +173,182 @@ function fixture(overrides = {}) {
   );
   return { api, calls };
 }
+
+test('background preparation queues the chosen detector goal and exposes persisted progress', async () => {
+  let queued = false;
+  const preparing = {
+    ...run,
+    status: 'created',
+    verdict: null,
+    candidateVersionId: null,
+    stage: 'preparing_data',
+    preparation: {
+      stage: 'geometry_evidence',
+      current: 312,
+      total: 25631,
+      lastProgressAt: '2026-11-16T00:00:00Z',
+      heartbeatAt: '2026-11-16T00:00:01Z',
+      stalled: false,
+    },
+  };
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        preparationRequired: true,
+        canStart: false,
+        roleCounts: [],
+      },
+    }),
+    startGridCorrectionLearning: () => {
+      queued = true;
+      return { data: preparing };
+    },
+    listGridCorrectionLearning: () => ({
+      data: { items: queued ? [preparing] : [] },
+    }),
+    getGridCorrectionLearning: () => ({ data: preparing }),
+  });
+  const ui = await mount(api);
+  try {
+    const select = document.querySelector('select[aria-label="Cel uczenia"]');
+    await act(async () => {
+      select.value = 'screen+grid';
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await click('Przygotuj nowy podział korekt');
+    const command = calls.find(
+      ([name]) => name === 'startGridCorrectionLearning',
+    )[2];
+    assert.equal(command.trainingMode, 'screen+grid');
+    assert.equal(command.prepareInBackground, true);
+    assert.equal(command.preparationOnly, true);
+    assert.equal(command.policyVersion, 'application-grid-corrections-v4');
+    assert.match(document.body.textContent, /312 z 25631/);
+    assert.match(document.body.textContent, /Weryfikacja zapisanych korekt/);
+    assert.equal(
+      calls.some(([name]) => name === 'previewGridCorrectionLearning'),
+      false,
+    );
+    assert.equal(
+      calls.some(([name]) => name === 'resumeGridCorrectionLearning'),
+      false,
+    );
+  } finally {
+    await ui.close();
+  }
+});
+
+test('reload resolves an already accepted background command by key without another POST', async () => {
+  const key = '44444444-4444-4444-8444-444444444444';
+  const preparing = {
+    ...run,
+    commandKey: key,
+    status: 'created',
+    verdict: null,
+    candidateVersionId: null,
+    preparation: { stage: 'queued', current: 0, total: null, stalled: false },
+  };
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: { ...readiness, preparationRequired: true, canStart: false },
+    }),
+    listGridCorrectionLearning: () => ({ data: { items: [preparing] } }),
+    getGridCorrectionLearning: () => ({ data: preparing }),
+  });
+  const storageKey = learningCommandKey(apiBaseUrl, GAME);
+  const ui = await mount(api, {
+    [storageKey]: JSON.stringify({
+      kind: 'start',
+      key,
+      target: GAME,
+      body: {
+        idempotencyKey: key,
+        prepareInBackground: true,
+        trainingMode: 'screen+grid',
+      },
+    }),
+  });
+  try {
+    await settle();
+    assert.equal(window.localStorage.getItem(storageKey), null);
+    assertOnlyReads(calls);
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Najpierw rozstrzygnij zapisane polecenie/,
+    );
+  } finally {
+    await ui.close();
+  }
+});
+
+test('prepared background split resumes the same workflow only after explicit training click', async () => {
+  let resumed = false;
+  const preparedPreview = {
+    ...readiness,
+    trainingMode: 'screen+grid',
+    policyVersion: 'application-grid-corrections-v4',
+    validationAssignments: {},
+    validationComponents: [],
+  };
+  const prepared = {
+    ...run,
+    status: 'waiting_for_review',
+    verdict: null,
+    candidateVersionId: null,
+    stage: 'data_prepared',
+    preparedPreview,
+    preparation: {
+      stage: 'geometry_evidence',
+      current: 50,
+      total: 50,
+      stalled: false,
+    },
+  };
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: { ...readiness, preparationRequired: true, canStart: false },
+    }),
+    listGridCorrectionLearning: () => ({
+      data: {
+        items: [
+          resumed
+            ? { ...prepared, status: 'created', preparedPreview: null }
+            : prepared,
+        ],
+      },
+    }),
+    getGridCorrectionLearning: () => ({
+      data: resumed
+        ? { ...prepared, status: 'created', preparedPreview: null }
+        : prepared,
+    }),
+    resumeGridCorrectionLearning: () => {
+      resumed = true;
+      return { data: { ...prepared, status: 'created' } };
+    },
+  });
+  const ui = await mount(api);
+  try {
+    await settle();
+    assert.match(document.body.textContent, /Podział przygotowany/);
+    assert.equal(
+      calls.some(([name]) => name === 'resumeGridCorrectionLearning'),
+      false,
+    );
+    await click('Ulepsz siatki z korekt');
+    assert.equal(
+      calls.find(([name]) => name === 'resumeGridCorrectionLearning')[2],
+      RUN,
+    );
+    assert.equal(
+      calls.some(([name]) => name === 'startGridCorrectionLearning'),
+      false,
+    );
+  } finally {
+    await ui.close();
+  }
+});
 async function mount(api, saved = {}, gameId = GAME, extraProps = {}) {
   const dom = new JSDOM('<div id="root"></div>', {
     url: 'http://127.0.0.1:3000',

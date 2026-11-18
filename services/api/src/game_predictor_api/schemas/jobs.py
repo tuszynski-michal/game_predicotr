@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal, Self, cast
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, StrictBool, model_validator
 
 from game_predictor_api.application.jobs import ImageSelectionJobDeletion
 from game_predictor_api.application.semi_automatic_image_selections import (
@@ -906,8 +906,15 @@ class GridCorrectionLearningJobPayload(ApiModel):
     idempotency_key: UUID
     command: dict[str, Any]
     preview: dict[str, Any]
-    pins: dict[str, Any]
+    pins: dict[str, Any] | None = Field(None, exclude_if=lambda value: value is None)
     actor: str
+    background_preparation: StrictBool = Field(False, exclude_if=lambda value: not value)
+
+    @model_validator(mode="after")
+    def require_legacy_pins(self) -> Self:
+        if not self.background_preparation and self.pins is None:
+            raise ValueError("Legacy correction learning requires prepared pins.")
+        return self
 
 
 class GridCorrectionApplyJobPayload(ApiModel):

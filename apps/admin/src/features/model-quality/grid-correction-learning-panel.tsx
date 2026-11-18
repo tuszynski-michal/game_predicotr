@@ -43,6 +43,7 @@ import {
   learningRole,
   learningStage,
   learningStatus,
+  preparationStageLabel,
   readLearningCommand,
   type LearningCommand,
 } from './grid-correction-learning-state';
@@ -253,7 +254,10 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     }
     try {
       const results = await Promise.allSettled([
-        (purposeAware || !useRecommendedMode
+        (ready &&
+        !ready.preparationRequired &&
+        !selected?.preparation &&
+        (purposeAware || !useRecommendedMode)
           ? api.previewGridCorrectionLearning(gameId, {
               ...requestOptions,
               importJobIds: [],
@@ -264,6 +268,9 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             })
           : api.getGridCorrectionLearningReady(gameId, {
               recommendTrainingMode: true,
+              ...(!ready || ready.preparationRequired || selected?.preparation
+                ? { lightweight: true }
+                : {}),
             })
         )
           .then((result) => {
@@ -274,7 +281,11 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               throw new Error('Odpowiedź dotyczy innej gry.');
             setReady(result.data);
             const recommendedMode = result.data.trainingMode ?? 'grid-only';
-            if (!purposeAware && useRecommendedMode) {
+            if (
+              !result.data.preparationRequired &&
+              !purposeAware &&
+              useRecommendedMode
+            ) {
               setTrainingMode(recommendedMode);
               setHistoricalCohorts([]);
             }
@@ -304,6 +315,17 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               new Error('Nie udało się odczytać przebiegów uczenia.'),
             );
           setRuns(result.data.items);
+          const saved = readLearningCommand(window.localStorage, storageKey);
+          if (saved?.kind === 'start') {
+            const confirmed = result.data.items.find(
+              (item) => item.commandKey === saved.key,
+            );
+            if (confirmed) {
+              clearLearningCommand(window.localStorage, storageKey, saved.key);
+              setPending(null);
+              chosen.current = confirmed.learningId;
+            }
+          }
           // Status does not wait for the more expensive readiness calculation.
           // Existing workflows are read only; no POST is replayed after reload.
           const active =
@@ -379,6 +401,28 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       )
         onChanged?.();
       setSelected(result.data);
+      if (result.data.preparedPreview) {
+        const preview = result.data.preparedPreview;
+        const mode = preview.trainingMode ?? 'grid-only';
+        const assignments = preview.validationAssignments ?? {};
+        setReady(preview);
+        setTrainingMode(mode);
+        setManualTrainingMode(true);
+        setPurposeAware(Boolean(preview.policyVersion));
+        setValidationAssignments(assignments);
+        setPreviewedOptions(
+          JSON.stringify({
+            trainingMode: mode,
+            historicalCohorts,
+            ...(preview.policyVersion
+              ? {
+                  policyVersion: VALIDATION_POLICY,
+                  validationAssignments: orderedAssignments(assignments),
+                }
+              : {}),
+          }),
+        );
+      }
       setEvaluation((existing) =>
         existing?.evaluationId === result.data.evaluationId ? existing : null,
       );
@@ -585,7 +629,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
     }
   }
 
-  async function previewExclusions(useSafeSplit = false) {
+  async function previewExclusionsLegacy(useSafeSplit = false) {
     if (refreshInFlight.current || previewInFlight.current) return;
     previewInFlight.current = true;
     setBusy(true);
@@ -636,6 +680,37 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       previewInFlight.current = false;
       setBusy(false);
     }
+  }
+
+  async function previewExclusions(useSafeSplit = false) {
+    if (!ready?.preparationRequired && !selected?.preparation) {
+      return previewExclusionsLegacy(useSafeSplit);
+    }
+    if (refreshInFlight.current || previewInFlight.current || disabled) return;
+    const key = crypto.randomUUID();
+    await send({
+      kind: 'start',
+      key,
+      target: gameId,
+      body: {
+        ...requestOptions,
+        ...(useSafeSplit
+          ? {
+              trainingMode,
+              policyVersion: VALIDATION_POLICY,
+              validationAssignments: orderedAssignments(validationAssignments),
+            }
+          : {}),
+        idempotencyKey: key,
+        prepareInBackground: true,
+        preparationOnly: true,
+        importJobIds: [],
+        exclusions: Object.entries(exclusions).map(([gameId, value]) => ({
+          gameId,
+          ...value,
+        })),
+      },
+    });
   }
 
   async function rollback() {
@@ -692,7 +767,13 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         (contentExperiment ? 'full-symbol-content-experiment-v1' : null) ||
       previewedOptions !== optionsKey ||
       !exclusionsMatch);
+  const backgroundMode = Boolean(
+    ready?.preparationRequired || selected?.preparation,
+  );
   const startGuardReasons = [
+    ...(!backgroundMode && optionsChanged
+      ? ['Wybór zmienił się; kliknij „Sprawdź zakres/podział”']
+      : []),
     ...(corrupt
       ? ['Zapisane polecenie jest nieczytelne; sprawdź komunikat powyżej']
       : []),
@@ -701,17 +782,17 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       : []),
     ...(busy ? ['Trwa wykonywanie polecenia'] : []),
     ...(refreshing ? ['Trwa odczyt aktualnych korekt'] : []),
-    ...(optionsChanged
-      ? ['Wybór zmienił się; kliknij „Sprawdź zakres/podział”']
-      : []),
     ...(runs.some((item) => learningActive(item.status))
       ? ['Trwa już uczenie tej gry; sprawdź jego przebieg']
       : []),
-    ...(ready && !ready.canStart && ready.blockers.length === 0
+    ...(ready &&
+    !ready.preparationRequired &&
+    !ready.canStart &&
+    ready.blockers.length === 0
       ? ['Dane nie są gotowe; odśwież stan']
       : []),
     // TASK-1204: every API blocker is named next to the disabled start button.
-    ...(ready && !ready.canStart ? ready.blockers.map(reasonLabel) : []),
+    ...(ready ? ready.blockers.map(reasonLabel) : []),
   ];
   return (
     <section
@@ -806,7 +887,14 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         <>
           <section aria-label="Dostępność zapisanych korekt">
             <h4>Dane do następnego uczenia</h4>
-            <LearningProgress preview={ready} />
+            {ready.preparationRequired ? (
+              <p>
+                Podział danych zostanie przygotowany w tle. Postęp pojawi się w
+                przebiegach uczenia.
+              </p>
+            ) : (
+              <LearningProgress preview={ready} />
+            )}
             {previewedOptions !== optionsKey ? (
               <p>Wybór zmienił się. Sprawdź zakres/podział przed startem.</p>
             ) : null}
@@ -1261,39 +1349,64 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           <button
             className="primaryButton"
             type="button"
-            disabled={!ready.canStart || startGuardReasons.length > 0}
+            disabled={
+              (!backgroundMode && !ready.canStart) ||
+              startGuardReasons.length > 0
+            }
             onClick={() => {
+              if (
+                selected?.status === 'waiting_for_review' &&
+                selected.preparedPreview &&
+                !optionsChanged
+              ) {
+                void send({
+                  kind: 'resume',
+                  key: crypto.randomUUID(),
+                  target: selected.learningId,
+                });
+                return;
+              }
               const key = crypto.randomUUID();
               void send({
                 kind: 'start',
                 key,
                 target: gameId,
-                body: {
-                  ...(ready.contentExperiment
-                    ? { contentExperiment: ready.contentExperiment }
-                    : {}),
-                  idempotencyKey: key,
-                  previewSha256: ready.previewSha256,
-                  importJobIds: ready.importJobIds,
-                  exclusions: ready.exclusions,
-                  ...(purposeAware
-                    ? {
-                        trainingMode,
-                        policyVersion: VALIDATION_POLICY,
-                        validationAssignments: orderedAssignments(
-                          validationAssignments,
-                        ),
-                        historicalCohorts,
-                      }
-                    : {}),
-                  ...(ready.trainingMode === 'screen+grid'
-                    ? {
-                        trainingMode: ready.trainingMode,
-                        historicalCohorts,
-                        rescueVariant: ready.rescueVariant,
-                      }
-                    : {}),
-                },
+                body: backgroundMode
+                  ? {
+                      ...requestOptions,
+                      idempotencyKey: key,
+                      prepareInBackground: true,
+                      importJobIds: [],
+                      exclusions: Object.entries(exclusions).map(
+                        ([gameId, value]) => ({ gameId, ...value }),
+                      ),
+                    }
+                  : {
+                      ...(ready.contentExperiment
+                        ? { contentExperiment: ready.contentExperiment }
+                        : {}),
+                      idempotencyKey: key,
+                      previewSha256: ready.previewSha256,
+                      importJobIds: ready.importJobIds,
+                      exclusions: ready.exclusions,
+                      ...(purposeAware
+                        ? {
+                            trainingMode,
+                            policyVersion: VALIDATION_POLICY,
+                            validationAssignments: orderedAssignments(
+                              validationAssignments,
+                            ),
+                            historicalCohorts,
+                          }
+                        : {}),
+                      ...(ready.trainingMode === 'screen+grid'
+                        ? {
+                            trainingMode: ready.trainingMode,
+                            historicalCohorts,
+                            rescueVariant: ready.rescueVariant,
+                          }
+                        : {}),
+                    },
               });
             }}
           >
@@ -1327,6 +1440,35 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
       </ul>
       {selected ? (
         <article aria-label="Postęp uczenia">
+          {selected.preparation && !selected.trainingRunId ? (
+            <section aria-label="Postęp przygotowania danych">
+              <p>
+                Etap: {preparationStageLabel(selected.preparation.stage)} ·
+                przetworzono {selected.preparation.current}
+                {selected.preparation.total != null
+                  ? ` z ${selected.preparation.total}`
+                  : ''}
+                .
+              </p>
+              <p>
+                Ostatni postęp:{' '}
+                {selected.preparation.lastProgressAt ?? 'oczekuje na workera'}.
+                Heartbeat: {selected.preparation.heartbeatAt ?? 'jeszcze brak'}.
+              </p>
+              {selected.preparation.stalled ? (
+                <p role="alert">
+                  Brak postępu od ponad 5 minut. Sprawdź stan workera.
+                </p>
+              ) : null}
+              {selected.status === 'waiting_for_review' &&
+              selected.preparedPreview ? (
+                <p>
+                  Podział przygotowany. Kliknij „Ulepsz siatki z korekt”, aby
+                  uruchomić trening.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
           {candidateSummary(selected.candidate, selected.verdict) ? (
             <section aria-label="Bieżący stan kandydata">
               {candidateSummary(selected.candidate, selected.verdict)?.map(

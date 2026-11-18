@@ -705,9 +705,17 @@ def test_openapi_has_eight_operations_and_closed_preview_view_schemas(tmp_path: 
                 "partialTrainingPhotos",
                 "learningMaterial",
                 "testSample",
+                "preparationRequired",
             }
             if name == "GridCorrectionLearningPreview"
-            else {"contentExperiment", "contentExperimentPlanSha256", "candidate"}
+            else {
+                "contentExperiment",
+                "contentExperimentPlanSha256",
+                "candidate",
+                "commandKey",
+                "preparation",
+                "preparedPreview",
+            }
         )
         assert set(schemas[name]["required"]) == set(expected) - {
             "progressCounts",
@@ -721,6 +729,35 @@ def test_openapi_has_eight_operations_and_closed_preview_view_schemas(tmp_path: 
         == 100
     )
     assert (
-        schemas["GridCorrectionLearningStartCommand"]["properties"]["previewSha256"]["pattern"]
+        schemas["GridCorrectionLearningStartCommand"]["properties"]["previewSha256"]["anyOf"][0][
+            "pattern"
+        ]
         == r"^[0-9a-f]{64}$"
     )
+
+
+def test_background_start_accepts_no_preview_hash_but_keeps_explicit_local_actor(tmp_path: Path):
+    service = Service()
+    body = {
+        "idempotencyKey": str(LEARNING),
+        "prepareInBackground": True,
+        "preparationOnly": True,
+        "trainingMode": "screen+grid",
+        "policyVersion": "application-grid-corrections-v4",
+        "validationAssignments": {},
+    }
+    with TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345)) as client:
+        response = client.post(PATH, json=body, headers=HEADERS)
+        assert response.status_code == 200
+        assert service.calls[-1][0] == "start"
+        command = service.calls[-1][1][1]
+        assert command["prepareInBackground"] is True
+        assert command["preparationOnly"] is True
+        assert command["previewSha256"] is None
+        assert client.post(PATH, json=body).status_code == 403
+        assert (
+            client.post(
+                PATH, json={**body, "prepareInBackground": False}, headers=HEADERS
+            ).status_code
+            == 422
+        )

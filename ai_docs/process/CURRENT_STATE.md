@@ -103,7 +103,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 ## Ostatnie 10 ukończonych tasków
 
 - **TASK-1249** — Galeria podejrzanych siatek Mumii A2 — v1.7.675 / `43e14c4f` — tasks/completed/1249-mumie-suspicious-grid-gallery.md
-- **TASK-1248** — Ocena proporcji siatek Mumii A2 — v1.7.674 / `54568609` — tasks/completed/1248-mumie-grid-proportions.md
+- **TASK-1251** — Ocena proporcji siatek Mumii A2 — v1.7.674 / `54568609` — tasks/completed/1251-mumie-grid-proportions.md
 - **TASK-1246** — Nowy model i oba stagingi — v1.7.672 / `847967c9` — tasks/completed/1246-staging-refresh.md
 - **TASK-1245** — Nadzór postępu treningu — v1.7.667 / `c2b73c98` — tasks/completed/1245-grid-progress-supervision.md
 - **TASK-1244** — Zgodność kalkulacji Mumie A2 z A1 — v1.7.667 / `2c8e910c` — tasks/completed/1244-mumie-a2-calculation-parity.md

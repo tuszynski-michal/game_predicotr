@@ -16,7 +16,7 @@ Obejrzeć i zaznaczyć całe plansze w Adminie, a następnie skierować je do ob
 
 ## Dependencies / entry conditions
 
-TASK-1248. Scope galerii uzgodniony z operatorem: bieżące pełne siatki automatyczne gry `mumie-aktu2`.
+TASK-1251. Scope galerii uzgodniony z operatorem: bieżące pełne siatki automatyczne gry `mumie-aktu2`.
 
 ## Recommended execution
 

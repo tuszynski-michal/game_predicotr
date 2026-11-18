@@ -4,7 +4,7 @@ status: done
 last_updated: 2026-11-18
 ---
 
-# TASK-1248 — Ocena proporcji siatek Mumii A2
+# TASK-1251 — Ocena proporcji siatek Mumii A2
 
 ## Status
 

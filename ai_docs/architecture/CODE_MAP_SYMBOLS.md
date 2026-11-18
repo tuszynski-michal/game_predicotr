@@ -1535,6 +1535,9 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - measure_symbol_review_page.py: class Measurement, main
 - migrate_cell_level_verification.py: arguments, write_report, run_preview, run_apply, summary, main
 - mumie_control_truth_prepare.py: prepare
+- mumie_grid_pilot.py: store, freeze, current, decision_evidence, fingerprints, package, diagnostic, run, main
+- mumie_grid_pilot_review.py: sha, engine_for, choose_sources, tokens, infer, frame_for, score
+- mumie_grid_pilot_sources.py: database, model, render_context, imported, recording_context, fresh_inventory, check_fresh, historical
 - normalize_m5_images.py: main
 - prepare_legacy_copy_retirement.py: io_path, fingerprint, checksum, validate_roots, inventory, ordinary_target, validate_parent, archive_file, open_receipt, preserve_entry, verify_files, legacy_values, main
 - prepare_m34_device_candidate.py: main
@@ -1604,6 +1607,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - tests/test_grid_comparison_diagnostics.py: archived, test_archived_input_has_exact_separate_rgb_and_tensor_identity, test_missing_mismatched_or_ambiguous_archive_is_explicitly_unavailable
 - tests/test_grid_correction_comparison.py: class ComparisonTest
 - tests/test_grid_historical_comparison.py: metric, test_historical_selection_uses_only_declared_validation_results, test_self_measurement_cache_is_exact_and_invalidates_changed_pixels, test_funnel_separates_roles_aliases_and_actual_consumed_counts, test_funnel_receipt_binds_source_and_manifest_bytes
+- tests/test_mumie_grid_pilot.py: sample_rows, test_sampling_precedes_detection_and_reserves_recording, test_eval_is_paired_and_no_lost_or_unassessed_cells, test_screen_grid_partial_binding_real_renderer_and_input, test_a_missing_named_range_stops_freeze, test_blind_package_through_scoring_and_restart
 - tests/test_partial_grid_learning_starter.py: quoted, invoke, test_fresh_starter_defaults_to_partial_compatible_grid_mode, test_old_detector_command_requires_explicit_replay_and_is_never_rewritten, test_invalid_saved_key_never_reaches_network, test_old_api_contract_blocks_training_post, test_separate_future_command_file_preserves_old_detector_run, test_custom_command_cannot_be_replayed_for_another_game, test_unbound_existing_custom_file_fails_before_network
 - token_pilot_collect.py: class Usage, read_transcript, locate_session, session_usage, usage_row, cmd_usage, cmd_collect, to_int, row_usage, fmt, render_table, cmd_render, build_parser, main
 - train_m6_symbol_classifier.py: main

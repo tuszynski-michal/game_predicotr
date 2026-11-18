@@ -214,6 +214,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Proces i jakość
 
+- [Pilot cięcia siatek Mumii A2](quality/MUMIE_PRIVATE_GRID_PILOT_20261118.md) — wyniki kwalifikacji historycznych korekt oraz instrukcja zamrożenia i ślepej oceny świeżej próby.
 - [Panel i porównanie skutecznego uczenia](quality/TASK-1185_VERIFICATION.md) — TASK-1185, materiał/próbka testu, oznaczenia przed zamrożeniem, cztery wyniki i HTML zawartości.
 
 - [Pełne uczenie i kontrola eksportu A](quality/TASK-1184_VERIFICATION.md) — TASK-1184, partial TRAIN geometrii, warunkowe R3 i pełny A ONNX.

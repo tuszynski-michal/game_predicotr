@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pl">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  />
+  <title>Ślepa ocena cięcia siatek</title
+  ><style>
+    body {
+      font: 16px system-ui;
+      margin: 1rem auto;
+      max-width: 1100px;
+      padding: 0 1rem;
+      background: #fafafa;
+      color: #182228;
+    }
+    button,
+    select {
+      font: inherit;
+      padding: 0.45rem;
+      margin: 0.2rem;
+    }
+    img {
+      max-width: 100%;
+      object-fit: contain;
+    }
+    #photo {
+      max-height: 45vh;
+    }
+    main {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    section {
+      flex: 1;
+      min-width: min(100%, 330px);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 3px;
+    }
+    .cell {
+      background: white;
+      text-align: center;
+    }
+    .cell img {
+      width: 100%;
+      image-rendering: pixelated;
+    }
+    .cell select {
+      width: 100%;
+      padding: 0.2rem;
+      font-size: 0.85rem;
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+  </style>
+  <h1>Ślepa ocena cięcia siatek</h1>
+  <p>
+    Oceń każdą z 15 pozycji względem oryginału. „Pełny, do poprawy” oznacza
+    pełny symbol z innym błędem pola. „Ucięty na zdjęciu” oznacza brak treści
+    już na oryginale.
+  </p>
+  <div class="nav">
+    <button id="prev">Wstecz</button><strong id="info"></strong
+    ><button id="next">Dalej</button><button id="save">Pobierz oceny</button>
+  </div>
+  <p id="progress"></p>
+  <img id="photo" alt="Oryginalne zdjęcie" />
+  <main id="panels"></main>
+  <script>
+    const study = __CARDS__,
+      cards = study.cards,
+      storageKey = 'pilot-mumie-' + study.id;
+    let idx = 0,
+      votes = {};
+    try {
+      votes = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    } catch {}
+    const labels = {
+      '': 'Wybierz',
+      full: 'Pełny, OK',
+      fullFix: 'Pełny, do poprawy',
+      cut: 'Ucięty',
+      sourceCut: 'Ucięty na zdjęciu',
+      unknown: 'Nie do oceny',
+      missing: 'Brak pola',
+    };
+    function persist() {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(votes));
+      } catch {}
+      const count = cards.filter((c) =>
+        ['A', 'B'].every(
+          (s) =>
+            votes[c.id]?.[s]?.length === 15 && votes[c.id][s].every(Boolean),
+        ),
+      ).length;
+      document.querySelector('#progress').textContent =
+        'Ukończone pary: ' + count + ' / ' + cards.length;
+    }
+    function show() {
+      const c = cards[idx];
+      document.querySelector('#info').textContent =
+        idx +
+        1 +
+        ' / ' +
+        cards.length +
+        ' · pozycja na stronie ' +
+        (c.position + 1) +
+        ' (kolejno wierszami)';
+      document.querySelector('#photo').src = c.id + '/source.png';
+      const host = document.querySelector('#panels');
+      host.replaceChildren();
+      votes[c.id] ??= {};
+      for (const side of ['A', 'B']) {
+        const w = document.createElement('section'),
+          h = document.createElement('h2'),
+          grid = document.createElement('div');
+        h.textContent = 'Wariant ' + side;
+        w.append(h);
+        grid.className = 'grid';
+        votes[c.id][side] ??= Array(15).fill('');
+        for (let i = 0; i < 15; i++) {
+          const cell = document.createElement('div'),
+            select = document.createElement('select');
+          cell.className = 'cell';
+          const available = c[side].state === 'detected' && c[side].cells[i];
+          if (available) {
+            const img = document.createElement('img');
+            img.src = c.id + '/' + side + '/' + i + '.png';
+            img.alt = 'Pole ' + (i + 1);
+            cell.append(img);
+          } else {
+            votes[c.id][side][i] = 'missing';
+          }
+          for (const [value, label] of Object.entries(labels)) {
+            if (available === (value === 'missing')) continue;
+            select.add(new Option(label, value));
+          }
+          select.value = votes[c.id][side][i];
+          select.disabled = !available;
+          select.setAttribute('aria-label', side + ', pole ' + (i + 1));
+          select.onchange = () => {
+            votes[c.id][side][i] = select.value;
+            persist();
+          };
+          cell.append(select);
+          grid.append(cell);
+        }
+        w.append(grid);
+        const fill = document.createElement('button');
+        fill.textContent =
+          'Oznacz pozostałe widoczne pola jako pełne i poprawne';
+        fill.onclick = () => {
+          votes[c.id][side] = votes[c.id][side].map((v) => v || 'full');
+          show();
+        };
+        w.append(fill);
+        host.append(w);
+      }
+      persist();
+      document.querySelector('#prev').disabled = idx === 0;
+      document.querySelector('#next').disabled = idx === cards.length - 1;
+    }
+    document.querySelector('#prev').onclick = () => {
+      idx--;
+      show();
+    };
+    document.querySelector('#next').onclick = () => {
+      idx++;
+      show();
+    };
+    document.querySelector('#save').onclick = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(
+        new Blob([JSON.stringify({ study: study.id, votes })], {
+          type: 'application/json',
+        }),
+      );
+      a.download = 'oceny.json';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+    show();
+  </script>
+</html>

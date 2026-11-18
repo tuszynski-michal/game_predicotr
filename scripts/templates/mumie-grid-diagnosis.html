@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="pl">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>Diagnoza cięcia pól</title>
+  <style>
+    body {
+      font: 16px system-ui;
+      max-width: 1100px;
+      margin: auto;
+      padding: 1rem;
+    }
+    article {
+      padding: 1rem 0;
+      border-bottom: 1px solid;
+    }
+    figure {
+      display: inline-block;
+      margin: 0.4rem;
+      width: 45%;
+    }
+    figure img {
+      width: 100%;
+    }
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 110px));
+      gap: 3px;
+    }
+    .fields img {
+      width: 100%;
+    }
+    button,
+    select {
+      padding: 0.5rem;
+      font: inherit;
+    }
+  </style>
+  <h1>Diagnoza cięcia pól</h1>
+  <p>
+    Porównaj oryginał, wejście modelu i oba obrysy. Na geometrii modelu żółta
+    linia pokazuje detekcję, a błękitne linie pokazują siatkę. Pod spodem
+    znajduje się 15 produkcyjnych wycinków w kolejności pól.
+  </p>
+  <main></main>
+  <button id="save">Pobierz diagnozę i wskazanie etapu poprawy</button>
+  <script>
+    const cards = __CARDS__,
+      choices = {
+        source: 'Ucięcie już na oryginale',
+        detector: 'Błąd obrysu planszy',
+        grid: 'Błąd węzłów siatki',
+        renderer: 'Błąd zapisu wycinków',
+        mixed: 'Przyczyny mieszane',
+        ok: 'Bez błędu',
+        unknown: 'Nie można ustalić',
+      },
+      steps = {
+        source: 'Oznacz ograniczenie źródła.',
+        detector: 'Sprawdź pełne etykiety zdjęć i bramkę gotowości detektora.',
+        grid: 'Użyj korekt węzłów; częściowe etykiety służą wyłącznie do tego celu.',
+        renderer:
+          'Porównaj zapis pól na identycznej wersji modelu przed treningiem.',
+        mixed:
+          'Rozdziel potwierdzone przyczyny i ponów pomiar każdej zmiany osobno.',
+        ok: 'Zachowaj jako kontrolę.',
+        unknown: 'Uzupełnij dowód; przyczyna nieustalona.',
+      },
+      answers = {};
+    for (const c of cards) {
+      const a = document.createElement('article'),
+        h = document.createElement('h2');
+      h.textContent = 'Plansza ' + c.sequence;
+      a.append(h);
+      for (const [file, label] of [
+        ['source', 'Oryginał'],
+        ['screen-input', 'Wejście detektora'],
+        ...(c.redetected
+          ? [['screen-retry', 'Powtórne wejście detektora']]
+          : []),
+        ['human', 'Ręczna korekta'],
+        ...(c.state === 'detected'
+          ? [
+              ['input', 'Wejście modelu'],
+              ['geometry', 'Detekcja i węzły modelu'],
+            ]
+          : []),
+      ]) {
+        const f = document.createElement('figure'),
+          i = document.createElement('img'),
+          cap = document.createElement('figcaption');
+        i.loading = 'lazy';
+        i.src = c.id + '/' + file + '.png';
+        cap.textContent = label;
+        f.append(i, cap);
+        a.append(f);
+      }
+      const g = document.createElement('div');
+      g.className = 'fields';
+      for (let j = 0; j < 15; j++) {
+        if (c.cells[j]) {
+          const i = document.createElement('img');
+          i.src = c.id + '/' + j + '.png';
+          i.alt = 'Pole ' + (j + 1);
+          g.append(i);
+        } else {
+          const t = document.createElement('span');
+          t.textContent = 'Brak pola ' + (j + 1);
+          g.append(t);
+        }
+      }
+      a.append(g);
+      const s = document.createElement('select');
+      s.add(new Option('Wybierz przyczynę', ''));
+      for (const [k, v] of Object.entries(choices)) s.add(new Option(v, k));
+      s.onchange = () =>
+        (answers[c.id] = {
+          sequence: c.sequence,
+          cause: s.value,
+          next: steps[s.value],
+        });
+      a.append(s);
+      document.querySelector('main').append(a);
+    }
+    document.querySelector('#save').onclick = () => {
+      if (!cards.every((c) => answers[c.id]?.cause)) {
+        alert('Uzupełnij ocenę każdej planszy.');
+        return;
+      }
+      const l = document.createElement('a');
+      l.href = URL.createObjectURL(
+        new Blob([JSON.stringify(answers, null, 2)], {
+          type: 'application/json',
+        }),
+      );
+      l.download = 'diagnoza.json';
+      l.click();
+      setTimeout(() => URL.revokeObjectURL(l.href), 1000);
+    };
+  </script>
+</html>

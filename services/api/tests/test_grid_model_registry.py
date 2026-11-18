@@ -135,7 +135,11 @@ def engine():
     )
     with engine.begin() as connection:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS public")
-        connection.exec_driver_sql("CREATE TABLE public.games (id CHAR(32) PRIMARY KEY)")
+        connection.exec_driver_sql(
+            "CREATE TABLE public.games "
+            "(id CHAR(32) PRIMARY KEY, name TEXT, "
+            "grid_model_private BOOLEAN NOT NULL DEFAULT false)"
+        )
         for model in TABLES:
             model.__table__.create(connection)
     baseline = historical_catalogue()[0]

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Table, Uuid, column, func, select, table, text
+from sqlalchemy import Boolean, Table, Uuid, column, func, select, table, text, update
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.grid_content_bundle import ContentBundleTooLarge
@@ -19,6 +19,7 @@ from game_predictor_api.domain.grid_model_registry import (
     descriptor_sha256,
     historical_catalogue,
 )
+from game_predictor_api.domain.grid_model_snapshots import uses_neural_grid
 from game_predictor_api.storage import grid_model_evaluation_repository as evaluation_evidence
 from game_predictor_api.storage.database import session_game
 from game_predictor_api.storage.game_storage_routing import (
@@ -39,6 +40,16 @@ from game_predictor_api.storage.grid_model_registry_models import (
     GridModelRegistrationReceiptModel,
     GridModelVersionEventModel,
     GridModelVersionModel,
+)
+
+_GAMES = table(
+    "games",
+    column("id", Uuid),
+    column("code"),
+    column("name"),
+    column("shape_geometry_configuration"),
+    column("grid_model_private", Boolean),
+    schema="public",
 )
 
 
@@ -362,6 +373,53 @@ class SqlAlchemyGridModelRegistryRepository:
     def version(self, version_id: UUID) -> GridModelVersionModel | None:
         return self.session.get(GridModelVersionModel, version_id)
 
+    def version_owner_game_id(self, version_id: UUID) -> UUID | None:
+        return self.session.scalar(
+            select(GridModelFamilyModel.owner_game_id)
+            .join(GridModelVersionModel, GridModelVersionModel.family_id == GridModelFamilyModel.id)
+            .where(GridModelVersionModel.id == version_id)
+        )
+
+    def private_family(self, game_id: UUID) -> GridModelFamilyModel | None:
+        return self.session.scalar(
+            select(GridModelFamilyModel).where(GridModelFamilyModel.owner_game_id == game_id)
+        )
+
+    def game_grid_model_private(self, game_id: UUID) -> bool:
+        self._require_game_scope(game_id)
+        result = self.session.scalar(
+            select(_GAMES.c.grid_model_private).where(_GAMES.c.id == game_id)
+        )
+        if result is None:
+            raise GridModelRegistryError("GRID_MODEL_GAME_NOT_FOUND", "Game was not found.", 404)
+        return bool(result)
+
+    def mark_game_grid_model_private(self, game_id: UUID) -> None:
+        self.session.connection().execute(
+            update(_GAMES).where(_GAMES.c.id == game_id).values(grid_model_private=True)
+        )
+
+    def active_grid_operation(self, game_id: UUID) -> UUID | None:
+        if self.session.get_bind().dialect.name != "postgresql":
+            return None
+        return cast(
+            UUID | None,
+            self.session.scalar(
+                text("""SELECT job.id FROM public.jobs job
+                    WHERE job.status IN ('created', 'processing', 'waiting_for_review')
+                      AND job.job_type IN ('grid_training', 'grid_model_evaluation',
+                        'grid_correction_learning', 'import', 'image_grid_reinference',
+                        'image_geometry_rollout_backfill')
+                      AND EXISTS (
+                        SELECT 1 FROM public.grid_operation_game_ids(
+                            job.game_id, job.input_payload
+                        ) scope(id) WHERE scope.id=:game
+                      )
+                    ORDER BY job.created_at, job.id LIMIT 1"""),
+                {"game": game_id},
+            ),
+        )
+
     def register(
         self, payload: dict[str, Any], manifest_json: str, checksum: str, key: UUID
     ) -> GridModelVersionModel:
@@ -403,6 +461,12 @@ class SqlAlchemyGridModelRegistryRepository:
             if base is None or base.id == version_id:
                 raise GridModelRegistryError(
                     "GRID_MODEL_BASE_INVALID", "Base version is missing or self-referential."
+                )
+            base_owner = self.version_owner_game_id(base.id)
+            if base_owner is not None and (family is None or family.owner_game_id != base_owner):
+                raise GridModelRegistryError(
+                    "GRID_MODEL_PRIVATE_OWNER_MISMATCH",
+                    "A private model cannot be a base outside its owner's family.",
                 )
             base_payload = json.loads(base.manifest_json)
             fork = self.family_fork(family_id)
@@ -462,7 +526,7 @@ class SqlAlchemyGridModelRegistryRepository:
         self.session.flush()
         return by_id
 
-    def assignment(self, game_id: UUID) -> tuple[GameGridModelAssignmentModel | None, int]:
+    def _require_game_scope(self, game_id: UUID) -> None:
         scope = current_game_storage_scope()
         bound = session_game(self.session) or GameStorageRouter.bound_game_id(self.session)
         if (scope is not None and scope.game_id != game_id) or (
@@ -471,8 +535,10 @@ class SqlAlchemyGridModelRegistryRepository:
             raise GridModelRegistryError(
                 "GRID_MODEL_GAME_SCOPE_CONFLICT", "Request and session games differ."
             )
-        games = table("games", column("id", Uuid), schema="public")
-        exists = self.session.scalar(select(games.c.id).where(games.c.id == game_id))
+
+    def assignment(self, game_id: UUID) -> tuple[GameGridModelAssignmentModel | None, int]:
+        self._require_game_scope(game_id)
+        exists = self.session.scalar(select(_GAMES.c.id).where(_GAMES.c.id == game_id))
         if exists is None:
             raise GridModelRegistryError("GRID_MODEL_GAME_NOT_FOUND", "Game was not found.", 404)
         assignment = self.session.scalar(
@@ -525,15 +591,8 @@ class SqlAlchemyGridModelRegistryRepository:
     def game(self, game_id: UUID) -> Any:
         # Explicit predicate and the same session/scope guards as assignment reads.
         self.assignment(game_id)
-        games = table(
-            "games",
-            column("id", Uuid),
-            column("code"),
-            column("shape_geometry_configuration"),
-            schema="public",
-        )
         return self.session.execute(
-            select(games).where(games.c.id == game_id).with_for_update()
+            select(_GAMES).where(_GAMES.c.id == game_id).with_for_update()
         ).one()
 
     def control_receipt(self, key: UUID, game_id: UUID | None) -> Any:
@@ -633,19 +692,22 @@ class SqlAlchemyGridModelRegistryRepository:
         else:
             assert game_id is not None
             assignment, _ = self.assignment(game_id)
+            version = self.version(version_id)
+            assert version is not None
+            family = self.private_family(game_id)
+            training_family_id = version.family_id if family is None else family.id
             if assignment is None:
                 self.session.add(
                     GameGridModelAssignmentModel(
-                        game_id=game_id, version_id=version_id, revision=receipt["revision"]
+                        game_id=game_id,
+                        version_id=version_id,
+                        revision=receipt["revision"],
+                        training_family_id=training_family_id,
                     )
                 )
             else:
                 assignment.version_id, assignment.revision = version_id, receipt["revision"]
-            assignment = self.session.get(GameGridModelAssignmentModel, game_id)
-            assert assignment is not None
-            version = self.version(version_id)
-            assert version is not None
-            assignment.training_family_id = version.family_id
+                assignment.training_family_id = training_family_id
             self.session.flush()
         if game_id is None:
             self.session.add(
@@ -657,7 +719,7 @@ class SqlAlchemyGridModelRegistryRepository:
             self.session.add(
                 GameGridModelAssignmentEventModel(
                     game_id=game_id,
-                    id=uuid4(),
+                    id=UUID(receipt["eventId"]) if "eventId" in receipt else uuid4(),
                     idempotency_key=UUID(command["idempotencyKey"]),
                     **common,
                 )
@@ -700,7 +762,7 @@ class SqlAlchemyGridModelRegistryRepository:
         game = self.session.execute(select(games).where(games.c.id == game_id)).one_or_none()
         if game is None:
             raise GridModelRegistryError("GRID_MODEL_GAME_NOT_FOUND", "Game is missing.", 404)
-        return bool(game.code != "7" and game.shape_geometry_configuration == "neural_grid_v3")
+        return bool(game.code != "7" and uses_neural_grid(game.shape_geometry_configuration))
 
     def game_receipt(self, game_id: UUID) -> Any:
         from game_predictor_api.storage.game_create_receipts import (
@@ -794,6 +856,7 @@ class SqlAlchemyGridModelRegistryRepository:
         view: dict[str, Any],
         lineage: dict[str, Any],
         actor: str,
+        owner_game_id: UUID | None = None,
     ) -> None:
         from game_predictor_api.storage.grid_model_registry_models import GridModelFamilyForkModel
 
@@ -809,6 +872,7 @@ class SqlAlchemyGridModelRegistryRepository:
             GridModelFamilyModel(
                 id=family_id,
                 code=code,
+                owner_game_id=owner_game_id,
                 descriptor_json=canonical_json(
                     {
                         "familyCode": code,

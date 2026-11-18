@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-11-17
+last_updated: 2026-11-18
 ---
 
 # Decision Log — wpisy 2026
@@ -15,6 +15,31 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
 
+
+## D-618 — Prywatne rodziny cięcia siatek nowych gier V3
+
+Status: accepted. Data: 2026-11-18. TASK-1253 i [plan](../../delivery/PRIVATE_GAME_GRID_MODELS_PLAN_20261118.md).
+
+**Kontekst.** Wspólny model może dawać dobry start wielu grom. Kolejne wersje
+cięcia mają uwzględniać poprawki każdej nowej gry V3 w jej własnym cyklu.
+
+**Decyzja.** Rezerwacja gry zapisuje prywatny tryb i przy pierwszej
+dopuszczonej bazie tworzy rodzinę jednego właściciela. Bieżące przypisanie
+pozostaje niezależne od własności. Istniejąca gra może włączyć tryb jawnie od
+swojego aktualnego przypisania. To przejście wymaga zgodnej rewizji i braku
+aktywnej operacji geometrii w zakresie gry. Zapisuje własną historię.
+
+**Alternatywy.** Jedna wspólna rodzina uprościłaby publikację kosztem
+uzależnienia gier od wspólnego cyklu i połączenia danych do nauki. Kopia
+wersji bazowej per gra powielałaby dowody i tożsamości artefaktów bez
+korzyści dla cięcia.
+
+**Konsekwencje.** Wspólne treningi odmawiają użycia danych gry prywatnej
+również z dawnych kohort. Odtworzenie ukończonego wyniku używa jego
+historycznych manifestów. Kolumna właściciela zachowuje unikalny UUID po
+usunięciu gry. Wyzwalacz potwierdza istnienie prywatnego właściciela przy
+tworzeniu rodziny. Fizyczny FK zakłóciłby istniejące wielotransakcyjne
+usuwanie partycji gry po zapisaniu historii modelu.
 
 ## D-617 — Nadzór postępu jednego zatwierdzonego treningu bez limitu czasu
 

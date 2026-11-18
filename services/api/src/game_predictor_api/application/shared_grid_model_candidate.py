@@ -22,6 +22,7 @@ from game_predictor_api.domain.shared_grid_model_candidate import (
     SharedCandidateError,
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.grid_model_registry import SqlAlchemyGridModelRegistryRepository
 from game_predictor_api.storage.grid_training_cohort_repository import (
     SqlAlchemyGridTrainingCohortRepository,
 )
@@ -74,6 +75,13 @@ class SharedGridCandidateService:
             raise GridCohortError(
                 "GRID_SHARED_SCOPE_INVALID", "Choose one cohort in each other game.", 422
             )
+        for game in games:
+            with game_storage_scope(game), self.session_factory() as session:
+                catalogue = SqlAlchemyGridModelRegistryRepository(session)
+                if catalogue.game_grid_model_private(game):
+                    raise GridCohortError(
+                        "GRID_SHARED_PRIVATE_GAME", "A private game cannot join shared training."
+                    )
         pinned: list[tuple[Mapping[str, Any], Mapping[str, str]]] = []
         for game, cohort in [(primary_game, primary_cohort), *others]:
             header, eligibility, groups = self._cohort(game, cohort)
@@ -94,10 +102,6 @@ class SharedGridCandidateService:
                 "application-grid-corrections-v4",
             )
             if correction:
-                from game_predictor_api.storage.grid_model_registry import (
-                    SqlAlchemyGridModelRegistryRepository,
-                )
-
                 from .grid_correction_history import require_historical_cohort
 
                 # Catalogue reads never enter a game storage route.

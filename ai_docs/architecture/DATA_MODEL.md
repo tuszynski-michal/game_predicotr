@@ -302,6 +302,26 @@ wybranej wersji, zachowując pierwotną linię forka w immutable historii.
 Frozen manifestv11 dodaje tylko dwa rejestry publiczne; listy partycji i
 frozenv1–v10 pozostają identyczne. Downgrade odmawia utraty historii.
 
+### Prywatna rodzina siatek gry — D-618, TASK-1253
+
+Migracja `0193_private_game_grid_models` dodaje `games.grid_model_private`
+(domyślnie false dla istniejących rekordów) i unikalny, opcjonalny UUID
+`grid_model_families.owner_game_id`. Obca gra oraz globalny default nie mogą
+wskazywać prywatnej wersji. Zmiana samego przypisania zachowuje prywatną
+rodzinę treningową. SQL przy zapisie nowej rodziny wymaga istniejącego
+prywatnego właściciela. Własność i zakaz współdzielenia wersji działają
+również po fizycznym usunięciu gry. Rodzinę i jej proweniencję chroni
+istniejący zakaz UPDATE/DELETE.
+
+Rezerwacja nowej gry V3 ustawia zamiar prywatności w tej samej transakcji.
+Brak dopuszczonej bazy pozostawia grę bez przypisania i bez rodziny. Wybrana
+wspólna wersja inicjuje pustą rodzinę oraz pozostaje bieżącą wersją cięcia.
+Pierwszy transfer do zarezerwowanej gry wykonuje to samo atomowo. Włączenie
+istniejącej gry zachowuje jej wersję, zwiększa rewizję przypisania i odkłada
+receipty `private_enable` w historii. Blokada 9910994 synchronizuje ją z
+przyjęciem i wznowieniem aktywnych operacji geometrii. Nowy wspólny trening
+sprawdza prywatność wszystkich gier z wejścia, również z dawnych kohort.
+
 ## Trwały rejestr geometrii V3 — TASK-0994
 
 Migracja `0156_grid_model_registry` dodaje do `public` shared control tables

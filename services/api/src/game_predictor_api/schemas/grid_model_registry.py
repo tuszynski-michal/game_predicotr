@@ -177,7 +177,13 @@ class GridModelDefaultResponse(ApiModel):
 class GridModelHistoryEvent(ApiModel):
     event_id: UUID | None = None
     kind: Literal[
-        "publish", "set_default", "activate", "rollback", "historical_assignment", "bootstrap"
+        "publish",
+        "set_default",
+        "activate",
+        "rollback",
+        "historical_assignment",
+        "bootstrap",
+        "private_enable",
     ]
     game_id: UUID | None
     version_id: UUID
@@ -191,7 +197,13 @@ class GridModelHistoryEvent(ApiModel):
     command_sha256: str | None = None
     manifest_sha256: str | None = None
     evidence_kind: (
-        Literal["historical_admission", "evaluated_candidate", "transfer_bootstrap"] | None
+        Literal[
+            "historical_admission",
+            "evaluated_candidate",
+            "transfer_bootstrap",
+            "private_family_enrollment",
+        ]
+        | None
     ) = None
     evidence_sha256: str | None = None
     transfer: GridModelTransferProvenance | None = None

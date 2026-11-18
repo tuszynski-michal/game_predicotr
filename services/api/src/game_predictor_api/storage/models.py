@@ -109,6 +109,7 @@ class GameModel(Base):
         String(64),
         nullable=True,
     )
+    grid_model_private: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     # D-535: code of a registered super game kind
     # (game_predictor_worker.domain.super_games); 'none' for games without one.
     super_game_kind: Mapped[str] = mapped_column(

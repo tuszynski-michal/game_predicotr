@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1253 — Własność modelu i utworzenie gry (done)
+
+- Plik: `tasks/completed/1253-private-grid-model-ownership.md`.
+- Commit: **v1.7.678**.
+- Wynik: prywatna rezerwacja i pierwszy transfer V3, trwała własność rodziny oraz blokady wspólnych treningów, migracja `0193`. 54 testy na izolowanej bazie i w suite API.
+
 ### TASK-1249 — Galeria podejrzanych siatek Mumii A2 (done)
 
 - Plik: tasks/completed/1249-mumie-suspicious-grid-gallery.md.

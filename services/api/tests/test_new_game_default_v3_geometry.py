@@ -19,6 +19,7 @@ from game_predictor_api.domain.grid_model_registry import (
     validate_manifest,
 )
 from game_predictor_api.main import create_app
+from game_predictor_api.schemas.grid_model_registry import GridModelHistoryEvent
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.game_create_receipts import SqlAlchemyGameCreateReceiptRepository
 from game_predictor_api.storage.grid_model_registry_models import (
@@ -108,8 +109,11 @@ def test_create_default_and_retry_never_reselects_or_rewrites_assignment(catalog
         original = session.scalar(select(GameCreateReceiptModel))
         receipt = json.loads(original.reservation_json)
         assert receipt["assignment"]["transfer"]["qualityScope"] == "source-games-only"
+        assert receipt["gridModelPrivate"]
         assert game.status == GameStatus.ACTIVE
-        assert session.get(GameGridModelAssignmentModel, game.id).version_id == version
+        head = session.get(GameGridModelAssignmentModel, game.id)
+        assert head.version_id == version
+        assert control.repository.private_family(game.id).id == head.training_family_id
     with Session(engine) as session:
         _, control, create = service(session)
         session.delete(session.get(GridModelDefaultModel, "geometry-v3"))
@@ -134,6 +138,8 @@ def test_unassigned_status_and_late_transfer_are_explicit_and_once(catalog):
         )
         session.commit()
         assert game.status == GameStatus.ARCHIVED
+        assert control.repository.game_grid_model_private(game.id)
+        assert control.repository.private_family(game.id) is None
         assert control.game_assignment(game.id)["initialTransferAllowed"]
         assert control.game_assignment(game.id)["version"] is None
         from game_predictor_api.domain.jobs import JobConflictError
@@ -154,6 +160,10 @@ def test_unassigned_status_and_late_transfer_are_explicit_and_once(catalog):
         session.commit()
         assert receipt["kind"] == "bootstrap"
         assert (
+            control.repository.private_family(game.id).id
+            == session.get(GameGridModelAssignmentModel, game.id).training_family_id
+        )
+        assert (
             create.initial_transfer(
                 game_id=game.id,
                 key=key,
@@ -170,6 +180,78 @@ def test_unassigned_status_and_late_transfer_are_explicit_and_once(catalog):
                 expected_revision=0,
                 version_id=version,
                 actor="local-owner",
+            )
+
+
+def test_two_v3_games_share_only_the_starting_version(catalog):
+    engine, service = catalog
+    with Session(engine) as session:
+        _, control, create = service(session)
+        version = published(session, control, default=True)
+        first = create.create(key=uuid4(), fields=fields("first"), selection={"mode": "default"})
+        second = create.create(
+            key=uuid4(),
+            fields=fields("second"),
+            selection={"mode": "published", "versionId": str(version)},
+        )
+        session.commit()
+        first_family = control.repository.private_family(first.id)
+        second_family = control.repository.private_family(second.id)
+        assert first_family.id != second_family.id
+        assert control.repository.version_owner_game_id(version) is None
+        for game, family in ((first, first_family), (second, second_family)):
+            assignment = session.get(GameGridModelAssignmentModel, game.id)
+            assert assignment.training_family_id == family.id
+            assert assignment.version_id == version
+            assert session.get(GridModelFamilyForkModel, family.id).base_version_id == version
+        assert session.scalar(select(func.count()).select_from(GridModelVersionModel)) == 1
+
+
+def test_enable_private_family_from_existing_mumie_assignment_is_idempotent(catalog):
+    engine, service = catalog
+    with Session(engine) as session:
+        repo, control, _ = service(session)
+        version = published(session, control, default=True)
+        legacy_fields = fields("mumie")
+        geometry = GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1
+        legacy_fields["shape_geometry_configuration"] = geometry
+        game = repo.reserve_game(**legacy_fields)
+        execute(control, "activate", str(version), game=game.id)
+        session.commit()
+        assert not control.repository.game_grid_model_private(game.id)
+    key = uuid4()
+    with Session(engine) as session:
+        _, control, create = service(session)
+        with pytest.raises(GridModelRegistryError, match="GRID_MODEL_REVISION_CONFLICT"):
+            create.enable_private_model(
+                game_id=game.id, key=key, expected_revision=2, actor="local-owner"
+            )
+        receipt = create.enable_private_model(
+            game_id=game.id, key=key, expected_revision=1, actor="local-owner"
+        )
+        session.commit()
+        new, _ = control.repository.assignment(game.id)
+        assert new.version_id == version and new.revision == 2
+        assert new.training_family_id == control.repository.private_family(game.id).id
+        assert control.repository.default().version_id == version
+        assert control.repository.version_owner_game_id(version) is None
+        assert [event["kind"] for event in control.control.history(game.id)] == [
+            "private_enable",
+            "activate",
+        ]
+        event = GridModelHistoryEvent.model_validate(control.control.history(game.id)[0])
+        assert event.kind == "private_enable" and event.training_family_id == new.training_family_id
+    with Session(engine) as session:
+        _, _, create = service(session)
+        assert (
+            create.enable_private_model(
+                game_id=game.id, key=key, expected_revision=1, actor="local-owner"
+            )
+            == receipt
+        )
+        with pytest.raises(GridModelRegistryError, match="GRID_MODEL_IDEMPOTENCY_CONFLICT"):
+            create.enable_private_model(
+                game_id=game.id, key=key, expected_revision=2, actor="local-owner"
             )
 
 

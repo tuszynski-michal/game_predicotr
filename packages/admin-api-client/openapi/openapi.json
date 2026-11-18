@@ -19368,7 +19368,8 @@
                 "enum": [
                   "historical_admission",
                   "evaluated_candidate",
-                  "transfer_bootstrap"
+                  "transfer_bootstrap",
+                  "private_family_enrollment"
                 ],
                 "type": "string"
               },
@@ -19431,7 +19432,8 @@
               "activate",
               "rollback",
               "historical_assignment",
-              "bootstrap"
+              "bootstrap",
+              "private_enable"
             ],
             "title": "Kind",
             "type": "string"

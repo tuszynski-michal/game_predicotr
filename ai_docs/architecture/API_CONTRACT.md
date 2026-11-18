@@ -267,6 +267,27 @@ Default i rollback odrzucają initial_transfer. GET przypisania dodaje
 `trainingFamilyId`, czytelną etykietę `trainingFamilyLabel` i `initialTransferAllowed`; historia obejmuje bootstrap
 z jawnym źródłem transferu. Fork nie tworzy wersji ani publikacji.
 
+Od D-618 wszystkie nowe gry V3 rezerwują prywatny tryb nauki. W obu wariantach
+`default` i `published` backend tworzy osobną rodzinę z kodem pochodzącym
+z UUID gry. Wariant `fork` pozwala podać ten kod i etykietę. Przy braku
+dopuszczonego defaultu pierwszy jawny transfer przypina wybraną wspólną bazę i
+tworzy rodzinę. Import gry bez przypisania nadal zwraca
+`GRID_MODEL_ASSIGNMENT_REQUIRED`. Prywatna wersja jako podstawa nowej gry
+zwraca `GRID_MODEL_PRIVATE_OWNER_MISMATCH`.
+
+Operator może włączyć prywatny tryb istniejącej gry V3 przez polecenie
+poniżej. Odczytuje bieżący UUID gry i rewizję przypisania, zachowuje jeden
+UUID idempotencji na próbę i powtórzenie po utracie odpowiedzi.
+
+```powershell
+.\.venv\Scripts\python.exe scripts/enable_private_grid_model.py --game-id $gameId `
+  --expected-revision $assignmentRevision --idempotency-key $commandId --confirm-private-model
+```
+
+Powodzenie dopisuje `private_enable` do historii i wraca z podniesioną
+rewizją. Obejmuje także istniejące obsługiwane profile V3. Aktywne zlecenie
+dotyczące gry zwraca `GRID_MODEL_PRIVATE_OPERATION_ACTIVE` wraz z ID joba.
+
 ## Jawne polecenia wersji geometrii V3 — TASK-0998
 
 Istniejący rejestr rozszerzają odrębne operacje Admina:

@@ -21,10 +21,16 @@ from game_predictor_api.storage.metadata import Base
 
 class GridModelFamilyModel(Base):
     __tablename__ = "grid_model_families"
-    __table_args__ = (UniqueConstraint("code"), {"schema": "public"})
+    __table_args__ = (
+        UniqueConstraint("code"),
+        UniqueConstraint("owner_game_id", name="uq_grid_model_family_owner"),
+        {"schema": "public"},
+    )
     id: Mapped[UUID] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(64))
     descriptor_json: Mapped[str] = mapped_column(Text)
+    # Immutable owner identity also protects the model after the game is deleted.
+    owner_game_id: Mapped[UUID | None] = mapped_column()
 
 
 class GridModelVersionModel(Base):

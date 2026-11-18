@@ -66,6 +66,8 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 ### Dostarczanie
 
+- [Osobny model cięcia siatek dla każdej nowej gry](delivery/PRIVATE_GAME_GRID_MODELS_PLAN_20261118.md)
+
 - [Uproszczenie wyszukiwarki plansz](delivery/BOARD_SEARCH_COMPACT_UI_PLAN_20261117.md) — TASK-1238, 13 zmian UI Admina i linków, zachowana nawigacja rankingu.
 
 - [Szybki zapis geometrii i wycofywanie kohort](delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md) — TASK-1195–1192, accepted 2026-11-12.

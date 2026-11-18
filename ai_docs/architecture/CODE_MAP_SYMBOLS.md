@@ -1488,6 +1488,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - diagnose_full_board_input.py: read_json, write_json, publish_capture, associate_saved, source_pin, capture, replay, readiness, frozen, main
 - discover_m5_images.py: main
 - drop_diagnostic_databases.py: class DropRefused, main
+- enable_private_grid_model.py: main
 - evaluate_grid_audit_feedback.py: is_bulk_approval, safe_improvement, split_rows, metrics, reference_candidates, snapshot, read_snapshot, render, features, evaluate, main
 - evaluate_lateral_partial_v4.py: freeze_corpus, build_report, main
 - evaluate_m35_acceptance.py: main

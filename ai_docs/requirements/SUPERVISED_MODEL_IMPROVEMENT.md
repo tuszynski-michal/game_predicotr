@@ -147,6 +147,13 @@ gry nie wymaga treningu od początku ani kopii wag dla tej gry.
 
 ## Kohorta treningowa
 
+Dla cięcia siatek nowe gry V3 korzystają z osobnych rodzin. Dopuszczona
+wspólna wersja może rozpocząć pracę w więcej niż jednej grze. Dane i korekty
+gry w trybie prywatnym są wyłączone ze wspólnego treningu, także przez
+wcześniej zamrożoną kohortę. Istniejącą grę V3 operator może przełączyć,
+wychodząc od jej bieżącego przypisania. Reguły rodzin rozpoznawania symboli
+opisano powyżej. Źródło: [D-618](../process/decisions/DECISION_LOG_2026.md#d-618--prywatne-rodziny-cięcia-siatek-nowych-gier-v3).
+
 Użytkownik uruchamia akcję `Ulepsz rozpoznawanie`. System przed treningiem:
 
 1. pokazuje liczbę zatwierdzonych cropów wybranych do ograniczonej kohorty,

@@ -10614,6 +10614,7 @@ export type GridModelHistoryEvent = {
     | 'historical_admission'
     | 'evaluated_candidate'
     | 'transfer_bootstrap'
+    | 'private_family_enrollment'
     | null;
   /**
    * Evidencesha256
@@ -10640,7 +10641,8 @@ export type GridModelHistoryEvent = {
     | 'activate'
     | 'rollback'
     | 'historical_assignment'
-    | 'bootstrap';
+    | 'bootstrap'
+    | 'private_enable';
   /**
    * Manifestsha256
    */

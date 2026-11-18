@@ -18,6 +18,7 @@ from game_predictor_api.application.new_game_geometry import NewGameGeometryServ
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameShapeGeometryConfiguration, GameStatus
 from game_predictor_api.domain.grid_model_registry import GridModelRegistryError
+from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import GameStorageSession, create_owner_session_factory
 from game_predictor_api.storage.database_roles import (
@@ -26,9 +27,11 @@ from game_predictor_api.storage.database_roles import (
 )
 from game_predictor_api.storage.game_create_receipts import SqlAlchemyGameCreateReceiptRepository
 from game_predictor_api.storage.game_data_v2_manifest_v19 import VERSION
+from game_predictor_api.storage.job_repository import job_record_from_domain
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 from test_grid_model_publication_and_activation import execute, registry
 
@@ -107,6 +110,133 @@ def database():
             receipt["phase"] = "cleaned"
         destination.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
         maintenance.dispose()
+
+
+def test_private_enrollment_fences_other_games_queued_and_historical_cohorts(database, tmp_path):
+    engine, role, _, _ = database
+    with engine.begin() as connection:
+        assert not connection.scalar(text("SELECT bool_or(grid_model_private) FROM public.games"))
+        first, second = uuid4(), uuid4()
+        connection.execute(
+            text("""INSERT INTO public.games (id, code, name, status, shape_geometry_configuration)
+                VALUES (:first, 'legacy-mumie', 'Mumie', 'draft', 'grid_profile_mumie_v1'),
+                       (:second, 'legacy-other', 'Other', 'draft', 'neural_grid_v3')"""),
+            {"first": first, "second": second},
+        )
+
+    def new_session():
+        session = Session(engine)
+        session.execute(text(f'SET LOCAL ROLE "{role}"'))
+        return session
+
+    def service(session):
+        return NewGameGeometryService(
+            None, SqlAlchemyGameCreateReceiptRepository(session), registry(session, tmp_path)
+        )
+
+    with new_session() as session:
+        create = service(session)
+        baseline = create.registry.repository.versions()[0]
+        execute(create.registry, "publish", str(baseline.id))
+        execute(create.registry, "activate", str(baseline.id), game=first)
+        baseline_id = baseline.id
+        session.commit()
+
+    cohort_id = uuid4()
+
+    def shared_job():
+        return job_record_from_domain(
+            create_job(
+                JobType.GRID_TRAINING,
+                game_id=second,
+                input_payload={
+                    "schema_version": 1,
+                    "training_kind": "grid-shared-training-run-v1",
+                    "idempotency_key": str(uuid4()),
+                    "shared_cohorts": [
+                        {"game_id": str(first).upper(), "cohort_id": str(cohort_id)}
+                    ],
+                },
+            )
+        )
+
+    key = uuid4()
+
+    def enable():
+        with new_session() as session:
+            result = service(session).enable_private_model(
+                game_id=first, key=key, expected_revision=1, actor="local-owner"
+            )
+            session.commit()
+        return result
+
+    with new_session() as session, ThreadPoolExecutor(max_workers=1) as other:
+        job = shared_job()
+        session.add(job)
+        session.flush()  # Holds the catalogue fence across job admission and commit.
+        job_id = job.id
+        waiting = other.submit(enable)
+        session.commit()
+        with pytest.raises(
+            GridModelRegistryError, match="GRID_MODEL_PRIVATE_OPERATION_ACTIVE"
+        ) as error:
+            waiting.result(timeout=8)
+        assert error.value.details == {"jobId": str(job_id)}
+
+    with new_session() as session:
+        session.execute(
+            text("UPDATE public.jobs SET status='completed' WHERE id=:job"), {"job": job_id}
+        )
+        session.commit()
+    result = enable()
+    assert result["versionId"] == str(baseline_id) and result["revision"] == 2
+    assert enable() == result  # New session after a simulated lost response.
+
+    with new_session() as session:
+        for operation in ("insert", "resume"):
+            with (
+                pytest.raises(DBAPIError, match="GRID_SHARED_PRIVATE_GAME"),
+                session.begin_nested(),
+            ):
+                if operation == "insert":
+                    session.add(shared_job())
+                    session.flush()
+                else:
+                    session.execute(
+                        text("UPDATE public.jobs SET status='created' WHERE id=:job"),
+                        {"job": job_id},
+                    )
+        assert (
+            session.scalar(text("SELECT status FROM public.jobs WHERE id=:job"), {"job": job_id})
+            == JobStatus.COMPLETED.value
+        )
+
+    with engine.begin() as connection:
+        private_version = uuid4()
+        connection.execute(
+            text("""INSERT INTO public.grid_model_versions
+                (id, family_id, version, base_version_id, manifest_json, manifest_sha256)
+                SELECT :private, CAST(:family AS uuid), 'v-test', id, manifest_json, manifest_sha256
+                FROM public.grid_model_versions WHERE id=:base"""),
+            {"private": private_version, "family": result["trainingFamilyId"], "base": baseline_id},
+        )
+        connection.execute(text("DELETE FROM public.games WHERE id=:game"), {"game": first})
+        assert (
+            connection.scalar(
+                text("SELECT owner_game_id FROM public.grid_model_families WHERE id=:family"),
+                {"family": result["trainingFamilyId"]},
+            )
+            == first
+        )
+        with (
+            pytest.raises(DBAPIError, match="GRID_MODEL_PRIVATE_DEFAULT"),
+            connection.begin_nested(),
+        ):
+            connection.execute(
+                text("""INSERT INTO public.grid_model_default(id, version_id, revision)
+                    VALUES ('geometry-v3', :private, 1)"""),
+                {"private": private_version},
+            )
 
 
 def test_reservation_rollback_partition_restart_application_role_and_create_races(

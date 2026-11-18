@@ -111,18 +111,20 @@ class SqlGridTrainingStore:
             assert family is not None
             return {"familyId": str(family.id), **json.loads(family.descriptor_json)}
 
-    def base_version(self, version_id: UUID) -> Mapping[str, Any]:
+    def base_version(self, version_id: UUID, *, inference_only: bool = False) -> Mapping[str, Any]:
         with Session(self.engine) as session:
             record = SqlAlchemyGridModelRegistryRepository(session).version(version_id)
             if record is None:
                 raise JobHandlerError("GRID_TRAINING_BASE_MISSING", "Base version is unknown.")
             try:
-                view = self._registry(session).view(record, include_eligibility=False)
+                view = self._registry(session).view(
+                    record, include_eligibility=False, inference_only=inference_only
+                )
             except GridModelRegistryError as error:
                 raise JobHandlerError(error.code, error.message) from error
             if not view["available"]:
                 raise JobHandlerError("GRID_TRAINING_BASE_UNAVAILABLE", str(view["reasonCode"]))
-            return dict(json.loads(record.manifest_json))
+            return dict(view["manifest"])
 
     def historical_cohort(self, base_version_id: UUID, header: Mapping[str, Any]) -> None:
         from game_predictor_api.application.grid_correction_history import require_historical_cohort
@@ -135,7 +137,7 @@ class SqlGridTrainingStore:
     def register(self, key: UUID, payload: dict[str, Any]) -> Mapping[str, Any]:
         with Session(self.engine) as session:
             try:
-                view = self._registry(session).register(key, payload)
+                view = self._registry(session).register(key, payload, from_training_worker=True)
                 session.commit()
             except GridModelRegistryError as error:
                 session.rollback()

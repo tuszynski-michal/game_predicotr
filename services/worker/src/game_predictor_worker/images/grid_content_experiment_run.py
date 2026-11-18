@@ -241,13 +241,19 @@ def run_experiment(
         RECIPE_FINGERPRINT,
         ChildControl,
         _base,
+        _check_private_snapshot,
         _export,
+        _weight_binding,
         sha256_file,
         write_json_atomic,
     )
 
     plan = require_plan(spec["contentExperiment"])
     inputs = spec["contentExperimentInputs"]
+    pins = spec["joint"]["cohorts"] if spec.get("joint") else [spec["cohort"]]
+    snapshots = [GridCohortSnapshot(root, p["manifestPath"], p["manifestSha256"]) for p in pins]
+    for snapshot in snapshots:
+        _check_private_snapshot(spec, snapshot.manifest)
     weights_path, base_payload, _ = _base(spec, root)
     if (
         plan["baseVersionId"] != spec["base"]["versionId"]
@@ -265,8 +271,6 @@ def run_experiment(
     contract = GridOutputContract.model_validate(spec.get("gridOutputContract"))
     if contract.trainedVisibility:
         raise ValueError("GRID_VISIBILITY_INPUT_CANNOT_CLAIM_TRAINING")
-    pins = spec["joint"]["cohorts"] if spec.get("joint") else [spec["cohort"]]
-    snapshots = [GridCohortSnapshot(root, p["manifestPath"], p["manifestSha256"]) for p in pins]
     verify_inputs(plan, inputs, snapshots)
     require_render_preflight(snapshots, plan.get("cropPolicyVersion"))
     device = "cuda" if torch.cuda.is_available() else spec.get("device", "cpu")
@@ -389,8 +393,7 @@ def run_experiment(
             1200,
             {
                 "cohortManifestSha256": spec["cohort"]["manifestSha256"],
-                "baseWeightsSha256": plan["baseWeightsSha256"],
-                "basePresetSha256": spec["base"]["presetSha256"],
+                **_weight_binding(spec),
                 "mode": "screen+grid",
                 "gridOutputContract": contract.model_dump(mode="json"),
                 "contentExperiment": {

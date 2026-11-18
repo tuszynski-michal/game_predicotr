@@ -12,6 +12,7 @@ from game_predictor_worker.training_core.grid_rescue_training import require_rec
 
 from .grid_model_registry import descriptor_sha256 as digest
 
+PRIVATE_GRID_RECIPE_FINGERPRINT = "b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9"
 POLICY = "grid-rescue-policy-v1"
 _SHA = re.compile(r"[0-9a-f]{64}")
 COMPONENTS = {

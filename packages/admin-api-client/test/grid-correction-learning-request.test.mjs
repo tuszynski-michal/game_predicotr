@@ -11,7 +11,12 @@ test('lightweight readiness is opt-in and legacy requests keep an empty query', 
         method: request.method,
         query: Object.fromEntries(new URL(request.url).searchParams),
       });
-      return Response.json({ preparationRequired: true, canStart: false });
+      return Response.json({
+        preparationRequired: true,
+        canStart: false,
+        weightInitialization: 'from_scratch',
+        trainingMode: 'screen+grid',
+      });
     },
   });
   const game = '11111111-1111-4111-8111-111111111111';
@@ -21,6 +26,8 @@ test('lightweight readiness is opt-in and legacy requests keep an empty query', 
   });
   await client.getGridCorrectionLearningReady(game);
   assert.equal(ready.data.preparationRequired, true);
+  assert.equal(ready.data.weightInitialization, 'from_scratch');
+  assert.equal(ready.data.trainingMode, 'screen+grid');
   assert.equal(ready.data.canStart, false);
   assert.deepEqual(calls, [
     {

@@ -16145,6 +16145,21 @@
               }
             ],
             "title": "Validationpurposecounts"
+          },
+          "weightInitialization": {
+            "anyOf": [
+              {
+                "enum": [
+                  "from_scratch",
+                  "assigned_weights"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weightinitialization"
           }
         },
         "required": [
@@ -16789,6 +16804,21 @@
               }
             ],
             "title": "Verdict"
+          },
+          "weightInitialization": {
+            "anyOf": [
+              {
+                "enum": [
+                  "from_scratch",
+                  "assigned_weights"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weightinitialization"
           }
         },
         "required": [
@@ -19997,6 +20027,18 @@
             "title": "Exportid",
             "type": "string"
           },
+          "independentGameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Independentgameid"
+          },
           "presetFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Presetfingerprint",
@@ -20012,6 +20054,21 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Snapshotid",
             "type": "string"
+          },
+          "weightInitialization": {
+            "anyOf": [
+              {
+                "enum": [
+                  "from_scratch",
+                  "assigned_weights"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weightinitialization"
           },
           "weightsSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -23222,6 +23279,21 @@
             ],
             "title": "Trainingkind",
             "type": "string"
+          },
+          "weightInitialization": {
+            "anyOf": [
+              {
+                "enum": [
+                  "from_scratch",
+                  "assigned_weights"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weightinitialization"
           }
         },
         "required": [

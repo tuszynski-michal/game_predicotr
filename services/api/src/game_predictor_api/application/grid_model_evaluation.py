@@ -187,7 +187,15 @@ class GridModelEvaluationService:
                 "Only an available trained candidate with a base and cohort is evaluated.",
             )
         base = registry.repository.version(UUID(manifest["baseVersionId"]))
-        if base is None or not registry.view(base, include_eligibility=False)["available"]:
+        comparator_options = (
+            {"inference_only": True}
+            if manifest["provenance"].get("weightInitialization") == "from_scratch"
+            else {}
+        )
+        if (
+            base is None
+            or not registry.view(base, include_eligibility=False, **comparator_options)["available"]
+        ):
             raise _error("GRID_EVALUATION_CANDIDATE_UNAVAILABLE", "The base model is unavailable.")
         return manifest, str(base.manifest_sha256)
 

@@ -431,3 +431,7 @@ Starsze jawne oceny bez ledgeru są dopuszczalne, gdy wszystkie aktualne rozstrz
 Admin pokazuje nazwę prywatnej gry, przypisaną bazę oraz liczności i braki danych. Trening wymaga jawnego zakresu `private_game`. Bierze wyłącznie korekty i zatwierdzenia tej gry. Nowe uczenie wspólne wymaga jawnego wykluczenia prywatnej gry objętej wcześniejszym modelem.
 
 Przygotowanie w tle z opcją `preparationOnly` zatrzymuje się po zapisaniu podglądu. Wznowienie sprawdza przypisanie gry przed dopuszczeniem treningu. Zmiana globalnego modelu domyślnego nie zmienia prywatnej bazy.
+
+### Pierwszy niezależny trening — TASK-1257
+
+Pierwsza niezależna wersja uczy detektor plansz i siatkę pól od zera na zatwierdzonych oznaczeniach jednej gry. Kompletne zdjęcia nadzorują wykrywanie plansz, a zatwierdzone plansze na zdjęciach częściowych dostarczają przykładów położenia węzłów. Admin ma pokazywać sposób rozpoczęcia treningu i braki pełnych zdjęć wymaganych do startu. Przypisana wersja dostarcza wyniku do porównania. Następne prywatne uczenie może korzystać z przypisanych wag po potwierdzeniu niezależnego pochodzenia tej samej gry. Ocenę dokładności Mumii A2 dopełnia ogląd wszystkich 15 wycinków na 100 odłożonych planszach. [D-619](../process/decisions/DECISION_LOG_2026.md#d-619--niezależny-pierwszy-trening-geometrii-gry)

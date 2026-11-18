@@ -16,6 +16,14 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-619 — Niezależny pierwszy trening geometrii gry
+
+Status: accepted. Data: 2026-11-18. TASK-1257.
+
+Operator potwierdził, że Mumie A2 mają się nauczyć ramek i podziału pól od początku na zdjęciach swojej gry. Gra z prywatną rodziną bez potwierdzonej niezależnej wersji zaczyna od losowych wag detektora i sieci węzłów. Ten sam mechanizm obsłuży nowe gry o innych zdjęciach. Przy kolejnych treningach można kontynuować przypisane własne wagi, jeżeli zapis wersji potwierdza niezależne pochodzenie dla tej samej gry.
+
+Uściśla D-618. Dotychczas przypisany model określa punkt odniesienia do oceny i cofnięcia oraz historię ekspozycji zdjęć. Pomiar treningu od zera wymaga osobnych danych do nauki i ślepej oceny. Rola danych, ochrona nagrań i rygory publikacji nadal obowiązują. Zlecenie przygotowania tej funkcji obejmuje kod i testy na gałęzi roboczej. Rzeczywisty trening, aktywacja i wdrożenie wymagają odrębnych decyzji.
+
 ## D-618 — Prywatne rodziny cięcia siatek nowych gier V3
 
 Status: accepted. Data: 2026-11-18. TASK-1253 i [plan](../../delivery/PRIVATE_GAME_GRID_MODELS_PLAN_20261118.md).

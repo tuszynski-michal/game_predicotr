@@ -52,6 +52,7 @@ class GridModelRegistryRepository(GridModelControlRepository, Protocol):
 
 class GridModelInspector(Protocol):
     def inspect(self, payload: dict[str, Any]) -> tuple[bool, str]: ...
+    def inspect_inference(self, payload: dict[str, Any]) -> tuple[bool, str]: ...
     def historical_evidence(self, payload: dict[str, Any]) -> dict[str, Any]: ...
 
 
@@ -67,7 +68,13 @@ class GridModelRegistryService:
         self.control = GridModelPublicationService(self, repository)
         self.status_reader = status_reader
 
-    def view(self, record: GridModelRecord, *, include_eligibility: bool = True) -> dict[str, Any]:
+    def view(
+        self,
+        record: GridModelRecord,
+        *,
+        include_eligibility: bool = True,
+        inference_only: bool = False,
+    ) -> dict[str, Any]:
         payload = json.loads(record.manifest_json)
         if (
             validate_manifest(payload) != record.manifest_json
@@ -76,7 +83,11 @@ class GridModelRegistryService:
             raise GridModelRegistryError(
                 "GRID_MODEL_REGISTRY_CORRUPT", "Stored immutable descriptor differs."
             )
-        available, reason = self.inspector.inspect(payload)
+        available, reason = (
+            self.inspector.inspect_inference(payload)
+            if inference_only
+            else self.inspector.inspect(payload)
+        )
         owner = self.repository.version_owner_game_id(record.id)
         view = {
             "manifest": payload,
@@ -101,7 +112,14 @@ class GridModelRegistryService:
     def list_versions(self) -> list[dict[str, Any]]:
         return [self.view(record) for record in self.repository.versions()]
 
-    def register(self, key: UUID, payload: dict[str, Any]) -> dict[str, Any]:
+    def register(
+        self, key: UUID, payload: dict[str, Any], *, from_training_worker: bool = False
+    ) -> dict[str, Any]:
+        if "independentGameId" in payload.get("provenance", {}) and not from_training_worker:
+            raise GridModelRegistryError(
+                "GRID_MODEL_PRIVATE_WORKER_REQUIRED",
+                "Private training provenance can only be registered by its worker.",
+            )
         manifest_json = validate_manifest(payload)
         checksum = descriptor_sha256(payload)
         if payload["admission"] == "historical_baseline" and payload not in historical_catalogue():

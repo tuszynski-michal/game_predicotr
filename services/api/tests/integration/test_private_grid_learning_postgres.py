@@ -10,7 +10,11 @@ from _private_grid_learning_support import private_frozen_cohort
 from game_predictor_api.application.grid_correction_learning import GridCorrectionLearningService
 from game_predictor_api.application.grid_learning_preparation import prepare
 from game_predictor_api.application.new_game_geometry import NewGameGeometryService
-from game_predictor_api.domain.grid_model_registry import historical_catalogue
+from game_predictor_api.domain.grid_model_registry import (
+    canonical_json,
+    descriptor_sha256,
+    historical_catalogue,
+)
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
@@ -62,6 +66,14 @@ def test_private_readiness_background_replay_and_child_pins(tmp_path):
         assert ready["learningScope"] == "private_game" and ready["gameName"] == "owned"
         assert ready["baseVersionId"] == base["versionId"] and ready["defaultRevision"] is None
         assert ready["targetFamilyId"] != base["familyId"]
+        assert (
+            ready["trainingMode"] == "screen+grid"
+            and ready["weightInitialization"] == "from_scratch"
+        )
+        blocked = service.preview(
+            game, {"learningScope": "private_game", "trainingMode": "grid-only"}
+        )
+        assert blocked["blockers"] == ["GRID_LEARNING_PRIVATE_SCREEN_REQUIRED"]
         command = {
             "idempotencyKey": str(uuid4()),
             "prepareInBackground": True,
@@ -76,6 +88,7 @@ def test_private_readiness_background_replay_and_child_pins(tmp_path):
             execute(registry(session, tmp_path), "set_default", unrelated["versionId"])
         fresh = GridCorrectionLearningService(db.app_engine, factory, tmp_path)
         assert fresh.start(game, command, "test") == queued
+        assert queued["weightInitialization"] == "from_scratch"
         assert fresh.ready(game, lightweight=True) == ready
         full = fresh.preview(game, {"learningScope": "private_game"})
         assert full["targetFamilyId"] == ready["targetFamilyId"] and full["requiredGameIds"] == [
@@ -120,13 +133,100 @@ def test_private_readiness_background_replay_and_child_pins(tmp_path):
         # A run is committed only with the original frozen owner/base/manifest.
         assert insert(run_payload()).game_id == game
         with db.owner_engine.begin() as connection:
+            independent_cohort = private_frozen_cohort(
+                connection, pin, initialization="from_scratch"
+            )
+        independent = {
+            **run_payload(),
+            "cohort_id": str(independent_cohort),
+            "mode": "screen+grid",
+            "preset_id": "screen-grid-corrections-v1",
+            "weight_initialization": "from_scratch",
+        }
+        run = insert(independent)
+        assert run.game_id == game
+        candidate_id = uuid4()
+        descriptor = {
+            "versionId": str(candidate_id),
+            "familyId": pin["targetFamilyId"],
+            "cohortId": str(independent_cohort),
+            "baseVersionId": pin["baseVersionId"],
+            "provenance": {
+                "runId": str(run.id),
+                "independentGameId": str(game),
+                "weightInitialization": "from_scratch",
+            },
+        }
+
+        def register_descriptor(document):
+            with db.app_engine.begin() as connection:
+                connection.execute(
+                    text("""INSERT INTO public.grid_model_versions
+                        (id,family_id,version,base_version_id,manifest_json,manifest_sha256)
+                        VALUES (:version,:family,'independent-test',:base,:doc,:sha)"""),
+                    {
+                        "version": candidate_id,
+                        "family": pin["targetFamilyId"],
+                        "base": pin["baseVersionId"],
+                        "doc": canonical_json(document),
+                        "sha": descriptor_sha256(document),
+                    },
+                )
+
+        with pytest.raises(DBAPIError, match="GRID_PRIVATE_INITIALIZATION_INVALID"):
+            register_descriptor(descriptor)
+        with db.owner_engine.begin() as connection:
+            connection.execute(
+                text("UPDATE public.jobs SET checkpoint_payload=CAST(:seal AS jsonb) WHERE id=:id"),
+                {
+                    "id": run.id,
+                    "seal": canonical_json({"export": {"descriptor": {"payload": descriptor}}}),
+                },
+            )
+        with pytest.raises(DBAPIError, match="GRID_PRIVATE_INITIALIZATION_INVALID"):
+            register_descriptor(
+                {
+                    **descriptor,
+                    "provenance": {**descriptor["provenance"], "independentGameId": str(other)},
+                }
+            )
+        register_descriptor(descriptor)
+        for overrides in (
+            {"weight_initialization": "assigned_weights"},
+            {"weight_initialization": None},
+            {"mode": "grid-only"},
+        ):
+            with pytest.raises(DBAPIError, match="GRID_PRIVATE_INITIALIZATION_INVALID"):
+                insert({**independent, **overrides})
+        with db.owner_engine.begin() as connection:
             connection.execute(
                 text(
-                    "UPDATE public.game_grid_model_assignments SET revision=revision+1 "
+                    "UPDATE public.game_grid_model_assignments SET revision=revision+1, "
+                    "version_id=:candidate "
                     "WHERE game_id=:g"
                 ),
-                {"g": game},
+                {"g": game, "candidate": candidate_id},
             )
+        successor = fresh.ready(game, lightweight=True)
+        assert successor["weightInitialization"] == "assigned_weights"
+        next_pin = {
+            **pin,
+            "assignmentRevision": successor["assignmentRevision"],
+            "baseVersionId": str(candidate_id),
+            "baseManifestSha256": descriptor_sha256(descriptor),
+        }
+        with db.owner_engine.begin() as connection:
+            next_cohort = private_frozen_cohort(
+                connection, next_pin, initialization="assigned_weights"
+            )
+        next_run = {
+            **run_payload(),
+            "private_learning": next_pin,
+            "base_version_id": str(candidate_id),
+            "cohort_id": str(next_cohort),
+            "weight_initialization": "assigned_weights",
+        }
+        assert insert(next_run).game_id == game
         with pytest.raises(DBAPIError, match="GRID_LEARNING_PRIVATE_ASSIGNMENT_CHANGED"):
             insert(run_payload())
         with pytest.raises(GridCohortError) as changed, prepare(fresh, parent):

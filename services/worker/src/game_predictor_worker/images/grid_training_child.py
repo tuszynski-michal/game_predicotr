@@ -32,6 +32,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
 
+from game_predictor_api.domain.grid_rescue_policy import PRIVATE_GRID_RECIPE_FINGERPRINT
+
 from ..training_core.gpu_lease import GpuLease, GpuLeaseError, lease_path
 from ..training_core.grid_training_admission import PRESETS, digest, probe_runtime
 from ..training_core.process_identity import process_created
@@ -56,7 +58,7 @@ WATCHDOG_GRACE_SECONDS = 5.0
 WATCHDOG_LOST_GRACE_SECONDS = 30.0
 # Approved recipe (D-558): board/screen/augmentation of the frozen lab preset D.
 RECIPE_FILE = Path(__file__).resolve().parents[1] / "vision_lab" / "neural_grid_presets" / "D.json"
-RECIPE_FINGERPRINT = "b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9"
+RECIPE_FINGERPRINT = PRIVATE_GRID_RECIPE_FINGERPRINT
 RECIPE_COMPATIBLE_KEYS = (
     "backbone",
     "board",
@@ -243,6 +245,80 @@ def _base(spec: Mapping[str, Any], artifact_root: Path) -> tuple[Path, dict[str,
     return weights, json.loads(preset_bytes), preset_bytes
 
 
+def _initial_network(
+    spec: Mapping[str, Any], artifact_root: Path, recipe: Any, preset_payload: Mapping[str, Any]
+) -> Any:
+    import torch
+
+    from ..training_core.neural_grid_network import NeuralGridNetwork
+
+    torch.manual_seed(int(spec["seed"]))
+    network = NeuralGridNetwork(recipe.board.stride)
+    if spec.get("weightInitialization") == "from_scratch":
+        if (
+            "weightsSha256" in spec["base"]
+            or spec["base"]["presetSha256"] != RECIPE_FINGERPRINT
+            or spec["preset"]["id"] != "screen-grid-corrections-v1"
+            or (spec.get("rescueRecipe") or {}).get("variant") is not None
+        ):
+            raise ChildError("GRID_PRIVATE_INITIALIZATION_INVALID")
+        return network
+    weights_path, base_payload, _ = _base(spec, artifact_root)
+    if any(base_payload.get(key) != preset_payload.get(key) for key in RECIPE_COMPATIBLE_KEYS):
+        raise ChildError("GRID_TRAINING_RECIPE_INCOMPATIBLE")
+    network.load_state_dict(torch.load(weights_path, map_location="cpu", weights_only=True))
+    return network
+
+
+def _check_private_snapshot(spec: Mapping[str, Any], manifest: Mapping[str, Any]) -> None:
+    """Bind the subprocess to the exact private game, cohort and declared weight parent."""
+    initialization = spec.get("weightInitialization")
+    if (
+        "weightInitialization" in spec and initialization is None
+    ) or initialization != manifest.get("weightInitialization"):
+        raise ChildError("GRID_PRIVATE_INITIALIZATION_INVALID")
+    if initialization is None:
+        return
+    base = manifest["base"]
+    descriptor = base["manifest"]
+    provenance = descriptor["provenance"]
+    game = manifest["gameId"]
+    own_weights = (
+        descriptor["familyId"] == manifest["familyId"]
+        and provenance.get("independentGameId") == game
+        and provenance.get("weightInitialization") in ("from_scratch", "assigned_weights")
+    )
+    if (
+        initialization not in ("from_scratch", "assigned_weights")
+        or (initialization == "assigned_weights") != own_weights
+        or spec.get("joint") is not None
+        or spec.get("independentGameId") != game
+        or spec["cohort"]["gameId"] != game
+        or spec["cohort"]["cohortId"] != manifest["cohortId"]
+        or manifest.get("privateLearning", {}).get("gameId") != game
+        or spec["base"]["versionId"] != base["versionId"]
+        or spec["base"]["managedDirectory"] != descriptor["managedDirectory"]
+        or spec["base"]["comparisonManifestSha256"] != base["manifestSha256"]
+    ):
+        raise ChildError("GRID_PRIVATE_INITIALIZATION_INVALID")
+
+
+def _weight_binding(spec: Mapping[str, Any]) -> dict[str, Any]:
+    base = spec["base"]
+    initialization = spec.get("weightInitialization")
+    binding: dict[str, Any] = {"basePresetSha256": base["presetSha256"]}
+    if initialization != "from_scratch":
+        binding["baseWeightsSha256"] = base["weightsSha256"]
+    if initialization is not None:
+        binding.update(
+            weightInitialization=initialization,
+            independentGameId=spec["independentGameId"],
+            comparisonVersionId=base["versionId"],
+            comparisonManifestSha256=base["comparisonManifestSha256"],
+        )
+    return binding
+
+
 def supervisor_alive(spec: Mapping[str, Any], run_dir: Path) -> bool:
     supervisor = spec["supervisor"]
     try:
@@ -394,6 +470,8 @@ def _train(
     if activity is not None:
         activity.advance("startup", 0)
     if spec.get("contentExperiment") is not None:
+        if spec.get("weightInitialization") == "from_scratch":
+            raise ChildError("GRID_PRIVATE_INITIALIZATION_INVALID")
         from .grid_content_experiment_run import run_experiment
 
         return run_experiment(spec, run_dir, artifact_root, lease, record, counter)
@@ -424,13 +502,10 @@ def _train(
     preset = PRESETS.get(spec["preset"]["id"])
     if preset is None or preset.fingerprint != spec["preset"]["fingerprint"]:
         raise ChildError("GRID_RUN_PRESET_NOT_APPROVED")
-    weights_path, base_payload, _ = _base(spec, artifact_root)
     preset_bytes = RECIPE_FILE.read_bytes()
     preset_payload = json.loads(preset_bytes)
     if preset_payload_fingerprint(preset_payload) != RECIPE_FINGERPRINT:
         raise ChildError("GRID_TRAINING_RECIPE_CHANGED")
-    if any(base_payload.get(key) != preset_payload.get(key) for key in RECIPE_COMPATIBLE_KEYS):
-        raise ChildError("GRID_TRAINING_RECIPE_INCOMPATIBLE")
     recipe = namespace(preset_payload)
     output_contract = None
     if spec.get("gridOutputContract") is not None:
@@ -448,15 +523,18 @@ def _train(
     )
     if snapshot.manifest.get("mode") != preset.mode:
         raise ChildError("GRID_RUN_COHORT_MODE_MISMATCH")
+    initialization = spec.get("weightInitialization")
+    _check_private_snapshot(spec, snapshot.manifest)
     device = "cuda" if torch.cuda.is_available() else spec.get("device", "cpu")
     if spec.get("requireCuda", True) and device != "cuda":
         raise ChildError("GRID_RUN_GPU_UNAVAILABLE")
-    torch.manual_seed(int(spec["seed"]))
-    network = NeuralGridNetwork(recipe.board.stride)
-    network.load_state_dict(torch.load(weights_path, map_location="cpu", weights_only=True))
+    network = _initial_network(spec, artifact_root, recipe, preset_payload)
     workers = int(spec.get("dataWorkers", preset.data_workers))
     screen_mode = preset.mode == "screen+grid"
-    train_photos: Any = CohortPhotos(snapshot, "TRAIN", full_only=screen_mode)
+    private_partial = screen_mode and initialization == "from_scratch"
+    train_photos: Any = CohortPhotos(
+        snapshot, "TRAIN", full_only=screen_mode and not private_partial
+    )
     screen_corrections = preset.preset_id == "screen-grid-corrections-v1"
     corrections = preset.preset_id in ("grid-corrections-v1", "screen-grid-corrections-v1")
     if corrections != (
@@ -530,6 +608,7 @@ def _train(
             strata,
             variant=variant if screen_corrections else None,
             output_contract=output_contract,
+            partial_training=private_partial,
         )
         evaluate = macro_evaluator([photo_evaluator(item, recipe, device) for item in validations])
         losses = screen_grid_losses
@@ -575,8 +654,7 @@ def _train(
         int(spec["plannedSteps"]),
         {
             "cohortManifestSha256": cohort["manifestSha256"],
-            "baseWeightsSha256": spec["base"]["weightsSha256"],
-            "basePresetSha256": spec["base"]["presetSha256"],
+            **_weight_binding(spec),
             "mode": preset.mode,
             **(
                 {"gridOutputContract": output_contract.model_dump(mode="json")}
@@ -611,7 +689,12 @@ def _train(
             else (run_dir / "checkpoints" / resume["path"], resume["sha256"]),
             device=device,
             **(
-                {"exposure": exposure, "exposure_members": batches.exposure_members}
+                {
+                    "exposure": exposure,
+                    "exposure_members": batches.private_exposure_members
+                    if private_partial
+                    else batches.exposure_members,
+                }
                 if screen_corrections
                 else {}
             ),
@@ -725,7 +808,12 @@ def _export(
             if content_experiment is not None
             else json.loads((destination / "bundle.json").read_text(encoding="utf-8"))
         )
-        if existing["provenance"]["checkpointSha256"] != result.checkpoint_sha256:
+        if (
+            existing["provenance"]["checkpointSha256"] != result.checkpoint_sha256
+            or existing["provenance"].get("weightInitialization")
+            != spec.get("weightInitialization")
+            or existing["provenance"].get("independentGameId") != spec.get("independentGameId")
+        ):
             raise ChildError("GRID_TRAINING_EXPORT_CONFLICT")
         _verify_recovered(destination, existing, preset_bytes, result.checkpoint_path)
         if correction_evaluator is not None:
@@ -817,6 +905,14 @@ def _export(
             if spec.get("joint")
             else spec["cohort"]["manifestSha256"],
             "baseVersionId": spec["base"]["versionId"],
+            **(
+                {
+                    "weightInitialization": spec["weightInitialization"],
+                    "independentGameId": spec["independentGameId"],
+                }
+                if "weightInitialization" in spec
+                else {}
+            ),
             "bestStep": result.best_step,
             **(
                 {"checkpointSelection": result.checkpoint_selection}

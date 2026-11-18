@@ -19,7 +19,11 @@ from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.grid_cohort_asset_retention import acquire_cohort_asset_guard
 from game_predictor_api.storage.grid_model_registry import SqlAlchemyGridModelRegistryRepository
 from game_predictor_api.storage.grid_preparation_progress import PREPARATION_WORKER_CAPABILITY
-from game_predictor_api.storage.grid_private_learning import assignment_pin, require_learning_pin
+from game_predictor_api.storage.grid_private_learning import (
+    assignment_pin,
+    require_learning_pin,
+    weight_initialization,
+)
 from game_predictor_api.storage.grid_training_cohort_artifacts import GridCohortArtifactStore
 from game_predictor_api.storage.grid_training_cohort_repository import (
     SqlAlchemyGridTrainingCohortRepository,
@@ -83,7 +87,16 @@ def enqueue(
         acquire_learning_game_lock(session, game)
         existing = service._by_key(session, game, key)
         if existing is not None:
-            if existing.input_payload["command"] != command:
+            replay = command
+            stored = existing.input_payload["command"]
+            if (
+                "weightInitialization" not in existing.input_payload.get("pins", {})
+                and stored.get("learningScope") == "private_game"
+                and stored.get("trainingMode") == "grid-only"
+                and "trainingMode" not in command
+            ):
+                replay = {**command, "trainingMode": "grid-only"}
+            if stored != replay:
                 raise GridCohortError(
                     "GRID_LEARNING_IDEMPOTENCY_CONFLICT", "The key belongs to another command."
                 )
@@ -105,6 +118,16 @@ def enqueue(
             )
         require_preparation_worker(session)
         default = None if pin else catalogue.default()
+        init_mode = weight_initialization(catalogue, game, pin) if pin is not None else None
+        if init_mode == "from_scratch" and (
+            command.get("trainingMode", "screen+grid") != "screen+grid"
+            or command.get("contentExperiment") is not None
+            or command.get("rescueVariant") is not None
+        ):
+            raise GridCohortError(
+                "GRID_LEARNING_PRIVATE_SCREEN_REQUIRED",
+                "Use the whole detector and grid for the first independent training.",
+            )
         if pin is not None:
             base_id = pin["baseVersionId"]
         elif default is not None:
@@ -119,6 +142,7 @@ def enqueue(
                     "learningScope": "private_game",
                     "gameName": session.scalar(select(GameModel.name).where(GameModel.id == game)),
                     **pin,
+                    "weightInitialization": init_mode,
                 }
                 if pin
                 else {}
@@ -137,7 +161,9 @@ def enqueue(
             "preview": preview,
             "actor": actor,
             "backgroundPreparation": True,
-            **({"pins": {"privateLearning": pin}} if pin else {}),
+            **(
+                {"pins": {"privateLearning": pin, "weightInitialization": init_mode}} if pin else {}
+            ),
         }
         job = create_job(JobType.GRID_CORRECTION_LEARNING, game_id=game, input_payload=payload)
         job = replace(job, stage="preparing_data")
@@ -162,8 +188,16 @@ def prepare(service: GridCorrectionLearningService, job: Job) -> Iterator[dict[s
         for k, v in command.items()
         if k not in {"idempotencyKey", "previewSha256", "prepareInBackground", "preparationOnly"}
     }
-    preview, pins = service._preview(job.game_id, options)
-    expected_pin = job.input_payload.get("pins", {}).get("privateLearning")
+    original_pins = job.input_payload.get("pins", {})
+    expected_pin = original_pins.get("privateLearning")
+    legacy = expected_pin is not None and "weightInitialization" not in original_pins
+    preview, pins = service._preview(
+        job.game_id, options, **({"legacy_private": True} if legacy else {})
+    )
+    if pins.get("weightInitialization") != original_pins.get("weightInitialization"):
+        raise GridCohortError(
+            "GRID_LEARNING_PRIVATE_ASSIGNMENT_CHANGED", "Private initialization changed."
+        )
     if pins.get("privateLearning") != expected_pin:
         raise GridCohortError(
             "GRID_LEARNING_PRIVATE_ASSIGNMENT_CHANGED",
@@ -254,4 +288,13 @@ def readiness(service: GridCorrectionLearningService, game: UUID) -> dict[str, A
             )
             if pin:
                 view.update(pin)
+                init_mode = weight_initialization(registry, game, pin)
+                view["weightInitialization"] = init_mode
+                if init_mode == "from_scratch":
+                    preset = PRESETS["screen-grid-corrections-v1"]
+                    view.update(
+                        trainingMode="screen+grid",
+                        presetId=preset.preset_id,
+                        presetFingerprint=preset.fingerprint,
+                    )
         return {**view, "previewSha256": descriptor_sha256(view)}

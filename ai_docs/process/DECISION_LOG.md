@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-619](decisions/DECISION_LOG_2026.md#d-619--niezależny-pierwszy-trening-geometrii-gry) | Niezależny pierwszy trening geometrii gry | accepted | 2026-11-18 | Detektor i siatka rozpoczynają naukę z pustymi wagami na zdjęciach gry. |
 | [D-618](decisions/DECISION_LOG_2026.md#d-618--prywatne-rodziny-cięcia-siatek-nowych-gier-v3) | Prywatne rodziny cięcia siatek nowych gier V3 | accepted | 2026-11-18 | Pierwsza dopuszczona wersja otwiera rodzinę jednej gry. Aktywna wersja inicjuje prywatność istniejącej gry za osobną zgodą. |
 | [D-617](decisions/DECISION_LOG_2026.md#d-617--nadzór-postępu-jednego-zatwierdzonego-treningu-bez-limitu-czasu) | Nadzór postępu jednego treningu | accepted | 2026-11-17 | Jawna zgoda per run: bez łącznego limitu czasu, 300 s bez postępu; reszta barier zostaje. |
 | [D-615](decisions/DECISION_LOG_2026.md#d-615--przypisanie-plansz-po-pozycji-strony-3--3-przy-niepełnym-wykryciu) | Przypisanie plansz po pozycji strony 3 × 3 przy niepełnym wykryciu | accepted | 2026-11-15 | Gdy wykrycia wyznaczają pełne 3 rzędy i 3 kolumny strony, plansze wiąże pozycja (≤ 2 braki); przypisane sloty idą do cięcia i akceptacji, brakujące zostają ręczne. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-591](decisions/DECISION_LOG_2026.md#d-591--ocena-zawartości-produkcyjnych-wycinków-z-niezależnym-odniesieniem) | Ocena produkcyjnych wycinków | accepted | 2026-11-08 | Realny raster, u/δ, brak kompensacji błędów i wersjonowana bramka T3. |
 | [D-590](decisions/DECISION_LOG_2026.md#d-590--niezależna-zawartość-15-pól-i-ślepy-pomiar-powtarzalności) | Zawartość 15 pól i ślepy pomiar | accepted | 2026-11-08 | Własne etykiety, oracle produkcji, u/δ i jawny świeży REG bez zmiany legacy. |
 | [D-589](decisions/DECISION_LOG_2026.md#d-589--jawny-nadzór-visibility15-i-próg-brzegu-wejścia-w-kontrakcie-v2) | Nadzór visibility15 i próg brzegu v2 | accepted | 2026-11-08 | Opt-in24/15, maski realnych pikseli, ekspozycja checkpointu i próg tylkoA; v1 bez zmian. |
-| [D-588](decisions/DECISION_LOG_2026.md#d-588--jawny-odczyt-kwalifikacji-i-diagnostyka-rzeczywistego-wejścia) | Odczyt kwalifikacji i diagnostyka wejścia | accepted | 2026-11-04 | Compact publiczny read-model i strict diagnosticv2; historia, ręczne approval i rzeczywisty raster zachowane. |

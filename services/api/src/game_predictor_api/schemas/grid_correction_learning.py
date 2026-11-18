@@ -293,6 +293,9 @@ class GridLearningTestSample(CorrectionLearningClosedModel):
 
 
 class GridCorrectionLearningPreview(CorrectionLearningClosedModel):
+    weightInitialization: Literal["from_scratch", "assigned_weights"] | None = Field(
+        None, exclude_if=lambda v: v is None
+    )
     preparationRequired: bool = Field(False, exclude_if=lambda value: not value)
     learningScope: Literal["private_game", "shared"] = Field(
         "shared", exclude_if=lambda value: value == "shared"
@@ -385,6 +388,9 @@ class GridLearningPreparationProgress(CorrectionLearningClosedModel):
 
 
 class GridCorrectionLearningView(CorrectionLearningClosedModel):
+    weightInitialization: Literal["from_scratch", "assigned_weights"] | None = Field(
+        None, exclude_if=lambda v: v is None
+    )
     commandKey: UUID | None = Field(None, exclude_if=lambda value: value is None)
     learningScope: Literal["private_game", "shared"] = Field(
         "shared", exclude_if=lambda value: value == "shared"

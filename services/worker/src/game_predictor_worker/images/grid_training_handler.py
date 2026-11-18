@@ -81,7 +81,9 @@ class GridTrainingStore(Protocol):
 
     def eligibility(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]: ...
 
-    def base_version(self, version_id: UUID) -> Mapping[str, Any]: ...
+    def base_version(
+        self, version_id: UUID, *, inference_only: bool = False
+    ) -> Mapping[str, Any]: ...
     def private_family_descriptor(
         self, game: UUID, pin: Mapping[str, Any]
     ) -> Mapping[str, Any]: ...
@@ -222,6 +224,24 @@ class GridTrainingJobHandler:
         ):
             raise JobHandlerError("GRID_TRAINING_PAYLOAD_INVALID", "Pinned run payload differs.")
         private_pin = payload.get("private_learning")
+        initialization = payload.get("weight_initialization")
+        if "weight_initialization" in payload and (
+            initialization not in ("from_scratch", "assigned_weights")
+            or private_pin is None
+            or payload.get("training_kind") != "grid-training-run-v1"
+            or (
+                initialization == "from_scratch"
+                and (
+                    payload.get("preset_id") != "screen-grid-corrections-v1"
+                    or payload.get("mode") != "screen+grid"
+                    or payload.get("content_experiment") is not None
+                    or (payload.get("rescue_recipe") or {}).get("variant") is not None
+                )
+            )
+        ):
+            raise JobHandlerError(
+                "GRID_PRIVATE_INITIALIZATION_INVALID", "Invalid private training initialization."
+            )
         if private_pin is not None:
             if (
                 private_pin["gameId"] != str(job.game_id)
@@ -509,7 +529,7 @@ class GridTrainingJobHandler:
                 "The cohort no longer qualifies for new training use.",
             )
         joint, headers = self._joint(job, cohort)
-        base = self.store.base_version(UUID(str(payload["base_version_id"])))
+        base = self._base_for_job(job)
         lease = GpuLease(lease_path(self.artifact_root)).observe()
         counts = summed_counts(headers)
         decision = evaluate_admission(
@@ -522,12 +542,35 @@ class GridTrainingJobHandler:
             stored_budget=state.budget,
             rescue_variant=(payload.get("rescue_recipe") or {}).get("variant"),
             content_experiment=payload.get("content_experiment"),
+            include_partial_training_photos=payload.get("weight_initialization") == "from_scratch",
         )
         if not decision.admitted or decision.budget is None:
             raise JobHandlerError(decision.reasons[0], "Run admission refused.")
         self._set_budget(state, decision.budget)
         state.attempt += 1
         return cohort, base, joint
+
+    def _base_for_job(self, job: Job) -> Mapping[str, Any]:
+        payload = _payload(job)
+        initialization = payload.get("weight_initialization")
+        version_id = UUID(str(payload["base_version_id"]))
+        base = (
+            self.store.base_version(version_id, inference_only=True)
+            if initialization == "from_scratch"
+            else self.store.base_version(version_id)
+        )
+        if initialization is not None:
+            proven = (
+                base["familyId"] == payload["private_learning"]["targetFamilyId"]
+                and base.get("provenance", {}).get("independentGameId") == str(job.game_id)
+                and base["provenance"].get("weightInitialization")
+                in ("from_scratch", "assigned_weights")
+            )
+            if (initialization == "assigned_weights") != proven:
+                raise JobHandlerError(
+                    "GRID_PRIVATE_INITIALIZATION_INVALID", "Assigned model lineage differs."
+                )
+        return base
 
     def _spec(
         self,
@@ -539,7 +582,8 @@ class GridTrainingJobHandler:
     ) -> dict[str, Any]:
         payload = _payload(job)
         pid, created = own_identity()
-        training = {item["name"]: item for item in base["trainingArtifacts"]}
+        initialization = payload.get("weight_initialization")
+        training = {item["name"]: item for item in base.get("trainingArtifacts", ())}
         output_contract = payload.get("grid_output_contract")
         if payload.get("content_experiment") is not None:
             from game_predictor_api.domain.grid_visibility_contract import (
@@ -589,9 +633,25 @@ class GridTrainingJobHandler:
             "base": {
                 "versionId": str(payload["base_version_id"]),
                 "managedDirectory": base["managedDirectory"],
-                "weightsSha256": training["weights.pt"]["sha256"],
-                "presetSha256": training["preset.json"]["sha256"],
+                **(
+                    {"comparisonManifestSha256": payload["private_learning"]["baseManifestSha256"]}
+                    if initialization is not None
+                    else {}
+                ),
+                **(
+                    {"presetSha256": RECIPE_FINGERPRINT}
+                    if initialization == "from_scratch"
+                    else {
+                        "weightsSha256": training["weights.pt"]["sha256"],
+                        "presetSha256": training["preset.json"]["sha256"],
+                    }
+                ),
             },
+            **(
+                {"weightInitialization": initialization, "independentGameId": str(job.game_id)}
+                if initialization is not None
+                else {}
+            ),
             "preset": {"id": payload["preset_id"], "fingerprint": payload["preset_fingerprint"]},
             "seed": int(payload["seed"]),
             "plannedSteps": int(payload["planned_steps"]),
@@ -990,6 +1050,10 @@ class GridTrainingJobHandler:
             if content_experiment
             else json.loads((directory / "bundle.json").read_text(encoding="utf-8"))
         )
+        if export.get("provenance") != bundle.get("provenance"):
+            raise JobHandlerError(
+                "GRID_TRAINING_EXPORT_CORRUPT", "Export identity differs from its bundle."
+            )
         from game_predictor_api.domain.grid_visibility_contract import require_output_contract
 
         require_output_contract(bundle)
@@ -1019,6 +1083,13 @@ class GridTrainingJobHandler:
         from game_predictor_api.domain.grid_visibility_contract import require_output_contract
 
         require_output_contract(bundle, spec.get("gridOutputContract"), require_expected=True)
+        if bundle["provenance"].get("weightInitialization") != spec.get(
+            "weightInitialization"
+        ) or bundle["provenance"].get("independentGameId") != spec.get("independentGameId"):
+            raise JobHandlerError(
+                "GRID_PRIVATE_INITIALIZATION_INVALID",
+                "Export differs from its training specification.",
+            )
         if spec.get("contentExperiment") is not None:
             from game_predictor_api.domain.grid_content_experiment_evidence import (
                 require_content_experiment_evidence,
@@ -1050,6 +1121,10 @@ class GridTrainingJobHandler:
                 spec["preset"]["id"] != "screen-grid-corrections-v1"
                 or proof["runId"] != spec["jobId"]
                 or proof["trainingPresetFingerprint"] != spec["preset"]["fingerprint"]
+                or (
+                    spec.get("weightInitialization") == "from_scratch"
+                    and proof["recipe"]["baselinePresetSha256"] != RECIPE_FINGERPRINT
+                )
                 or selection["selectionInputSha256"] != proof["selectionInput"]["sha256"]
                 or (
                     spec.get("rescueRecipe") is not None and spec["rescueRecipe"] != proof["recipe"]
@@ -1155,7 +1230,7 @@ class GridTrainingJobHandler:
             "baseVersionId": str(_payload(job)["base_version_id"]),
             "cohortId": str(_payload(job)["cohort_id"]),
             "admission": "not_evaluated",
-            "provenance": identity,
+            "provenance": {**identity, **self._private_provenance(job, provenance)},
             "historicalReports": reports,
             "managedDirectory": f"models/grid-engine/{profile}/{version}",
             "inferenceManifest": manifest,
@@ -1168,6 +1243,23 @@ class GridTrainingJobHandler:
             ],
         }
         return key, payload
+
+    @staticmethod
+    def _private_provenance(job: Job, provenance: Mapping[str, Any]) -> dict[str, Any]:
+        expected = _payload(job).get("weight_initialization")
+        game = str(job.game_id) if expected is not None else None
+        if (
+            provenance.get("weightInitialization") != expected
+            or provenance.get("independentGameId") != game
+        ):
+            raise JobHandlerError(
+                "GRID_PRIVATE_INITIALIZATION_INVALID", "Export differs from its training job."
+            )
+        return (
+            {"weightInitialization": expected, "independentGameId": game}
+            if expected is not None
+            else {}
+        )
 
     def _install(
         self, run_dir: Path, export: Mapping[str, Any], payload: Mapping[str, Any]
@@ -1238,7 +1330,7 @@ class GridTrainingJobHandler:
             required_screen=job.input_payload.get("preset_id") == "screen-grid-corrections-v1",
             content_experiment=job.input_payload.get("content_experiment") is not None,
         )
-        base = self.store.base_version(UUID(str(_payload(job)["base_version_id"])))
+        base = self._base_for_job(job)
         stored = state.export.get("descriptor")
         if stored is None:
             # Persist the exact descriptor before any file is installed, so a retry on
@@ -1248,6 +1340,7 @@ class GridTrainingJobHandler:
             self._persist(context, state, "descriptor", 1, 1)
         else:
             key, payload = UUID(stored["key"]), dict(stored["payload"])
+            self._private_provenance(job, payload["provenance"])
         self._install(run_dir, state.export, payload)
         view = self.store.register(key, payload)
         state.registered = {

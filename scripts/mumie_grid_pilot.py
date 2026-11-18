@@ -83,6 +83,10 @@ def freeze(
     base: Document,
     context: Document,
 ) -> Document:
+    if context.get("renderConfiguration", {}).get("paddingFraction") != 0:
+        raise ValueError(
+            "Do oceny nowego modelu wybierz import z zapisem całego pola (wcięcie 0%)."
+        )
     with ledger:
         ledger.execute("begin immediate")
         if ledger.execute("select 1 from studies where id=?", (study,)).fetchone():
@@ -94,7 +98,8 @@ def freeze(
         if excluded.intersection(protected_tokens):
             raise ValueError("Nagranie, zdjęcie lub kopia wcześniej zarezerwowane.")
         manifest = {
-            "schema": 1,
+            "schema": 2,
+            "requiredIndependentGameId": GAME,
             "game": GAME,
             "study": study,
             "frozenAt": db.execute(text("select clock_timestamp()")).scalar_one().isoformat(),
@@ -146,12 +151,25 @@ def decision_evidence(
         manifest["baseVersionId"] != m["base"]["active"]
         or manifest["versionId"] == manifest["baseVersionId"]
     ):
-        raise ValueError("Kandydat musi pochodzić z przypiętej bazy.")
+        raise ValueError("Wersja porównawcza kandydata różni się od przypiętej wersji gry.")
     run = conn.execute(
-        text("select created_at from jobs where id=:id and game_id=:g"),
+        text("select created_at,input_payload from jobs where id=:id and game_id=:g"),
         {"id": manifest["provenance"]["runId"], "g": GAME},
-    ).scalar_one()
-    if run <= datetime.fromisoformat(m["frozenAt"]):
+    ).one()
+    if m["schema"] >= 2:
+        origin = manifest["provenance"]
+        command = run.input_payload
+        if (
+            m["requiredIndependentGameId"] != GAME
+            or origin.get("independentGameId") != GAME
+            or origin.get("weightInitialization") not in ("from_scratch", "assigned_weights")
+            or origin["weightInitialization"] != command.get("weight_initialization")
+            or (command.get("private_learning") or {}).get("gameId") != GAME
+        ):
+            raise ValueError(
+                "Pilot wymaga modelu z potwierdzonym niezależnym początkiem dla Mumii A2."
+            )
+    if run.created_at <= datetime.fromisoformat(m["frozenAt"]):
         raise ValueError("Zbiór testowy musi być zamrożony przed rozpoczęciem prac nad kandydatem.")
     reports = conn.execute(
         text("""select r.id,r.report_json from public.grid_model_evaluation_reports r
@@ -270,7 +288,7 @@ def diagnostic(
     args: argparse.Namespace, conn: Connection, ledger: sqlite3.Connection, m: Document
 ) -> Document:
     # Use real case-control pairs that are already exposed in the base's TRAIN material.
-    summary, history = historical(conn, m["base"])
+    summary, history = historical(conn, m["base"], exact_train=True)
     chosen: list[Document] = []
     blocked = set().union(*(tokens(r) for r in m["recording"]))
     for r in history:
@@ -354,9 +372,21 @@ def diagnostic(
 
 def run(args: argparse.Namespace) -> Document:
     with database() as conn:
-        base = model(conn)
+        base = (
+            model(conn, args.version)
+            if args.command == "training-geometry" and args.version
+            else model(conn)
+        )
         if args.command == "history":
             return historical(conn, base, args.before)[0]
+        if args.command == "training-geometry":
+            from scripts.mumie_grid_pilot_geometry import analyse_training
+
+            ledger = store(args.root)
+            try:
+                return analyse_training(conn, ledger, base, args.artifacts, args.preview)
+            finally:
+                ledger.close()
         if args.command == "inspect":
             rows = imported(conn, args.artifacts, args.import_ids)
             recording_context(conn, rows)
@@ -458,6 +488,11 @@ def main() -> None:
         "--before",
         type=datetime.fromisoformat,
         help="Górny wyłączny czas korekty (ISO 8601 ze strefą).",
+    )
+    analysis = sub.add_parser("training-geometry")
+    analysis.add_argument("--version", type=lambda v: str(UUID(v)), help="Wersja z kohortą TRAIN.")
+    analysis.add_argument(
+        "--preview", type=Path, help="Nowy katalog na podgląd pól przed i po korekcie."
     )
     inspect = sub.add_parser("inspect")
     inspect.add_argument("--import-ids", nargs="+", default=IMPORTS)

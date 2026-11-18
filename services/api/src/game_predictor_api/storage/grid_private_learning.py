@@ -33,6 +33,28 @@ def assignment_pin(registry: "GridModelRegistryRepository", game: UUID) -> dict[
     }
 
 
+def weight_initialization(
+    registry: "GridModelRegistryRepository", game: UUID, pin: Mapping[str, Any]
+) -> str:
+    from game_predictor_api.domain.new_game_geometry import verified_json
+
+    record = registry.version(UUID(pin["baseVersionId"]))
+    if record is None or record.manifest_sha256 != pin["baseManifestSha256"]:
+        raise GridCohortError(
+            "GRID_LEARNING_PRIVATE_ASSIGNMENT_CHANGED", "Pinned comparison version changed."
+        )
+    manifest = verified_json(record.manifest_json, record.manifest_sha256)
+    proof = manifest["provenance"]
+    if (
+        registry.version_owner_game_id(record.id) == game
+        and manifest["familyId"] == pin["targetFamilyId"]
+        and proof.get("independentGameId") == str(game)
+        and proof.get("weightInitialization") in ("from_scratch", "assigned_weights")
+    ):
+        return "assigned_weights"
+    return "from_scratch"
+
+
 def require_learning_pin(
     registry: "GridModelRegistryRepository", game: UUID, expected: Mapping[str, Any] | None
 ) -> None:

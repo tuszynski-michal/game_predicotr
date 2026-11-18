@@ -3,15 +3,18 @@
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+DETECTOR_FULL_PHOTOS_BY_ROLE = (("TRAIN", 10), ("VALIDATION", 5), ("REGRESSION", 0))
+MIN_DETECTOR_FULL_PHOTOS = sum(required for _, required in DETECTOR_FULL_PHOTOS_BY_ROLE)
+
 
 def detector_readiness(
     counts: Sequence[int], sources: Sequence[Mapping[str, Any]] | None = None
 ) -> dict[str, Any]:
     full = sum(count == 9 for count in counts)
     partial = sum(0 < count < 9 for count in counts)
-    reasons = ["SCREEN_FULL_PHOTOS_REQUIRED"] if full < 15 else []
+    reasons = ["SCREEN_FULL_PHOTOS_REQUIRED"] if full < MIN_DETECTOR_FULL_PHOTOS else []
     roles = []
-    for role, required in (("TRAIN", 10), ("VALIDATION", 5), ("REGRESSION", 0)):
+    for role, required in DETECTOR_FULL_PHOTOS_BY_ROLE:
         eligible = (
             None
             if sources is None

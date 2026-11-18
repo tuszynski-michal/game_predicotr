@@ -103,6 +103,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
   const [gameReadiness, setGameReadiness] =
     useState<GridCorrectionLearningPreview | null>(null);
   const privateGame = gameReadiness?.learningScope === 'private_game';
+  const fromScratch = gameReadiness?.weightInitialization === 'from_scratch';
   const scopeOptions = privateGame
     ? { learningScope: 'private_game' as const }
     : {};
@@ -290,22 +291,43 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
             setGameReadiness(result.data);
             setReady(result.data);
             const recommendedMode = result.data.trainingMode ?? 'grid-only';
-            if (
-              !result.data.preparationRequired &&
-              !purposeAware &&
-              useRecommendedMode
-            ) {
-              setTrainingMode(recommendedMode);
+            if (result.data.weightInitialization === 'from_scratch') {
+              const assignments = result.data.validationAssignments ?? {};
+              setTrainingMode('screen+grid');
+              setContentExperiment(false);
               setHistoricalCohorts([]);
+              setPurposeAware(Boolean(result.data.policyVersion));
+              setValidationAssignments(assignments);
+              setPreviewedOptions(
+                JSON.stringify({
+                  trainingMode: 'screen+grid',
+                  historicalCohorts: [],
+                  ...(result.data.policyVersion
+                    ? {
+                        policyVersion: VALIDATION_POLICY,
+                        validationAssignments: orderedAssignments(assignments),
+                      }
+                    : {}),
+                }),
+              );
+            } else {
+              if (
+                !result.data.preparationRequired &&
+                !purposeAware &&
+                useRecommendedMode
+              ) {
+                setTrainingMode(recommendedMode);
+                setHistoricalCohorts([]);
+              }
+              setPreviewedOptions(
+                purposeAware || !useRecommendedMode
+                  ? optionsKey
+                  : JSON.stringify({
+                      trainingMode: recommendedMode,
+                      historicalCohorts: [],
+                    }),
+              );
             }
-            setPreviewedOptions(
-              purposeAware || !useRecommendedMode
-                ? optionsKey
-                : JSON.stringify({
-                    trainingMode: recommendedMode,
-                    historicalCohorts: [],
-                  }),
-            );
             if (!purposeAware && useRecommendedMode) setExclusions({});
             if (result.data.learningScope !== 'private_game') {
               const defaults = await api.getGridModelDefault();
@@ -834,6 +856,11 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
         .
       </p>
       <p>
+        {fromScratch
+          ? 'Pierwszy trening od zera uczy ramki plansz i linie siatki ze zdjęć tej gry. Przypisana wersja posłuży do porównania wyników. '
+          : gameReadiness?.weightInitialization === 'assigned_weights'
+            ? 'Kolejny trening rozpocznie się od własnych wag tej gry. '
+            : ''}
         Uczenie i ocena tworzą kandydata. Zastosowanie wersji wymaga osobnego
         potwierdzenia i dotyczy nowych importów.
       </p>
@@ -973,11 +1000,13 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               uruchamiają uczenia i nie zmieniają aktywnego modelu.
             </p>
             <p role="note">
-              {contentExperiment
-                ? 'Wybrano pełne uczenie: detektor, punkty i ocena całych symboli. Brak wymaganych oznaczeń zostanie pokazany jako brak danych; proces nie przełączy się sam na uczenie samych punktów.'
-                : trainingMode === 'grid-only'
-                  ? 'Wybrano uczenie punktów. Detektor plansz jest zamrożony, a pełna zawartość symboli nie jest celem tego treningu. Aby naprawiać pominięte rzędy i sprawdzać całe symbole, wybierz poniżej pełne uczenie.'
-                  : 'Wybrano detektor i punkty. Aby również mierzyć zachowanie pełnych grafik w wycinkach, wybierz poniżej pełne uczenie.'}
+              {fromScratch
+                ? 'Detektor uczy się z kompletnie oznaczonych zdjęć. Korekty pojedynczych plansz pomagają wyznaczać granice pól.'
+                : contentExperiment
+                  ? 'Wybrano pełne uczenie: detektor, punkty i ocena całych symboli. Brak wymaganych oznaczeń zostanie pokazany jako brak danych; proces nie przełączy się sam na uczenie samych punktów.'
+                  : trainingMode === 'grid-only'
+                    ? 'Wybrano uczenie punktów. Detektor plansz jest zamrożony, a pełna zawartość symboli nie jest celem tego treningu. Aby naprawiać pominięte rzędy i sprawdzać całe symbole, wybierz poniżej pełne uczenie.'
+                    : 'Wybrano detektor i punkty. Aby również mierzyć zachowanie pełnych grafik w wycinkach, wybierz poniżej pełne uczenie.'}
             </p>
             <details>
               <summary>Zaawansowane: ręczny cel uczenia</summary>
@@ -985,7 +1014,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 Cel uczenia{' '}
                 <select
                   aria-label="Cel uczenia"
-                  disabled={disabled || refreshing}
+                  disabled={disabled || refreshing || fromScratch}
                   value={trainingMode}
                   onChange={(event) => {
                     setManualTrainingMode(true);
@@ -1023,7 +1052,7 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
               <input
                 type="checkbox"
                 checked={contentExperiment}
-                disabled={disabled || refreshing}
+                disabled={disabled || refreshing || fromScratch}
                 onChange={(event) => {
                   setContentExperiment(event.target.checked);
                   if (event.target.checked) {
@@ -1104,7 +1133,21 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
                 Pełne zdjęcia z zatwierdzoną geometrią:{' '}
                 {ready.detectorReadiness.fullPhotos}; częściowe:{' '}
                 {ready.detectorReadiness.partialPhotos}.{' '}
-                {ready.detectorReadiness.fullPhotos === 0 ? (
+                {fromScratch &&
+                  ready.detectorReadiness.roles.map((role) =>
+                    role.missingFullPhotos ? (
+                      <span key={role.role}>
+                        Brakujące pełne zdjęcia{' '}
+                        {role.role === 'TRAIN' ? 'do treningu' : 'do walidacji'}
+                        : {role.missingFullPhotos}.{' '}
+                      </span>
+                    ) : null,
+                  )}
+                {ready.detectorReadiness.fullPhotos === 0 ||
+                (fromScratch &&
+                  ready.detectorReadiness.roles.some(
+                    (role) => role.missingFullPhotos,
+                  )) ? (
                   <>
                     Sprawdź i zapisz geometrię wszystkich plansz wybranych
                     pełnych zdjęć w „Korekta cięcia siatki” → „Geometria zdjęć”,
@@ -1539,6 +1582,11 @@ function Learning({ apiBaseUrl, gameId, client, onChanged }: Props) {
           ) : null}
           <p>
             Stan: {learningStatus[selected.status]} · {learningStage(selected)}
+            {selected.weightInitialization === 'from_scratch'
+              ? ' · trening od zera'
+              : selected.weightInitialization === 'assigned_weights'
+                ? ' · kontynuacja własnego modelu gry'
+                : ''}
             {selected.errorCode ? ` · ${reasonLabel(selected.errorCode)}` : ''}
           </p>
           {learningActive(selected.status) ? (

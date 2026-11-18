@@ -25,7 +25,45 @@ Kwerenda łączy aktualnie zatwierdzoną ręczną rewizję planszy z poprzednią
 
 Poza tabelą pozostają 24 rekordy bez pełnego powiązania 15 pól z jedną poprzednią rewizją. Bieżący odczyt objął 733 rekordy. Kolumna historyczna stosuje jawny górny limit daty korekty `2026-11-18T11:15:49Z`. Najnowszy zapis dla planszy 9 pochodzi z 11:15:49,199007 UTC. Taki podział odtwarza liczność 708/521. Dokładna chwila pierwotnego pomiaru jest nieznana. Rola źródła TRAIN, VALIDATION lub REGRESSION sama nie dowodzi użycia tej rewizji.
 
+### Gdzie przesuwała się ramka Mumii A2
+
+Pomiar z 18 listopada obejmuje 589 par na 461 zdjęciach treningowych wersji `6cc10344`. Sprawdzono zgodność położenia 24 węzłów, ID korekty i jej rewizji z etykietą użytą w zamrożonej kohorcie TRAIN. W 508 parach poprzednia siatka była automatyczna, w 81 już wcześniej poprawiona ręcznie. Jest to zbiór wybranych korekt. Nie wyznacza częstości błędów na wszystkich importach ani jakości najnowszego modelu na nowych zdjęciach.
+
+Każdą parę sprowadzono do płaszczyzny ręcznie skorygowanej planszy o wymiarach 5 × 3 pola. Jednostką jest wysokość lub szerokość jednego pola. Dla obwodu i środka policzono bezwzględne przesunięcie w bardziej zmienionej osi, a dla poszczególnych boków średnie przesunięcie do wnętrza planszy. Drugi pomiar wyrównuje cztery narożniki obu siatek i dopiero wtedy porównuje osiem wewnętrznych węzłów. Próg ćwierci pola służy opisowi wielkości poprawki.
+
+| Zmiana przekraczająca ¼ pola | Wszystkie poprawki (589) | Po automacie (508) |
+|---|---:|---:|
+| Co najmniej jeden węzeł obwodu | 341 | 323 |
+| Środek planszy | 89 | 87 |
+| Górna granica średnio za nisko | 276 | 264 |
+| Dolna granica średnio za wysoko | 5 | 5 |
+| Lewa albo prawa granica średnio za daleko do środka | 0 | 0 |
+| Wewnętrzny węzeł po wyrównaniu narożników | 0 | 0 |
+
+Największe przesunięcie obwodu miało medianę 0,278 pola, a 90. percentyl 0,994 pola. Częsty wzór to utrata górnego fragmentu planszy. Współrzędne wewnętrznych węzłów obu zapisanych siatek w tych parach wynikają niemal dokładnie z projekcji narożników. Taka korekta silnie nadzoruje pozycję obrysu. Sam zapis nie rozdziela błędu pierwszego detektora od błędu dopasowania siatki na wycinku i nie daje dowodu o indywidualnym obrysie symbolu. W zbiorze TRAIN tej wersji 10 zdjęć miało etykiety wszystkich dziewięciu plansz, a 493 zdjęcia miały etykiety częściowe (434 z jedną, 56 z dwiema, dwa z trzema i jedno z pięcioma). Do uczenia detektora Mumii szczególnie wartościowe są całe zdjęcia z zatwierdzonymi wszystkimi planszami, również z trudnym górnym rzędem. Liczność dla nowego treningu sprawdza aktualny podgląd gotowości.
+
+### Co trafiło do wycinków
+
+Z czterech różnych historycznych zdjęć TRAIN wycięto po 15 pól przed i po korekcie, łącznie 120 wycinków. Dla każdej pary użyto tego samego oryginału, jego sprawdzonych sum, pozycji i parametrów wycinania z danego importu. Zmierzono, jaka część powierzchni ręcznie wskazanego pola znajduje się w obszarze źródłowym faktycznie pobranym przez renderer. Tabela podaje wynik najgorzej pokrytego z 15 pól.
+
+| Plansza | Historyczne wcięcie na stronę | Przed korektą | Po korekcie |
+|---|---:|---:|---:|
+| 24580 | 0% | 0,0% | 100,0% |
+| 317712 | 8% | 55,6% | 70,6% |
+| 197814 | 0% | 71,8% | 100,0% |
+| 228343 | 8% | 68,9% | 70,6% |
+
+Na zdjęciu 24580 obrys poprzedniej siatki zaczyna się w drugim rzędzie symboli. Ręczna korekta przywraca górny rząd w końcowych kafelkach. Na 317712 widać skośną górną granicę i cofnięcie poprzedniej siatki do wnętrza. Historyczne wcięcie 8% z każdego boku pozostawia około 70,56% powierzchni prostokątnego pola nawet po idealnym ustawieniu siatki. Liczby opisują powierzchnię pola. Stopień ucięcia grafiki zależy od jej faktycznych granic na zdjęciu. W obu najnowszych importach wskazanych w tym pilocie, również w domyślnym `5fd0aca9`, odczytany parametr wynosi 0%. Odbiór nowego modelu mierzy pełne pole.
+
+Pomiar i podgląd można odtworzyć z katalogu gałęzi roboczej. Wskaż rzeczywisty katalog artefaktów instalacji i nowy katalog wyjściowy. Polecenie bez opcji `--preview` zwraca same pomiary. Z wygenerowanego katalogu otwórz `index.html`. Baza aplikacji jest otwierana tylko do odczytu. Istniejące rezerwacje sprawdzianów wykluczają zdjęcia, kopie i znane powiązania nagrań. Podgląd zapisuje ekspozycję wybranych przypadków w tym samym lokalnym rejestrze pilota.
+
+```powershell
+.\.venv\Scripts\python.exe scripts/mumie_grid_pilot.py --artifacts 'D:\game_predicotr\artifacts' training-geometry --version 6cc10344-1d69-5765-b8c8-423a0313984a --preview '.runtime\mumie-a2-geometria'
+```
+
 ## Przebieg operatorski
+
+Pierwszy trening niezależnego modelu wymaga wdrożenia gałęzi z migracjami 0193 i 0194 oraz włączenia prywatnej rodziny Mumii A2. W panelu „Ulepsz siatki z korekt” sprawdź informację „Pierwszy trening od zera” i liczby pełnych zdjęć w podziale do treningu i walidacji. Jedno pełne zdjęcie ma zatwierdzoną geometrię wszystkich dziewięciu plansz. Zamroź świeży sprawdzian przed pierwszym treningiem. Nowy sprawdzian wymaga kontraktu zapisu pełnego pola (wcięcie 0%) i potwierdzonego niezależnego pochodzenia wag kandydata dla Mumii A2.
 
 Polecenia uruchamia się z katalogu repozytorium. W worktree wskaż faktyczny katalog artefaktów instalacji parametrem globalnym `--artifacts` przed nazwą polecenia. Wszystkie próby powinny korzystać z jednego trwałego katalogu rejestru. Domyślnie jest to `artifacts/mumie-grid-pilot`. SQLite zapisuje manifesty, zarezerwowane tożsamości zdjęć i nagrań, przypisanego kandydata oraz klucz ślepej oceny. Samo uruchomienie CLI nie zapisuje danych w PostgreSQL.
 

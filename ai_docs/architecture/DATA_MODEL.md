@@ -313,6 +313,8 @@ prywatnego właściciela. Własność i zakaz współdzielenia wersji działają
 również po fizycznym usunięciu gry. Rodzinę i jej proweniencję chroni
 istniejący zakaz UPDATE/DELETE.
 
+Migracja `0194_private_grid_initialization` wiąże sposób inicjalizacji z zapisem prywatnej operacji, zamrożonym materiałem treningowym i wersją wynikową. W niezależnej rodzinie zdjęcia TRAIN z częściowymi etykietami mogą nadzorować geometrię zatwierdzonych plansz przy pełnym treningu detektora i węzłów. Zapis prowadzony przez starszą wersję aplikacji zachowuje wcześniejszą historię. [D-619](../process/decisions/DECISION_LOG_2026.md#d-619--niezależny-pierwszy-trening-geometrii-gry)
+
 Rezerwacja nowej gry V3 ustawia zamiar prywatności w tej samej transakcji.
 Brak dopuszczonej bazy pozostawia grę bez przypisania i bez rodziny. Wybrana
 wspólna wersja inicjuje pustą rodzinę oraz pozostaje bieżącą wersją cięcia.

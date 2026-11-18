@@ -44,6 +44,17 @@ def create_grid_correction_learning_router(dependency: Callable[..., object]) ->
     )
     parameter = Depends(dependency)
 
+    def command_payload(command: GridCorrectionLearningPreviewCommand) -> dict[str, Any]:
+        excluded = (
+            {"policyVersion", "validationAssignments"} if command.policyVersion is None else set()
+        )
+        if (
+            command.learningScope == "private_game"
+            and "trainingMode" not in command.model_fields_set
+        ):
+            excluded.add("trainingMode")
+        return command.model_dump(mode="json", exclude=excluded)
+
     def actor(request: Request) -> str:
         if getattr(request.state, "local_admin_actor", None) != "local-owner":
             raise HTTPException(403, "A validated local human actor is required.")
@@ -86,12 +97,7 @@ def create_grid_correction_learning_router(dependency: Callable[..., object]) ->
         return GridCorrectionLearningPreview.model_validate(
             service.preview(
                 game_id,
-                command.model_dump(
-                    mode="json",
-                    exclude={"policyVersion", "validationAssignments"}
-                    if command.policyVersion is None
-                    else None,
-                ),
+                command_payload(command),
             )
         )
 
@@ -107,12 +113,7 @@ def create_grid_correction_learning_router(dependency: Callable[..., object]) ->
         return GridCorrectionLearningView.model_validate(
             service.start(
                 game_id,
-                command.model_dump(
-                    mode="json",
-                    exclude={"policyVersion", "validationAssignments"}
-                    if command.policyVersion is None
-                    else None,
-                ),
+                command_payload(command),
                 actor(request),
             )
         )

@@ -18,6 +18,8 @@ from game_predictor_worker.geometry_core.inference import BoardDetection
 from mumie_grid_pilot_review import choose_sources, frame_for, infer, score
 from mumie_grid_pilot_sources import fresh_inventory
 
+FULL_CELL = {"renderConfiguration": {"paddingFraction": 0}}
+
 
 def sample_rows(count=100):
     return [
@@ -46,10 +48,24 @@ def test_sampling_precedes_detection_and_reserves_recording(tmp_path):
         execute=lambda *a: SimpleNamespace(scalar_one=lambda: datetime.now(UTC))
     )
     with pilot.store(tmp_path) as ledger:
-        result = pilot.freeze(clock, ledger, "first", sample_rows(101), {"type": "folder"}, {}, {})
+        with pytest.raises(ValueError, match="wcięcie 0%"):
+            pilot.freeze(
+                clock,
+                ledger,
+                "first",
+                sample_rows(101),
+                {"type": "folder"},
+                {},
+                {"renderConfiguration": {"paddingFraction": 0.08}},
+            )
+        result = pilot.freeze(
+            clock, ledger, "first", sample_rows(101), {"type": "folder"}, {}, FULL_CELL
+        )
         assert result["boards"] == 100 and result["protectedPhotos"] == 101
     with pilot.store(tmp_path) as restarted, pytest.raises(ValueError):
-        pilot.freeze(clock, restarted, "another", sample_rows(101), {"type": "folder"}, {}, {})
+        pilot.freeze(
+            clock, restarted, "another", sample_rows(101), {"type": "folder"}, {}, FULL_CELL
+        )
 
 
 def test_eval_is_paired_and_no_lost_or_unassessed_cells():
@@ -144,7 +160,7 @@ def test_blind_package_through_scoring_and_restart(tmp_path, monkeypatch):
     )
     now = SimpleNamespace(execute=lambda *a: SimpleNamespace(scalar_one=lambda: datetime.now(UTC)))
     with pilot.store(tmp_path) as ledger:
-        pilot.freeze(now, ledger, study, sample_rows(), {"type": "imports"}, base, {})
+        pilot.freeze(now, ledger, study, sample_rows(), {"type": "imports"}, base, FULL_CELL)
     monkeypatch.setattr(pilot, "database", lambda: nullcontext(now))
     monkeypatch.setattr(pilot, "model", lambda conn: base)
     monkeypatch.setattr(pilot, "current", lambda conn, m: None)

@@ -56,7 +56,11 @@ from game_predictor_api.storage.grid_model_registry import (
     SqlAlchemyGridModelRegistryRepository,
 )
 from game_predictor_api.storage.grid_preparation_progress import preparation_deadline
-from game_predictor_api.storage.grid_private_learning import assignment_pin, require_learning_pin
+from game_predictor_api.storage.grid_private_learning import (
+    assignment_pin,
+    require_learning_pin,
+    weight_initialization,
+)
 from game_predictor_api.storage.grid_training_cohort_repository import (
     SqlAlchemyGridTrainingCohortRepository,
 )
@@ -139,6 +143,14 @@ class GridCorrectionLearningService:
         points = self.preview(game, {"importJobIds": [], "exclusions": []})
         if not recommend_training_mode:
             return points
+        if points.get("weightInitialization") == "from_scratch":
+            return {
+                **points,
+                "trainingRecommendation": {
+                    "mode": "screen+grid",
+                    "reasonCodes": points["blockers"] or ["GRID_LEARNING_RECOMMENDED_DETECTOR"],
+                },
+            }
         chosen = points
         reasons = ["GRID_LEARNING_RECOMMENDED_POINTS"]
         readiness = points.get("detectorReadiness")
@@ -177,12 +189,19 @@ class GridCorrectionLearningService:
             imports = sorted({str(value) for value in command.get("importJobIds") or []})
             if not imports:
                 imports = labelled_import_scope(session, game)
+            if not imports and command.get("weightInitialization") == "from_scratch":
+                raise GridCohortError(
+                    "SCREEN_FULL_PHOTOS_REQUIRED",
+                    "No labelled imports qualify for the independent detector.",
+                )
             if not imports or len(imports) > 100:
                 raise GridCohortError(
                     "GRID_LEARNING_IMPORT_SCOPE_INVALID",
                     "Choose between one and 100 complete imports.",
                 )
             options: dict[str, Any] = {}
+            if command.get("weightInitialization") == "from_scratch":
+                options["private_from_scratch"] = True
             if policy == "application-grid-corrections-v4":
                 options.update(
                     policy=policy,
@@ -213,7 +232,7 @@ class GridCorrectionLearningService:
             )
 
     def _preview(
-        self, game: UUID, command: Mapping[str, Any]
+        self, game: UUID, command: Mapping[str, Any], *, legacy_private: bool = False
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         from game_predictor_worker.training_core.grid_training_admission import (
             PRESETS,
@@ -342,6 +361,44 @@ class GridCorrectionLearningService:
                         baseVersionId=private_pin["baseVersionId"],
                     )
                     pins["privateLearning"] = private_pin
+                    if not legacy_private:
+                        initialization = weight_initialization(repository, game, private_pin)
+                        pins["weightInitialization"] = view["weightInitialization"] = initialization
+                        if initialization == "from_scratch":
+                            if (
+                                command.get("trainingMode", "screen+grid") != "screen+grid"
+                                or experiment is not None
+                                or command.get("rescueVariant") is not None
+                            ):
+                                raise GridCohortError(
+                                    "GRID_LEARNING_PRIVATE_SCREEN_REQUIRED",
+                                    "First train the whole detector and grid on full photos.",
+                                )
+                            # V4 retains partial TRAIN labels for the grid.
+                            mode, screen, purpose_aware = "screen+grid", True, True
+                            preset = PRESETS[SCREEN_CORRECTION_PRESET]
+                            policy = "application-grid-corrections-v4"
+                            assignments = dict(
+                                sorted((command.get("validationAssignments") or {}).items())
+                            )
+                            view.update(
+                                trainingMode=mode,
+                                presetId=preset.preset_id,
+                                presetFingerprint=preset.fingerprint,
+                                policyVersion=policy,
+                                validationAssignments=assignments,
+                                validationComponents=[],
+                            )
+                            pins.update(
+                                policyVersion=policy,
+                                trainingMode=mode,
+                                validationAssignments=assignments,
+                            )
+                            command = {
+                                **command,
+                                "validationAssignments": assignments,
+                                "weightInitialization": initialization,
+                            }
                     if command.get("historicalCohorts") or command.get("exclusions"):
                         raise GridCohortError(
                             "GRID_LEARNING_PRIVATE_COHORTS_INVALID",
@@ -355,7 +412,12 @@ class GridCorrectionLearningService:
                     raise GridCohortError(
                         "GRID_LEARNING_BASE_MISSING", "The default model is missing."
                     )
-                base = registry.view(record, include_eligibility=True)
+                cold = pins.get("weightInitialization") == "from_scratch"
+                base = (
+                    registry.view(record, include_eligibility=False, inference_only=True)
+                    if cold
+                    else registry.view(record, include_eligibility=True)
+                )
                 if not base["available"]:
                     raise GridCohortError(
                         "GRID_LEARNING_BASE_UNAVAILABLE", "The default artifacts are unavailable."
@@ -391,9 +453,12 @@ class GridCorrectionLearningService:
                         )
                 # The artifact inspector verifies every listed training artifact's bytes.
                 training = manifest.get("trainingArtifacts") or []
-                if not {"weights.pt", "checkpoint.pt", "bundle.json", "preset.json"} <= {
-                    item["name"] for item in training
-                }:
+                if not cold and not {
+                    "weights.pt",
+                    "checkpoint.pt",
+                    "bundle.json",
+                    "preset.json",
+                } <= {item["name"] for item in training}:
                     raise GridCohortError(
                         "GRID_LEARNING_TRAINING_ARTIFACTS_REQUIRED",
                         "The base needs its original training artifacts.",
@@ -545,6 +610,8 @@ class GridCorrectionLearningService:
                             | ({"SCREEN_FULL_VALIDATION_REQUIRED"} if full_a < 5 else set())
                         ),
                     }
+            if cold and view["detectorReadiness"]["reasonCodes"]:
+                blockers.extend(view["detectorReadiness"]["reasonCodes"])
             summaries: list[dict[str, Any]] = [
                 {
                     "mode": mode,
@@ -650,10 +717,18 @@ class GridCorrectionLearningService:
                 )
 
                 selection = selection_input(selection_parts)
-                baseline_preset_sha = next(
-                    item["sha256"]
-                    for item in manifest["trainingArtifacts"]
-                    if item["name"] == "preset.json"
+                from game_predictor_api.domain.grid_rescue_policy import (
+                    PRIVATE_GRID_RECIPE_FINGERPRINT,
+                )
+
+                baseline_preset_sha = (
+                    PRIVATE_GRID_RECIPE_FINGERPRINT
+                    if cold
+                    else next(
+                        item["sha256"]
+                        for item in manifest["trainingArtifacts"]
+                        if item["name"] == "preset.json"
+                    )
                 )
                 recipe = rescue_recipe(baseline_preset_sha, command.get("rescueVariant"), selection)
                 pins.update(selectionInput=selection, rescueRecipe=recipe)
@@ -686,13 +761,21 @@ class GridCorrectionLearningService:
                 )
             else:
                 cost = estimate_cohort_cost(
-                    preset, summed_counts(summaries), rescue_variant=command.get("rescueVariant")
+                    preset,
+                    summed_counts(summaries),
+                    rescue_variant=command.get("rescueVariant"),
+                    include_partial_training_photos=cold,
                 )
                 view["cost"] = cost_view(cost)
                 if not cost.within_budget or cost.planned_steps < 1:
                     blockers.append("GRID_RUN_COHORT_COST_EXCEEDS_BUDGET")
         except (GridCohortError, GridModelRegistryError) as error:
             blockers.append(error.code)
+            if (
+                view.get("weightInitialization") == "from_scratch"
+                and error.code == "SCREEN_FULL_PHOTOS_REQUIRED"
+            ):
+                view["detectorReadiness"] = detector_readiness([])
             material = getattr(error, "learning_material", None)
             if material is not None:
                 view["learningMaterial"] = material
@@ -1054,7 +1137,13 @@ class GridCorrectionLearningService:
             ),
             **{
                 key: preview[key]
-                for key in ("learningScope", "targetFamilyId", "assignmentRevision", "gameName")
+                for key in (
+                    "learningScope",
+                    "targetFamilyId",
+                    "assignmentRevision",
+                    "gameName",
+                    "weightInitialization",
+                )
                 if key in preview
             },
             "learningId": str(job.id),
@@ -1123,6 +1212,7 @@ class GridCorrectionLearningService:
                 and "privateLearning" in pins
                 and (
                     row.document.get("privateLearning") != pins["privateLearning"]
+                    or row.document.get("weightInitialization") != pins.get("weightInitialization")
                     or row.document["photoSplit"]["sha256"] != pins["splitSha256"]
                     or row.document.get("cropPolicyVersion") != "full-cell-v2"
                     or row.document.get("detectorReadiness") != preview["detectorReadiness"]
@@ -1163,6 +1253,11 @@ class GridCorrectionLearningService:
                     command.update(
                         privateLearning=pins["privateLearning"],
                         cropPolicyVersion="full-cell-v2",
+                        **(
+                            {"weightInitialization": pins["weightInitialization"]}
+                            if "weightInitialization" in pins
+                            else {}
+                        ),
                         detectorReadiness=preview["detectorReadiness"],
                     )
                 if pins.get("policyVersion") == "application-grid-corrections-v4":
@@ -1277,6 +1372,11 @@ class GridCorrectionLearningService:
                 **(
                     {"private_learning": pins["privateLearning"]}
                     if "privateLearning" in pins
+                    else {}
+                ),
+                **(
+                    {"weight_initialization": pins["weightInitialization"]}
+                    if "weightInitialization" in pins
                     else {}
                 ),
                 **experiment_arguments,

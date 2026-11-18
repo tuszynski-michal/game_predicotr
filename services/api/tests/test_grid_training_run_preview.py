@@ -108,6 +108,20 @@ def test_frozen_qualified_grid_only_cohort_has_cost_and_only_pending_worker_chec
     assert not lease_path(tmp_path).exists()  # a GET never creates the lease
 
 
+def test_private_frozen_cohort_cost_matches_the_photos_used_for_grid_supervision(tmp_path):
+    game, cohort = uuid4(), uuid4()
+    frozen = header(game, cohort, mode="screen+grid", train=(113, 33, 10))
+    frozen["policyVersion"] = "application-grid-corrections-v4"
+    frozen["summary"]["validationPurposes"] = {"A": {"boards": 45, "photos": 5, "fullPhotos": 5}}
+    value, _ = service(tmp_path, frozen)
+    value.repository.cohort = lambda *args: SimpleNamespace(
+        document={"weightInitialization": "from_scratch"}
+    )
+    preview = value.run_preview(game, cohort, private_learning={"gameId": str(game)})
+    assert preview["cost"]["trainItems"] == 33
+    assert value.run_preview(game, cohort)["cost"]["trainItems"] == 10
+
+
 def test_preview_exposes_global_execution_limits_without_extending_training_plan(tmp_path):
     game, cohort = uuid4(), uuid4()
     value, calls = service(tmp_path, header(game, cohort, train=(77, 60, 0)))

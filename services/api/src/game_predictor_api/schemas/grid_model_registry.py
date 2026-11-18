@@ -26,6 +26,10 @@ class GridModelArtifact(ApiModel):
 
 
 class GridModelProvenance(ApiModel):
+    independent_game_id: UUID | None = Field(None, exclude_if=lambda v: v is None)
+    weight_initialization: Literal["from_scratch", "assigned_weights"] | None = Field(
+        None, exclude_if=lambda v: v is None
+    )
     model_config = ConfigDict(extra="forbid")
     run_id: str = Field(min_length=1, max_length=100)
     export_id: str = Field(min_length=1, max_length=100)

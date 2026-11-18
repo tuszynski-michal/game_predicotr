@@ -101,14 +101,34 @@ def validate_manifest(payload: dict[str, Any]) -> str:
         raise GridModelRegistryError(
             "GRID_MODEL_MANIFEST_INVALID", "Inference descriptor fields differ."
         )
-    if payload["provenance"].keys() != {
+    provenance_fields = {
         "runId",
         "exportId",
         "presetFingerprint",
         "weightsSha256",
         "checkpointSha256",
         "snapshotId",
-    }:
+    }
+    provenance = payload["provenance"]
+    marked = {"weightInitialization", "independentGameId"}
+    if marked.intersection(provenance):
+        if (
+            provenance.get("weightInitialization") not in ("from_scratch", "assigned_weights")
+            or payload["admission"] != "not_evaluated"
+            or payload["cohortId"] is None
+        ):
+            raise GridModelRegistryError(
+                "GRID_MODEL_MANIFEST_INVALID", "Invalid private initialization."
+            )
+        try:
+            if str(UUID(provenance["independentGameId"])) != provenance["independentGameId"]:
+                raise ValueError
+        except (ValueError, KeyError, TypeError, AttributeError) as error:
+            raise GridModelRegistryError(
+                "GRID_MODEL_MANIFEST_INVALID", "Invalid private owner."
+            ) from error
+        provenance_fields |= marked
+    if provenance.keys() != provenance_fields:
         raise GridModelRegistryError("GRID_MODEL_MANIFEST_INVALID", "Provenance fields differ.")
     if any(
         file.keys() != {"name", "sha256", "sizeBytes"}

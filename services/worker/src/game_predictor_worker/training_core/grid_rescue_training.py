@@ -235,7 +235,11 @@ class TrainingExposure:
             "games": {},
         }
 
-    def confirm(self, step: int, members: Sequence[Mapping[str, str]]) -> None:
+    def confirm(
+        self,
+        step: int,
+        members: Sequence[Mapping[str, str]] | Mapping[str, Sequence[Mapping[str, str]]],
+    ) -> None:
         if type(step) is not int or step <= self.value["lastStep"] or not members:
             raise ValueError("GRID_RESCUE_EXPOSURE_INVALID")
         variant = self.recipe["variant"]
@@ -244,11 +248,16 @@ class TrainingExposure:
             f"{stage}:{'variant' if active and variant.get(stage) else 'baseline'}"
             for stage in ("screen", "board")
         ]
-        for member in members:
-            if set(member) != {"gameId", "sourceId", "sourceSha256", "cohortSha256"}:
-                raise ValueError("GRID_RESCUE_EXPOSURE_MEMBER_INVALID")
-            game = self.value["games"].setdefault(member["gameId"], {})
-            for stage in stage_names:
+        if isinstance(members, Mapping) and (
+            set(members) != {"screen", "board"} or not all(members.values())
+        ):
+            raise ValueError("GRID_RESCUE_EXPOSURE_MEMBER_INVALID")
+        for stage in stage_names:
+            used = members[stage.split(":")[0]] if isinstance(members, Mapping) else members
+            for member in used:
+                if set(member) != {"gameId", "sourceId", "sourceSha256", "cohortSha256"}:
+                    raise ValueError("GRID_RESCUE_EXPOSURE_MEMBER_INVALID")
+                game = self.value["games"].setdefault(member["gameId"], {})
                 entry = game.setdefault(stage, {"confirmedItems": 0, "maxStep": 0, "sources": {}})
                 entry["confirmedItems"] += 1
                 entry["maxStep"] = step
@@ -259,7 +268,7 @@ class TrainingExposure:
             {
                 "prior": self.value["chainSha256"],
                 "step": step,
-                "members": list(members),
+                "members": members if isinstance(members, Mapping) else list(members),
                 "stages": stage_names,
             }
         )

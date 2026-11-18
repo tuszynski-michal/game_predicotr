@@ -7,7 +7,7 @@ last_updated: 2026-11-18
 # Osobny model cięcia siatek dla każdej nowej gry
 
 Nowa gra V3 rozpoczyna od dopuszczonej bazy i uczy się z własnych korekt.
-Wersją początkową kolejnego treningu jest aktualne przypisanie tej gry.
+Przypisanie gry wyznacza wersję do porównania. Po realizacji tego planu operator zmienił sposób inicjalizacji pierwszego prywatnego treningu. TASK-1257 i [D-619](../process/decisions/DECISION_LOG_2026.md#d-619--niezależny-pierwszy-trening-geometrii-gry) wprowadzają start obu sieci od zera. Późniejsza kontynuacja korzysta z potwierdzonych własnych wag gry.
 Pierwszą istniejącą grą objętą zmianą na jawne polecenie będzie Mumie A2.
 Ostatni potwierdzony odbiór zapisał wersję gry `6cc10344` i domyślną
 `01767a49`. Przy wykonaniu należy odczytać bieżące przypisanie.

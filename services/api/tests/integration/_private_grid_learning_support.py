@@ -8,7 +8,12 @@ from sqlalchemy.engine import Connection
 
 
 def private_frozen_cohort(
-    connection: Connection, pin: dict, *, cohort: UUID | None = None, manifest_sha: str = "c" * 64
+    connection: Connection,
+    pin: dict,
+    *,
+    cohort: UUID | None = None,
+    manifest_sha: str = "c" * 64,
+    initialization: str | None = None,
 ) -> UUID:
     cohort = cohort or uuid4()
     document = {
@@ -22,6 +27,19 @@ def private_frozen_cohort(
         "detectorReadiness": {"reasonCodes": []},
         "photoSplit": {"sha256": "b" * 64},
     }
+    if initialization is not None:
+        document["weightInitialization"] = initialization
+    if initialization == "from_scratch":
+        document.update(
+            mode="screen+grid",
+            policyVersion="application-grid-corrections-v4",
+            weightInitialization="from_scratch",
+            photoSplit={
+                "sha256": "b" * 64,
+                "weightInitialization": "from_scratch",
+                "independentGameId": pin["gameId"],
+            },
+        )
     connection.execute(
         text("""INSERT INTO game_data_v2.grid_training_cohorts
          (game_id,id,status,document,manifest_path,manifest_sha256,created_by)

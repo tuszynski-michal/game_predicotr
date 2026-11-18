@@ -366,10 +366,16 @@ def rescue_cost_factors(variant: Any = None) -> tuple[float, float, float]:
 
 
 def estimate_cohort_cost(
-    preset: GridTrainingPreset, counts: CohortCounts, *, rescue_variant: Any = None
+    preset: GridTrainingPreset,
+    counts: CohortCounts,
+    *,
+    rescue_variant: Any = None,
+    include_partial_training_photos: bool = False,
 ) -> CohortCost:
-    """Deterministic cost of one run: grid-only trains boards, screen+grid trains full photos."""
+    """Count the same sampling units the selected board or screen trainer consumes."""
     items = counts.train_boards if preset.mode == "grid-only" else counts.train_full_photos
+    if preset.mode == "screen+grid" and include_partial_training_photos:
+        items = counts.train_photos
     steps_per_epoch = math.ceil(items / preset.batch_items) if items > 0 else 0
     planned = min(
         preset.max_train_seconds,
@@ -639,6 +645,7 @@ def evaluate_admission(
     presets: Mapping[str, GridTrainingPreset] = PRESETS,
     rescue_variant: Any = None,
     content_experiment: Mapping[str, Any] | None = None,
+    include_partial_training_photos: bool = False,
 ) -> AdmissionDecision:
     """Pure admission of one new or resumed run. Missing facts block; nothing is assumed."""
     found: set[str] = set()
@@ -666,8 +673,15 @@ def evaluate_admission(
         elif preset is not None:
             if counts.mode != preset.mode:
                 found.add("GRID_RUN_COHORT_MODE_MISMATCH")
-            cost = estimate_cohort_cost(preset, counts, rescue_variant=rescue_variant)
-            if cost.train_items == 0:
+            cost = estimate_cohort_cost(
+                preset,
+                counts,
+                rescue_variant=rescue_variant,
+                include_partial_training_photos=include_partial_training_photos,
+            )
+            if cost.train_items == 0 or (
+                preset.mode == "screen+grid" and counts.train_full_photos == 0
+            ):
                 found.add("GRID_RUN_COHORT_EMPTY")
             if not cost.within_budget and content_experiment is None:
                 found.add("GRID_RUN_COHORT_COST_EXCEEDS_BUDGET")

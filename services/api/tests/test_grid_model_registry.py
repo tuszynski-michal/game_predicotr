@@ -177,6 +177,47 @@ def service(session, root):
     )
 
 
+def test_independent_lineage_stops_at_root_but_retains_comparison_exposures(engine):
+    comparison = historical_catalogue()[0]
+    comparison_id = UUID(comparison["versionId"])
+    owner = uuid4()
+    versions = [uuid4(), uuid4()]
+    parent = comparison_id
+    with Session(engine) as session:
+        for version, mode in zip(versions, ("from_scratch", "assigned_weights"), strict=True):
+            manifest = {
+                **comparison,
+                "versionId": str(version),
+                "baseVersionId": str(parent),
+                "provenance": {
+                    **comparison["provenance"],
+                    "weightInitialization": mode,
+                    "independentGameId": str(owner),
+                },
+            }
+            session.add(
+                GridModelVersionModel(
+                    id=version,
+                    family_id=UUID(manifest["familyId"]),
+                    base_version_id=parent,
+                    version=str(version),
+                    manifest_json=canonical_json(manifest),
+                    manifest_sha256=descriptor_sha256(manifest),
+                )
+            )
+            session.flush()
+            parent = version
+        registry = SqlAlchemyGridModelRegistryRepository(session)
+        weight_history = registry.lineage(versions[1])
+        exposures = registry.lineage(versions[1], include_comparison_history=True)
+        assert [v["versionId"] for v in weight_history["ancestors"]] == [
+            str(versions[1]),
+            str(versions[0]),
+        ]
+        assert exposures["ancestors"][:-1] == weight_history["ancestors"]
+        assert exposures["ancestors"][-1]["versionId"] == str(comparison_id)
+
+
 def test_historical_descriptors_are_closed_immutable_and_never_new_pass():
     for payload in historical_catalogue():
         assert (

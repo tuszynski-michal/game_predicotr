@@ -75,7 +75,15 @@ def test_prepare_uses_proof_counts_and_preserves_all_sources_without_permanent_u
             assert mode == "grid-only"
             return {
                 "boardEligibleCount": 3,
-                "positions": [{"label": {"positionIndex": i}} for i in range(3)],
+                "positions": [
+                    {
+                        "label": {
+                            "positionIndex": i,
+                            "nodes": [[x, y] for y in range(4) for x in range(6)],
+                        }
+                    }
+                    for i in range(3)
+                ],
             }
 
     monkeypatch.setattr(adapter, "population", lambda *args: population)
@@ -185,7 +193,15 @@ def test_infeasible_adapter_error_keeps_available_counts(monkeypatch, count, pro
         lambda *args: SimpleNamespace(
             capture=lambda *args: {
                 "boardEligibleCount": 3,
-                "positions": [{"label": {"positionIndex": i}} for i in range(3)],
+                "positions": [
+                    {
+                        "label": {
+                            "positionIndex": i,
+                            "nodes": [[x, y] for y in range(4) for x in range(6)],
+                        }
+                    }
+                    for i in range(3)
+                ],
             }
         ),
     )
@@ -224,7 +240,8 @@ def test_capture_rejects_labels_changed_since_split_before_publishing(monkeypatc
         id=uuid4(),
         status="preparing",
         document={
-            "policyVersion": adapter.CORRECTIONS_POLICY,
+            "policyVersion": adapter.CORRECTION_POLICY,
+            "sourceCount": 1,
             "photoSplit": {},
             "mode": "grid-only",
         },
@@ -269,7 +286,15 @@ def test_ambiguous_or_roleless_external_protection_fails_closed(monkeypatch, rol
         lambda *args: SimpleNamespace(
             capture=lambda *args: {
                 "boardEligibleCount": 3,
-                "positions": [{"label": {"positionIndex": i}} for i in range(3)],
+                "positions": [
+                    {
+                        "label": {
+                            "positionIndex": i,
+                            "nodes": [[x, y] for y in range(4) for x in range(6)],
+                        }
+                    }
+                    for i in range(3)
+                ],
             }
         ),
     )

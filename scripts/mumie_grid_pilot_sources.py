@@ -83,13 +83,18 @@ def model(conn: Connection, version: str | None = None) -> Document:
     }
 
 
-def render_context(conn: Connection, job: str) -> Document:
+def render_context(conn: Connection, job: str, *, revision_topology: str | None = None) -> Document:
     payload = conn.execute(
         text("select input_payload from jobs where id=:j and game_id=:g"), {"j": job, "g": GAME}
     ).scalar_one()
     symbol = SymbolModelJobSnapshot.from_payload(payload["symbol_model"])
+    topology = (payload.get("neural_grid_operation_pin") or {}).get("topologyRulesVersionId")
+    if revision_topology is not None and topology not in (None, revision_topology):
+        raise ValueError("Niezgodna topologia importu i zatwierdzonej korekty.")
+    if topology is None and revision_topology is None:
+        raise ValueError("Brak potwierdzonej topologii importu.")
     return {
-        "topologyRulesVersionId": payload["neural_grid_operation_pin"]["topologyRulesVersionId"],
+        "topologyRulesVersionId": topology or revision_topology,
         "renderConfiguration": {
             "extractorVersion": VIRTUAL_CELL_RENDERER_VERSION,
             "preprocessingVersion": SYMBOL_RGB_PREPROCESSING_VERSION,
@@ -260,10 +265,12 @@ def check_fresh(conn: Connection, rows: list[Document]) -> None:
 
 
 def historical(
-    conn: Connection, base: Document, before: datetime | None = None
+    conn: Connection, base: Document, before: datetime | None = None, *, exact_train: bool = False
 ) -> tuple[Document, list[Document]]:
     query = Path(__file__).with_name("mumie_grid_pilot_history.sql").read_text(encoding="utf8")
-    rows = conn.execute(text(query), {"g": GAME, "cohort": base["manifest"]["cohortId"]}).mappings()
+    rows = conn.execute(
+        text(query), {"g": GAME, "cohort": base["manifest"]["cohortId"], "exact_train": exact_train}
+    ).mappings()
     counts: Counter[str] = Counter()
     reasons: Counter[str] = Counter()
     accepted = []

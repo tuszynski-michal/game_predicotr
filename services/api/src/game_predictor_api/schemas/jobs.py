@@ -838,6 +838,9 @@ class GridTrainingJobPayload(ApiModel):
     private_learning: PrivateGridLearningPin | None = Field(
         None, exclude_if=lambda value: value is None
     )
+    weight_initialization: Literal["from_scratch", "assigned_weights"] | None = Field(
+        None, exclude_if=lambda v: v is None
+    )
     training_kind: Literal["grid-training-run-v1", "grid-shared-training-run-v1"]
     idempotency_key: UUID
     cohort_id: UUID

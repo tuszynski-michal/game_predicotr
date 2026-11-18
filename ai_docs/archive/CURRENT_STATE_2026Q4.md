@@ -6,6 +6,15 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1257 — Niezależny pierwszy trening geometrii gry (done)
+
+- Plik: `tasks/completed/1257-independent-game-grid-training.md`.
+- Commit: **v1.7.686** (hash dopisuje kolejny commit).
+- D-619. Pierwszy prywatny detektor i sieć punktów zaczynają od pustych wag. Dowód własności i inicjalizacji sprawdzają przygotowanie, worker i rejestr. Nowe migawki pilota oceniają pełne pola.
+- 589 par Mumii z 461 zdjęć TRAIN, 264/508 poprawek po automacie z górną granicą przesuniętą do środka o ponad 1/4 pola. Podgląd 120 rzeczywistych wycinków.
+- Migracje 0193–0194 i scenariusz od zera → zapis wersji → kolejny trening na testowym PostgreSQL. Testy obu sieci, wznowienia, ról, kontraktu, 15 pól, 69 API i 71 interakcji Admina. Szczegóły ograniczeń mypy i odbioru w Outcome.
+- Gałąź robocza. Trening operatora, ślepa próba, przełączenie Mumii i wdrożenie czekają na osobne działania.
+
 ### TASK-1256 — Ślepy pilot cięcia siatek Mumii A2 (done)
 
 - Plik: `tasks/completed/1256-mumie-private-grid-pilot.md`.

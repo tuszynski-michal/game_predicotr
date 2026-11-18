@@ -49,7 +49,7 @@ Każdy punkt wskazuje źródło; stan z daty wpisu przed poleganiem na nim zwery
 
 | Plan | Status | Pozostałe taski | Gałąź |
 |---|---|---|---|
-| `delivery/PRIVATE_GAME_GRID_MODELS_PLAN_20261118.md` | TASK-1253–1256 done, pilot gotowy do świeżej próby | odbiór operatora po dostarczeniu folderu; trening, aktywacja, wdrożenie i integracja wymagają odrębnych poleceń | `codex/private-grid-models` |
+| `delivery/PRIVATE_GAME_GRID_MODELS_PLAN_20261118.md` | TASK-1253–1257: prywatna rodzina i niezależny pierwszy trening | migracje 0193–0194, włączenie dla Mumii, świeże nagranie do pilota i osobne polecenie treningu | `codex/private-grid-models` |
 | `delivery/PARTIAL_SLOT_BINDING_PLAN_20261115.md` | 1208–1209 done (v1.7.640–641), audyt Codex P0 zamknięty | scalenie i ponowny import 8 zdjęć za zgodą | `claude/partial-slot-binding` |
 | `delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md` | accepted 2026-11-12; TASK-1195 done (v1.7.617, migracja 0186 nie wykonana na bazie operatora) | TASK-1196–1197 (osobne polecenie); scalenie i migracja za zgodą | `claude/grid-cohort-refs` |
 | `delivery/EFFECTIVE_GRID_LEARNING_PLAN_20261111.md` | accepted; T1–T4 lokalnie v1.7.602–605; audyty Codex T2–T4 niewykonane (operator) | brak tasków; odbiór i zgoda na scalenie, potem osobno migracja0184 i dane A | `codex/effective-grid-delivery` |
@@ -103,6 +103,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1257** — Niezależny pierwszy trening geometrii gry — v1.7.686 — tasks/completed/1257-independent-game-grid-training.md
 - **TASK-1256** — Ślepy pilot cięcia siatek Mumii A2 — v1.7.684 / `fda9ecc0` — tasks/completed/1256-mumie-private-grid-pilot.md
 - **TASK-1255** — Zastosowanie i cofnięcie prywatnego modelu — v1.7.682 / `dbd0d686` — tasks/completed/1255-private-grid-model-apply.md
 - **TASK-1254** — Uczenie z przypisanej wersji prywatnej gry — v1.7.680 / `78d2c513` — tasks/completed/1254-private-grid-learning.md
@@ -112,4 +113,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1246** — Nowy model i oba stagingi — v1.7.672 / `847967c9` — tasks/completed/1246-staging-refresh.md
 - **TASK-1245** — Nadzór postępu treningu — v1.7.667 / `c2b73c98` — tasks/completed/1245-grid-progress-supervision.md
 - **TASK-1244** — Zgodność kalkulacji Mumie A2 z A1 — v1.7.667 / `2c8e910c` — tasks/completed/1244-mumie-a2-calculation-parity.md
-- **TASK-1242** — Przyspieszenie danych — v1.7.665 / `cd83092b` — tasks/completed/1242-grid-preparation-throughput.md

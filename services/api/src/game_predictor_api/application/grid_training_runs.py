@@ -86,6 +86,7 @@ class GridTrainingRunService:
         command: Mapping[str, Any],
         *,
         private_learning: Mapping[str, Any] | None = None,
+        weight_initialization: str | None = None,
         correction_recipe: Mapping[str, Any] | None = None,
         content_experiment: Mapping[str, Any] | None = None,
         content_experiment_inputs: Mapping[str, Any] | None = None,
@@ -136,6 +137,7 @@ class GridTrainingRunService:
                 or existing.input_payload.get("preset_id") != command["presetId"]
                 or existing.input_payload.get("preset_fingerprint") != command["presetFingerprint"]
                 or existing.input_payload.get("private_learning") != private_learning
+                or existing.input_payload.get("weight_initialization") != weight_initialization
                 or pinned != {(str(other), str(cohort_id)) for other, cohort_id in others}
                 or existing.input_payload.get("rescue_recipe") != correction_recipe
                 or existing.input_payload.get("content_experiment") != content_experiment
@@ -145,6 +147,21 @@ class GridTrainingRunService:
                 raise _error("GRID_RUN_IDEMPOTENCY_CONFLICT", "The key was used for another run.")
             return self.view(existing)
         self.jobs.require_learning_scope(game, private_learning)
+        if weight_initialization is not None and (
+            private_learning is None
+            or weight_initialization not in ("from_scratch", "assigned_weights")
+            or (
+                weight_initialization == "from_scratch"
+                and (
+                    command["presetId"] != "screen-grid-corrections-v1"
+                    or content_experiment is not None
+                )
+            )
+        ):
+            raise _error(
+                "GRID_LEARNING_PRIVATE_SCREEN_REQUIRED",
+                "Private initialization differs from the training command.",
+            )
         if private_learning is not None and others:
             raise _error(
                 "GRID_LEARNING_PRIVATE_COHORTS_INVALID", "The game owns its training cohort."
@@ -219,6 +236,8 @@ class GridTrainingRunService:
                     "The cohort differs from the pinned assignment.",
                 )
             payload["private_learning"] = dict(private_learning)
+            if weight_initialization is not None:
+                payload["weight_initialization"] = weight_initialization
         if correction_recipe is not None:
             payload["rescue_recipe"] = dict(correction_recipe)
         if shared is not None:
@@ -281,6 +300,7 @@ class GridTrainingRunService:
                 PRESETS[str(command["presetId"])],
                 shared["counts"] if shared is not None else summed_counts([header]),
                 rescue_variant=correction_recipe.get("variant"),
+                include_partial_training_photos=weight_initialization == "from_scratch",
             )
             if not cost.within_budget or cost.planned_steps < 1:
                 raise _error(

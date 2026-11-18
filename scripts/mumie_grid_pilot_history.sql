@@ -22,4 +22,10 @@ left join lateral (select jsonb_build_object('reason',value->'reason','label',
 where r.game_id=:g and r.corrected_by in ('local-admin','reviewer-operator') and curr.geometry_source='manual' and curr.status <> 'reverted'
 and b.geometry_revision=r.revision and b.approved_geometry_revision=r.revision
 and curr.source_checksum_sha256=im.checksum_sha256 and curr.normalized_pixel_checksum_sha256=im.normalized_pixel_checksum_sha256
-order by b.sequence_number
+and (not :exact_train or (
+  m.role='TRAIN' and m.frozen->'used'='true'::jsonb
+  and pos.item#>'{label,nodes}'=r.geometry->'latticeNodes'
+  and pos.item#>>'{label,approval,geometryRevision}'=r.revision::text
+  and pos.item#>>'{label,approval,manualRevisionId}'=r.id::text
+))
+order by b.sequence_number, b.id

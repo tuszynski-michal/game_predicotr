@@ -166,6 +166,11 @@ def prepare(
             mode=body["mode"],
             validation_assignments=body.get("validationAssignments"),
             content_sampling=content_sampling,
+            **(
+                {"private_from_scratch": True}
+                if body.get("weightInitialization") == "from_scratch"
+                else {}
+            ),
         )
     elif policy != POLICY:
         raise GridCohortError("GRID_COHORT_POLICY_UNSUPPORTED", "Unknown cohort policy.", 422)
@@ -173,6 +178,11 @@ def prepare(
         "schemaVersion": policy,
         "policyVersion": policy,
         "weightPolicy": WEIGHT_POLICY,
+        **(
+            {"weightInitialization": body["weightInitialization"]}
+            if "weightInitialization" in body
+            else {}
+        ),
         **(
             {
                 key: body[key]
@@ -516,6 +526,11 @@ def _materialize(
                     else {}
                 ),
                 "weightPolicy": WEIGHT_POLICY,
+                **(
+                    {"weightInitialization": row.document["weightInitialization"]}
+                    if "weightInitialization" in row.document
+                    else {}
+                ),
                 **(
                     {
                         key: row.document[key]

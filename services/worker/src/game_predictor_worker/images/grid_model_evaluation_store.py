@@ -7,7 +7,6 @@ application's per-game ``prove_cohort`` protocol.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -49,26 +48,29 @@ class SqlGridModelEvaluationStore:
                 SqlAlchemyGridModelRegistryRepository(session),
                 GridModelArtifactInspector(self.artifact_root),
             )
-            records = []
+            views: list[dict[str, Any]] = []
             for identifier in (version_id, base_version_id):
                 record = registry.repository.version(identifier)
                 if record is None:
                     raise JobHandlerError("GRID_EVALUATION_MODEL_MISSING", "Model is unknown.")
                 try:
-                    view = registry.view(record, include_eligibility=False)
+                    inference_only = bool(
+                        views
+                        and views[0]["manifest"]["provenance"].get("weightInitialization")
+                        == "from_scratch"
+                    )
+                    view = registry.view(
+                        record, include_eligibility=False, inference_only=inference_only
+                    )
                 except GridModelRegistryError as error:
                     raise JobHandlerError(error.code, error.message) from error
                 if not view["available"]:
                     raise JobHandlerError(
                         "GRID_EVALUATION_CANDIDATE_UNAVAILABLE", str(view["reasonCode"])
                     )
-                records.append(record)
-            candidate, base = records
-            return (
-                dict(json.loads(candidate.manifest_json)),
-                dict(json.loads(base.manifest_json)),
-                str(base.manifest_sha256),
-            )
+                views.append(view)
+            candidate, base = views
+            return candidate["manifest"], base["manifest"], str(base["manifestSha256"])
 
     def cohort(self, game_id: UUID, cohort_id: UUID) -> Mapping[str, Any]:
         return self._cohorts.cohort(game_id, cohort_id)

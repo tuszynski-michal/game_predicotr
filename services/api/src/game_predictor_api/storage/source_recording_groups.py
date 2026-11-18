@@ -69,7 +69,8 @@ class SqlAlchemySourceRecordingRepository:
                 str(family_id): fork.lineage_sha256,
             }
             return frozen
-        return registry.lineage(base_id)
+        # The old comparator may already have exposed photos used for evaluation.
+        return registry.lineage(base_id, include_comparison_history=True)
 
     def _call(self, statement: str, values: dict[str, Any]) -> Any:
         try:

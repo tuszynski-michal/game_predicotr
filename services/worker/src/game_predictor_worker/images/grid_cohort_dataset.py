@@ -25,6 +25,7 @@ from game_predictor_api.domain.canonical_source import (
     CanonicalSourceLoadError,
     decode_canonical_source_bytes,
 )
+from game_predictor_api.domain.grid_detector_readiness import DETECTOR_FULL_PHOTOS_BY_ROLE
 from game_predictor_api.domain.grid_model_registry import (
     GridModelRegistryError,
     descriptor_sha256,
@@ -192,6 +193,25 @@ class GridCohortSnapshot:
         if not isinstance(base, dict) or not isinstance(base.get("manifest"), dict):
             _fail("BASE_MANIFEST_INVALID", "An immutable catalogue base is required.")
         descriptor = base["manifest"]
+        if "weightInitialization" in value:
+            initialization = value["weightInitialization"]
+            readiness = value.get("detectorReadiness")
+            if (
+                "privateLearning" not in value
+                or initialization not in ("from_scratch", "assigned_weights")
+                or (
+                    initialization == "from_scratch"
+                    and (
+                        value.get("mode") != "screen+grid"
+                        or not isinstance(readiness, dict)
+                        or readiness.get("reasonCodes") != []
+                    )
+                )
+            ):
+                _fail(
+                    "PRIVATE_LEARNING_PIN_INVALID",
+                    "Invalid private initialization for this cohort.",
+                )
         try:
             validate_manifest(descriptor)
         except (GridModelRegistryError, KeyError, TypeError, ValueError) as error:
@@ -273,6 +293,22 @@ class GridCohortSnapshot:
             )
         ):
             _fail("COUNTS_INVALID", "Explicit per-role source and target counts are required.")
+        if value.get("weightInitialization") == "from_scratch":
+            for role, minimum in DETECTOR_FULL_PHOTOS_BY_ROLE:
+                role_counts = counts[role]
+                if (
+                    role == "VALIDATION"
+                    and value["policyVersion"] == "application-grid-corrections-v4"
+                ):
+                    role_counts = value["photoSplit"]["purposeCounts"].get("VALIDATION-A", {})
+                full_photos = (
+                    role_counts.get("fullPhotos") if isinstance(role_counts, dict) else None
+                )
+                if not _integer(full_photos) or full_photos < minimum:
+                    _fail(
+                        "PRIVATE_DETECTOR_FULL_PHOTOS_REQUIRED",
+                        f"Too few full {role} photographs for independent training.",
+                    )
 
     def _verify_index(self) -> Path:
         pin = self._manifest.get("pageIndex")
@@ -606,6 +642,10 @@ class GridBoardDataset:
                     )
                     and not full
                     and not self._partial_assessment()
+                    and not (
+                        self.role == "TRAIN"
+                        and self.snapshot.manifest.get("weightInitialization") == "from_scratch"
+                    )
                 ):
                     _fail(
                         "FULL_PHOTO_REQUIRED",

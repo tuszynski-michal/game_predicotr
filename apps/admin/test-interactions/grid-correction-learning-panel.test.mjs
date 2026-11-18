@@ -2176,6 +2176,70 @@ for (const background of [false, true]) {
   });
 }
 
+test('first private training selects both stages even on lightweight readiness', async () => {
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        gameName: 'Mumie A2',
+        learningScope: 'private_game',
+        weightInitialization: 'from_scratch',
+        trainingMode: 'screen+grid',
+        preparationRequired: true,
+        requiredGameIds: [GAME],
+      },
+    }),
+  });
+  const view = await mount(api);
+  try {
+    await settle();
+    assert.match(document.body.textContent, /Pierwszy trening od zera/);
+    const selector = document.querySelector('select[aria-label="Cel uczenia"]');
+    assert.equal(selector.value, 'screen+grid');
+    assert.equal(selector.disabled, true);
+    await click('Przygotuj nowy podział korekt');
+    const command = calls.find(
+      ([name]) => name === 'startGridCorrectionLearning',
+    );
+    assert.equal(command[2].trainingMode, 'screen+grid');
+    assert.equal(command[2].learningScope, 'private_game');
+    assert.equal(command[2].preparationOnly, true);
+  } finally {
+    await view.close();
+  }
+});
+
+test('first private training starts with the validation split confirmed by the server', async () => {
+  const policyVersion = 'application-grid-corrections-v4';
+  const { api, calls } = fixture({
+    getGridCorrectionLearningReady: () => ({
+      data: {
+        ...readiness,
+        gameName: 'Mumie A2',
+        learningScope: 'private_game',
+        weightInitialization: 'from_scratch',
+        trainingMode: 'screen+grid',
+        policyVersion,
+        validationAssignments: {},
+        requiredGameIds: [GAME],
+      },
+    }),
+  });
+  const view = await mount(api);
+  try {
+    await settle();
+    await click('Ulepsz siatki z korekt');
+    const command = calls.find(
+      ([name]) => name === 'startGridCorrectionLearning',
+    );
+    assert.equal(command[2].trainingMode, 'screen+grid');
+    assert.equal(command[2].policyVersion, policyVersion);
+    assert.deepEqual(command[2].validationAssignments, {});
+  } finally {
+    await view.close();
+  }
+});
+
 test('entry reads readiness and history without creating a workflow, even when ready', async () => {
   const { api, calls } = fixture();
   const view = await mount(api);
@@ -2910,7 +2974,11 @@ for (const withB of [false, true])
   });
 
 test('private apply confirms only this game and sends the private scope', async () => {
-  const privateRun = { ...run, learningScope: 'private_game', gameName: 'Mumie' };
+  const privateRun = {
+    ...run,
+    learningScope: 'private_game',
+    gameName: 'Mumie',
+  };
   const preview = {
     ...applyPreview,
     scope: 'private_game',
@@ -2944,7 +3012,10 @@ test('private apply confirms only this game and sends the private scope', async 
     await settle();
     const apply = document.querySelector('[aria-label="Zastosowanie wersji"]');
     assert.match(apply.textContent, /Wersja zostanie przypisana do gry Mumie/);
-    assert.doesNotMatch(apply.textContent, /Obecny wspólny model|w innych ocenionych grach/);
+    assert.doesNotMatch(
+      apply.textContent,
+      /Obecny wspólny model|w innych ocenionych grach/,
+    );
     assert.equal(findButton('Zastosuj wersję').disabled, true);
     await check('Potwierdzam ograniczony dowód oparty na zdjęciach');
     await click('Zastosuj wersję');
@@ -2970,22 +3041,44 @@ test('private rollback confirms the revision the operator saw in history', async
     }),
     listGridModelVersions: () => ({
       data: [
-        { eligible: true, manifest: { versionId: 'base', familyLabel: 'Wspólna', version: 'v1' } },
-        { eligible: true, manifest: { versionId: 'candidate', familyLabel: 'Mumie', version: 'v2' } },
+        {
+          eligible: true,
+          manifest: {
+            versionId: 'base',
+            familyLabel: 'Wspólna',
+            version: 'v1',
+          },
+        },
+        {
+          eligible: true,
+          manifest: {
+            versionId: 'candidate',
+            familyLabel: 'Mumie',
+            version: 'v2',
+          },
+        },
       ],
     }),
     rollbackGameGridModel: () => {
       currentRevision = 4;
-      return { error: { error: { code: 'GRID_MODEL_REVISION_CONFLICT' } }, response: { status: 409 } };
+      return {
+        error: { error: { code: 'GRID_MODEL_REVISION_CONFLICT' } },
+        response: { status: 409 },
+      };
     },
   });
   const ui = await mount(api);
   try {
     await settle();
     const choice = [...document.querySelectorAll('select')].find((select) =>
-      [...select.options].some((option) => option.textContent === 'Wybierz wersję z historii'),
+      [...select.options].some(
+        (option) => option.textContent === 'Wybierz wersję z historii',
+      ),
     );
-    assert.deepEqual([...choice.options].map((option) => option.value), ['', 'base']);
+    assert.deepEqual(
+      [...choice.options].map((option) => option.value),
+      ['', 'base'],
+    );
     await act(async () => {
       choice.value = 'base';
       choice.dispatchEvent(new window.Event('change', { bubbles: true }));

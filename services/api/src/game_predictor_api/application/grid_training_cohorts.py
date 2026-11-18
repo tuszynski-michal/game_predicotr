@@ -155,7 +155,14 @@ class GridTrainingCohortService:
         if preset is None:
             blockers.append("GRID_RUN_PRESET_NOT_APPROVED")
         else:
-            estimate = estimate_cohort_cost(preset, counts)
+            from_scratch = (
+                private_learning is not None
+                and self.repository.cohort(game, cohort).document.get("weightInitialization")
+                == "from_scratch"
+            )
+            estimate = estimate_cohort_cost(
+                preset, counts, include_partial_training_photos=from_scratch
+            )
             cost = cost_view(estimate)
             if estimate.train_items == 0:
                 blockers.append("GRID_RUN_COHORT_EMPTY")

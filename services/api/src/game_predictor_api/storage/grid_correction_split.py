@@ -24,7 +24,10 @@ from game_predictor_api.domain.grid_correction_split import (
     role_boards,
     solve_correction_split,
 )
-from game_predictor_api.domain.grid_detector_readiness import detector_readiness
+from game_predictor_api.domain.grid_detector_readiness import (
+    MIN_DETECTOR_FULL_PHOTOS,
+    detector_readiness,
+)
 from game_predictor_api.domain.grid_learning_material import (
     conflicting_groups,
     material_report,
@@ -229,6 +232,7 @@ def prepare_split(
     validation_assignments: dict[str, str] | None = None,
     validation_components: list[dict[str, Any]] | None = None,
     content_sampling: dict[str, Any] | None = None,
+    private_from_scratch: bool = False,
 ) -> dict[str, Any]:
     rows = population(repo, game, imports)
     report_preparation("source_inventory", len(rows), len(rows))
@@ -435,7 +439,7 @@ def prepare_split(
         if screen:
             _, _, _, _, deduplicated, _ = _prepare(tuple(sources))
             readiness = detector_readiness(list(deduplicated.values()))
-            if readiness["fullPhotos"] < 15:
+            if readiness["fullPhotos"] < MIN_DETECTOR_FULL_PHOTOS:
                 raise CorrectionSplitError(
                     "SCREEN_FULL_PHOTOS_REQUIRED",
                     "Screen TRAIN and selection require 15 full photos.",
@@ -453,7 +457,7 @@ def prepare_split(
             solve_incremental_split(
                 solver_sources,
                 full_training=screen,
-                include_partial_train=content_sampling is not None,
+                include_partial_train=content_sampling is not None or private_from_scratch,
             )
             if incremental
             else solve_correction_split(sources)
@@ -494,7 +498,9 @@ def prepare_split(
             count = pin["eligibleBoards"]
             role = pin["role"]
             partial_train = bool(
-                content_selection is not None and role == "TRAIN" and 0 < count < 9
+                (content_selection is not None or private_from_scratch)
+                and role == "TRAIN"
+                and 0 < count < 9
             )
             pin.update(
                 qualifiedBoards=count,
@@ -508,6 +514,11 @@ def prepare_split(
             )
     result: dict[str, Any] = {
         "schemaVersion": solved.schema_version,
+        **(
+            {"weightInitialization": "from_scratch", "independentGameId": str(game)}
+            if private_from_scratch
+            else {}
+        ),
         "solverVersion": solved.solver_version,
         "sources": pins,
         "importIds": imports,
@@ -644,6 +655,11 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "splitSha256": split["sha256"],
             "expectedBoardCount": item["eligibleBoards"],
             **(
+                {"weightInitialization": "from_scratch"}
+                if split.get("weightInitialization") == "from_scratch"
+                else {}
+            ),
+            **(
                 {
                     "contentSamplingPolicy": split["contentSampling"]["policy"],
                     **(
@@ -665,7 +681,11 @@ def split_mapping(split: dict[str, Any]) -> dict[str, dict[str, Any]]:
             ),
             **(
                 {"geometryOnlyTraining": True}
-                if item.get("geometryOnlyTraining") and "contentSampling" in split
+                if item.get("geometryOnlyTraining")
+                and (
+                    "contentSampling" in split
+                    or split.get("weightInitialization") == "from_scratch"
+                )
                 else {}
             ),
             **(

@@ -368,6 +368,28 @@ def test_explicit_v4_pair_and_component_projection_roundtrip_without_persistence
         assert service.calls[-1][1][1]["trainingMode"] == "grid-only"
 
 
+def test_private_http_preserves_server_selected_initialization(tmp_path):
+    service = Service()
+    service.preview_result.update(
+        learningScope="private_game",
+        weightInitialization="from_scratch",
+        trainingMode="screen+grid",
+    )
+    client = TestClient(app_for(service, tmp_path), client=("127.0.0.1", 12345))
+    response = client.post(
+        PATH + "/preview", json={"learningScope": "private_game"}, headers=HEADERS
+    )
+    assert response.status_code == 200
+    assert response.json()["weightInitialization"] == "from_scratch"
+    assert "trainingMode" not in service.calls[-1][1][1]
+    response = client.post(
+        PATH + "/preview",
+        json={"learningScope": "private_game", "weightInitialization": "assigned_weights"},
+        headers=HEADERS,
+    )
+    assert response.status_code == 422
+
+
 def test_screen_mode_variant_and_readiness_roundtrip_without_fallback(tmp_path: Path) -> None:
     service = Service()
     service.preview_result.update(
@@ -695,6 +717,7 @@ def test_openapi_has_eight_operations_and_closed_preview_view_schemas(tmp_path: 
         assert schemas[name]["additionalProperties"] is False
         assert set(schemas[name]["properties"]) == set(expected) | {
             "learningScope",
+            "weightInitialization",
             "gameName",
             "targetFamilyId",
             "assignmentRevision",

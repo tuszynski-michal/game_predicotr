@@ -8816,6 +8816,10 @@ export type GridCorrectionLearningPreview = {
   validationPurposeCounts?: {
     [key: string]: GridValidationPurposeCount;
   } | null;
+  /**
+   * Weightinitialization
+   */
+  weightInitialization?: 'from_scratch' | 'assigned_weights' | null;
 };
 
 /**
@@ -9064,6 +9068,10 @@ export type GridCorrectionLearningView = {
    * Verdict
    */
   verdict: 'PASS' | 'REVISE' | 'NOT_EVALUABLE' | null;
+  /**
+   * Weightinitialization
+   */
+  weightInitialization?: 'from_scratch' | 'assigned_weights' | null;
 };
 
 /**
@@ -10882,6 +10890,10 @@ export type GridModelProvenance = {
    */
   exportId: string;
   /**
+   * Independentgameid
+   */
+  independentGameId?: string | null;
+  /**
    * Presetfingerprint
    */
   presetFingerprint: string;
@@ -10893,6 +10905,10 @@ export type GridModelProvenance = {
    * Snapshotid
    */
   snapshotId: string;
+  /**
+   * Weightinitialization
+   */
+  weightInitialization?: 'from_scratch' | 'assigned_weights' | null;
   /**
    * Weightssha256
    */
@@ -12779,6 +12795,10 @@ export type GridTrainingJobPayload = {
    * Trainingkind
    */
   trainingKind: 'grid-training-run-v1' | 'grid-shared-training-run-v1';
+  /**
+   * Weightinitialization
+   */
+  weightInitialization?: 'from_scratch' | 'assigned_weights' | null;
 };
 
 /**

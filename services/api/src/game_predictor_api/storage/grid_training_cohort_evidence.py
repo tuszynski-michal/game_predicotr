@@ -512,7 +512,10 @@ class GridCohortEvidenceReader:
             or (
                 role == "TRAIN"
                 and recording.get("geometryOnlyTraining") is True
-                and recording.get("contentSamplingPolicy") == "full-symbol-content-sampling-v1"
+                and (
+                    recording.get("contentSamplingPolicy") == "full-symbol-content-sampling-v1"
+                    or recording.get("weightInitialization") == "from_scratch"
+                )
             )
             or (
                 (

@@ -86,6 +86,12 @@ def test_presets_are_versioned_distinct_and_fingerprint_their_parameters() -> No
 
 
 def test_cohort_cost_uses_boards_for_grid_only_and_full_photos_for_screen() -> None:
+    private_set = CohortCounts("screen+grid", 112, 33, 10)
+    first_private = estimate_cohort_cost(
+        SCREEN_GRID_V1, private_set, include_partial_training_photos=True
+    )
+    assert (first_private.train_items, first_private.steps_per_epoch) == (33, 3)
+    assert estimate_cohort_cost(SCREEN_GRID_V1, private_set).train_items == 10
     small = estimate_cohort_cost(GRID_ONLY_V1, MINIMUM)
     assert (small.train_items, small.steps_per_epoch) == (30, 1)
     assert small.planned_train_seconds == 600.0  # 10 photos x 60 s, above the 300 s floor

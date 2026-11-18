@@ -202,7 +202,9 @@ def test_train_routes_correction_evaluator_only_to_grid_only_export(
     monkeypatch.setattr(grid_rescue_training, "rescue_recipe", lambda *_: {})
     monkeypatch.setattr(grid_rescue_training, "require_recipe", lambda *_: None)
     monkeypatch.setattr(grid_rescue_training, "TrainingExposure", lambda *_: object())
-    monkeypatch.setattr(grid_training.TrainingPlan, "of", lambda *_: SimpleNamespace(binding={}))
+    monkeypatch.setattr(
+        grid_training.TrainingPlan, "of", lambda *args: SimpleNamespace(binding=args[-1])
+    )
     monkeypatch.setattr(child, "ChildControl", lambda *_: object())
     result = SimpleNamespace(
         checkpoint_path=tmp_path / "checkpoint.pt",
@@ -211,12 +213,16 @@ def test_train_routes_correction_evaluator_only_to_grid_only_export(
         history=[],
         best_step=600,
         best_metric=1.0,
+        beats_baseline=True,
+        baseline_floor=None,
         steps=600,
         stop_reason="completed",
     )
     trained = []
 
     def train(**kwargs: Any) -> Any:
+        assert kwargs["plan"].binding["baseWeightsSha256"] == "d" * 64
+        assert "weightInitialization" not in kwargs["plan"].binding
         trained.append(kwargs["evaluate"])
         return result
 

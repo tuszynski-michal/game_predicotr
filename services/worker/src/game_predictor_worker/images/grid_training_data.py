@@ -385,7 +385,16 @@ class ScreenGridBatches(_Prefetched):
         self.output_contract = output_contract
         self.content_experiment, self.content_auxiliary = content_experiment, content_auxiliary
         self.partial_training = partial_training
-        if partial_training and not content_experiment:
+        if (
+            partial_training
+            and not content_experiment
+            and (
+                not isinstance(photos, CohortPhotos)
+                or photos.role != "TRAIN"
+                or photos.snapshot.manifest.get("weightInitialization") != "from_scratch"
+                or not photos.snapshot.manifest.get("privateLearning")
+            )
+        ):
             raise ValueError("CONTENT_EXPERIMENT_TRAINING_POLICY_REQUIRED")
         if content_experiment and output_contract is None:
             raise ValueError("CONTENT_TRAINING_OUTPUT_CONTRACT_REQUIRED")
@@ -527,6 +536,17 @@ class ScreenGridBatches(_Prefetched):
                 }
             )
         return result
+
+    def private_exposure_members(self, step: int) -> dict[str, list[dict[str, str]]]:
+        members = self.exposure_members(step)
+        return {
+            "board": members,
+            "screen": [
+                member
+                for member, index in zip(members, self._indices(step), strict=True)
+                if self._screen_eligible(index)
+            ],
+        }
 
 
 def validation_crops(

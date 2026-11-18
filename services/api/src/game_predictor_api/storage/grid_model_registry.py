@@ -57,7 +57,13 @@ class GridModelArtifactInspector:
     def __init__(self, artifact_root: Path | None) -> None:
         self.root = None if artifact_root is None else artifact_root.resolve()
 
+    def inspect_inference(self, payload: dict[str, Any]) -> tuple[bool, str]:
+        return self._inspect(payload, with_training=False)
+
     def inspect(self, payload: dict[str, Any]) -> tuple[bool, str]:
+        return self._inspect(payload, with_training=True)
+
+    def _inspect(self, payload: dict[str, Any], *, with_training: bool) -> tuple[bool, str]:
         if self.root is None:
             return False, "GRID_MODEL_STORE_UNCONFIGURED"
         directory = self.root / payload["managedDirectory"]
@@ -73,51 +79,55 @@ class GridModelArtifactInspector:
                 return False, "GRID_MODEL_PATH_INVALID"
             if any(not target.is_file() for target in targets):
                 return False, "GRID_MODEL_ARTIFACT_MISSING"
-            training_directory = directory / "training-base"
-            training_targets = [
-                training_directory / file["name"] for file in payload["trainingArtifacts"]
-            ]
-            receipt = training_directory / "receipt.json"
-            if any(
-                not target.resolve().is_relative_to(self.root / "models" / "grid-engine")
-                for target in (*training_targets, receipt)
-            ):
-                return False, "GRID_MODEL_PATH_INVALID"
-            if any(not target.is_file() for target in (*training_targets, receipt)):
-                return False, "GRID_MODEL_TRAINING_ARTIFACT_MISSING"
-            if receipt.stat().st_size > 65536:
-                return False, "GRID_MODEL_TRAINING_RECEIPT_INVALID"
-            envelope = json.loads(receipt.read_text(encoding="utf-8"))
-            training_identity = envelope["payload"]
-            if not isinstance(training_identity, dict):
-                return False, "GRID_MODEL_TRAINING_RECEIPT_INVALID"
-            sources = training_identity.get("sources")
-            names = {file["name"] for file in payload["trainingArtifacts"]}
-            if (
-                not isinstance(sources, dict)
-                or sources.keys() != names
-                or any(
-                    not isinstance(value, str) or not Path(value).is_absolute()
-                    for value in sources.values()
-                )
-                or training_directory.is_symlink()
-                or training_directory.is_junction()
-                or {path.name for path in training_directory.iterdir()} != names | {"receipt.json"}
-            ):
-                return False, "GRID_MODEL_TRAINING_RECEIPT_INVALID"
-            if (
-                receipt_bytes(training_identity) != receipt.read_bytes()
-                or training_identity.get("schemaVersion") != "grid-engine-training-base-v1"
-                or training_identity.get("model") != payload["inferenceManifest"]
-                or training_identity.get("files") != payload["trainingArtifacts"]
-            ):
-                return False, "GRID_MODEL_TRAINING_RECEIPT_INVALID"
-            for file, target in zip(payload["trainingArtifacts"], training_targets, strict=True):
-                if (
-                    target.stat().st_size != file["sizeBytes"]
-                    or file_sha256(target) != file["sha256"]
+            if with_training:
+                training_directory = directory / "training-base"
+                training_targets = [
+                    training_directory / file["name"] for file in payload["trainingArtifacts"]
+                ]
+                receipt = training_directory / "receipt.json"
+                if any(
+                    not target.resolve().is_relative_to(self.root / "models" / "grid-engine")
+                    for target in (*training_targets, receipt)
                 ):
-                    return False, "GRID_MODEL_TRAINING_ARTIFACT_MISMATCH"
+                    return False, "GRID_MODEL_PATH_INVALID"
+                if any(not target.is_file() for target in (*training_targets, receipt)):
+                    return False, "GRID_MODEL_TRAINING_ARTIFACT_MISSING"
+                if receipt.stat().st_size > 65536:
+                    return False, "GRID_MODEL_TRAINING_RECEIPT_INVALID"
+                envelope = json.loads(receipt.read_text(encoding="utf-8"))
+                training_identity = envelope["payload"]
+                if not isinstance(training_identity, dict):
+                    return False, "GRID_MODEL_TRAINING_RECEIPT_INVALID"
+                sources = training_identity.get("sources")
+                names = {file["name"] for file in payload["trainingArtifacts"]}
+                if (
+                    not isinstance(sources, dict)
+                    or sources.keys() != names
+                    or any(
+                        not isinstance(value, str) or not Path(value).is_absolute()
+                        for value in sources.values()
+                    )
+                    or training_directory.is_symlink()
+                    or training_directory.is_junction()
+                    or {path.name for path in training_directory.iterdir()}
+                    != names | {"receipt.json"}
+                ):
+                    return False, "GRID_MODEL_TRAINING_RECEIPT_INVALID"
+                if (
+                    receipt_bytes(training_identity) != receipt.read_bytes()
+                    or training_identity.get("schemaVersion") != "grid-engine-training-base-v1"
+                    or training_identity.get("model") != payload["inferenceManifest"]
+                    or training_identity.get("files") != payload["trainingArtifacts"]
+                ):
+                    return False, "GRID_MODEL_TRAINING_RECEIPT_INVALID"
+                for file, target in zip(
+                    payload["trainingArtifacts"], training_targets, strict=True
+                ):
+                    if (
+                        target.stat().st_size != file["sizeBytes"]
+                        or file_sha256(target) != file["sha256"]
+                    ):
+                        return False, "GRID_MODEL_TRAINING_ARTIFACT_MISMATCH"
             # Manifest is descriptor-only, bounded before parsing. Old manifests stay unchanged.
             if (
                 targets[0].stat().st_size > 65536
@@ -207,6 +217,8 @@ class GridModelArtifactInspector:
                 return pin, "GRID_RESCUE_PATH_AVAILABLE" if pin else "GRID_RESCUE_NO_IMPROVING_PATH"
             if "rescue" not in bundle:
                 return None, "GRID_RESCUE_PROOF_MISSING"
+            from game_predictor_api.domain.grid_rescue_policy import PRIVATE_GRID_RECIPE_FINGERPRINT
+
             proof = require_rescue_evidence(bundle)
             path = proof["selection"]["selectedPath"]
             if path is None:
@@ -230,7 +242,12 @@ class GridModelArtifactInspector:
                 or spec["jobId"] != run_id
                 or spec["preset"]["id"] != "screen-grid-corrections-v1"
                 or spec["preset"]["fingerprint"] != proof["trainingPresetFingerprint"]
-                or spec["base"]["presetSha256"] != proof["recipe"]["baselinePresetSha256"]
+                or (
+                    PRIVATE_GRID_RECIPE_FINGERPRINT
+                    if spec.get("weightInitialization") == "from_scratch"
+                    else spec["base"]["presetSha256"]
+                )
+                != proof["recipe"]["baselinePresetSha256"]
                 or (
                     spec.get("rescueRecipe") is not None and spec["rescueRecipe"] != proof["recipe"]
                 )
@@ -272,7 +289,7 @@ class GridModelArtifactInspector:
                         "Frozen USED selection targets differ from the evaluated sources."
                     )
                 train_members = {
-                    descriptor_sha256(member)
+                    descriptor_sha256(member): len(source["targets"]) == 9
                     for source, _ in GridBoardDataset(snapshot, "TRAIN").indexed()
                     for member in [
                         {
@@ -283,9 +300,15 @@ class GridModelArtifactInspector:
                         }
                     ]
                 }
-                for stage in proof["trainingExposure"]["games"].get(game, {}).values():
+                for stage_name, stage in proof["trainingExposure"]["games"].get(game, {}).items():
                     if any(
-                        key != descriptor_sha256(member) or key not in train_members
+                        key != descriptor_sha256(member)
+                        or key not in train_members
+                        or (
+                            spec.get("weightInitialization") == "from_scratch"
+                            and stage_name.startswith("screen:")
+                            and not train_members[key]
+                        )
                         for key, member in stage["sources"].items()
                     ):
                         raise ValueError("Confirmed exposure names foreign TRAIN sources.")
@@ -482,7 +505,8 @@ class SqlAlchemyGridModelRegistryRepository:
             base_payload = json.loads(base.manifest_json)
             fork = self.family_fork(family_id)
             if fork is not None:
-                lineage = self.lineage(base.id)
+                # Family ownership spans the original transfer and independent training.
+                lineage = self.lineage(base.id, include_comparison_history=True)
                 if not any(
                     item["versionId"] == str(fork.base_version_id)
                     and item["manifestSha256"] == fork.base_manifest_sha256
@@ -807,8 +831,10 @@ class SqlAlchemyGridModelRegistryRepository:
 
         return SqlAlchemyGameCreateReceiptRepository(self.session).game_receipt(game_id)
 
-    def lineage(self, version_id: UUID) -> dict[str, Any]:
-        """Pin ancestors; unresolved protection never means empty TRAIN exclusions."""
+    def lineage(
+        self, version_id: UUID, *, include_comparison_history: bool = False
+    ) -> dict[str, Any]:
+        """Pin weight ancestors, or the full history for recording exposure checks."""
         from game_predictor_api.domain.new_game_geometry import PROTECTED_ROLES, verified_json
 
         ancestors: list[dict[str, Any]] = []
@@ -874,6 +900,11 @@ class SqlAlchemyGridModelRegistryRepository:
             if fork is not None:
                 verified_json(fork.lineage_json, fork.lineage_sha256)
                 families[str(version.family_id)] = fork.lineage_sha256
+            if (
+                not include_comparison_history
+                and manifest["provenance"].get("weightInitialization") == "from_scratch"
+            ):
+                break
             current = version.base_version_id
         return {
             "schemaVersion": "grid-model-family-lineage-v1",

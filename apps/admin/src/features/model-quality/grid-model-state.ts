@@ -9,6 +9,12 @@ import type {
 
 /** TASK-1000: readable reasons; an unknown code is never hidden, only labelled. */
 export const REASON_LABELS: Readonly<Record<string, string>> = {
+  GRID_LEARNING_PRIVATE_SCREEN_REQUIRED:
+    'Pierwszy własny model gry wymaga uczenia detektora plansz i punktów siatki.',
+  GRID_PRIVATE_INITIALIZATION_INVALID:
+    'Pochodzenie wag różni się od zatwierdzonego treningu. Przygotuj nowy podział dla tej gry.',
+  GRID_PRIVATE_INITIALIZATION_REQUIRED:
+    'Odśwież panel i przygotuj trening, aby zapisać sposób inicjalizacji modelu gry.',
   GRID_LEARNING_PRIVATE_SCOPE_REQUIRED:
     'Odśwież panel, aby uczyć model tej gry.',
   GRID_LEARNING_PRIVATE_ASSIGNMENT_REQUIRED: 'Wybierz bazę modelu dla tej gry.',

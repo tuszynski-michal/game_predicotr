@@ -726,7 +726,10 @@ def train(
     resume: tuple[Path, str] | None = None,
     device: str = "cpu",
     exposure: TrainingExposure | None = None,
-    exposure_members: Callable[[int], Sequence[Mapping[str, str]]] | None = None,
+    exposure_members: Callable[
+        [int], Sequence[Mapping[str, str]] | Mapping[str, Sequence[Mapping[str, str]]]
+    ]
+    | None = None,
     content_exposure: Any = None,
     content_exposure_members: Callable[
         [int, Mapping[str, torch.Tensor], Mapping[str, torch.Tensor]],

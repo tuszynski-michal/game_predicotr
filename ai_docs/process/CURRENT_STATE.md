@@ -103,7 +103,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1256** — Ślepy pilot cięcia siatek Mumii A2 — v1.7.684 — tasks/completed/1256-mumie-private-grid-pilot.md
+- **TASK-1256** — Ślepy pilot cięcia siatek Mumii A2 — v1.7.684 / `fda9ecc0` — tasks/completed/1256-mumie-private-grid-pilot.md
 - **TASK-1255** — Zastosowanie i cofnięcie prywatnego modelu — v1.7.682 / `dbd0d686` — tasks/completed/1255-private-grid-model-apply.md
 - **TASK-1254** — Uczenie z przypisanej wersji prywatnej gry — v1.7.680 / `78d2c513` — tasks/completed/1254-private-grid-learning.md
 - **TASK-1253** — Własność modelu i utworzenie gry — v1.7.678 / `711d3013` — tasks/completed/1253-private-grid-model-ownership.md

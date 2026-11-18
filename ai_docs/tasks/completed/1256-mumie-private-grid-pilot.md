@@ -32,7 +32,7 @@ CLI i testy w `scripts/`, raport w `ai_docs/quality/`. Bez nowej migracji.
 
 ## Outcome
 
-Commit: v1.7.684 (hash dopisuje kolejny commit).
+Commit: v1.7.684 / `fda9ecc021de747989fc1ab9e15e2768fce21e38`.
 
 Narzędzie i kontrolowany przebieg są gotowe. Rzeczywisty pilot czeka na świeży folder oraz późniejszą decyzję operatora.
 

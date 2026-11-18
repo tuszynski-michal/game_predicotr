@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1256 — Ślepy pilot cięcia siatek Mumii A2 (done)
 
 - Plik: `tasks/completed/1256-mumie-private-grid-pilot.md`.
-- Commit: **v1.7.684** (hash dopisuje kolejny commit).
+- Commit: **v1.7.684 / `fda9ecc021de747989fc1ab9e15e2768fce21e38`** (hash dopisuje kolejny commit).
 - Zamrożenie 100 różnych zdjęć, kontrola nagrań i ekspozycji, diagnoza wycinków, ślepy HTML i raport 5/100 oraz zero nowych ucięć.
 - 5 testów Pythona, interakcja HTML, renderer 15 pól, CPU, odczyt rzeczywistych importów i izolowany PostgreSQL. Historyczne 708 par z 521 zdjęć rozliczono względem dokładnych rewizji kohorty.
 - Operator dostarczy nowe zdjęcia później. Ślepy odbiór jakości i wynik dla nowego kandydata pozostają odroczone. Raport: `quality/MUMIE_PRIVATE_GRID_PILOT_20261118.md`.

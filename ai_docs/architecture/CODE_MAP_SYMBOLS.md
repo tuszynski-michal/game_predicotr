@@ -1291,7 +1291,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 
 ## apps/selector-desktop/src
 
-- contracts.ts: APP_URL, MAX_SEQUENCE_NUMBER, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, ShutdownRequest, ShutdownReply, LegacyPreviewSummary, ViewPreferences, CreateProjectRequest, NewProjectDraft, StartSelectionResult, validateGameName, GAME_UPDATE_PATTERN, isGameUpdate, validateGameUpdate, outputDirectoryName, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, DesktopWorkspaceUpdate, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
+- contracts.ts: APP_URL, MAX_SEQUENCE_NUMBER, CHANNELS, SourceImage, SourceIndex, NativeResult, SelectorBridge, ShutdownRequest, ShutdownReply, LegacyPreviewSummary, ViewPreferences, RangeOverlayPreferences, CreateProjectRequest, NewProjectDraft, StartSelectionResult, validateGameName, GAME_UPDATE_PATTERN, isGameUpdate, validateGameUpdate, outputDirectoryName, DesktopCommand, ExecuteRequest, RestartSummary, RecentProjectSummary, DesktopWorkspace, DesktopWorkspaceUpdate, SelectorError, validateNoArguments, validateSender, parsePhotoUrl
 - filesystem/local-storage.ts: assertLocalStorage
 - filesystem/secure-files.ts: WriteCheckpoint, noCheckpoint, FileIdentity, checksum, stableStringify, isMissing, ioError, assertSeparateRoots, ensureDirectory, canonicalDirectoryLocation, SecureFiles
 - legacy-adoption/legacy-preview.ts: LegacyProof, inspectLegacy, sameLegacyProof
@@ -1311,11 +1311,13 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - project/recent-projects.ts: RecentProject, RecentProjects
 - project/state-codec.ts: PROJECT_STATE_NAME, PROJECT_BACKUP_NAME, PROJECT_JOURNAL_NAME, encodeEnvelope, decodeEnvelope, validateState, validateScalar, validateReceipt, validateDiskHead, validateLedgerRecordStructure, validateCompactJournalStructure, validateJournal
 - project/types.ts: SourceInventoryItem, ProjectDecision, ProjectCommand, OperationReceipt, ProjectState, ProjectCreateOptions, ProjectAdoptionSeed, JournalCopy, RestartPreview, ProjectJournal, ProjectScalar, ProjectDiskHead, ProjectDecisionDelta, ProjectLedgerPayload, ProjectLedgerRecord, ProjectCompactJournal, ProjectUpgradeJournal
+- range-overlay-preferences.ts: DEFAULT_RANGE_OVERLAY, isRangeOverlay
 - renderer/App.tsx: App
 - renderer/desktop-shortcuts.ts: resolveDesktopShortcut
 - renderer/game-select.tsx: GameSelect
 - renderer/image-viewer.tsx: ImageViewer
 - renderer/preview-cache.ts: PREVIEW_BITMAP_BUDGET, PreviewCache
+- renderer/range-overlay.tsx: RangeOverlay
 - renderer/selection-intents.ts: SelectionPhase, AcceptIntent, matchesAcceptContext, SelectionIntents
 - renderer/workspace-updates.ts: applyWorkspaceUpdate
 - source-index.ts: SourceLookup, sourceLookup, acceptedLookup

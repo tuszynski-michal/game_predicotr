@@ -75,6 +75,28 @@ Wdrożenie i wymagany restart workera wymagają akceptacji gotowego wyniku.
 Zakończonego treningu nie uruchamiamy ponownie wyłącznie dla zmiany polityki.
 Aktywacja modelu jest osobną decyzją.
 
+## D-616 — Trwałe przygotowanie uczenia korekt bez limitu łącznego czasu
+
+- Status: accepted
+- Data: 2026-11-16
+- Źródło: polecenie operatora naprawy całego przepływu i treningu screen+grid.
+- Task: TASK-1230.
+
+Kontekst: 25 631 zdjęć w 11 importach przekracza limit 300 sekund przed
+utworzeniem przebiegu; podnoszenie stałej nie rozwiązuje wzrostu populacji.
+
+Decyzja: istniejący job kolejkowany przed splittem, trwały descriptor
+przygotowania, rzeczywisty postęp i 300-sekundowy budżet zastoju zamiast limitu
+całej zdrowej operacji. Dzierżawa workera pozostaje niezależna od postępu.
+Przygotowanie-only wymaga jawnego resume do treningu. API wspiera lekki GET
+metadanych; historyczny synchroniczny kontrakt pozostaje kompatybilny.
+
+Konsekwencje: brak nowych tabel i usług; restart niezakończonego przygotowania
+ponawia dowody, gotowy artefakt i dzieci są ponownie używane. Tryb, scope,
+idempotencja, dowody własności, role chronione i pin bazy są sprawdzane. Nowy
+payload wymaga uruchomionego handlera z możliwością grid-preparation-v1.
+Budżety GPU i bramki jakości nie są usuwane. Trening i ocena nie aktywują modelu.
+
 ## D-615 — Przypisanie plansz po pozycji strony 3 × 3 przy niepełnym wykryciu
 
 Status: accepted. Data: 2026-11-15. Operator: „Tak, dodaj”, „Pełny automat”, „jak

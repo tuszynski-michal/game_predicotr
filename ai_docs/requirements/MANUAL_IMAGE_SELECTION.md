@@ -6,6 +6,26 @@ last_updated: 2026-10-29
 
 # Lokalna ręczna selekcja zdjęć
 
+## Napis zakresu i odtwarzanie bitmapy Windows — TASK-1231
+
+Checkbox „Zakres na zdjęciu” włącza biały napis na przezroczystym tle. Napis
+pokazuje ten sam bieżący zakres co nagłówek (także zakończenie numeracji),
+działa w fullscreen i nie jest dopisywany do wynikowych JPEG-ów. Przeciąganie
+napisu przesuwa go w granicach zdjęcia, a prawego dolnego narożnika zmienia
+rozmiar liter. Pozycja jest względna do dostępnego miejsca na zdjęciu; rozmiar
+12–160 px jest ograniczany wizualnie dla małego podglądu. Domyślnie napis jest
+wyłączony, ma 32 px i pozycję 5% od lewej/góry dostępnego miejsca.
+
+Wyłączenie checkboxa zachowuje ustawienia. „Reset napisu” przywraca pozycję
+i rozmiar domyślne bez zmiany włączenia ani pozostałych ustawień widoku.
+Ustawienia są zapamiętywane per projekt również po ponownym uruchomieniu.
+
+Przed prezentacją zdjęcia także z cache renderer ponownie czeka na decode:
+Chromium może zwolnić bitmapę odłączonego elementu w długiej sesji. Do tego
+czasu poprzedni obraz pozostaje widoczny; podmiana i odtworzenie przewijania
+następują w klatce renderowania, bez automatycznego kotwiczenia scrolla.
+Jest to korekta reguły cache poniżej, bez ponownego ustawiania src.
+
 ## Ciągły podgląd Windows — TASK-1142
 
 Podczas ładowania poprzedni JPEG pozostaje widoczny z oznaczeniem celu.

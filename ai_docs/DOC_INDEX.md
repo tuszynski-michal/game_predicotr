@@ -70,6 +70,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 
 - [Uproszczenie wyszukiwarki plansz](delivery/BOARD_SEARCH_COMPACT_UI_PLAN_20261117.md) — TASK-1238, 13 zmian UI Admina i linków, zachowana nawigacja rankingu.
 
+- [Wydajne uczenie i wartościowe dane Mumie a2](delivery/GRID_LEARNING_EFFICIENCY_AND_DATA_PLAN_20261116.md) — accepted 2026-11-16; wykonanie zablokowane warunkami wejścia, szczegóły TASK-1233.
 - [Szybki zapis geometrii i wycofywanie kohort](delivery/GRID_COHORT_NOTICE_PERFORMANCE_PLAN_20261112.md) — TASK-1195–1192, accepted 2026-11-12.
 - [Skuteczne uczenie i test poprawy](delivery/EFFECTIVE_GRID_LEARNING_PLAN_20261111.md) — TASK-1182–1185, accepted2026-11-11.
 
@@ -129,6 +130,7 @@ w odpowiedniej podsekcji, głównie w „Dostarczanie”.
 - [Przekazanie planu V3 po zamianie ról](guides/V3_GRID_FINE_TUNING_ROLE_HANDOFF.md)
   — od TASK-1005 Claude Code wykonuje pozostałe zadania, Codex je audytuje.
 
+- [Selektor 1.0.6 — napis zakresu i rewalidacja bitmapy](quality/SELECTOR_1_0_6_20261116.md) — paczka przygotowana; odbiór Electron i commit zablokowane środowiskiem.
 - [Ciągły podgląd i lekka nawigacja Selektora](delivery/SELECTOR_SMOOTH_NAVIGATION_20261103.md) — [odbiór 1.0.5](quality/SELECTOR_SMOOTH_1_0_5_20261103.md)
 - [Płynność i niezawodne F w Selektorze Windows](delivery/SELECTOR_FLUENCY_RELIABILITY_PLAN_20261029.md)
   — proposed, rewizja 2 z 2026-10-29; TASK-1103: plan gotowy, audyt pominięty

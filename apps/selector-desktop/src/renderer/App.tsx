@@ -22,6 +22,7 @@ import {
   outputDirectoryName,
 } from '../contracts.ts';
 import { ImageViewer } from './image-viewer.tsx';
+import { DEFAULT_RANGE_OVERLAY } from '../range-overlay-preferences.ts';
 import { resolveDesktopShortcut } from './desktop-shortcuts.ts';
 import { SelectionIntents } from './selection-intents.ts';
 function unwrap<T>(result: NativeResult<T>): T {
@@ -366,6 +367,9 @@ export function App() {
   } catch {
     /* A terminal project has no next range. */
   }
+  const rangeText = workspace?.selectionComplete
+    ? 'Numeracja zakończona'
+    : `Zakres: ${range?.start}–${range?.end}`;
   return (
     <main
       className={
@@ -424,6 +428,41 @@ export function App() {
                 ))}
               </select>
             </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={
+                  (workspace.view.rangeOverlay ?? DEFAULT_RANGE_OVERLAY).enabled
+                }
+                onChange={(event) =>
+                  changeView({
+                    ...workspace.view,
+                    rangeOverlay: {
+                      ...(workspace.view.rangeOverlay ?? DEFAULT_RANGE_OVERLAY),
+                      enabled: event.target.checked,
+                    },
+                  })
+                }
+              />
+              Zakres na zdjęciu
+            </label>
+            <button
+              type="button"
+              className="secondaryButton range-overlay-reset"
+              onClick={() =>
+                changeView({
+                  ...workspace.view,
+                  rangeOverlay: {
+                    ...DEFAULT_RANGE_OVERLAY,
+                    enabled: (
+                      workspace.view.rangeOverlay ?? DEFAULT_RANGE_OVERLAY
+                    ).enabled,
+                  },
+                })
+              }
+            >
+              Reset napisu
+            </button>
             {fullscreen && (
               <span data-testid="fullscreen-counts">
                 <span data-testid="cursor">
@@ -798,9 +837,7 @@ export function App() {
           </div>
           <div className="range-indicator">
             <strong data-testid={fullscreen ? 'fullscreen-range' : 'range'}>
-              {workspace.selectionComplete
-                ? 'Numeracja zakończona'
-                : `Zakres: ${range?.start}–${range?.end}`}
+              {rangeText}
             </strong>
           </div>
           {source && image ? (
@@ -810,6 +847,7 @@ export function App() {
               image={image}
               step={workspace.view.navigationStep}
               view={workspace.view}
+              rangeText={rangeText}
               changeView={changeView}
               ready={(id) => {
                 setDecoded(id);

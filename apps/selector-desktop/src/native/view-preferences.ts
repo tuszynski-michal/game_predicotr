@@ -5,6 +5,10 @@ import {
   stableStringify,
 } from '../filesystem/secure-files.ts';
 import { SelectorError, type ViewPreferences } from '../contracts.ts';
+import {
+  DEFAULT_RANGE_OVERLAY,
+  isRangeOverlay,
+} from '../range-overlay-preferences.ts';
 export const DEFAULT_VIEW: ViewPreferences = {
   navigationStep: 1,
   zoom: 100,
@@ -16,7 +20,10 @@ export function validateView(value: unknown): ViewPreferences {
     throw new SelectorError('INVALID_ARGUMENT', 'Nieprawidłowy widok.');
   const v = value as ViewPreferences;
   if (
-    Object.keys(v).sort().join(',') !== 'navigationStep,scrollX,scrollY,zoom' ||
+    Object.keys(v)
+      .filter((key) => key !== 'rangeOverlay')
+      .sort()
+      .join(',') !== 'navigationStep,scrollX,scrollY,zoom' ||
     !MANUAL_IMAGE_NAVIGATION_STEPS.includes(v.navigationStep as 1) ||
     !Number.isFinite(v.zoom) ||
     v.zoom < 100 ||
@@ -32,7 +39,15 @@ export function validateView(value: unknown): ViewPreferences {
       'INVALID_ARGUMENT',
       'Nieprawidłowy krok, zoom lub przewijanie.',
     );
-  return { ...v };
+  if (v.rangeOverlay !== undefined && !isRangeOverlay(v.rangeOverlay))
+    throw new SelectorError(
+      'INVALID_ARGUMENT',
+      'Nieprawidłowe ustawienia napisu zakresu.',
+    );
+  return {
+    ...v,
+    ...(v.rangeOverlay ? { rangeOverlay: { ...v.rangeOverlay } } : {}),
+  };
 }
 export function validateId(value: unknown): string {
   if (
@@ -68,7 +83,17 @@ export class ViewPreferencesStore {
       await files.verifyRoot();
       const bytes = await files.read(`${projectId}.json`);
       if (!bytes || bytes.length > 4096) return { ...DEFAULT_VIEW };
-      return validateView(JSON.parse(bytes.toString()));
+      const value = JSON.parse(bytes.toString());
+      // A damaged optional overlay must not discard a valid legacy zoom/scroll.
+      if (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        'rangeOverlay' in value &&
+        !isRangeOverlay(value.rangeOverlay)
+      )
+        value.rangeOverlay = { ...DEFAULT_RANGE_OVERLAY };
+      return validateView(value);
     } catch {
       return { ...DEFAULT_VIEW };
     }

@@ -6,6 +6,24 @@ last_updated: 2026-10-29
 
 # Lokalny selektor Windows — instrukcja operatora
 
+## Wydanie 1.0.6 — napis zakresu
+
+Nowa paczka: `artifacts/selector-releases/1.0.6/Selektor-zdjec-1.0.6-Windows.zip`.
+Zamknij Selektor i rozpakuj cały ZIP do nowego folderu. Uruchom
+`Selektor-zdjec.exe`, następnie otwórz dotychczasowy projekt.
+
+Zaznacz „Zakres na zdjęciu”, aby umieścić bieżący zakres na podglądzie.
+Przeciągnij biały napis w wybrane miejsce; prawy dolny narożnik służy do
+zmiany wielkości liter. Wyłączenie i ponowne włączenie oraz ponowne otwarcie
+projektu zachowują ustawienia. „Reset napisu” przywraca pozycję i rozmiar,
+nie zmieniając checkboxa, zoomu ani postępu. Napis działa również w pełnym
+ekranie i nie trafia do JPEG-ów wynikowych.
+
+Wydanie ponownie przygotowuje bitmapę przed jej prezentacją i wyłącza
+automatyczne kotwiczenie przewijania podczas podmiany. Odbiór czarnego
+mignięcia w długiej sesji użytkownika pozostaje do potwierdzenia;
+ograniczenia weryfikacji są w TASK-1231.
+
 ## Wydanie 1.0.4 — płynny podgląd i przypięty wybór
 
 Paczka: `D:/game_predicotr/artifacts/selector-releases/1.0.4/Selektor zdjec-win32-x64-1.0.4.zip`, obok `.sha256` i `.release.json`. Sprawdź SHA-256, zamknij poprzednią aplikację, rozpakuj cały ZIP do nowego katalogu i uruchom EXE. Projekty z 1.0.3 zachowują dotychczasowe foldery i format. Nie kopiuj samego EXE. Dowody i ograniczenia: [raport 1.0.4](../quality/SELECTOR_FLUENCY_1_0_4_20261029.md).

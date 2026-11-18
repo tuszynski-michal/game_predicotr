@@ -9076,6 +9076,49 @@ export type GridCorrectionTolerantEvaluationPolicy = {
 };
 
 /**
+ * GridCutReason
+ */
+export type GridCutReason = 'opposite_edges' | 'board_aspect' | 'line_spacing';
+
+/**
+ * GridCutReviewCellResponse
+ */
+export type GridCutReviewCellResponse = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Pending
+   */
+  pending: boolean;
+  target: SymbolCellReviewBulkExplicitTargetRequest;
+};
+
+/**
+ * GridCutSuspicionResponse
+ */
+export type GridCutSuspicionResponse = {
+  /**
+   * Cells
+   */
+  cells: Array<GridCutReviewCellResponse>;
+  /**
+   * Nodeindices
+   */
+  nodeIndices: [number, number] | null;
+  /**
+   * Preferredcellindices
+   */
+  preferredCellIndices: Array<number>;
+  reason: GridCutReason;
+  /**
+   * Score
+   */
+  score: number;
+};
+
+/**
  * GridDetectorReadiness
  */
 export type GridDetectorReadiness = {
@@ -14730,6 +14773,7 @@ export type ImageGridReviewItemResponse = {
         ManualSourceGeometryPoint,
       ]
     | null;
+  cutSuspicion?: GridCutSuspicionResponse | null;
   /**
    * Expectedproposalchecksumsha256
    */
@@ -14925,6 +14969,10 @@ export type ImageGridReviewPageResponse = {
    * Previouscursor
    */
   previousCursor: string | null;
+  /**
+   * Scannedcount
+   */
+  scannedCount?: number | null;
   view: ImageGridReviewView;
 };
 
@@ -14943,7 +14991,7 @@ export type ImageGridReviewState =
  * ImageGridReviewView
  */
 export type ImageGridReviewView =
-  'needs_validation' | 'needs_correction' | 'all' | 'correction';
+  'needs_validation' | 'needs_correction' | 'all' | 'suspicious' | 'correction';
 
 /**
  * ImageImportEnginePolicy

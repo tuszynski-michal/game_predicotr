@@ -12,6 +12,7 @@ from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometrySaveResult,
 )
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.grid_cut_suspicion import GridCutReason
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewCounts,
     ImageGridReviewListItem,
@@ -30,12 +31,29 @@ from game_predictor_api.schemas.geometry_qualification import (
 from game_predictor_api.schemas.geometry_qualification import (
     ManualSourceGeometryPoint as OperationalImageReviewGeometryPoint,
 )
+from game_predictor_api.schemas.image_symbol_reviews import (
+    SymbolCellReviewBulkExplicitTargetRequest,
+)
 from game_predictor_api.schemas.source_lattice_geometry import (
     SourceLatticeNodesPayload,
     lattice_nodes_payload,
 )
 
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
+
+
+class GridCutReviewCellResponse(ApiModel):
+    cell_index: int = Field(ge=0, le=14)
+    pending: bool
+    target: SymbolCellReviewBulkExplicitTargetRequest
+
+
+class GridCutSuspicionResponse(ApiModel):
+    score: float = Field(ge=0)
+    reason: GridCutReason
+    node_indices: tuple[int, int] | None
+    preferred_cell_indices: tuple[int, ...]
+    cells: tuple[GridCutReviewCellResponse, ...]
 
 
 class ImageGridReviewItemResponse(ApiModel):
@@ -115,6 +133,9 @@ class ImageGridReviewItemResponse(ApiModel):
     reason_codes: tuple[str, ...]
     state: ImageGridReviewState
     reported_cell_indices: tuple[Annotated[int, Field(ge=0)], ...] = ()
+    cut_suspicion: GridCutSuspicionResponse | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ImageGridReviewCountsResponse(ApiModel):
@@ -143,6 +164,7 @@ class ImageGridReviewPageResponse(ApiModel):
     counts: ImageGridReviewCountsResponse
     previous_cursor: str | None
     next_cursor: str | None
+    scanned_count: int | None = Field(default=None, ge=0, exclude_if=lambda value: value is None)
 
 
 class ImageGridReviewGeometryPreviewCommand(ApiModel):
@@ -274,7 +296,7 @@ def to_image_grid_review_item_response(
         resolution_revision=item.resolution_revision,
         grid_rows=item.topology.rows,
         grid_columns=item.topology.columns,
-        geometry=geometry,
+        geometry=geometry if item.cut_suspicion is None else {},
         analysis_quad=_optional_geometry_quad(geometry.get("analysisQuad")),
         review_draft_quad=_optional_geometry_quad(geometry.get("reviewDraftQuad")),
         review_draft_origin=_optional_text(geometry.get("reviewDraftOrigin")),
@@ -295,6 +317,33 @@ def to_image_grid_review_item_response(
         reason_codes=item.reason_codes,
         state=item.state,
         reported_cell_indices=item.reported_cell_indices,
+        cut_suspicion=_cut_suspicion_response(item),
+    )
+
+
+def _cut_suspicion_response(item: ImageGridReviewListItem) -> GridCutSuspicionResponse | None:
+    suspicion = item.cut_suspicion
+    if suspicion is None:
+        return None
+    return GridCutSuspicionResponse(
+        score=suspicion.score,
+        reason=suspicion.reason,
+        node_indices=suspicion.node_indices,
+        preferred_cell_indices=suspicion.preferred_cell_indices,
+        cells=tuple(
+            GridCutReviewCellResponse(
+                cell_index=cell.cell_index,
+                pending=cell.pending,
+                target=SymbolCellReviewBulkExplicitTargetRequest(
+                    cell_review_id=cell.cell_review_id,
+                    expected_revision=cell.revision,
+                    expected_geometry_revision=item.geometry_revision,
+                    expected_crop_sample_id=cell.crop_sample_id,
+                    expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                ),
+            )
+            for cell in item.cut_review_cells
+        ),
     )
 
 
@@ -357,6 +406,7 @@ def to_image_grid_review_page_response(
         counts=to_image_grid_review_counts_response(page.counts),
         previous_cursor=page.previous_cursor,
         next_cursor=page.next_cursor,
+        scanned_count=page.scanned_count,
     )
 
 

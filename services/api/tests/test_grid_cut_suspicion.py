@@ -68,7 +68,14 @@ def test_entire_board_can_have_a_bad_aspect_with_equal_spacing():
 
 @pytest.mark.parametrize(
     "nodes",
-    [None, grid()[:-1], grid()[:1] * 24, [{"x": "1", "y": 2}] * 24, grid(x_scale=float("inf"))],
+    [
+        None,
+        grid()[:-1],
+        grid()[:1] * 24,
+        [{"x": "1", "y": 2}, *grid()[1:]],
+        [{"x": False, "y": 0}, *grid()[1:]],
+        grid(x_scale=float("inf")),
+    ],
 )
 def test_missing_or_invalid_geometry_has_no_score(nodes):
     assert assess_grid_cut(nodes) is None

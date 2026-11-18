@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, Response
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import (
     DEFAULT_IMAGE_GRID_REVIEW_PAGE_SIZE,
-    MAX_IMAGE_GRID_REVIEW_PAGE_SIZE,
+    MAX_SUSPICIOUS_GRID_SCAN_PAGE_SIZE,
     ImageGridReviewService,
 )
 from game_predictor_api.application.image_review_assets import (
@@ -175,7 +175,7 @@ def create_image_grid_reviews_router(
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
         limit: Annotated[
             int,
-            Query(ge=1, le=MAX_IMAGE_GRID_REVIEW_PAGE_SIZE),
+            Query(ge=1, le=MAX_SUSPICIOUS_GRID_SCAN_PAGE_SIZE),
         ] = DEFAULT_IMAGE_GRID_REVIEW_PAGE_SIZE,
         counts: Annotated[
             ImageGridReviewCountsMode,

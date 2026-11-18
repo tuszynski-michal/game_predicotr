@@ -1430,6 +1430,7 @@ obrazów albo pozostawić `Wszystkie katalogi`. Selektor pokazuje bezpieczną
 etykietę jobu, nie ścieżkę lokalnego źródła; zmiana gry czyści ten filtr.
 Wybór katalogu zmienia keyset, liczniki i scope wszystkich kolejnych operacji
 masowych, więc nie może objąć cropów innego importu.
+
 Ostatni wariant pokazuje wyłącznie bieżące, zatwierdzone cropy należące do
 niezmiennej kohorty modelu wskazanego przez najnowszą aktywację wybranej gry.
 Crop zmieniony od zamrożenia kohorty jest wykluczony; brak aktywnego modelu daje
@@ -1442,6 +1443,18 @@ operacyjne review: kanoniczna plansza `accepted/corrected` ma pierwszeństwo,
 a bez niej widoczna jest wyłącznie najnowsza oczekująca plansza. Cropy ze
 starszych, pokrywających się stagingów oznaczonych `superseded` nie są
 prezentowane ani dostępne do masowych decyzji.
+
+W Mumie A2 (`mumie-aktu2`) przycisk **Podejrzane siatki** skanuje wybrany
+katalog albo całą grę w partiach, także przed wyborem symbolu. Galeria
+porządkuje bieżące, pełne siatki automatyczne wg wyniku proporcji i pokazuje
+numer planszy, powód, fragment zdjęcia z marginesem oraz przełączalną nakładkę
+24 węzłów. Operator może wstrzymać i wznowić skan. Zaznaczenie planszy
+pozwala użyć akcji **Skieruj do korekty** dla jednego pola. Pole jest
+sugerowane na podstawie najsilniejszego odchylenia i można je zmienić.
+Zgłoszenie używa bieżącej rewizji pola, rewizji geometrii i tożsamości
+wycinka, tak jak **Zła siatka**. Plansza pojawia się raz w kolejce
+Reviewera. Galeria pokazuje wyniki dla poszczególnych plansz oraz podsumowanie.
+
 Gra oraz zakres symbolu są domyślnie niewybrane. Wejście do zakładki nie pobiera
 strony cropów. Operator wybiera rozmiar strony `100`, `500`, `1000`, `2000` albo
 `2500` metadanych; domyślnie jest to `2500`. Pierwsza strona jest pobierana

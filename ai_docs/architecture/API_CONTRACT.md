@@ -4042,6 +4042,16 @@ zamiast siedmiu agregatów `grid_review_counts`), wybierana w
 `ImageGridReviewService.list`. Reviewer woła `counts=correction` po każdej
 planszy w zakresie całej gry.
 
+**TASK-1249.** `GET .../grid-reviews?view=suspicious` skanuje bieżących
+właścicieli numerów gry `mumie-aktu2`, opcjonalnie z `importJobId`.
+`limit` wynosi do 500 sprawdzanych właścicieli. `scannedCount` obejmuje
+sprawdzoną partię. `nextCursor` wskazuje ostatni przetworzony numer,
+również gdy `items` jest puste. Widok obsługuje `afterCursor`, a liczników
+kolejek nie oblicza. Znaleziona plansza zawiera `latticeNodes` oraz
+`cutSuspicion` z wynikiem, przyczyną, wskazanym odcinkiem i aktualnymi
+celami decyzji dla pól. Przekazanie zaznaczonej planszy wykorzystuje
+istniejącą decyzję `mark_grid_issue` dla jednego pola i jej kontrolę rewizji.
+
 **D-488 (TASK-0820):** komendy zapisu `image-reviews/{reviewItemId}/geometry-revisions`
 oraz `board-cell-geometry-pending/{pendingId}/manual-resolution` przyjmują
 opcjonalne `cellSymbols: [{ cellIndex, symbolId }]`. Każde wskazane pole jest

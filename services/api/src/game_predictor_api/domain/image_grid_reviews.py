@@ -10,6 +10,7 @@ from enum import StrEnum
 from uuid import UUID
 
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.grid_cut_suspicion import GridCutSuspicion
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellQualityIssue
 
 
@@ -23,6 +24,7 @@ class ImageGridReviewView(StrEnum):
     NEEDS_VALIDATION = "needs_validation"
     NEEDS_CORRECTION = "needs_correction"
     ALL = "all"
+    SUSPICIOUS = "suspicious"
     # D-462 R4: the single manual-correction queue — every pending deferred
     # geometry plus every current board with a reported grid issue, one entry
     # per board slot.
@@ -83,6 +85,16 @@ class ImageGridReviewListFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class GridCutReviewCell:
+    cell_review_id: UUID
+    cell_index: int
+    revision: int
+    crop_sample_id: str | None
+    crop_checksum_sha256: str | None
+    pending: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ImageGridReviewListItem:
     slot_id: UUID
     slot_kind: ImageGridReviewSlotKind
@@ -110,6 +122,8 @@ class ImageGridReviewListItem:
     state: ImageGridReviewState
     # Cells whose `Zła siatka` report routed the board to correction (D-462).
     reported_cell_indices: tuple[int, ...] = ()
+    cut_suspicion: GridCutSuspicion | None = None
+    cut_review_cells: tuple[GridCutReviewCell, ...] = ()
 
     @property
     def cursor_key(self) -> tuple[int, str]:
@@ -141,6 +155,7 @@ class ImageGridReviewPage:
     counts: ImageGridReviewCounts
     previous_cursor: str | None
     next_cursor: str | None
+    scanned_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -87,10 +87,10 @@ export async function setSymbolImageFromReviewCell(
 
 export type SymbolReviewMutationResult =
   | { readonly ok: true; readonly value: SymbolCellReviewMutationResponse }
-  | { readonly error: string; readonly ok: false };
+  | { readonly error: string; readonly ok: false; readonly conflict?: boolean };
 
 export async function applySingleSymbolReviewDecision(
-  api: SymbolReviewMutationClient,
+  api: Pick<SymbolReviewMutationClient, 'applySymbolCellReviewDecision'>,
   gameId: string,
   action: SymbolCellReviewAction,
   target: SymbolReviewExplicitTarget,
@@ -123,6 +123,8 @@ export async function applySingleSymbolReviewDecision(
           'Nie udało się zapisać zmiany symbolu.',
         ),
         ok: false,
+        conflict:
+          result.response?.status === 404 || result.response?.status === 409,
       };
     }
     return { ok: true, value: result.data };

@@ -16736,6 +16736,97 @@
         "title": "GridCorrectionTolerantEvaluationPolicy",
         "type": "object"
       },
+      "GridCutReason": {
+        "enum": [
+          "opposite_edges",
+          "board_aspect",
+          "line_spacing"
+        ],
+        "title": "GridCutReason",
+        "type": "string"
+      },
+      "GridCutReviewCellResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "pending": {
+            "title": "Pending",
+            "type": "boolean"
+          },
+          "target": {
+            "$ref": "#/components/schemas/SymbolCellReviewBulkExplicitTargetRequest"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "pending",
+          "target"
+        ],
+        "title": "GridCutReviewCellResponse",
+        "type": "object"
+      },
+      "GridCutSuspicionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/GridCutReviewCellResponse"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "nodeIndices": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nodeindices"
+          },
+          "preferredCellIndices": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Preferredcellindices",
+            "type": "array"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/GridCutReason"
+          },
+          "score": {
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "score",
+          "reason",
+          "nodeIndices",
+          "preferredCellIndices",
+          "cells"
+        ],
+        "title": "GridCutSuspicionResponse",
+        "type": "object"
+      },
       "GridDetectorReadiness": {
         "additionalProperties": false,
         "properties": {
@@ -26455,6 +26546,16 @@
             ],
             "title": "Boardframequad"
           },
+          "cutSuspicion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridCutSuspicionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "expectedProposalChecksumSha256": {
             "anyOf": [
               {
@@ -26831,6 +26932,18 @@
             ],
             "title": "Previouscursor"
           },
+          "scannedCount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scannedcount"
+          },
           "view": {
             "$ref": "#/components/schemas/ImageGridReviewView"
           }
@@ -26869,6 +26982,7 @@
           "needs_validation",
           "needs_correction",
           "all",
+          "suspicious",
           "correction"
         ],
         "title": "ImageGridReviewView",
@@ -60854,7 +60968,7 @@
             "required": false,
             "schema": {
               "default": 25,
-              "maximum": 100,
+              "maximum": 500,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"

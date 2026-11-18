@@ -31,7 +31,13 @@ from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_correction_reverts import (
     REVERTED_SOURCE_GEOMETRY_STATUS,
 )
+from game_predictor_api.domain.grid_cut_suspicion import (
+    GRID_CUT_SUSPICION_THRESHOLD,
+    MUMIE_A2_GRID_REVIEW_CODE,
+    assess_grid_cut,
+)
 from game_predictor_api.domain.image_grid_reviews import (
+    GridCutReviewCell,
     ImageGridReviewCounts,
     ImageGridReviewError,
     ImageGridReviewListFilter,
@@ -122,6 +128,8 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
     ) -> ImageGridReviewListSlice:
         if after_key is not None and before_key is not None:
             raise ValueError("only one grid review keyset direction is allowed")
+        if review_filter.view is ImageGridReviewView.SUSPICIOUS:
+            return self._scan_suspicious_grids(review_filter, after_key, limit)
         current_statement = self._visible_statement(review_filter=review_filter)
         pending_statement = self._pending_statement(review_filter=review_filter)
         sequence_number, review_item_key = _order_columns()
@@ -172,6 +180,163 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             items=self._with_reported_cells(visible),
             has_previous=has_previous,
             has_next=has_next,
+        )
+
+    def _scan_suspicious_grids(
+        self,
+        review_filter: ImageGridReviewListFilter,
+        after_key: tuple[int, str] | None,
+        limit: int,
+    ) -> ImageGridReviewListSlice:
+        game_id = review_filter.game_id
+        if self._session.scalar(select(GameModel.code).where(GameModel.id == game_id)) != (
+            MUMIE_A2_GRID_REVIEW_CODE
+        ):
+            return ImageGridReviewListSlice((), False, False, scanned_count=0)
+
+        board, review, source = RecognizedBoardModel, ImageReviewItemModel, SourceImageModel
+        source_geometry = ImageSourceGeometryRevisionModel
+        document = ImageBoardSearchFastDocumentModel
+        sequence = document.sequence_number
+        # Seek the game's unique sequence key before joining the wider content
+        # tables. The cursor advances even if every selected owner is excluded.
+        page = select(sequence, document.review_item_id).where(document.game_id == game_id)
+        if review_filter.import_job_id is not None:
+            page = page.where(document.import_job_id == review_filter.import_job_id)
+        if after_key is not None:
+            page = page.where(sequence > after_key[0])
+        keys = self._session.execute(page.order_by(sequence).limit(limit + 1)).all()
+        examined = keys[:limit]
+        if not examined:
+            return ImageGridReviewListSlice((), False, False, scanned_count=0)
+        statement = (
+            self._visible_statement(review_filter=review_filter)
+            .with_only_columns(
+                sequence.label("sequence_number"),
+                review.id.label("review_id"),
+                review.import_job_id,
+                review.resolution_revision,
+                board.id.label("board_id"),
+                board.source_image_id,
+                board.position_index,
+                board.geometry_revision,
+                board.geometry_engine_name,
+                board.geometry_engine_version,
+                board.board_confidence,
+                source.checksum_sha256,
+                func.coalesce(source.oriented_width, source.width).label("width"),
+                func.coalesce(source.oriented_height, source.height).label("height"),
+                board.board_geometry["latticeNodes"].label("nodes"),
+                maintain_column_froms=True,
+            )
+            .where(
+                sequence.in_([key.sequence_number for key in examined]),
+                board.asset_mode == "virtual_source",
+                board.grid_rows == 3,
+                board.grid_columns == 5,
+                board.completeness_status == "complete",
+                func.cardinality(board.unavailable_cell_indices) == 0,
+                board.approved_geometry_revision.is_distinct_from(board.geometry_revision),
+                ~_current_grid_issue_exists(),
+                exists(
+                    select(source_geometry.id).where(
+                        source_geometry.game_id == game_id,
+                        source_geometry.source_image_id == board.source_image_id,
+                        source_geometry.id == board.source_geometry_revision_id,
+                        source_geometry.geometry_source == "auto",
+                        source_geometry.status != REVERTED_SOURCE_GEOMETRY_STATUS,
+                    )
+                ),
+            )
+            .order_by(sequence)
+        )
+        candidates = []
+        for row in self._session.execute(statement).mappings():
+            suspicion = assess_grid_cut(row.nodes)
+            if suspicion is None or suspicion.score <= GRID_CUT_SUSPICION_THRESHOLD:
+                continue
+            candidates.append(
+                ImageGridReviewListItem(
+                    slot_id=row.review_id,
+                    slot_kind=ImageGridReviewSlotKind.CURRENT_REVIEW,
+                    review_item_id=row.review_id,
+                    game_id=game_id,
+                    import_job_id=row.import_job_id,
+                    recognized_board_id=row.board_id,
+                    pending_geometry_id=None,
+                    source_image_id=row.source_image_id,
+                    position_index=row.position_index,
+                    sequence_number=row.sequence_number,
+                    source_checksum_sha256=row.checksum_sha256,
+                    source_width=row.width,
+                    source_height=row.height,
+                    geometry_revision=row.geometry_revision,
+                    approved_geometry_revision=None,
+                    resolution_revision=row.resolution_revision,
+                    topology=BoardTopology(3, 5),
+                    geometry={"latticeNodes": row.nodes},
+                    asset_mode="virtual_source",
+                    geometry_engine_name=row.geometry_engine_name,
+                    geometry_engine_version=row.geometry_engine_version,
+                    board_confidence=row.board_confidence,
+                    reason_codes=(),
+                    state=ImageGridReviewState.NEEDS_VALIDATION,
+                    cut_suspicion=suspicion,
+                )
+            )
+        return ImageGridReviewListSlice(
+            items=self._with_cut_review_cells(game_id, candidates),
+            has_previous=False,
+            has_next=len(keys) > limit,
+            scanned_count=len(examined),
+            last_scanned_key=(int(examined[-1].sequence_number), str(examined[-1].review_item_id)),
+        )
+
+    def _with_cut_review_cells(
+        self, game_id: UUID, items: list[ImageGridReviewListItem]
+    ) -> tuple[ImageGridReviewListItem, ...]:
+        if not items:
+            return ()
+        by_review = {item.slot_id: item for item in items}
+        cell = ImageSymbolReviewCellModel
+        cells: dict[UUID, list[GridCutReviewCell]] = {}
+        for row in self._session.execute(
+            select(
+                cell.review_item_id,
+                cell.recognized_board_id,
+                cell.geometry_revision,
+                cell.id,
+                cell.cell_index,
+                cell.revision,
+                cell.crop_sample_id,
+                cell.crop_checksum_sha256,
+                cell.review_state,
+            )
+            .where(
+                cell.game_id == game_id,
+                cell.review_item_id.in_(list(by_review)),
+                cell.source_available.is_(True),
+                cell.crop_sample_id.is_not(None),
+                cell.crop_checksum_sha256.is_not(None),
+            )
+            .order_by(cell.review_item_id, cell.cell_index)
+        ):
+            item = by_review[row.review_item_id]
+            if row.recognized_board_id == item.recognized_board_id and (
+                row.geometry_revision == item.geometry_revision
+            ):
+                cells.setdefault(item.slot_id, []).append(
+                    GridCutReviewCell(
+                        cell_review_id=row.id,
+                        cell_index=row.cell_index,
+                        revision=row.revision,
+                        crop_sample_id=row.crop_sample_id,
+                        crop_checksum_sha256=row.crop_checksum_sha256,
+                        pending=row.review_state == "pending",
+                    )
+                )
+        return tuple(
+            replace(item, cut_review_cells=tuple(cells.get(item.slot_id, ()))) for item in items
         )
 
     def _with_reported_cells(
@@ -438,7 +603,7 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
         if review_filter.view is ImageGridReviewView.CORRECTION:
             # D-462 R4: every current board with a reported grid issue.
             statement = statement.where(_current_grid_issue_exists())
-        elif review_filter.view is not ImageGridReviewView.ALL:
+        elif review_filter.view not in (ImageGridReviewView.ALL, ImageGridReviewView.SUSPICIOUS):
             statement = statement.where(state_expression == review_filter.view.value)
         return statement
 

@@ -256,6 +256,8 @@ def _seed_pending_board(
     session_factory: sessionmaker[Session],
     now: datetime,
     sibling_positions: tuple[int, ...] = (),
+    *,
+    game_code: str = "verified-cells",
 ) -> _Seed:
     """A ready game with one pending board whose model predicts `first`."""
 
@@ -263,7 +265,7 @@ def _seed_pending_board(
         catalog = CatalogService(SqlAlchemyCatalogRepository(session))
         game = catalog.create_game(
             idempotency_key=uuid4(),
-            code="verified-cells",
+            code=game_code,
             name="Verified cells",
             status=GameStatus.ACTIVE,
         )
@@ -702,6 +704,89 @@ def test_an_approval_of_other_pixels_keeps_the_board_open(
         with game_storage_scope(seed.game_id), session_factory() as session:
             review = session.get(ImageReviewItemModel, seed.review_item_id)
             assert review is not None and review.status == "accepted"
+    finally:
+        engine.dispose()
+
+
+def test_selected_suspicious_siblings_enter_the_existing_queue(
+    verified_cell_database: URL,
+) -> None:
+    command.upgrade(_migration_config(verified_cell_database), "head")
+    engine = create_engine(verified_cell_database)
+    factory = create_session_factory(engine)
+    now = datetime(2026, 11, 18, tzinfo=UTC)
+    try:
+        seed = _seed_pending_board(factory, now, (1, 2), game_code="mumie-aktu2")
+
+        def read(session: Session, view: ImageGridReviewView):
+            return (
+                ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))
+                .list(
+                    game_id=seed.game_id,
+                    view=view,
+                    import_job_id=seed.job_id,
+                    source_image_id=None,
+                    after_cursor=None,
+                    before_cursor=None,
+                    limit=10,
+                )
+                .items
+            )
+
+        with game_storage_scope(seed.game_id), factory.begin() as session:
+            for board in session.scalars(select(RecognizedBoardModel)):
+                board.board_geometry = {
+                    **board.board_geometry,
+                    "latticeNodes": [
+                        {"x": 100 + 60 * column, "y": 100 + 25 * row}
+                        for row in range(4)
+                        for column in range(6)
+                    ],
+                }
+
+        with game_storage_scope(seed.game_id), factory.begin() as session:
+            candidates = read(session, ImageGridReviewView.SUSPICIOUS)
+            assert [item.position_index for item in candidates] == [0, 1, 2]
+            mutation = SymbolCellReviewMutationService(
+                SqlAlchemySymbolCellReviewMutationRepository(session)
+            )
+            for item in (candidates[0], candidates[2]):
+                cell = item.cut_review_cells[2]
+                mutation.mark_grid_issue(
+                    game_id=seed.game_id,
+                    cell_review_id=cell.cell_review_id,
+                    expected_revision=cell.revision,
+                    expected_geometry_revision=item.geometry_revision,
+                    expected_crop_sample_id=cell.crop_sample_id,
+                    expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                    actor="local-admin",
+                )
+
+        with game_storage_scope(seed.game_id), factory.begin() as session:
+            reported = read(session, ImageGridReviewView.CORRECTION)
+            assert [(item.position_index, item.reported_cell_indices) for item in reported] == [
+                (0, (2,)),
+                (2, (2,)),
+            ]
+            remaining = read(session, ImageGridReviewView.SUSPICIOUS)
+            assert [item.position_index for item in remaining] == [1]
+            item = reported[0]
+            assert item.recognized_board_id is not None
+            assert item.review_item_id is not None
+            save_manual_virtual_geometry(
+                session,
+                game_id=seed.game_id,
+                import_job_id=seed.job_id,
+                review_item_id=item.review_item_id,
+                board_id=item.recognized_board_id,
+                actor="grid-reviewer",
+                variant="suspicious-grid-recrop",
+                created_at=now + timedelta(minutes=1),
+            )
+
+        with game_storage_scope(seed.game_id), factory() as session:
+            remaining = read(session, ImageGridReviewView.CORRECTION)
+            assert [item.position_index for item in remaining] == [2]
     finally:
         engine.dispose()
 

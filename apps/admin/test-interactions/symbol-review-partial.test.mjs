@@ -144,6 +144,118 @@ async function mount(customFixture) {
   return { ...fixture, root };
 }
 
+test('Mumie gallery scans empty pages and sends one revision-bound field per selected board', async () => {
+  const fixture = await createPartialReviewClient();
+  fixture.api.listGames = async () => ({
+    data: [
+      { id: 'game-1', code: 'mumie-aktu2', name: 'Mumie A2', status: 'active' },
+    ],
+  });
+  const scans = [];
+  const decisions = [];
+  const item = (sequenceNumber, score) => ({
+    slotId: `review-${sequenceNumber}`,
+    reviewItemId: `review-${sequenceNumber}`,
+    sequenceNumber,
+    sourceWidth: 500,
+    sourceHeight: 300,
+    sourceChecksumSha256: 'a'.repeat(64),
+    latticeNodes: Array.from({ length: 24 }, (_, index) => ({
+      x: 50 + (index % 6) * 40,
+      y: 50 + Math.floor(index / 6) * 40,
+    })),
+    cutSuspicion: {
+      score,
+      reason: 'opposite_edges',
+      nodeIndices: [0, 5],
+      preferredCellIndices: [0, 1],
+      cells: [0, 1].map((cellIndex) => ({
+        cellIndex,
+        pending: cellIndex === 1,
+        target: {
+          cellReviewId: `cell-${sequenceNumber}-${cellIndex}`,
+          expectedGeometryRevision: 4,
+          expectedRevision: 7,
+          expectedCropSampleId: 'b'.repeat(64),
+          expectedCropChecksumSha256: 'c'.repeat(64),
+        },
+      })),
+    },
+  });
+  fixture.api.listImageGridReviews = async (options) => {
+    scans.push(options);
+    return {
+      data: options.afterCursor
+        ? {
+            scannedCount: 3,
+            nextCursor: null,
+            items: [item(21, 1.9), item(22, 2.5), item(23, 1.2)],
+          }
+        : { scannedCount: 500, nextCursor: 'after-empty-page', items: [] },
+    };
+  };
+  fixture.api.imageGridReviewSourceAssetUrl = () => 'data:image/svg+xml,';
+  fixture.api.applySymbolCellReviewDecision = async (
+    gameId,
+    cellId,
+    request,
+  ) => {
+    decisions.push({ gameId, cellId, request });
+    return cellId === 'cell-22-1'
+      ? { error: {}, response: { status: 409 } }
+      : { data: { catalogRevision: 1 } };
+  };
+
+  const { root } = await mount(fixture);
+  try {
+    assert.equal(scans.length, 0);
+    await click(button('Podejrzane siatki'));
+    await eventually(
+      () => document.querySelectorAll('dialog article').length === 3,
+    );
+    assert.equal(scans[0].view, 'suspicious');
+    assert.equal(scans[1].afterCursor, 'after-empty-page');
+    assert.match(document.querySelector('dialog').textContent, /503/);
+    const cards = [...document.querySelectorAll('dialog article')];
+    assert.match(cards[0].textContent, /#22/);
+    assert.equal(cards[0].querySelector('select').value, '1');
+    assert.equal(document.querySelectorAll('dialog svg').length, 3);
+    await click(document.querySelector('dialog .actions input'));
+    assert.equal(document.querySelectorAll('dialog svg').length, 0);
+
+    await click(cards[0].querySelector('input'));
+    const select = cards[1].querySelector('select');
+    await act(async () => {
+      select.value = '0';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await click(cards[1].querySelector('input'));
+    assert.equal(decisions.length, 0);
+    await click(button('Skieruj do korekty (2)'));
+    await eventually(() =>
+      document.body.textContent.includes('Nieaktualne: 1'),
+    );
+    assert.deepEqual(decisions.map(({ cellId }) => cellId).sort(), [
+      'cell-21-0',
+      'cell-22-1',
+    ]);
+    assert.ok(
+      decisions.every(
+        ({ request }) =>
+          request.action === 'mark_grid_issue' &&
+          request.expectedGeometryRevision === 4 &&
+          request.expectedRevision === 7 &&
+          request.expectedCropChecksumSha256 === 'c'.repeat(64),
+      ),
+    );
+    assert.match(cards[0].textContent, /Nieaktualna plansza lub pole/);
+    assert.match(cards[1].textContent, /W kolejce korekty/);
+    assert.match(document.body.textContent, /Skierowano do korekty: 1/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('Shift reaches beyond the virtual DOM in both directions; refetch and filter reset its anchor', async () => {
   const fixture = await createPartialReviewClient();
   const rows = Array.from({ length: 2500 }, (_, index) =>

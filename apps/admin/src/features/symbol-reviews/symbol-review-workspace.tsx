@@ -96,6 +96,10 @@ import { shouldApplyVirtualPreviewResult } from './symbol-review-virtual-window.
 import { SymbolReviewConfidenceInputs } from './symbol-review-confidence-inputs';
 import styles from './symbol-review-workspace.module.css';
 import { SymbolReviewSourceModal } from './symbol-review-source-modal';
+import {
+  SuspiciousGridGallery,
+  type SuspiciousGridGalleryClient,
+} from './suspicious-grid-gallery';
 import type { SymbolReviewSourceClient } from './symbol-review-source-context';
 
 type LoadState = 'error' | 'loading' | 'ready';
@@ -103,7 +107,8 @@ type LoadState = 'error' | 'loading' | 'ready';
 type SymbolReviewWorkspaceClient = SymbolReviewClient & SymbolReviewBulkClient;
 type SymbolReviewFullClient = SymbolReviewWorkspaceClient &
   SymbolReviewMutationClient &
-  SymbolReviewSourceClient;
+  SymbolReviewSourceClient &
+  SuspiciousGridGalleryClient;
 
 type SymbolReviewOperationDialog =
   | {
@@ -173,6 +178,7 @@ export function SymbolReviewWorkspace({
     createSymbolReviewWorkspaceState,
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
+  const [gridGalleryOpen, setGridGalleryOpen] = useState(false);
   const [importFolders, setImportFolders] = useState<
     readonly SymbolReviewImportFolder[]
   >([]);
@@ -1361,6 +1367,7 @@ export function SymbolReviewWorkspace({
   function handleKeyboardShortcut(event: KeyboardEvent) {
     if (
       event.defaultPrevented ||
+      gridGalleryOpen ||
       sourceContextItem !== null ||
       pendingFilters !== null ||
       isSymbolReviewTextEntryTarget(event.target)
@@ -1416,7 +1423,25 @@ export function SymbolReviewWorkspace({
             wybranej gry.
           </p>
         </div>
+        {filters.gameId !== null &&
+        games.some(
+          (game) => game.id === filters.gameId && game.code === 'mumie-aktu2',
+        ) ? (
+          <button onClick={() => setGridGalleryOpen(true)} type="button">
+            Podejrzane siatki
+          </button>
+        ) : null}
       </header>
+
+      {gridGalleryOpen && filters.gameId !== null ? (
+        <SuspiciousGridGallery
+          api={api}
+          gameId={filters.gameId}
+          importJobId={filters.importJobId}
+          onClose={() => setGridGalleryOpen(false)}
+          onRouted={refreshDecisionPage}
+        />
+      ) : null}
 
       {toast !== null ? (
         <div

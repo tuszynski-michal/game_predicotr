@@ -6,10 +6,17 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1249 — Galeria podejrzanych siatek Mumii A2 (done)
+
+- Plik: tasks/completed/1249-mumie-suspicious-grid-gallery.md.
+- Commit: **v1.7.675** (hash dopisuje kolejny commit).
+- Admin skanuje pełne automatyczne siatki Mumii A2 i kieruje zaznaczone plansze do kolejki z użyciem akcji Zła siatka.
+- Testy API, Admina i osobnej bazy PostgreSQL przeszły. Sprawdzono odczyt obu importów, partii całej gry i podgląd #379218 w Chrome 390 × 844 px.
+
 ### TASK-1248 — Ocena proporcji siatek Mumii A2 (done)
 
 - Plik: tasks/completed/1248-mumie-grid-proportions.md.
-- Commit: **v1.7.674** (hash dopisuje kolejny commit).
+- Commit: **v1.7.674 / `54568609f281fc8297f2380a073e40ef6d77b432`** (hash dopisuje kolejny commit).
 - Reguła trzech proporcji zwraca wynik, przyczynę i sąsiadujące pola. Testy domeny 10/10.
 - Powtórzenie pomiaru tylko do odczytu: 708 par. W odłożonych 110 parach wykryto 49/73 dużych zmian i wskazano 9/110 siatek po korekcie.
 

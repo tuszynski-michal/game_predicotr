@@ -36,7 +36,7 @@ Reguła wykorzystuje współrzędne oryginalnego zdjęcia. Próg 1,142 pochodzi 
 
 ## Outcome
 
-Commit: v1.7.674 (hash dopisuje kolejny commit).
+Commit: v1.7.674 / `54568609f281fc8297f2380a073e40ef6d77b432`.
 
 Funkcja ocenia trzy cechy geometrii, wskazuje dominującą przyczynę i odcinek
 oraz odrzuca niekompletne i zdegenerowane siatki. Dziesięć testów domenowych

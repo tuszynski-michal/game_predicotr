@@ -102,7 +102,8 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1248** — Ocena proporcji siatek Mumii A2 — v1.7.674 — tasks/completed/1248-mumie-grid-proportions.md
+- **TASK-1249** — Galeria podejrzanych siatek Mumii A2 — v1.7.675 — tasks/completed/1249-mumie-suspicious-grid-gallery.md
+- **TASK-1248** — Ocena proporcji siatek Mumii A2 — v1.7.674 / `54568609` — tasks/completed/1248-mumie-grid-proportions.md
 - **TASK-1246** — Nowy model i oba stagingi — v1.7.672 / `847967c9` — tasks/completed/1246-staging-refresh.md
 - **TASK-1245** — Nadzór postępu treningu — v1.7.667 / `c2b73c98` — tasks/completed/1245-grid-progress-supervision.md
 - **TASK-1244** — Zgodność kalkulacji Mumie A2 z A1 — v1.7.667 / `2c8e910c` — tasks/completed/1244-mumie-a2-calculation-parity.md
@@ -111,4 +112,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1239** — Doprecyzowanie zwartej wyszukiwarki — v1.7.661 / `95e4f9c2` — tasks/completed/1239-board-search-refinements.md
 - **TASK-1238** — Uproszczenie wyszukiwarki plansz — v1.7.659 / `d14cb6c7` — tasks/completed/1238-board-search-compact-ui.md
 - **TASK-1237** — Odzyskanie treningu i limit 4 h — v1.7.656 / `8137a434` — tasks/completed/1237-grid-run-budget-extension.md
-- **TASK-1235** — Timeout rejestracji kohorty — v1.7.653 / `3c1e143d` — tasks/completed/1235-grid-cohort-closure-timeout.md

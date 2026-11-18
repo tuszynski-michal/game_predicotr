@@ -39,7 +39,12 @@ def _point(value: object) -> SourcePoint:
     if not isinstance(value, dict):
         raise ValueError("Lattice points must be objects.")
     x, y = value.get("x"), value.get("y")
-    if type(x) not in (float, int) or type(y) not in (float, int):
+    if (
+        not isinstance(x, int | float)
+        or not isinstance(y, int | float)
+        or isinstance(x, bool)
+        or isinstance(y, bool)
+    ):
         raise ValueError("Lattice coordinates must be numeric.")
     return SourcePoint(float(x), float(y))
 

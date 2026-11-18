@@ -1466,6 +1466,7 @@ export interface ListImageGridReviewsOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly limit?: number;
+  readonly signal?: AbortSignal;
   // TASK-0961: `correction` computes only `counts.correction`; the other
   // counters come back as 0.
   readonly counts?: ImageGridReviewCountsMode;
@@ -4204,6 +4205,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     listImageGridReviews: (options: ListImageGridReviewsOptions) =>
       listGeneratedImageGridReviews({
         client,
+        signal: options.signal,
         path: { game_id: options.gameId },
         query: {
           ...(options.view === undefined ? {} : { view: options.view }),

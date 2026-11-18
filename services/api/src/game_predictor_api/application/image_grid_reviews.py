@@ -22,6 +22,7 @@ from game_predictor_api.domain.image_grid_reviews import (
 
 DEFAULT_IMAGE_GRID_REVIEW_PAGE_SIZE = 25
 MAX_IMAGE_GRID_REVIEW_PAGE_SIZE = 100
+MAX_SUSPICIOUS_GRID_SCAN_PAGE_SIZE = 500
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +30,8 @@ class ImageGridReviewListSlice:
     items: tuple[ImageGridReviewListItem, ...]
     has_previous: bool
     has_next: bool
+    scanned_count: int | None = None
+    last_scanned_key: tuple[int, str] | None = None
 
 
 class ImageGridReviewRepository(Protocol):
@@ -81,15 +84,19 @@ class ImageGridReviewService:
         limit: int = DEFAULT_IMAGE_GRID_REVIEW_PAGE_SIZE,
         counts: ImageGridReviewCountsMode = ImageGridReviewCountsMode.ALL,
     ) -> ImageGridReviewPage:
-        if not 1 <= limit <= MAX_IMAGE_GRID_REVIEW_PAGE_SIZE:
+        scanning = view is ImageGridReviewView.SUSPICIOUS
+        max_limit = (
+            MAX_SUSPICIOUS_GRID_SCAN_PAGE_SIZE if scanning else MAX_IMAGE_GRID_REVIEW_PAGE_SIZE
+        )
+        if not 1 <= limit <= max_limit:
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_PAGE_INVALID",
-                "The grid review page limit must be between 1 and 100.",
+                f"The grid review page limit must be between 1 and {max_limit}.",
             )
-        if after_cursor and before_cursor:
+        if before_cursor and (after_cursor or scanning):
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_CURSOR_DIRECTION_CONFLICT",
-                "Use either afterCursor or beforeCursor, not both.",
+                "Use one cursor direction. Suspicious grids support only afterCursor.",
             )
         review_filter = ImageGridReviewListFilter(
             game_id=game_id,
@@ -123,9 +130,14 @@ class ImageGridReviewService:
             limit=limit,
         )
         items = page_slice.items
+        next_key = page_slice.last_scanned_key or (items[-1].cursor_key if items else None)
         return ImageGridReviewPage(
             items=items,
-            counts=self._counts(review_filter=review_filter, mode=counts),
+            counts=self._counts(
+                review_filter=review_filter,
+                mode=ImageGridReviewCountsMode.NONE if scanning else counts,
+            ),
+            scanned_count=page_slice.scanned_count,
             previous_cursor=(
                 encode_image_grid_review_cursor(
                     review_filter=review_filter,
@@ -139,9 +151,9 @@ class ImageGridReviewService:
                 encode_image_grid_review_cursor(
                     review_filter=review_filter,
                     direction=ImageGridReviewCursorDirection.AFTER,
-                    key=items[-1].cursor_key,
+                    key=next_key,
                 )
-                if items and page_slice.has_next
+                if next_key and page_slice.has_next
                 else None
             ),
         )

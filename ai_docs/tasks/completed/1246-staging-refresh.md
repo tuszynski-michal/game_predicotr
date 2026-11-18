@@ -91,7 +91,7 @@ the approved independent Claude review before the code commit/deployment.
 
 ## Outcome
 
-Commit: v1.7.672 (hash dopisuje kolejny commit).
+Commit: v1.7.672 / `847967c91937d4786462a4461dd25390e9848791`.
 
 Initial inspection confirms both folders belong to Mumie A2, are ready and have no
 prior imports. Stable commands/receipts: `.runtime/new-model-stagings-state.json`.

@@ -223,6 +223,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/grid_correction_policy.py: correction_policy_for_mode, correction_mode_for_policy
 - domain/grid_correction_progress.py: correction_progress_counts
 - domain/grid_correction_split.py: role_boards, correction_data_availability, class CorrectionSplitError, class CorrectionSplitSource, class CorrectionImportOrder, class CorrectionRoleCount, class CorrectionSplitResult, solve_correction_split
+- domain/grid_cut_suspicion.py: class GridCutReason, class GridCutSuspicion, assess_grid_cut
 - domain/grid_detector_readiness.py: detector_readiness
 - domain/grid_engine_profiles.py: class GridEngineModelStatus, class GridEngineModelError, class GridEngineModelFile, class GridEngineReportResult, class GridEngineModelVersion, class GridEngineProfile, class GridEngineModelFileState, class GridEngineModelState, grid_engine_profile_for, neural_import_profile, grid_engine_manifest
 - domain/grid_learning_candidate_status.py: candidate_status

@@ -6,6 +6,13 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1248 — Ocena proporcji siatek Mumii A2 (done)
+
+- Plik: tasks/completed/1248-mumie-grid-proportions.md.
+- Commit: **v1.7.674** (hash dopisuje kolejny commit).
+- Reguła trzech proporcji zwraca wynik, przyczynę i sąsiadujące pola. Testy domeny 10/10.
+- Powtórzenie pomiaru tylko do odczytu: 708 par. W odłożonych 110 parach wykryto 49/73 dużych zmian i wskazano 9/110 siatek po korekcie.
+
 ### TASK-1246 — Nowy model i oba stagingi (done)
 
 - Task: `ai_docs/tasks/completed/1246-staging-refresh.md`. Commit: **v1.7.672 / `847967c91937d4786462a4461dd25390e9848791`**.

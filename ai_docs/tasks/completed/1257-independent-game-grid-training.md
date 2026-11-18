@@ -43,7 +43,7 @@ gpt-6.2-astra, high. Całość wymaga spójności przygotowania, treningu i poch
 
 ## Outcome
 
-Commit: v1.7.686 (hash dopisuje kolejny commit).
+Commit: v1.7.686 / `7c71402d2c23b33d643a77a86db39bf9fe511b10`.
 
 ### Changed
 

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1255 — Zastosowanie i cofnięcie prywatnego modelu siatek (done)
 
 - Plik: `tasks/completed/1255-private-grid-model-apply.md`.
-- Commit: **v1.7.682**.
+- Commit: **v1.7.682 / `dbd0d686f4225123192462d7d17c202e4e1ec193`**.
 - Wynik: jawne zastosowanie prywatne, atomowa publikacja i przypisanie, audytowany rollback z historią i rewizją.
 - Weryfikacja: 71 testów usług i HTTP, 69 interakcji Admina oraz izolowany PostgreSQL. Opus 5.5 runda 2 PASS, poprawka P2-3 po przeglądzie potwierdzona testem PostgreSQL.
 

@@ -63,7 +63,7 @@ potwierdzeń wymagają testów transakcyjnych. Audyt integracyjny
 
 ## Outcome
 
-Commit: v1.7.682 (hash dopisuje kolejny commit).
+Commit: v1.7.682 / `dbd0d686f4225123192462d7d17c202e4e1ec193`.
 
 ### Changed
 

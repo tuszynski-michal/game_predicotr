@@ -54,7 +54,7 @@ Rezerwacja, jawne i odłożone przypisanie, restart i retry, konflikt rewizji lu
 
 ## Outcome
 
-Commit: v1.7.678 (hash dopisuje kolejny commit).
+Commit: v1.7.678 / `711d30137ca71781faa76c246a1bd03dfda3ee3c`.
 
 ### Changed
 

@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1253 — Własność modelu i utworzenie gry (done)
 
 - Plik: `tasks/completed/1253-private-grid-model-ownership.md`.
-- Commit: **v1.7.678**.
+- Commit: **v1.7.678 / `711d30137ca71781faa76c246a1bd03dfda3ee3c`**.
 - Wynik: prywatna rezerwacja i pierwszy transfer V3, trwała własność rodziny oraz blokady wspólnych treningów, migracja `0193`. 54 testy na izolowanej bazie i w suite API.
 
 ### TASK-1249 — Galeria podejrzanych siatek Mumii A2 (done)

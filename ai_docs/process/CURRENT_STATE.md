@@ -18,7 +18,7 @@ Zamykaj task przez `scripts/close_task.py` ([procedura](../../.agents/skills/tas
 
 - **Mumie A2 / TASK-1176–1178:** kod v1.7.597 wdrożony; API/Admin/general po restarcie. bf601495:691 zdjęć/6219 plansz/0%. Ready276 TRAIN/75 nowych (~58s), canStart=true; bez nowego treningu. Źródło: `quality/REVIEW_LEARNING_RELIABILITY_DEPLOYMENT_20261110.md`.
 
-- **Mumie A2 / TASK-1199–1200:** default i gra=`abe39bce` (rev4, PASS `31a0526b`); `bf327cfa` do powrotu. Źródło: D-606.
+- **Mumie A2 / TASK-1246:** gra=6cc10344 rev7, default=01767a49 rev5; 2 siatki ręcznie. Szczegóły w Outcome.
 
 - **Uczenie siatek / TASK-1205–1206, 1212:** gate v6, trening bije bazę, bez progu zdjęć; `0189` (dev), `0190`. D-611, D-613.
 
@@ -96,16 +96,13 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Aktywne taski
 
-### TASK-1246 — Preflight (in_progress)
-
-- `tasks/1246-staging-refresh.md`: poprawka.
-
 ### TASK-1050 — Pilotaż przycinania na danych operatora (todo)
 
 - Plik: `tasks/1050-photo-crop-pilot.md`. Wariant B; TASK-1051 i TASK-1052 zaakceptowane i scalone do `main` 2026-10-18 (bez migracji). Pilot czeka na osobne zgody na każdy krok.
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1246** — Nowy model i oba stagingi — v1.7.672 — tasks/completed/1246-staging-refresh.md
 - **TASK-1245** — Nadzór postępu treningu — v1.7.667 / `c2b73c98` — tasks/completed/1245-grid-progress-supervision.md
 - **TASK-1244** — Zgodność kalkulacji Mumie A2 z A1 — v1.7.667 / `2c8e910c` — tasks/completed/1244-mumie-a2-calculation-parity.md
 - **TASK-1242** — Przyspieszenie danych — v1.7.665 / `cd83092b` — tasks/completed/1242-grid-preparation-throughput.md
@@ -115,4 +112,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1237** — Odzyskanie treningu i limit 4 h — v1.7.656 / `8137a434` — tasks/completed/1237-grid-run-budget-extension.md
 - **TASK-1235** — Timeout rejestracji kohorty — v1.7.653 / `3c1e143d` — tasks/completed/1235-grid-cohort-closure-timeout.md
 - **TASK-1234** — Large grid cohort metadata — v1.7.649 / `a79b12ab` — tasks/completed/1234-grid-cohort-large-metadata.md
-- **TASK-1232** — Wygrane na wykresie i miniatura — v1.7.647 / `3eee4c31` — tasks/completed/1232-board-search-winning-chart-preview.md

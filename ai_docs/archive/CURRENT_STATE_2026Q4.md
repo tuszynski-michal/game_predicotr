@@ -6,6 +6,14 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1246 — Nowy model i oba stagingi (done)
+
+- Task: `ai_docs/tasks/completed/1246-staging-refresh.md`. Commit: **v1.7.672**.
+- Model siatek 6cc10344 aktywny dla Mumie A2 (rev7); v1.7.671 wdrożony po zgodzie. Oba nowe preflighty i importy przypięte do tego modelu.
+- 5567/5567 zdjęć przetworzonych, 0 błędów; 50083 siatki i 751245 symboli czekają na weryfikację. Zachowano kanoniczne źródła; plansze 404094 i 407991 wymagają ręcznej korekty siatki (incomplete_lattice).
+- 121 testów PASS; Claude PASS (0 P0/P1/P2); kontrola kodu/dokumentacji PASS, z ograniczeniem pełnego typecheck opisanym w Outcome. Sześć rzeczywistych wycinków sprawdzonych; wszystkie 5567 oryginałów i manifesty zachowane.
+- Wynik i identyfikatory: `ai_docs/quality/TASK-1246_STAGING_DEPLOYMENT_20261118.md`; szczegółowy dowód `.runtime/task1246-deployment.json`. 45 lokalnych zmian i pozostałe katalogi pracy zachowane; bez nowego treningu i restartu workerów.
+
 ### TASK-1245 — Nadzór postępu treningu (done)
 
 - Plik: `ai_docs/tasks/completed/1245-grid-progress-supervision.md`.

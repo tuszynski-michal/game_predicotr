@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1249 — Galeria podejrzanych siatek Mumii A2 (done)
 
 - Plik: tasks/completed/1249-mumie-suspicious-grid-gallery.md.
-- Commit: **v1.7.675** (hash dopisuje kolejny commit).
+- Commit: **v1.7.675 / `43e14c4fe0cc07128cfed3d9c3084a79319170f5`** (hash dopisuje kolejny commit).
 - Admin skanuje pełne automatyczne siatki Mumii A2 i kieruje zaznaczone plansze do kolejki z użyciem akcji Zła siatka.
 - Testy API, Admina i osobnej bazy PostgreSQL przeszły. Sprawdzono odczyt obu importów, partii całej gry i podgląd #379218 w Chrome 390 × 844 px.
 

@@ -41,7 +41,7 @@ Istniejący odczyt `grid-reviews` otrzymuje widok `suspicious`, a operacja `mark
 
 ## Outcome
 
-Commit: v1.7.675 (hash dopisuje kolejny commit).
+Commit: v1.7.675 / `43e14c4fe0cc07128cfed3d9c3084a79319170f5`.
 
 Galeria działa w Weryfikacji symboli dla `mumie-aktu2`. Widok odczytu
 skanuje strony według bieżącego właściciela numeru. Admin wysyła osobną

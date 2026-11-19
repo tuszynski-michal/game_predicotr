@@ -441,6 +441,12 @@ class SqlAlchemyGridModelRegistryRepository:
             self.session.scalar(
                 text("""SELECT job.id FROM public.jobs job
                     WHERE job.status IN ('created', 'processing', 'waiting_for_review')
+                      -- Image imports can stay open for human review after cutting.
+                      -- Their stored boards remain editable across private enrollment.
+                      AND NOT (job.job_type='import' AND job.status='waiting_for_review'
+                        AND COALESCE(job.input_payload->>'import_kind', '') = 'image_directory'
+                        AND COALESCE(job.stage, '') IN ('image_pipeline:symbol_inference',
+                          'image_pipeline:manual_review', 'image_pipeline:validation'))
                       AND job.job_type IN ('grid_training', 'grid_model_evaluation',
                         'grid_correction_learning', 'import', 'image_grid_reinference',
                         'image_geometry_rollout_backfill')

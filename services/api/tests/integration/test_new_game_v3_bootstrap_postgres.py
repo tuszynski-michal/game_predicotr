@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -112,7 +113,7 @@ def database():
         maintenance.dispose()
 
 
-def test_private_enrollment_fences_other_games_queued_and_historical_cohorts(database, tmp_path):
+def shared_grid_catalog(database, tmp_path):
     engine, role, _, _ = database
     with engine.begin() as connection:
         assert not connection.scalar(text("SELECT bool_or(grid_model_private) FROM public.games"))
@@ -142,6 +143,64 @@ def test_private_enrollment_fences_other_games_queued_and_historical_cohorts(dat
         baseline_id = baseline.id
         session.commit()
 
+    return engine, new_session, service, first, second, baseline_id
+
+
+def test_private_enrollment_preserves_import_waiting_for_review(database, tmp_path):
+    _, new_session, service, first, _, baseline_id = shared_grid_catalog(database, tmp_path)
+    with new_session() as session:
+        imported = job_record_from_domain(
+            create_job(
+                JobType.IMPORT,
+                game_id=first,
+                input_payload={"schema_version": 1, "import_kind": "image_directory"},
+            )
+        )
+        imported.stage = "image_pipeline:symbol_inference"
+        session.add(imported)
+        session.flush()
+        repository = service(session).registry.repository
+        assert repository.active_grid_operation(first) == imported.id
+        processing = session.begin_nested()
+        imported.status = JobStatus.PROCESSING
+        imported.execution_slot = 1
+        imported.lease_owner, imported.lease_token = "test-import-worker", uuid4()
+        imported.heartbeat_at = imported.created_at
+        imported.lease_expires_at = imported.created_at + timedelta(minutes=1)
+        session.flush()
+        assert repository.active_grid_operation(first) == imported.id
+        processing.rollback()
+        imported.status = JobStatus.WAITING_FOR_REVIEW
+        for stage in (None, "image_pipeline:board_detection"):
+            imported.stage = stage
+            session.flush()
+            assert repository.active_grid_operation(first) == imported.id
+        for stage in (
+            "image_pipeline:symbol_inference",
+            "image_pipeline:manual_review",
+            "image_pipeline:validation",
+        ):
+            imported.stage = stage
+            session.flush()
+            assert repository.active_grid_operation(first) is None
+        imported_id = imported.id
+        session.commit()
+    with new_session() as session:
+        result = service(session).enable_private_model(
+            game_id=first, key=uuid4(), expected_revision=1, actor="local-owner"
+        )
+        assert result["versionId"] == str(baseline_id)
+        session.commit()
+    with new_session() as session:
+        assert session.execute(
+            text("SELECT status,stage FROM public.jobs WHERE id=:job"), {"job": imported_id}
+        ).one() == ("waiting_for_review", "image_pipeline:validation")
+
+
+def test_private_enrollment_fences_other_games_queued_and_historical_cohorts(database, tmp_path):
+    engine, new_session, service, first, second, baseline_id = shared_grid_catalog(
+        database, tmp_path
+    )
     cohort_id = uuid4()
 
     def shared_job():

@@ -37,6 +37,10 @@ pozostaje niezależne od własności. Istniejąca gra może włączyć tryb jawn
 swojego aktualnego przypisania. To przejście wymaga zgodnej rewizji i braku
 aktywnej operacji geometrii w zakresie gry. Zapisuje własną historię.
 
+Doprecyzowanie operatora, 2026-11-19: oczekujący na człowieka import zdjęć po
+cięciu (etap rozpoznawania symboli, przeglądu lub walidacji) nie wykonuje
+operacji geometrii. Może pozostać w tym stanie przy rezerwacji rodziny.
+
 **Alternatywy.** Jedna wspólna rodzina uprościłaby publikację kosztem
 uzależnienia gier od wspólnego cyklu i połączenia danych do nauki. Kopia
 wersji bazowej per gra powielałaby dowody i tożsamości artefaktów bez

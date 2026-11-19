@@ -347,6 +347,8 @@ Panel Admina dla aktywnej gry pokazuje co najmniej:
   osobnych wersji pipeline'u i osobnych bramek jakości,
 - chmura, Redis/Celery i zewnętrzny serwis treningowy.
 
+Import zdjęć z gotowymi wycinkami może pozostać otwarty do ręcznej korekty podczas włączania prywatnej rodziny gry. Rezerwacja rodziny zachowuje przypisaną wersję modelu oraz dotychczasowe siatki i rozpoznania. Trening przygotowuje kandydata; przeliczenie istniejących plansz wymaga osobnego wyboru zakresu przez operatora.
+
 ## Rozszerzenie geometrii w wersji 0.5
 
 Uczenie symboli pozostaje niezależne od kalibracji siatki. Wersja 0.5 dodaje

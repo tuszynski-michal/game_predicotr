@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1261 — Trening z wgranych plansz (done)
+
+- Plik: `tasks/completed/1261-training-with-imported-boards.md`.
+- Commit: **v1.7.693** (hash dopisuje kolejny commit).
+- Oczekujący import po cięciu pozostaje otwarty przy włączeniu rodziny. Nowa regresja PostgreSQL, idempotencja i typy PASS. Starszy test syntetycznej wersji prywatnej opisano w Outcome.
+
 ### TASK-1259 — Seria zdjęć w Reviewerze (done)
 
 - Plik: `tasks/completed/1259-reviewer-photo-series.md`.

@@ -23,7 +23,7 @@ Polecenie operatorskie, istniejący magazyn i worker ponownego rozpoznawania, do
 
 ## Outcome
 
-Commit: v1.7.697 (hash dopisuje kolejny commit).
+Commit: v1.7.697 / `315d0e975d5770adaf7585fb5e64ebbfc1c6568b`.
 
 Kolejka przelicza zarezerwowane plansze w partiach po 100 według wyniku filtru. Wyjątek obejmuje wyłącznie kandydata 9404ced0 i tę kolejkę. Geometria, 15 klasyfikacji oraz dane wyszukiwania są zapisywane razem. Worker pomija plansze chronione ręczną decyzją. Przerwanie i wznowienie zachowuje kolejność oraz rozliczenie partii.
 

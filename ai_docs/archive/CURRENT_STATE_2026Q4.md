@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1265 — Partie podejrzanych siatek Mumii A2 (done)
 
 - Plik: `tasks/completed/1265-mumie-suspicious-batches.md`.
-- Commit: **v1.7.697** (hash dopisuje kolejny commit).
+- Commit: **v1.7.697 / `315d0e975d5770adaf7585fb5e64ebbfc1c6568b`** (hash dopisuje kolejny commit).
 - D-620: pojedynczy kandydat dla zarezerwowanych plansz, zapis geometrii, 15 symboli i wyszukiwania w transakcji, pauza na granicy partii.
 - 68 testów jednostkowych i pięć scenariuszy PostgreSQL. Dwa błędy mocka potwierdzone na main. Odczyt pierwszej setki: 99 kwalifikujących się plansz, jedna chroniona. Wdrożenie i produkcyjna kolejka czekają na osobną zgodę.
 

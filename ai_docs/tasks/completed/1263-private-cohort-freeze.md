@@ -16,6 +16,6 @@ Zamknąć przygotowany zestaw bez oczekiwania na blokadę własnego procesu i po
 
 ## Outcome
 
-Commit: v1.7.695 (hash dopisuje kolejny commit).
+Commit: v1.7.695 / `9ca7cd809d2e14425912d5993eb93e182cd2a8a0`.
 
 Regresja na osobnej bazie PostgreSQL sprawdziła możliwość przejęcia blokady przez drugie połączenie i niezmieniony klucz komendy. Ruff PASS. Mypy wykazał dwie uwagi w istniejącej metodzie resume (odczyt pins), poza zmienionym krokiem.

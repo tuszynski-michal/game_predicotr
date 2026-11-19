@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.domain.grid_correction_evaluation import CHECKPOINT_RULE, build_report
+from game_predictor_api.domain.grid_model_evaluation import proof_state
 from game_predictor_api.domain.grid_model_registry import (
     GridModelRegistryError,
     canonical_json,
@@ -142,3 +143,39 @@ def test_scoped_activation_requires_game_inside_evaluated_scope(controls, monkey
         with pytest.raises(GridModelRegistryError, match="GRID_MODEL_EVALUATION_REQUIRED"):
             execute(service, "activate", c.candidate["versionId"], game=c.other)
         assert service.repository.assignment(c.other)[0] is None
+
+
+def test_only_assigned_comparison_can_use_later_notices(controls, monkeypatch):
+    c = controls
+    with Session(c.engine) as session:
+        service, report_id, _ = scoped_fixture(c, session, monkeypatch)
+        version = c.candidate["versionId"]
+        execute(service, "publish", version, evaluation=report_id)
+        execute(service, "activate", version, game=c.game, expected=1)
+        location = {"status": "active", "generation": 1}
+
+        def proof_for_cohort(self, identifier, cohorts, *, comparison_game=None):
+            assert identifier == report_id
+            pin = cohorts[0]
+            key = (pin["gameId"], pin["cohortId"])
+            proof = {
+                "manifestSha256": pin["manifestSha256"],
+                "noticeCount": 1,
+                "storageGeneration": 1,
+            }
+            return proof_state(
+                cohorts, {key: proof}, {key: 2}, {key[0]: location}, comparison_game=comparison_game
+            )
+
+        monkeypatch.setattr(
+            SqlAlchemyGridModelRegistryRepository, "cohort_currentness", proof_for_cohort
+        )
+        view, evidence = service.control.assigned_comparison_reference(c.game)
+        assert view["manifest"]["versionId"] == version and evidence["evaluationId"] == str(
+            report_id
+        )
+        with pytest.raises(GridModelRegistryError, match="GRID_MODEL_EVALUATION_STALE"):
+            service.control.eligible(UUID(version))
+        location["generation"] = 2
+        with pytest.raises(GridModelRegistryError, match="GRID_MODEL_EVALUATION_STALE"):
+            service.control.assigned_comparison_reference(c.game)

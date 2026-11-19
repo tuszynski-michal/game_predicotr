@@ -76,7 +76,11 @@ def storage_location(session: Session, game_id: UUID) -> dict[str, Any] | None:
 
 
 def cohort_currentness(
-    session: Session, report_id: UUID, cohorts: Sequence[Mapping[str, Any]]
+    session: Session,
+    report_id: UUID,
+    cohorts: Sequence[Mapping[str, Any]],
+    *,
+    comparison_game: UUID | None = None,
 ) -> list[dict[str, Any]]:
     locations = {
         entry["gameId"]: storage_location(session, UUID(entry["gameId"])) for entry in cohorts
@@ -87,7 +91,13 @@ def cohort_currentness(
         )
         for entry in cohorts
     }
-    return proof_state(cohorts, latest_proofs(session, report_id), counts, locations)
+    return proof_state(
+        cohorts,
+        latest_proofs(session, report_id),
+        counts,
+        locations,
+        comparison_game=comparison_game,
+    )
 
 
 def family_games(session: Session, family_id: UUID) -> set[str]:

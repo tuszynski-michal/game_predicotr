@@ -39,7 +39,11 @@ class GridModelControlRepository(Protocol):
     ) -> None: ...
     def history(self, game_id: UUID | None) -> list[dict[str, Any]]: ...
     def cohort_currentness(
-        self, report_id: UUID, cohorts: Sequence[Mapping[str, Any]]
+        self,
+        report_id: UUID,
+        cohorts: Sequence[Mapping[str, Any]],
+        *,
+        comparison_game: UUID | None = None,
     ) -> list[dict[str, Any]]: ...
     def family_games(self, family_id: UUID) -> set[str]: ...
     def require_production_content_freshness(self, report: dict[str, Any], root: Any) -> None: ...
@@ -73,6 +77,7 @@ class GridModelPublicationService:
         evaluation_id: UUID | None,
         game_id: UUID | None,
         *,
+        comparison_game: UUID | None = None,
         publishing: bool = False,
         setting_default: bool = False,
     ) -> dict[str, Any]:
@@ -145,7 +150,9 @@ class GridModelPublicationService:
                 parsed_report, getattr(self.registry.inspector, "root", None)
             )
         if evidence.cohorts:
-            self._require_current(evidence.report_id, evidence.cohorts)
+            self._require_current(
+                evidence.report_id, evidence.cohorts, comparison_game=comparison_game
+            )
             if publishing and not evidence.scoped:
                 missing = sorted(
                     self.repository.family_games(UUID(manifest["familyId"]))
@@ -177,10 +184,29 @@ class GridModelPublicationService:
             "manifestSha256": view["manifestSha256"],
         }
 
-    def _require_current(self, report_id: UUID, cohorts: Sequence[Mapping[str, Any]]) -> None:
+    def _require_current(
+        self,
+        report_id: UUID,
+        cohorts: Sequence[Mapping[str, Any]],
+        *,
+        comparison_game: UUID | None = None,
+    ) -> None:
         """D-559: every cohort's latest proof must match today's notice watermark and the
         game's active storage generation; a deleted game is never current."""
-        for state in self.repository.cohort_currentness(report_id, cohorts):
+        states = (
+            self.repository.cohort_currentness(report_id, cohorts)
+            if comparison_game is None
+            else self.repository.cohort_currentness(
+                report_id, cohorts, comparison_game=comparison_game
+            )
+        )
+        for state in states:
+            if (
+                comparison_game is not None
+                and state["gameId"] == str(comparison_game)
+                and state["state"] == "later_notices"
+            ):
+                continue
             if state["state"] == "current":
                 continue
             missing = state["state"] == "missing"
@@ -212,7 +238,6 @@ class GridModelPublicationService:
         setting_default: bool = False,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Registry view already inspected artifact bytes; avoid hashing them twice."""
-        version_id = UUID(view["manifest"]["versionId"])
         owner = view.get("ownerGameId")
         if owner is not None and (setting_default or owner != str(game_id)):
             raise GridModelRegistryError(
@@ -221,11 +246,41 @@ class GridModelPublicationService:
             )
         if not view["available"]:
             raise GridModelRegistryError("GRID_MODEL_ARTIFACT_UNAVAILABLE", view["reasonCode"])
-        publication = self.repository.publication(version_id)
+        evidence = self._publication_evidence(
+            view, game_id=game_id, setting_default=setting_default
+        )
+        return {**view, "eligible": True, "eligibilityReasonCode": "GRID_MODEL_ELIGIBLE"}, evidence
+
+    def assigned_comparison_reference(self, game_id: UUID) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Read this game's existing shared assignment under the enrollment lock."""
+        head, _ = self.repository.assignment(game_id)
+        if head is None:
+            raise GridModelRegistryError("GRID_MODEL_REVISION_CONFLICT", "No assigned baseline.")
+        view = self._version(head.version_id)
+        if view.get("ownerGameId") is not None:
+            raise GridModelRegistryError(
+                "GRID_MODEL_PRIVATE_OWNER_MISMATCH", "Expected a shared baseline."
+            )
+        evidence = self._publication_evidence(view, comparison_game=game_id)
+        return view, evidence
+
+    def _publication_evidence(
+        self,
+        view: dict[str, Any],
+        *,
+        game_id: UUID | None = None,
+        setting_default: bool = False,
+        comparison_game: UUID | None = None,
+    ) -> dict[str, Any]:
+        publication = self.repository.publication(UUID(view["manifest"]["versionId"]))
         if publication is None:
             raise GridModelRegistryError("GRID_MODEL_NOT_PUBLISHED", "Version is not published.")
         evidence = self._evidence(
-            view, publication.evaluation_id, game_id, setting_default=setting_default
+            view,
+            publication.evaluation_id,
+            game_id,
+            setting_default=setting_default,
+            comparison_game=comparison_game,
         )
         if (
             canonical_json(evidence) != publication.evidence_json
@@ -234,7 +289,7 @@ class GridModelPublicationService:
             raise GridModelRegistryError(
                 "GRID_MODEL_PUBLICATION_STALE", "Published evidence no longer matches."
             )
-        return {**view, "eligible": True, "eligibilityReasonCode": "GRID_MODEL_ELIGIBLE"}, evidence
+        return evidence
 
     def default_view(self) -> dict[str, Any]:
         default = self.repository.default()

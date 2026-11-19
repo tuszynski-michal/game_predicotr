@@ -410,6 +410,8 @@ def proof_state(
     proofs: Mapping[tuple[str, str], Mapping[str, Any]],
     counts: Mapping[tuple[str, str], int],
     locations: Mapping[str, Mapping[str, Any] | None],
+    *,
+    comparison_game: UUID | None = None,
 ) -> list[dict[str, Any]]:
     """Currentness of each cohort: its latest proof, the notice watermark and storage now.
 
@@ -426,9 +428,11 @@ def proof_state(
             state = "missing"
         elif location is None or location["status"] != "active":
             state = "unavailable"
-        elif int(proof["noticeCount"]) != current or int(proof["storageGeneration"]) != int(
-            location["generation"]
-        ):
+        elif int(proof["storageGeneration"]) != int(location["generation"]):
+            state = "stale"
+        elif str(comparison_game) == entry["gameId"] and int(proof["noticeCount"]) < current:
+            state = "later_notices"
+        elif int(proof["noticeCount"]) != current:
             state = "stale"
         else:
             state = "current"

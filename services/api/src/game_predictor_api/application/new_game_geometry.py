@@ -306,7 +306,7 @@ class NewGameGeometryService:
             )
             error.details = {"jobId": str(active)}
             raise error
-        view, evidence = self._eligible_shared_base(head.version_id)
+        view, evidence = self.registry.control.assigned_comparison_reference(game_id)
         lineage = repository.lineage(head.version_id)
         repository.mark_game_grid_model_private(game_id)
         family_id = self._private_fork(game_id, game.name, view, lineage, actor)

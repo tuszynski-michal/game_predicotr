@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1262 — Wersja odniesienia po korektach (done)
+
+- Plik: `tasks/completed/1262-assigned-grid-comparison.md`.
+- Commit: **v1.7.694** (hash dopisuje kolejny commit).
+- Aktualne przypisanie przy prywatnym treningu od zera dopuszcza korekty etykiet gry po dawnej ocenie. Publikacja i zmiana generacji nadal chronione. Pięć testów, Ruff i mypy PASS.
+
 ### TASK-1261 — Trening z wgranych plansz (done)
 
 - Plik: `tasks/completed/1261-training-with-imported-boards.md`.

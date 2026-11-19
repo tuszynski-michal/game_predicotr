@@ -610,10 +610,16 @@ class SqlAlchemyGridModelRegistryRepository:
         return report, invalidated
 
     def cohort_currentness(
-        self, report_id: UUID, cohorts: Sequence[Mapping[str, Any]]
+        self,
+        report_id: UUID,
+        cohorts: Sequence[Mapping[str, Any]],
+        *,
+        comparison_game: UUID | None = None,
     ) -> list[dict[str, Any]]:
         """D-559 barrier: public proofs and notice watermarks only, no game partition."""
-        return evaluation_evidence.cohort_currentness(self.session, report_id, cohorts)
+        return evaluation_evidence.cohort_currentness(
+            self.session, report_id, cohorts, comparison_game=comparison_game
+        )
 
     def family_games(self, family_id: UUID) -> set[str]:
         return evaluation_evidence.family_games(self.session, family_id)

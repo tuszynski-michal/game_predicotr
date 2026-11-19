@@ -24,6 +24,8 @@ Operator potwierdził, że Mumie A2 mają się nauczyć ramek i podziału pól o
 
 Uściśla D-618. Dotychczas przypisany model określa punkt odniesienia do oceny i cofnięcia oraz historię ekspozycji zdjęć. Pomiar treningu od zera wymaga osobnych danych do nauki i ślepej oceny. Rola danych, ochrona nagrań i rygory publikacji nadal obowiązują. Zlecenie przygotowania tej funkcji obejmuje kod i testy na gałęzi roboczej. Rzeczywisty trening, aktywacja i wdrożenie wymagają odrębnych decyzji.
 
+Doprecyzowanie operatora 2026-11-19: przy włączaniu prywatnej rodziny od bieżącego przypisania późniejsze korekty etykiet tej gry nie unieważniają historycznego punktu odniesienia. Wymagane są nadal opublikowane dowody, zgodny manifest i generacja danych. Publikacja i aktywacja wymagają aktualnej oceny.
+
 ## D-618 — Prywatne rodziny cięcia siatek nowych gier V3
 
 Status: accepted. Data: 2026-11-18. TASK-1253 i [plan](../../delivery/PRIVATE_GAME_GRID_MODELS_PLAN_20261118.md).

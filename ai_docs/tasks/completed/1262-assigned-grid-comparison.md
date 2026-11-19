@@ -16,6 +16,6 @@ Włączyć niezależny pierwszy trening z aktualnych zatwierdzeń po poprawieniu
 
 ## Outcome
 
-Commit: v1.7.694 (hash dopisuje kolejny commit).
+Commit: v1.7.694 / `343ece9a164191638d1c58d288492c44802373a7`.
 
 Regresja oceny przypisanej wersji, test idempotencji i ochrona usuniętego lub przeniesionego magazynu przeszły (5 przypadków). Ruff i mypy pięciu modułów przeszły. Zmiana dotyczy odczytu dotychczasowego przypisania pod blokadą rejestru i dopuszcza tylko przyrost powiadomień tej samej gry przy tej samej generacji danych.

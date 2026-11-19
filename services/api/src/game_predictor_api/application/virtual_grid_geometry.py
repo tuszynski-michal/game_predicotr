@@ -1045,6 +1045,7 @@ class VirtualGridGeometryService:
         require_complete_source: bool = True,
         predict: bool = True,
         automatic: bool = False,
+        symbol_model: Mapping[str, object] | None = None,
     ) -> tuple[
         PreparedVirtualGridGeometrySource,
         dict[UUID, tuple[VirtualCellRender, ...]],
@@ -1099,6 +1100,19 @@ class VirtualGridGeometryService:
                     pending_geometry_id=source_command.pending_geometry_id,
                 )
             )
+            if symbol_model is not None:
+                from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
+
+                classifier = SymbolModelJobSnapshot.from_payload(symbol_model)
+                context = replace(
+                    context,
+                    pending_symbol_model=symbol_model,
+                    render_configuration=replace(
+                        context.render_configuration,
+                        output_width=classifier.crop_output_size,
+                        output_height=classifier.crop_output_size,
+                    ),
+                )
             context = bind_manual_crop_policy(context, source_command.crop_policy_version)
             _require_expected_context(
                 context,
@@ -1420,12 +1434,14 @@ class VirtualGridGeometryService:
         self,
         context: VirtualGridGeometryContext,
         renders: Sequence[VirtualCellRender],
+        *,
+        existing_board: bool = False,
     ) -> VirtualSlotPrediction | None:
         """Classify a still-deferred slot with its import's pinned model."""
 
         if (
             self._symbol_predictor is None
-            or context.review_item_id is not None
+            or (context.review_item_id is not None and not existing_board)
             or context.pending_symbol_model is None
         ):
             return None

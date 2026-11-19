@@ -35,6 +35,7 @@ from game_predictor_api.application.grid_reinference_stats import (
     refresh_effect_gap,
     stats_enabled,
 )
+from game_predictor_api.domain import mumie_suspicious_batch as mumie
 from game_predictor_api.domain.grid_recognition_status import frozen_recognition_status
 from game_predictor_api.domain.jobs import (
     Job,
@@ -74,6 +75,32 @@ from game_predictor_api.storage.job_repository import (
     job_record_from_domain,
 )
 from game_predictor_api.storage.models import GameModel, JobModel
+
+
+def _scope_signature(
+    game_id: UUID,
+    command: dict[str, Any],
+    snapshot: dict[str, Any],
+    acceptance_policy: str,
+    operation_pin: object,
+    symbol_pin: object,
+) -> str:
+    return digest(
+        {
+            "gameId": str(game_id),
+            "selector": command["selector"],
+            "model": snapshot,
+            "runtime": RUNTIME_POLICY,
+            "writePolicy": CONTRACT,
+            "acceptancePolicy": acceptance_policy,
+            OPERATION_PIN_KEY: operation_pin,
+            **(
+                {"suspiciousBatch": command["suspiciousBatch"], "symbolSnapshot": symbol_pin}
+                if "suspiciousBatch" in command
+                else {}
+            ),
+        }
+    )
 
 
 def is_grid_reinference(job: Job) -> bool:
@@ -236,6 +263,45 @@ class SqlAlchemyGridReinferenceRepository:
         assert snapshot is not None
         return snapshot, 0 if assignment is None else assignment.revision
 
+    def _command_model(self, game_id: UUID, command: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        if "suspiciousBatch" not in command:
+            return self.model(game_id, command.get("modelVersionId"))
+        mumie.require_batch(game_id, command)
+        game = self.session.get(GameModel, game_id)
+        repository = SqlAlchemyGridModelRegistryRepository(self.session)
+        repository.lock()
+        record = repository.version(mumie.VERSION)
+        if game is None or record is None:
+            conflict("SUSPICIOUS_MODEL", "The approved queue model is missing.")
+        registry = GridModelRegistryService(
+            repository, GridModelArtifactInspector(self.artifact_root)
+        )
+        view = registry.view(record, include_eligibility=False, inference_only=True)
+        report, invalidated = repository.evaluation(mumie.REPORT)
+        if (
+            report is None
+            or invalidated
+            or report.version_id != mumie.VERSION
+            or json.loads(report.report_json).get("verdict") != "REVISE"
+        ):
+            conflict("SUSPICIOUS_REPORT", "The reviewed assessment is missing or invalidated.")
+        assignment, _ = repository.assignment(game_id)
+        if (
+            view["ownerGameId"] != str(game_id)
+            or not view["available"]
+            or view["manifestSha256"] != mumie.MANIFEST
+            or view["manifest"]["familyId"] != str(mumie.FAMILY)
+            or assignment is None
+            or assignment.version_id != mumie.BASE
+        ):
+            conflict("SUSPICIOUS_MODEL", "The approved model or its game baseline changed.")
+        return NeuralGridSnapshot.from_catalogue(
+            game_id=str(game_id),
+            game_configuration=str(game.shape_geometry_configuration),
+            expected_layout_count=game.expected_layout_count,
+            descriptor=view["manifest"],
+        ).to_payload(), assignment.revision
+
     def prepare(self, game_id: UUID, command: dict[str, Any], actor: str) -> dict[str, Any]:
         self.key_lock(f"{game_id}:grid-prepare:{command['idempotencyKey']}")
         self.bind(game_id)
@@ -249,7 +315,7 @@ class SqlAlchemyGridReinferenceRepository:
             if old.command_sha256 != digest(command):
                 conflict("IDEMPOTENCY_CONFLICT", "The prepare key has different content.")
             return self.view(old, old.document["prepareReceipt"])
-        snapshot, revision = self.model(game_id, command.get("modelVersionId"))
+        snapshot, revision = self._command_model(game_id, command)
         from .job_repository import SqlAlchemyJobRepository
         from .neural_grid_operation_qualification import prepare_operation_pin
 
@@ -271,6 +337,19 @@ class SqlAlchemyGridReinferenceRepository:
             artifact_root=self.artifact_root,
         )
         acceptance_policy = acceptance_for_operation_pin(operation_pin)
+        queue = "suspiciousBatch" in command
+        symbol_pin = None
+        if queue:
+            if acceptance_policy != "v3-symbol-review-v1":
+                conflict("SUSPICIOUS_POLICY", "Only pending symbol review is authorized.")
+            from .symbol_model_snapshot_resolver import SqlAlchemySymbolModelSnapshotResolver
+
+            symbol = SqlAlchemySymbolModelSnapshotResolver(
+                self.session, artifact_root=self.artifact_root
+            ).resolve(game_id=game_id)
+            if symbol.inference_mode == "unclassified":
+                conflict("SUSPICIOUS_SYMBOL_MODEL", "The queue needs a symbol classifier.")
+            symbol_pin = symbol.to_payload()
         acquire_job_admission(self.session, game_id)
         operation_id = uuid4()
         job = create_job(
@@ -287,16 +366,8 @@ class SqlAlchemyGridReinferenceRepository:
                 "stats_policy": STATS_POLICY,
             },
         )
-        signature = digest(
-            {
-                "gameId": str(game_id),
-                "selector": command["selector"],
-                "model": snapshot,
-                "runtime": RUNTIME_POLICY,
-                "writePolicy": CONTRACT,
-                "acceptancePolicy": acceptance_policy,
-                OPERATION_PIN_KEY: operation_pin,
-            }
+        signature = _scope_signature(
+            game_id, command, snapshot, acceptance_policy, operation_pin, symbol_pin
         )
         receipt = {
             "kind": "prepare",
@@ -317,7 +388,8 @@ class SqlAlchemyGridReinferenceRepository:
             "modelSnapshot": snapshot,
             "acceptancePolicy": acceptance_policy,
             OPERATION_PIN_KEY: operation_pin,
-            "runtimePolicy": RUNTIME_POLICY,
+            "runtimePolicy": mumie.RUNTIME if queue else RUNTIME_POLICY,
+            **({"symbolSnapshot": symbol_pin} if queue else {}),
             "assignmentRevision": revision,
             "executionScope": command["executionScope"],
             "scopeSignature": signature,
@@ -364,9 +436,7 @@ class SqlAlchemyGridReinferenceRepository:
         if kind == "start":
             repository = SqlAlchemyGridModelRegistryRepository(self.session)
             repository.lock()
-            snapshot, revision = self.model(
-                game_id, initial.document["command"].get("modelVersionId")
-            )
+            snapshot, revision = self._command_model(game_id, initial.document["command"])
             if digest(snapshot) != digest(initial.document["modelSnapshot"]) or (
                 initial.document["command"].get("modelVersionId") is None
                 and revision != initial.document["assignmentRevision"]
@@ -484,11 +554,37 @@ class SqlAlchemyGridReinferenceRepository:
             or operation.document["modelSnapshot"] != job.input_payload["model_snapshot"]
             or operation.document["acceptancePolicy"] != job.input_payload["acceptance_policy"]
             or operation.document.get(OPERATION_PIN_KEY) != job.input_payload.get(OPERATION_PIN_KEY)
-            or operation.document["runtimePolicy"] != job.input_payload["runtime_policy"]
-            or operation.document["runtimePolicy"] != RUNTIME_POLICY
+            or job.input_payload["runtime_policy"] != RUNTIME_POLICY
+            or operation.document["runtimePolicy"]
+            != (
+                mumie.RUNTIME
+                if "suspiciousBatch" in operation.document["command"]
+                else RUNTIME_POLICY
+            )
             or operation.document["acceptancePolicy"] not in V3_ENGINE_ACCEPTANCE_POLICIES
         ):
             conflict("PAYLOAD_INVALID", "The operation and immutable job pin differ.")
+        is_queue = "suspiciousBatch" in operation.document["command"]
+        if ("symbolSnapshot" in operation.document) != is_queue:
+            conflict("PAYLOAD_INVALID", "The classifier pin differs from the batch scope.")
+        if is_queue:
+            document = operation.document
+            mumie.require_batch(job.game_id, document["command"])
+            if (
+                digest(document["command"]) != operation.command_sha256
+                or _scope_signature(
+                    job.game_id,
+                    document["command"],
+                    document["modelSnapshot"],
+                    document["acceptancePolicy"],
+                    document[OPERATION_PIN_KEY],
+                    document["symbolSnapshot"],
+                )
+                != document["scopeSignature"]
+            ):
+                conflict("SUSPICIOUS_SCOPE", "The queue manifest or classifier pin changed.")
+            if operation.document["acceptancePolicy"] != "v3-symbol-review-v1":
+                conflict("SUSPICIOUS_POLICY", "The queue only produces pending symbols.")
         stats_enabled(operation.document, job.input_payload)
         from game_predictor_api.domain.neural_grid_operation_pin import require_operation_pin
         from game_predictor_api.domain.v3_engine_acceptance import (
@@ -524,12 +620,23 @@ class SqlAlchemyGridReinferenceRepository:
         if imports:
             import_filter = " AND s.import_job_id = ANY(CAST(:imports AS uuid[]))"
             params["imports"] = imports
+        if "suspiciousBatch" in d["command"]:
+            pins = mumie.require_batch(operation.game_id, d["command"])
+            import_filter += " AND s.id = ANY(CAST(:queue_sources AS uuid[]))"
+            params["queue_sources"] = [pin["source"] for pin in pins]
+        order = (
+            "array_position(CAST(:queue_sources AS uuid[]),s.id)"
+            if "queue_sources" in params
+            else "s.import_job_id,jf.order_index,s.id"
+        )
         limit = " LIMIT 100" if d["executionScope"] == "pilot" else ""
         # Statement snapshot fixes occurrence membership, never a UUID high watermark.
         sql = (
             """INSERT INTO grid_reinference_sources
         (game_id,operation_id,ordinal,source_image_id,live_source_image_id,document)
-        SELECT :game,:op,row_number() OVER(ORDER BY s.import_job_id,jf.order_index,s.id),s.id,s.id,
+        SELECT :game,:op,row_number() OVER(ORDER BY """
+            + order
+            + """),s.id,s.id,
 jsonb_build_object('source',to_jsonb(s),'importJobId',s.import_job_id,'fileExecutionKey',s.file_execution_key)
         FROM source_images s JOIN public.jobs j ON j.id=s.import_job_id
         JOIN image_import_job_files jf ON jf.job_id=s.import_job_id AND
@@ -551,7 +658,8 @@ c.review_item_id=r.id AND c.quality_issue='grid_issue' AND c.review_state='pendi
 c.geometry_revision=b.geometry_revision AND
 c.source_geometry_revision_id=b.source_geometry_revision_id AND
 c.asset_mode='virtual_source')))))
-        ORDER BY s.import_job_id,jf.order_index,s.id"""
+        ORDER BY """
+            + order
             + limit
         )
         self.session.execute(text(sql), params)
@@ -716,6 +824,16 @@ o.sequence_number=:seq
                 .limit(PAGE_SIZE)
             )
         )
+        queue_pins = None
+        if "suspiciousBatch" in d["command"]:
+            from .image_grid_review_repository import SqlAlchemyImageGridReviewRepository
+
+            requested = mumie.require_batch(operation.game_id, d["command"])
+            eligible = SqlAlchemyImageGridReviewRepository(self.session).suspicious_at_sequences(
+                operation.game_id, [p["sequence"] for p in requested]
+            )
+            current = {str(item.review_item_id): mumie.board_pin(item) for item in eligible}
+            queue_pins = {p["review"]: p for p in requested if current.get(p["review"]) == p}
         for source in rows:
             geometry = self.session.execute(
                 text(
@@ -730,6 +848,15 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             for snapshot in self.source_targets(
                 operation.game_id, source.source_image_id, d["command"]["selector"]
             ):
+                if queue_pins is not None:
+                    selected_pin = queue_pins.get((snapshot["review"] or {}).get("id"))
+                    if (
+                        selected_pin is None
+                        or not mumie.matches_snapshot(selected_pin, snapshot)
+                        or selected_pin["checksum"] != source.document["source"]["checksum_sha256"]
+                        or target_protection(snapshot)
+                    ):
+                        continue
                 snapshot["source"] = source.document["source"]
                 snapshot["geometryContext"] = geometry
                 snapshot["modelSnapshot"] = d["modelSnapshot"]

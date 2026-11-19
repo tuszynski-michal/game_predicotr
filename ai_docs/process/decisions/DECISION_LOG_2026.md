@@ -16,6 +16,14 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 
 
 
+## D-620 — Partie podejrzanych siatek Mumii A2
+
+Status: accepted. Data: 2026-11-19. TASK-1265.
+
+Operator obejrzał porównanie 100 plansz i zatwierdził przetwarzanie wcześniej wgranych plansz przez prywatny model `9404ced0-f0b8-5095-9dda-afcf2123a76a` wyłącznie w kolejce „Podejrzane siatki” Mumii A2. Ocena automatyczna tej wersji ma nadal wynik REVISE. Oddzielne polecenie operatorskie wiąże grę, rodzinę, wersję, sumę manifestu i ocenę. Wymaga tej samej wersji odniesienia przy rozpoczęciu partii. Model tworzy geometrię w trybie oczekujących symboli. Publikacja, przypisanie wersji grze i domyślny model mają dotychczasowe wymagania.
+
+Kolejka obejmuje jeden skan filtru i rozlicza po 100 pozycji według malejącego wyniku. Poza prawem do użycia tej wersji stosuje zwykłe kontrole źródła, właściciela i ręcznych decyzji. Rewizja predykcji na 15 nowych wycinkach i aktualizacja wyszukiwarki należą do transakcji zapisu geometrii. Pauza obowiązuje na granicy partii. Wdrożenie wymaga osobnej decyzji operatora.
+
 ## D-619 — Niezależny pierwszy trening geometrii gry
 
 Status: accepted. Data: 2026-11-18. TASK-1257.

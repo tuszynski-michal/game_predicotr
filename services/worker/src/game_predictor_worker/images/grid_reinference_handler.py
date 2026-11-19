@@ -270,7 +270,9 @@ class GridReinferenceHandler:
             prepared = (
                 None
                 if source_missing or qualification_blockers
-                else self.render(job, frozen, checkpoint_payload)
+                else self.render(
+                    job, frozen, checkpoint_payload, symbol_model=d.get("symbolSnapshot")
+                )
             )
             self.cancellation_boundary(context)
             with self.sessions() as session, session.begin():
@@ -331,11 +333,37 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                 ).scalar_one_or_none()
                 if latest_context is None or latest_context != source_document["geometryContext"]:
                     source_conflict = True
+                if "symbolSnapshot" in d and targets:
+                    # Lock the exact reviewed cells before comparing the frozen decisions.
+                    # Concurrent edits observe either the old revision or our committed result.
+                    from game_predictor_api.storage.models import ImageSymbolReviewCellModel
+
+                    review_ids = [UUID(t.snapshot["review"]["id"]) for t in targets]
+                    session.execute(
+                        select(ImageSymbolReviewCellModel.id)
+                        .where(
+                            ImageSymbolReviewCellModel.game_id == job.game_id,
+                            ImageSymbolReviewCellModel.review_item_id.in_(review_ids),
+                        )
+                        .order_by(ImageSymbolReviewCellModel.id)
+                        .with_for_update()
+                    ).all()
                 current = repository.source_targets(
                     job.game_id,
                     source_id,
                     {"categories": ["grid_issue", "deferred", "all_automatic"]},
                 )
+                if "suspiciousBatch" in d["command"]:
+                    from game_predictor_api.domain.mumie_suspicious_batch import matches_snapshot
+
+                    batch_pins = {pin["review"]: pin for pin in d["command"]["suspiciousBatch"]}
+                    current = [
+                        item
+                        for item in current
+                        if (pin := batch_pins.get((item["review"] or {}).get("id"))) is not None
+                        and matches_snapshot(pin, item)
+                        and not target_protection(item)
+                    ]
                 current_by_position = {item["positionIndex"]: item for item in current}
                 if is_game_scoped_neural_acceptance(d["acceptancePolicy"]):
                     qualification_blockers = recheck_operation_pin(
@@ -373,7 +401,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                             if target.snapshot["kind"] == "grid_issue"
                             else "needs_manual_review"
                         )
-                    elif self.unchanged(
+                    elif "symbolSnapshot" not in d and self.unchanged(
                         target.snapshot, checkpoint_payload["byPosition"][position]
                     ):
                         outcome = "unchanged"
@@ -426,6 +454,10 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                                     else {}
                                 ),
                             )
+                            if written and "symbolSnapshot" in d:
+                                from .mumie_queue_symbols import save_queue_symbols
+
+                                save_queue_symbols(session, entries, written, d["symbolSnapshot"])
                             acceptance = {
                                 "status": "needs_review" if blockers else "accepted",
                                 "blockers": list(blockers),
@@ -931,14 +963,26 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             and board["board_geometry"].get("latticeNodes") == detection["latticeNodes"]
         )
 
-    def render(self, job: Job, frozen: list[dict[str, Any]], checkpoint: dict[str, Any]) -> Any:
+    def render(
+        self,
+        job: Job,
+        frozen: list[dict[str, Any]],
+        checkpoint: dict[str, Any],
+        *,
+        symbol_model: dict[str, Any] | None = None,
+    ) -> Any:
         assert job.game_id is not None
         if checkpoint.get("outcome") or not checkpoint["byPosition"]:
             return None
         with self.sessions() as session, session.begin():
             repository = SqlAlchemyGridReinferenceRepository(session, self.root)
             repository.bind(job.game_id, write=False)
-            writer = SqlAlchemyVirtualGridGeometryRepository(session)
+            writer = SqlAlchemyVirtualGridGeometryRepository(
+                session,
+                source_snapshot_policy="current_live_slots"
+                if symbol_model is not None
+                else "board_revision",
+            )
             service = VirtualGridGeometryService(
                 writer,
                 self.root,
@@ -952,7 +996,10 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     or target_protection(target)
                     or position not in checkpoint["byPosition"]
                     or self.automatic_blockers(checkpoint, position)
-                    or self.unchanged(target, checkpoint["byPosition"][position])
+                    or (
+                        symbol_model is None
+                        and self.unchanged(target, checkpoint["byPosition"][position])
+                    )
                 ):
                     continue
                 nodes = checkpoint["byPosition"][position]["latticeNodes"]
@@ -1000,7 +1047,7 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
             from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 
             try:
-                prepared, _ = service._prepare_source(
+                prepared, renders = service._prepare_source(
                     game_id=job.game_id,
                     import_job_id=import_job,
                     commands=commands,
@@ -1008,7 +1055,23 @@ g.source_image_id=:source ORDER BY g.revision DESC LIMIT 1
                     require_complete_source=False,
                     predict=checkpoint.get("executionPolicy") == SYMBOL_REVIEW_CROP_POLICY,
                     automatic=True,
+                    **({"symbol_model": symbol_model} if symbol_model is not None else {}),
                 )
+                if symbol_model is not None:
+                    prepared = replace(
+                        prepared,
+                        entries=tuple(
+                            replace(
+                                entry,
+                                slot_prediction=service._predict_pending_slot(
+                                    entry.context,
+                                    renders[entry.context.target_id],
+                                    existing_board=True,
+                                ),
+                            )
+                            for entry in prepared.entries
+                        ),
+                    )
             except ImageGridReviewError as error:
                 if error.code in {
                     "IMAGE_GRID_REVIEW_REVISION_CONFLICT",

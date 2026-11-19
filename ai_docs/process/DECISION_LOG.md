@@ -34,6 +34,7 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-620](decisions/DECISION_LOG_2026.md#d-620--partie-podejrzanych-siatek-mumii-a2) | Partie podejrzanych siatek Mumii A2 | accepted | 2026-11-19 | Jedna wersja w kolejce po 100 pozycji, ponowne rozpoznanie symboli i ochrona decyzji ręcznych. |
 | [D-619](decisions/DECISION_LOG_2026.md#d-619--niezależny-pierwszy-trening-geometrii-gry) | Niezależny pierwszy trening geometrii gry | accepted | 2026-11-18 | Detektor i siatka rozpoczynają naukę z pustymi wagami na zdjęciach gry. |
 | [D-618](decisions/DECISION_LOG_2026.md#d-618--prywatne-rodziny-cięcia-siatek-nowych-gier-v3) | Prywatne rodziny cięcia siatek nowych gier V3 | accepted | 2026-11-18 | Pierwsza dopuszczona wersja otwiera rodzinę jednej gry. Aktywna wersja inicjuje prywatność istniejącej gry za osobną zgodą. |
 | [D-617](decisions/DECISION_LOG_2026.md#d-617--nadzór-postępu-jednego-zatwierdzonego-treningu-bez-limitu-czasu) | Nadzór postępu jednego treningu | accepted | 2026-11-17 | Jawna zgoda per run: bez łącznego limitu czasu, 300 s bez postępu; reszta barier zostaje. |
@@ -63,4 +64,3 @@ Znana kolizja D-578 (detektor 777 A2 oraz uczenie korekt) zachowuje dwie odrębn
 | [D-593](decisions/DECISION_LOG_2026.md#d-593--izolowane-etykietowanie-i-dowodowy-eksport-html) | Izolowane etykietowanie i HTML | accepted | 2026-11-08 | Osobne edytory, snapshot-bound metadata/asset i rzeczywiste15rastrów z CLI. |
 | [D-592](decisions/DECISION_LOG_2026.md#d-592--ograniczony-eksperyment-uczenia-pełnych-symboli-z-jednym-budżetem) | Ograniczony eksperyment pełnych symboli | accepted | 2026-11-08 | Jeden child R0–R3, wspólny budżet, dowiedziony TRAIN, ranking A i rzeczywiste warianty wejścia. |
 | [D-591](decisions/DECISION_LOG_2026.md#d-591--ocena-zawartości-produkcyjnych-wycinków-z-niezależnym-odniesieniem) | Ocena produkcyjnych wycinków | accepted | 2026-11-08 | Realny raster, u/δ, brak kompensacji błędów i wersjonowana bramka T3. |
-| [D-590](decisions/DECISION_LOG_2026.md#d-590--niezależna-zawartość-15-pól-i-ślepy-pomiar-powtarzalności) | Zawartość 15 pól i ślepy pomiar | accepted | 2026-11-08 | Własne etykiety, oracle produkcji, u/δ i jawny świeży REG bez zmiany legacy. |

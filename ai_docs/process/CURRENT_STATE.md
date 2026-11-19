@@ -115,6 +115,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
+- **TASK-1265** — Partie podejrzanych siatek Mumii A2 — v1.7.697 — tasks/completed/1265-mumie-suspicious-batches.md
 - **TASK-1264** — Stałe dane prywatnego treningu siatek — v1.7.696 / `c4b78912` — tasks/completed/1264-grid-training-metadata-reads.md
 - **TASK-1263** — Zamknięcie zestawu prywatnego treningu — v1.7.695 / `9ca7cd80` — tasks/completed/1263-private-cohort-freeze.md
 - **TASK-1262** — Wersja odniesienia po korektach — v1.7.694 / `343ece9a` — tasks/completed/1262-assigned-grid-comparison.md
@@ -124,4 +125,3 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 - **TASK-1257** — Niezależny pierwszy trening geometrii gry — v1.7.686 / `7c71402d` — tasks/completed/1257-independent-game-grid-training.md
 - **TASK-1256** — Ślepy pilot cięcia siatek Mumii A2 — v1.7.684 / `fda9ecc0` — tasks/completed/1256-mumie-private-grid-pilot.md
 - **TASK-1255** — Zastosowanie i cofnięcie prywatnego modelu — v1.7.682 / `dbd0d686` — tasks/completed/1255-private-grid-model-apply.md
-- **TASK-1254** — Uczenie z przypisanej wersji prywatnej gry — v1.7.680 / `78d2c513` — tasks/completed/1254-private-grid-learning.md

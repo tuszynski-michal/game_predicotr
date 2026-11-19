@@ -147,6 +147,7 @@ def database():
     "scenario",
     [
         "accepted",
+        "mumie_queue",
         "target_conflict",
         "manual_sibling",
         "grid_issue",
@@ -165,7 +166,9 @@ def database():
         "inconsistent_partial_stats",
     ],
 )
-def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path, scenario):
+def test_prepare_wait_freeze_start_real_write_and_lost_reply(
+    database, tmp_path, scenario, monkeypatch
+):
     from test_virtual_deferred_resolution_postgres import _factory
 
     def role(_session, _transaction, connection):
@@ -236,6 +239,14 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
             )
 
     class FixtureRepository(SqlAlchemyGridReinferenceRepository):
+        def _command_model(self, game_id, command):
+            if scenario == "mumie_queue":
+                from game_predictor_api.domain.mumie_suspicious_batch import require_batch
+
+                require_batch(game_id, command)
+                return copy.deepcopy(snapshot), 1
+            return super()._command_model(game_id, command)
+
         def model(self, game_id, version_id):
             assert game_id == game and version_id is None
             return copy.deepcopy(snapshot), 1
@@ -301,10 +312,11 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                         reasonCodes=["NEURAL_GRID_GATE_UNCALIBRATED"],
                     )
                 )
-            if scenario == "manual_sibling":
+            if scenario in {"manual_sibling", "mumie_queue"}:
                 # Inference sees the entire photo, including the untargeted
                 # protected sibling. The write scope remains only position0.
-                nodes = geometry["board_geometries"][1]["latticeNodes"]
+                other_position = 1 - frozen[0]["positionIndex"]
+                nodes = geometry["board_geometries"][other_position]["latticeNodes"]
                 quads = lattice_cell_quads(
                     nodes, width=source["oriented_width"], height=source["oriented_height"]
                 )
@@ -343,13 +355,16 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                     for i, item in enumerate(frozen)
                 ],
             )
-            if scenario == "manual_sibling":
+            if scenario in {"manual_sibling", "mumie_queue"}:
                 binding = build_neural_source_binding(
                     proposal,
                     confirmed_range=AttestedSequenceRange(
                         start=geometry["sequence_range_start"], end=geometry["sequence_range_end"]
                     ),
-                    assignments=[dict(positionIndex=i, detectionId=str(i)) for i in range(2)],
+                    assignments=[
+                        dict(positionIndex=frozen[0]["positionIndex"], detectionId="0"),
+                        dict(positionIndex=other_position, detectionId="1"),
+                    ],
                 )
             return self.save_checkpoint(
                 operation_id,
@@ -436,6 +451,10 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
         "modelVersionId": None,
         "executionScope": "pilot",
     }
+    if scenario == "mumie_queue":
+        from mumie_queue_fixture import queue_command
+
+        prepare = queue_command(game, factory, monkeypatch)
     with game_storage_scope(game), factory.begin() as session:
         view = FixtureRepository(session, root).prepare(game, prepare, "fixture-operator")
     operation_id = UUID(view["operationId"])
@@ -600,7 +619,7 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
         prepared_effect_stats = copy.deepcopy(view["effectStats"])
         assert view["targetCount"] == (
             1
-            if scenario in {"manual_sibling", "foreign_pending_deferred"}
+            if scenario in {"manual_sibling", "foreign_pending_deferred", "mumie_queue"}
             else 3
             if scenario == "cancel_between_sources"
             else 2
@@ -727,7 +746,7 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
         "game_predictor_worker.images.grid_reinference_handler.ManagedGridEngineModelStore.require",
         return_value=tmp_path / "fixture-bundle.json",
     ):
-        if scenario == "rollback_retry":
+        if scenario in {"rollback_retry", "mumie_queue"}:
             from game_predictor_api.storage.virtual_grid_geometry_repository import (
                 SqlAlchemyVirtualGridGeometryRepository,
             )
@@ -740,11 +759,26 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                 original_write(writer, **kwargs)
                 raise RuntimeError("controlled receipt rollback")
 
-            with patch.object(
+            failure = patch.object(
                 SqlAlchemyVirtualGridGeometryRepository,
                 "save_automatic_reinference_source",
                 fail_after_write,
-            ):
+            )
+            if scenario == "mumie_queue":
+                from game_predictor_worker.images import mumie_queue_symbols
+
+                save_symbols = mumie_queue_symbols.save_queue_symbols
+
+                def interrupt_after_predictions(*args):
+                    save_symbols(*args)
+                    raise RuntimeError(
+                        "controlled loss before the search/geometry transaction commits"
+                    )
+
+                failure = patch.object(
+                    mumie_queue_symbols, "save_queue_symbols", interrupt_after_predictions
+                )
+            with failure:
                 assert worker.run_once() is JobExecutionResult.FAILED
             with game_storage_scope(game), factory.begin() as session:
                 assert not any(
@@ -759,6 +793,10 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                 )
                 repository = FixtureRepository(session, root)
                 failed_view = repository.get(game, operation_id)
+                if scenario == "mumie_queue":
+                    from game_predictor_api.storage.models import ImageSymbolPredictionRevisionModel
+
+                    assert session.scalar(select(ImageSymbolPredictionRevisionModel.id)) is None
                 assert failed_view["effectStats"]["recordedTargetCount"] == 0
                 assert failed_view["effectStats"]["automaticWrittenBoardCount"] == 0
                 assert failed_view["effectStats"] == prepared_effect_stats
@@ -848,6 +886,13 @@ def test_prepare_wait_freeze_start_real_write_and_lost_reply(database, tmp_path,
                 failed.error_code,
                 failed.error_message,
             )
+    if scenario == "mumie_queue":
+        from mumie_queue_fixture import run_second_batch, verify_saved_batch
+
+        with game_storage_scope(game), factory.begin() as session:
+            verify_saved_batch(session, FixtureRepository(session, root).get(game, operation_id))
+        run_second_batch(game, factory, root, worker, FixtureRepository, monkeypatch)
+        return
     if scenario in {"cancel_between_sources", "foreign_pending_deferred"}:
         with game_storage_scope(game), factory.begin() as session:
             done = FixtureRepository(session, root).get(game, operation_id)

@@ -11,6 +11,7 @@ poniżej D-541 (537 wierszy). Pełne wpisy: [DECISION_LOG_2026.md](DECISION_LOG_
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-590](DECISION_LOG_2026.md#d-590--niezależna-zawartość-15-pól-i-ślepy-pomiar-powtarzalności) | Zawartość 15 pól i ślepy pomiar | accepted | 2026-11-08 | Własne etykiety, oracle produkcji, u/δ i jawny świeży REG bez zmiany legacy. |
 | [D-589](DECISION_LOG_2026.md#d-589--jawny-nadzór-visibility15-i-próg-brzegu-wejścia-w-kontrakcie-v2) | Nadzór visibility15 i próg brzegu v2 | accepted | 2026-11-08 | Opt-in24/15, maski realnych pikseli, ekspozycja checkpointu i próg tylkoA; v1 bez zmian. |
 | [D-588](DECISION_LOG_2026.md#d-588--jawny-odczyt-kwalifikacji-i-diagnostyka-rzeczywistego-wejścia) | Odczyt kwalifikacji i diagnostyka wejścia | accepted | 2026-11-04 | Compact publiczny read-model i strict diagnosticv2; historia, ręczne approval i rzeczywisty raster zachowane. |
 | [D-587](DECISION_LOG_2026.md#d-587--trwałe-cele-walidacji-i-odrębna-kwalifikacja-automatu) | Cele walidacji i kwalifikacja automatu | accepted | 2026-11-04 | A/B w istniejącym ledger, partial assessment, niezależne progi i historyczne piny. |

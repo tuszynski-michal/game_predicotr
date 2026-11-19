@@ -264,6 +264,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - domain/management_sessions.py: class ManagementAccessError, invalid_access
 - domain/management_stakes.py: class ManagementStake, class ManagementQueryCell, class ManagementSearchCommand, class ManagementSaveCommand, class ManagementClearCommand, class ManagementRefreshCommand, class ManagementCorrectionCommand
 - domain/mobile_releases.py: class MobileReleaseStatus, class MobileReleaseError, class MobileReleaseNotFoundError, class MobileReleaseConflictError, class MobileReleaseGameInput, class MobileReleaseDatasetSource, class MobileReleaseRulesSource, class MobileReleaseGameSource, class MobileReleaseGame, class MobileRelease, validate_release_version, validate_release_game_inputs, validate_release_game_source, start_mobile_release_build, mark_mobile_release_building, record_mobile_release_snapshot, complete_mobile_release, fail_mobile_release
+- domain/mumie_suspicious_batch.py: board_pin, require_batch, matches_snapshot
 - domain/neural_crop_policy.py: neural_auto_crop_evidence, neural_auto_crop_blockers, pin_neural_crop_policy, full_neural_prediction_geometry
 - domain/neural_grid_operation_pin.py: symbol_review_qualification_blockers, neural_operation_request_identity, class NeuralOperationPinError, snapshot_descriptor, model_capabilities, make_operation_pin, require_operation_pin, operation_pin_blockers, require_automatic_qualification
 - domain/neural_grid_proposal.py: class NeuralGridProposalError, class NeuralGridSnapshot, lattice_cell_quads, lattice_visibility, proposal_checksum_sha256, build_neural_source_proposal, validate_neural_source_proposal, validate_neural_source_binding, build_neural_source_binding, associate_expected_slots, associate_partial_slots, associate_quad_slots
@@ -713,6 +714,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - images/local_grid_review.py: class LocalGridCalibrationReview
 - images/manual_board_cell_symbol_prediction.py: class ManualBoardCellSymbolPredictionError, class ManualBoardCellSymbolPrediction, class RenderedBoardCell, class ManualBoardCellSymbolPredictor
 - images/manual_geometry_recrop.py: class ManualGeometryCellPreview, class ManualGeometryPreview, class ManualGeometryCellArtifact, class ManualGeometryArtifacts, class ManualGeometryRecropper
+- images/mumie_queue_symbols.py: save_queue_symbols
 - images/neural_page_geometry_preflight.py: class ProposalRunner, validate_neural_page_manifest, class NeuralPageGeometryPreflightHandler
 - images/neural_pending_geometry.py: bound_neural_originals, neural_pending_payload
 - images/neural_unbound_sources.py: unbound_neural_sources, record_neural_unbound_sources
@@ -1543,6 +1545,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - mumie_grid_pilot_geometry.py: coordinates, paired_geometry, describe, comparison_cases, grid_preview, cell_sheet, cell_support, preview_cards, analyse_training
 - mumie_grid_pilot_review.py: sha, engine_for, choose_sources, tokens, infer, frame_for, score
 - mumie_grid_pilot_sources.py: database, model, render_context, imported, recording_context, fresh_inventory, check_fresh, historical
+- mumie_suspicious_queue.py: ledger, driver_lock, reserve, status, scan_page, finish, advance, main
 - normalize_m5_images.py: main
 - prepare_legacy_copy_retirement.py: io_path, fingerprint, checksum, validate_roots, inventory, ordinary_target, validate_parent, archive_file, open_receipt, preserve_entry, verify_files, legacy_values, main
 - prepare_m34_device_candidate.py: main

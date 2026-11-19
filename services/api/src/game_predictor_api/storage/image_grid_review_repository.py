@@ -182,11 +182,26 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             has_next=has_next,
         )
 
+    def suspicious_at_sequences(
+        self, game: UUID, sequences: list[int]
+    ) -> tuple[ImageGridReviewListItem, ...]:
+        """Recheck a batch with the gallery's ownership and geometry filters."""
+        if not 1 <= len(sequences) <= 100:
+            raise ValueError("Expected one batch of up to 100 sequences.")
+        return self._scan_suspicious_grids(
+            ImageGridReviewListFilter(game, ImageGridReviewView.SUSPICIOUS, None),
+            None,
+            len(sequences),
+            sequences=sequences,
+        ).items
+
     def _scan_suspicious_grids(
         self,
         review_filter: ImageGridReviewListFilter,
         after_key: tuple[int, str] | None,
         limit: int,
+        *,
+        sequences: list[int] | None = None,
     ) -> ImageGridReviewListSlice:
         game_id = review_filter.game_id
         if self._session.scalar(select(GameModel.code).where(GameModel.id == game_id)) != (
@@ -203,6 +218,8 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
         page = select(sequence, document.review_item_id).where(document.game_id == game_id)
         if review_filter.import_job_id is not None:
             page = page.where(document.import_job_id == review_filter.import_job_id)
+        if sequences is not None:
+            page = page.where(sequence.in_(sequences))
         if after_key is not None:
             page = page.where(sequence > after_key[0])
         keys = self._session.execute(page.order_by(sequence).limit(limit + 1)).all()

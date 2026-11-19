@@ -750,3 +750,9 @@ usuwalnego zdjęcia. Nullable live source link ma FK RESTRICT i CHECK zgodności
 cztery istniejące cleanup wejścia odpinają go jawnie i zachowują historię.
 Live link pozostaje poza manifest SHA. Brak źródła kończy się source_missing,
 bez autoreattach i bez odtworzenia usuniętych celów.
+
+### Kolejka operatorska Mumii A2 (D-620)
+
+Z katalogu aplikacji polecenie `.venv\Scripts\python.exe scripts\mumie_suspicious_queue.py run` rozpoczyna skan i kolejne partie. W drugim terminalu `pause` zatrzymuje przyjmowanie następnej partii, `status` podaje stan i liczniki, a `resume` wznawia po zakończeniu poprzedniego sterownika. Te trzy argumenty zastępują `run` w tej samej komendzie. Ścieżka dziennika SQLite jest stała pod katalogiem artefaktów, w `mumie-suspicious-queue/<version>/queue.sqlite3`. Zachowuje kursor skanu, dokładne pozycje, rezerwację partii oraz identyfikator operacji i raportu. Blokada osobnego pliku SQLite dopuszcza jeden proces sterujący. Worker zapisuje siatkę, predykcje, bieżące komórki, projekcję wyszukiwania i wynik operacji w jednej transakcji źródła.
+
+Polecenie wewnętrzne używa jawnej listy z filtru. Standardowy kontrakt HTTP odrzuca takie polecenia. Starszy worker odrzuci nowy rodzaj operacji. Wyjątek sprawdza tożsamość prywatnego modelu, jego ocenę i bazę. Stosuje reguły zapisu propozycji do weryfikacji symboli (`v3-symbol-review-v1`). Konflikt lub ochrona decyzji człowieka powodują pominięcie. Błąd spójności powoduje wycofanie transakcji. Rozliczenie `protected_or_stale` obejmuje wybrane pozycje, które odpadły przed zamrożeniem. Do kontroli po kampanii służą liczniki poszczególnych wyników oraz wynik per numer w dzienniku.

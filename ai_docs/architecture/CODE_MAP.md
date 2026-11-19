@@ -62,7 +62,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 - `services/api/src/game_predictor_api/api/` (59 py) - routery HTTP; rejestr w `router.py`; HTTP transport layer for the local Admin API.
 - `services/api/src/game_predictor_api/application/` (112 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
-- `services/api/src/game_predictor_api/domain/` (128 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
+- `services/api/src/game_predictor_api/domain/` (129 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (64 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
 - `services/api/src/game_predictor_api/storage/` (242 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
@@ -81,8 +81,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (563 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (180 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (565 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (181 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -98,7 +98,7 @@ Osobny proces pobierający joby z PostgreSQL po lane (`general`, `image-selectio
 
 ### Katalogi
 
-- `services/worker/src/game_predictor_worker/images/` (172 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
+- `services/worker/src/game_predictor_worker/images/` (173 py) - ingestia, geometria, preflight, crop komórek, siatka; Image corpus contracts used before algorithm implementation.
 - `services/worker/src/game_predictor_worker/symbols/` (20 py) - klasyfikacja symboli, biblioteka referencyjna, RGB v2; Versioned symbol-training dataset tools.
 - `services/worker/src/game_predictor_worker/payouts/` (6 py) - wypłaty: kontrakty, handler, gotowość, audyt; Batch payout precomputation for durable worker jobs.
 - `services/worker/src/game_predictor_worker/domain/super_games/` (4 py) - supergry: definicje, rejestr, Wild; Code-defined super game kinds (D-535).
@@ -279,7 +279,7 @@ Skrypty pipeline'u, akceptacji i benchmarków; grupy wg prefiksu nazwy pliku.
 
 ### Katalogi
 
-- `scripts/` (200 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
+- `scripts/` (201 py) - grupy poniżej; npm scripts wg prefiksu w `package.json`
 
 ### Grupy
 
@@ -299,7 +299,7 @@ Pliki wg pierwszego członu nazwy (liczba; przykłady):
 - `import_*` (2): `import_grid_audit_proposals.py`, `import_recording_lab_provider.py`
 - `install_*` (3): `install_grid_engine_models.py`, `install_mumie_feedback_controls.py`, `install_recording_provider.py`
 - `measure_*` (2): `measure_image_import_job.ps1`, `measure_symbol_review_page.py`
-- `mumie_*` (7): `mumie_control_truth_prepare.py`, `mumie_folder_gallery.html`, `mumie_grid_pilot.py` (+4)
+- `mumie_*` (8): `mumie_control_truth_prepare.py`, `mumie_folder_gallery.html`, `mumie_grid_pilot.py` (+5)
 - `preflight_*` (2): `preflight_vision_lab_hybrid.ps1`, `preflight_vision_lab_hybrid.py`
 - `prepare_*` (7): `prepare_crop_v11_independent_sample.mjs`, `prepare_legacy_copy_retirement.py`, `prepare_m34_device_candidate.py` (+4)
 - `preview_*` (6): `preview_management_receipt_migration.py`, `preview_manual_selection_manifest_v2.mjs`, `preview_screen_layout_v3.py` (+3)

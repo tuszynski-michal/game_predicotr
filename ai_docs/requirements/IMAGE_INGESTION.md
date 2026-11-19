@@ -2238,3 +2238,7 @@ Jawny v3-symbol-review-v1 udostępnia pełne renderowalne propozycje jako
 oczekujące symbole, bez potwierdzenia geometrii człowieka lub kwalifikacji
 automatu. Stare piny/polityki zachowują interpretację. Nie zmienia to modelu
 domyślnego; klasy i błędne siatki ocenia operator w istniejącej weryfikacji.
+
+## Partie podejrzanych siatek Mumii A2 (D-620)
+
+Uruchomiona przez operatora kolejka pracuje na jednym skanie filtru, w kolejności malejącego wyniku i rosnącego numeru planszy przy remisie. Po wybraniu najwyżej 100 konkretnych plansz sprawdza ich aktualność. Pełna zmiana obejmuje nową siatkę, 15 wycinków, przypisania aktywnego na początku partii modelu symboli oraz indeks wyszukiwarki. Ręczne decyzje, zgłoszenia jakości, zmienione i nierozpoznane plansze mają osobne wyniki. Status pokazuje liczbę zapisów i pominięć. Następna partia rusza po rozliczeniu poprzedniej. Operator może wstrzymać dalsze partie i wznowić ten sam przebieg.

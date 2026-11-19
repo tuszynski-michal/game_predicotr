@@ -115,7 +115,7 @@ Pozostałe plany z aktywnymi taskami zamknięto 2026-10-16 (TASK-1024): ich task
 
 ## Ostatnie 10 ukończonych tasków
 
-- **TASK-1261** — Trening z wgranych plansz — v1.7.693 — tasks/completed/1261-training-with-imported-boards.md
+- **TASK-1261** — Trening z wgranych plansz — v1.7.693 / `7b85d745` — tasks/completed/1261-training-with-imported-boards.md
 - **TASK-1259** — Seria zdjęć w Reviewerze — v1.7.691 / `644d2416` — tasks/completed/1259-reviewer-photo-series.md
 - **TASK-1258** — Korekta jednego zdjęcia — v1.7.690 / `a631dcea` — tasks/completed/1258-reviewer-single-photo.md
 - **TASK-1257** — Niezależny pierwszy trening geometrii gry — v1.7.686 / `7c71402d` — tasks/completed/1257-independent-game-grid-training.md

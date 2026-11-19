@@ -9,7 +9,7 @@ last_updated: 2026-10-16
 ### TASK-1261 — Trening z wgranych plansz (done)
 
 - Plik: `tasks/completed/1261-training-with-imported-boards.md`.
-- Commit: **v1.7.693** (hash dopisuje kolejny commit).
+- Commit: **v1.7.693 / `7b85d74524aa09ec6225a4607390773c602f41f0`** (hash dopisuje kolejny commit).
 - Oczekujący import po cięciu pozostaje otwarty przy włączeniu rodziny. Nowa regresja PostgreSQL, idempotencja i typy PASS. Starszy test syntetycznej wersji prywatnej opisano w Outcome.
 
 ### TASK-1259 — Seria zdjęć w Reviewerze (done)

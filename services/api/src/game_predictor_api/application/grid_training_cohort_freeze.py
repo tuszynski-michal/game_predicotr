@@ -12,10 +12,12 @@ from sqlalchemy.engine import Connection, Result, ScalarResult
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.grid_training_cohorts import GridCohortError, require_minima
+from game_predictor_api.storage.grid_model_registry import SqlAlchemyGridModelRegistryRepository
 from game_predictor_api.storage.grid_preparation_progress import (
     preparation_deadline,
     report_preparation,
 )
+from game_predictor_api.storage.grid_private_learning import require_learning_pin
 from game_predictor_api.storage.grid_training_cohort_currentness import check_member
 from game_predictor_api.storage.grid_training_cohort_repository import (
     CohortDeadline,
@@ -192,6 +194,12 @@ def freeze(
             _lock_inputs(repo, game, identifier, deadline)
             row = repo.cohort(game, identifier, lock=True)
             repo.cas(row, body["expectedRevision"])
+            if "privateLearning" in row.document:
+                require_learning_pin(
+                    SqlAlchemyGridModelRegistryRepository(session),
+                    game,
+                    row.document["privateLearning"],
+                )
             if (
                 row.status != "ready_to_freeze"
                 or row.manifest_sha256 != body["expectedManifestSha256"]

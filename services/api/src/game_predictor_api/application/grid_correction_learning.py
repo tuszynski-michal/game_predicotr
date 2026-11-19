@@ -1195,6 +1195,7 @@ class GridCorrectionLearningService:
             )
         cohort_id = uuid5(game, "grid-cohort:" + str(child_key(job.id, "cohort")))
         state["cohortId"] = str(cohort_id)
+        freeze_body: dict[str, Any] | None = None
         with game_storage_scope(game), self.session_factory() as session, session.begin():
             if "privateLearning" in pins:
                 catalogue = SqlAlchemyGridModelRegistryRepository(session)
@@ -1296,17 +1297,26 @@ class GridCorrectionLearningService:
                         expectedPreviewSha256=header["previewSha256"],
                         expectedManifestSha256=header["manifestSha256"],
                     )
+                    freeze_body = body
                 else:
                     body["cursor"] = (
                         header["nextCaptureCursor"]
                         if kind == "prepare-page"
                         else header["nextMaterializationCursor"]
                     )
-                if kind == "materialize-page":
-                    service.command(game, cohort_id, kind, body, actor, materialization_pages=20)
-                else:
-                    service.command(game, cohort_id, kind, body, actor)
-                return state, False
+                    if kind == "materialize-page":
+                        service.command(
+                            game, cohort_id, kind, body, actor, materialization_pages=20
+                        )
+                    else:
+                        service.command(game, cohort_id, kind, body, actor)
+                    return state, False
+        if freeze_body is not None:
+            # Freeze acquires the registry lock on its own READ COMMITTED connection.
+            # Release the parent's transaction before entering that boundary.
+            with game_storage_scope(game), self.session_factory() as session:
+                self._cohorts(session).command(game, cohort_id, "freeze", freeze_body, actor)
+            return state, False
         # Separate advisory lock serializes child creation and cancellation without
         # blocking the parent's independent lease heartbeat transaction.
         with game_storage_scope(game), self.session_factory() as session, session.begin():

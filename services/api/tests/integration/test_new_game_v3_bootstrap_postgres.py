@@ -9,12 +9,17 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from _recording_capability_fixture import OwnedRecordingCapability
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.grid_correction_learning import (
+    GridCorrectionLearningService,
+    child_key,
+)
 from game_predictor_api.application.new_game_geometry import NewGameGeometryService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameShapeGeometryConfiguration, GameStatus
@@ -28,6 +33,8 @@ from game_predictor_api.storage.database_roles import (
 )
 from game_predictor_api.storage.game_create_receipts import SqlAlchemyGameCreateReceiptRepository
 from game_predictor_api.storage.game_data_v2_manifest_v19 import VERSION
+from game_predictor_api.storage.grid_private_learning import assignment_pin
+from game_predictor_api.storage.grid_training_cohort_models import GridTrainingCohortModel
 from game_predictor_api.storage.job_repository import job_record_from_domain
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import make_url
@@ -460,6 +467,7 @@ def test_reservation_rollback_partition_restart_application_role_and_create_race
     child = r"""
 import os, json
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
@@ -589,3 +597,73 @@ engine.dispose()
     receipt["reservationAtomicity"] = "passed"
     receipt["freshProcessResume"] = "passed"
     receipt["sameKeyConcurrency"] = "passed"
+
+
+def test_private_freeze_releases_parent_registry_lock(database, tmp_path, monkeypatch):
+    engine, new_session, create, game, _, _ = shared_grid_catalog(database, tmp_path)
+    with new_session() as session:
+        geometry = create(session)
+        geometry.enable_private_model(
+            game_id=game, key=uuid4(), expected_revision=1, actor="local-owner"
+        )
+        pin = assignment_pin(geometry.registry.repository, game)
+        session.commit()
+    document = {
+        "privateLearning": pin,
+        "photoSplit": {"sha256": "split"},
+        "cropPolicyVersion": "full-cell-v2",
+        "detectorReadiness": {},
+    }
+
+    class ParentSession(Session):
+        def get(self, entity, ident, **kwargs):
+            if entity is GridTrainingCohortModel:
+                return SimpleNamespace(document=document)
+            return super().get(entity, ident, **kwargs)
+
+    learning = GridCorrectionLearningService(
+        engine, sessionmaker(bind=engine, class_=ParentSession), tmp_path
+    )
+    header = {
+        "status": "ready_to_freeze",
+        "revision": 4,
+        "previewSha256": "preview",
+        "manifestSha256": "manifest",
+    }
+    calls = []
+
+    def freeze(game_id, cohort_id, kind, body, actor):
+        # A different PostgreSQL connection must be able to take the very same lock.
+        with engine.begin() as db:
+            assert db.scalar(text("SELECT pg_try_advisory_xact_lock(9910994)"))
+        calls.append((kind, body))
+
+    cohorts = SimpleNamespace(
+        repository=SimpleNamespace(bind=lambda game_id: None),
+        get=lambda game_id, cohort_id: header,
+        command=freeze,
+    )
+    monkeypatch.setattr(learning, "_cohorts", lambda session: cohorts)
+    job = SimpleNamespace(
+        id=uuid4(),
+        game_id=game,
+        checkpoint_payload={},
+        input_payload={
+            "actor": "local-owner",
+            "preview": {"detectorReadiness": {}},
+            "pins": {"privateLearning": pin, "splitSha256": "split"},
+        },
+    )
+    state, done = learning.advance(job)
+    assert not done and state["cohortId"]
+    assert calls == [
+        (
+            "freeze",
+            {
+                "expectedRevision": 4,
+                "idempotencyKey": str(child_key(job.id, "freeze:4")),
+                "expectedPreviewSha256": "preview",
+                "expectedManifestSha256": "manifest",
+            },
+        )
+    ]

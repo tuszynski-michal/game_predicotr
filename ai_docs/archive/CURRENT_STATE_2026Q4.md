@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1263 — Zamknięcie zestawu prywatnego treningu (done)
+
+- Plik: `tasks/completed/1263-private-cohort-freeze.md`.
+- Commit: **v1.7.695** (hash dopisuje kolejny commit).
+- Właścicielem blokady jest transakcja zamykająca zestaw. Ponownie sprawdza przypisanie gry przed zapisem. Regresja PostgreSQL oraz Ruff PASS; istniejące uwagi mypy w resume opisano w Outcome.
+
 ### TASK-1262 — Wersja odniesienia po korektach (done)
 
 - Plik: `tasks/completed/1262-assigned-grid-comparison.md`.

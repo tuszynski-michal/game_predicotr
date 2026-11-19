@@ -16,6 +16,6 @@ Usunąć wielokrotne kopiowanie manifestu przy dostępie do stałych parametrów
 
 ## Outcome
 
-Commit: v1.7.696 (hash dopisuje kolejny commit).
+Commit: v1.7.696 / `c4b78912c0bada15d1ae0d6bfac2f74efc635992`.
 
 42 testy przeszły, w tym wznowienie, dane częściowe, wybór punktu kontrolnego, eksport dwóch sieci i ograniczenie liczby odczytów. Ruff PASS. Mypy wskazuje istniejący błąd typu w liczniku pełnych zdjęć (linia 307), poza zmienionymi fragmentami. API obserwuje wyłącznie swój katalog src; zmiana dotyczy nowego procesu trenera.

@@ -109,7 +109,18 @@ def test_seeded_private_network_trains_both_stages_without_any_previous_weights(
         assert batch["screen_eligible"].tolist() == [True, False]
         assert batch["weights"][1].tolist() == [4, 0]
         exposure = TrainingExposure({"sha256": "a" * 64, "variant": None})
-        exposure.confirm(1, batches.private_exposure_members(0))
+        original_manifest = type(snapshot).manifest
+        reads = []
+
+        def tracked_manifest(instance):
+            reads.append(instance)
+            return original_manifest.__get__(instance, type(instance))
+
+        monkeypatch.setattr(type(snapshot), "manifest", property(tracked_manifest))
+        members = batches.private_exposure_members(0)
+        assert batches.private_exposure_members(0) == members
+        assert reads == [snapshot]
+        exposure.confirm(1, members)
         per_stage = exposure.state()["games"][fixture.game]
         for stage, ids in (
             ("screen:baseline", {full["sourceId"]}),

@@ -385,6 +385,7 @@ class ScreenGridBatches(_Prefetched):
         self.output_contract = output_contract
         self.content_experiment, self.content_auxiliary = content_experiment, content_auxiliary
         self.partial_training = partial_training
+        self._exposure_game_ids: dict[str, str] = {}
         if (
             partial_training
             and not content_experiment
@@ -527,12 +528,15 @@ class ScreenGridBatches(_Prefetched):
                 else (self.photos, index)
             )
             source = photos.rows[local][0]
+            cohort_sha = str(photos.snapshot.manifest_sha256)
+            if cohort_sha not in self._exposure_game_ids:
+                self._exposure_game_ids[cohort_sha] = str(photos.snapshot.manifest["gameId"])
             result.append(
                 {
-                    "gameId": str(photos.snapshot.manifest["gameId"]),
+                    "gameId": self._exposure_game_ids[cohort_sha],
                     "sourceId": str(source["sourceId"]),
                     "sourceSha256": str(source["sourceIdentity"]["checksum_sha256"]),
-                    "cohortSha256": str(photos.snapshot.manifest_sha256),
+                    "cohortSha256": cohort_sha,
                 }
             )
         return result

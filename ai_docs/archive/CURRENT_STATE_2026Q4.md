@@ -6,6 +6,12 @@ last_updated: 2026-10-16
 
 # Current State — archiwum 2026Q4
 
+### TASK-1264 — Stałe dane prywatnego treningu siatek (done)
+
+- Plik: `tasks/completed/1264-grid-training-metadata-reads.md`.
+- Commit: **v1.7.696** (hash dopisuje kolejny commit).
+- Kontrola częściowych zdjęć raz na skan; identyfikator gry raz na kohortę w historii ekspozycji. Zachowane etykiety, recepta i wznowienie. 42 testy i Ruff PASS; wcześniejsza uwaga mypy w Outcome.
+
 ### TASK-1263 — Zamknięcie zestawu prywatnego treningu (done)
 
 - Plik: `tasks/completed/1263-private-cohort-freeze.md`.

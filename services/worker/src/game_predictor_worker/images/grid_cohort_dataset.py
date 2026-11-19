@@ -582,7 +582,7 @@ class GridBoardDataset:
         # targets without turning partial photos into full detector supervision.
         # Every A consumer (training selection, renderer and calibration) uses
         # this same opt-in boundary; B and TRAIN retain their existing adapters.
-        manifest = self.snapshot.manifest
+        manifest = self.snapshot._manifest
         return (
             self.role == "VALIDATION"
             and self.validation_purpose == "A"
@@ -595,6 +595,9 @@ class GridBoardDataset:
     def _sources(self) -> Iterator[dict[str, Any]]:
         manifest = self.snapshot.manifest
         content_policy = manifest.get("photoSplit", {}).get("contentSampling")
+        allow_partial = (
+            self.role == "TRAIN" and manifest.get("weightInitialization") == "from_scratch"
+        ) or self._partial_assessment()
         game_id = UUID(manifest["gameId"])
         for source in self.snapshot.sources():
             if source["used"] and source["role"] == self.role:
@@ -641,11 +644,7 @@ class GridBoardDataset:
                         )
                     )
                     and not full
-                    and not self._partial_assessment()
-                    and not (
-                        self.role == "TRAIN"
-                        and self.snapshot.manifest.get("weightInitialization") == "from_scratch"
-                    )
+                    and not allow_partial
                 ):
                     _fail(
                         "FULL_PHOTO_REQUIRED",
